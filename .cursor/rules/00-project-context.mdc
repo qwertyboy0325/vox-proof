@@ -1,0 +1,19 @@
+---
+description: "VoxProof project context and product invariants"
+alwaysApply: true
+---
+
+# Project Context
+
+- VoxProof is a local-first, evidence-backed transcript QA tool.
+- Current v0.1 is post-ASR review, not ASR generation.
+- Core flow:
+
+  `existing SRT + optional audio + Language Pack -> evidence-backed review -> reviewed SRT + decision records`
+
+- No transcript text may be silently rewritten.
+- Human decisions are canonical.
+- The canonical documents under `docs/` own their declared scope; defer to them for durable claims.
+- Hypotheses are unvalidated assumptions and must not be represented as product facts.
+
+The implementation stack is Rust-core-first. Do not prescribe a final stack beyond that.

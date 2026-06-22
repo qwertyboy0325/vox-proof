@@ -1,0 +1,17 @@
+---
+description: "Documentation ownership, truth, and lifecycle discipline"
+alwaysApply: true
+---
+
+# Documentation Truth
+
+- Product scope, architecture, data contracts, quality expectations, and hypotheses each have a separate canonical document.
+- Avoid duplicating normative claims across documents.
+- Preserve the lifecycle terms already established in `docs/README.md`:
+  - current
+  - draft
+  - exploratory
+  - superseded
+- Historical or superseded documents must not remain in active navigation.
+- Documentation describes intent; code and tests prove executable behavior once implementation exists.
+- Do not create ADRs, roadmaps, worklogs, scope-freezes, or additional documents merely for process appearance.

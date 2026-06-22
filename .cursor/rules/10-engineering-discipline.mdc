@@ -1,0 +1,15 @@
+---
+description: "Engineering discipline, bounded change, and no-overclaim rules"
+alwaysApply: true
+---
+
+# Engineering Discipline
+
+- Inspect before modifying.
+- Separate verified facts, assumptions, and unresolved questions in any report.
+- Keep each change bounded to one coherent validation story.
+- Do not broaden scope without explicit approval.
+- Do not introduce generic frameworks, event buses, plugin registries, dynamic DAG engines, actor systems, or runtime supervisors without a concrete current requirement.
+- Do not claim a command, test, benchmark, UI flow, model support, or runtime behavior exists unless it was actually verified.
+- Before reporting completion, run the narrowest relevant validation and state what could not be run.
+- Do not invent landed commits, pull requests, test results, or runtime facts.

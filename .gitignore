@@ -1,0 +1,31 @@
+# Rust build output
+/target/
+/src-tauri/target/
+
+# Future JavaScript / desktop build output
+/node_modules/
+/dist/
+/build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+/.secrets/
+
+# Private or developer-local material
+/local/
+/artifacts/
+/.voxproof/
+
+# Test coverage and transient logs
+/coverage/
+*.log
+
+# Editor and operating-system noise
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+*~

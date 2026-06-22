@@ -1,0 +1,16 @@
+---
+description: "Rust core boundaries and evidence-versus-edit separation"
+alwaysApply: true
+---
+
+# Rust Core Boundaries
+
+- The Rust domain core remains independent from Tauri and any future UI.
+- Prefer explicit data models, enums, typed errors, deterministic transformations, and small ownership boundaries.
+- Analyzer modules produce evidence; they do not edit canonical transcript state.
+- `CandidateSpan` / `ReviewCase` is the core review unit.
+- Future acoustic or model-derived signals extend evidence; they do not replace the review unit.
+- Prefer fixed pipelines and direct composition before dynamic orchestration.
+- Do not add async, Tokio, Rayon, trait-object indirection / dynamic dispatch, or shared mutable state solely for architectural appearance; require a concrete need.
+
+Do not prescribe crate names, folder layouts, APIs, storage paths, or final schemas.
