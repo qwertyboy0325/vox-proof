@@ -9,6 +9,14 @@ Cross-agent entry point for VoxProof. This file orients an agent; it does not du
 - No transcript text may be silently rewritten.
 - Human decisions are canonical.
 
+## Learning-First Implementation Posture
+
+VoxProof is pre-Cargo-init. Do not assume a Rust package exists, and do not treat `cargo init` as an implied next step.
+
+Default to one primary learning concept per task. When appropriate, prefer: explain the small concept -> agree the narrow exercise -> user attempts or requests a minimal starter -> review/debug -> stop.
+
+Keep generated code small enough for the user to inspect and understand. Distinguish clearly between explanation, suggested exercise, minimal example, user-authored implementation review, and an explicit full implementation request.
+
 ## Required Reading Order
 
 1. `README.md`

@@ -13,3 +13,7 @@ alwaysApply: true
 - Do not claim a command, test, benchmark, UI flow, model support, or runtime behavior exists unless it was actually verified.
 - Before reporting completion, run the narrowest relevant validation and state what could not be run.
 - Do not invent landed commits, pull requests, test results, or runtime facts.
+- VoxProof is pre-Cargo-init; do not assume a Rust package exists or treat `cargo init` as an implied next step.
+- For implementation learning, default to one primary concept per task and keep generated code small enough to inspect and understand.
+- Do not generate a complete multi-file feature unless the user explicitly requests that level of implementation.
+- Distinguish explanation, suggested exercise, minimal example, user-authored implementation review, and explicit full implementation request.
