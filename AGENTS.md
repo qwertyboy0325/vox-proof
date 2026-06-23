@@ -11,11 +11,13 @@ Cross-agent entry point for VoxProof. This file orients an agent; it does not du
 
 ## Learning-First Implementation Posture
 
-VoxProof is pre-Cargo-init. Do not assume a Rust package exists, and do not treat `cargo init` as an implied next step.
+VoxProof has a Rust bootstrap, but it is not yet an end-to-end VoxProof product pipeline.
 
-Default to one primary learning concept per task. When appropriate, prefer: explain the small concept -> agree the narrow exercise -> user attempts or requests a minimal starter -> review/debug -> stop.
+Default to bounded, verifiable VoxProof product slices. Do not artificially decompose a coherent feature into one-concept micro-exercises.
 
-Keep generated code small enough for the user to inspect and understand. Distinguish clearly between explanation, suggested exercise, minimal example, user-authored implementation review, and an explicit full implementation request.
+Treat ordinary Rust syntax and common engineering concerns as implementation details unless the user asks for instruction. Slow down and explain carefully at Rust-specific semantic or architectural boundaries such as ownership, borrowing, aliasing, lifetimes, iterator consume/borrow/mutate semantics, trait or generic abstraction boundaries, async and shared-state choices, or `unsafe` and performance-sensitive code.
+
+Keep generated changes inspectable and bounded, but do not force a beginner tutorial pace. Distinguish clearly between explanation, suggested exercise, minimal example, user-authored implementation review, and an explicit full implementation request. The implementation goal is VoxProof progress; Rust learning supports that goal.
 
 ## Required Reading Order
 

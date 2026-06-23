@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code: N/A — pre-implementation
+Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
 
 # Quality and Evaluation
 

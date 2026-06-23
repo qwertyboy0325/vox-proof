@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: N/A — pre-implementation
+Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
 
 # Conceptual Data Contract
 

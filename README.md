@@ -1,15 +1,13 @@
 Status: current
 Owns: Public project introduction and navigation to canonical documentation.
 Does not own: Installation, implementation status, technical stack, benchmarks, roadmap, or detailed product and architecture specifications.
-Last reviewed against code: N/A — pre-implementation
+Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
 
 # VoxProof
 
 Local-first, evidence-backed transcript QA.
 
 VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with optional audio and a Language Pack. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a corrected transcript.
-
-Current status: pre-implementation / documentation bootstrap.
 
 ## What VoxProof Does
 

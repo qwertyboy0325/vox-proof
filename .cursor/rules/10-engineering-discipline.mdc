@@ -13,7 +13,11 @@ alwaysApply: true
 - Do not claim a command, test, benchmark, UI flow, model support, or runtime behavior exists unless it was actually verified.
 - Before reporting completion, run the narrowest relevant validation and state what could not be run.
 - Do not invent landed commits, pull requests, test results, or runtime facts.
-- VoxProof is pre-Cargo-init; do not assume a Rust package exists or treat `cargo init` as an implied next step.
-- For implementation learning, default to one primary concept per task and keep generated code small enough to inspect and understand.
+- VoxProof has a Rust bootstrap, but no end-to-end VoxProof pipeline behavior has been verified yet.
+- Default to bounded, verifiable VoxProof product slices. Do not artificially decompose coherent work into one-concept micro-exercises.
+- Treat ordinary Rust syntax and common engineering concerns as implementation details unless the user asks for instruction.
+- Slow down and explain carefully at Rust-specific semantic or architectural boundaries, including ownership, borrowing, aliasing, lifetimes, iterator consume/borrow/mutate semantics, trait or generic abstraction boundaries, async, `Send`, `Sync`, shared-state choices, and `unsafe`, FFI, allocation, or performance-sensitive boundaries.
+- Keep generated changes inspectable and bounded, but do not force a beginner tutorial pace.
 - Do not generate a complete multi-file feature unless the user explicitly requests that level of implementation.
+- The implementation goal is VoxProof progress; Rust learning supports that goal.
 - Distinguish explanation, suggested exercise, minimal example, user-authored implementation review, and explicit full implementation request.
