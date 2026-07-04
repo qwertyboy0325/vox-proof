@@ -6,7 +6,14 @@ enum DurationError {
 #[derive(Debug, PartialEq, Eq)]
 struct ValidationIssue {
     segment_index: u32,
-    error: DurationError,
+    error: ValidationError,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ValidationError {
+    Duration(DurationError),
+    EmptyText,
+    NonConsecutiveIndex { previous: u32, found: u32 },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -38,14 +45,36 @@ impl Transcript {
 
     fn validation_issues(&self) -> Vec<ValidationIssue> {
         let mut issues = Vec::new();
+        let mut previous_index = None;
 
         for segment in self.segments() {
+            if let Some(previous) = previous_index {
+                if segment.index != previous + 1 {
+                    issues.push(ValidationIssue {
+                        segment_index: segment.index,
+                        error: ValidationError::NonConsecutiveIndex {
+                            previous,
+                            found: segment.index,
+                        },
+                    });
+                }
+            }
+
+            if segment.text.trim().is_empty() {
+                issues.push(ValidationIssue {
+                    segment_index: segment.index,
+                    error: ValidationError::EmptyText,
+                });
+            }
+
             if let Err(error) = segment.duration_ms() {
                 issues.push(ValidationIssue {
                     segment_index: segment.index,
-                    error,
+                    error: ValidationError::Duration(error),
                 });
             }
+
+            previous_index = Some(segment.index);
         }
 
         issues
@@ -163,7 +192,9 @@ fn main() {}
 
 #[cfg(test)]
 mod tests {
-    use super::{DurationError, ParseError, Segment, Transcript, ValidationIssue, parse_srt};
+    use super::{
+        DurationError, ParseError, Segment, Transcript, ValidationError, ValidationIssue, parse_srt,
+    };
 
     fn segment(index: u32, start_ms: u64, end_ms: u64, text: &str) -> Segment {
         Segment {
@@ -211,10 +242,10 @@ mod tests {
             transcript.validation_issues(),
             vec![ValidationIssue {
                 segment_index: 2,
-                error: DurationError::EndBeforeStart {
+                error: ValidationError::Duration(DurationError::EndBeforeStart {
                     start_ms: 4000,
                     end_ms: 3500,
-                },
+                }),
             }]
         );
     }
@@ -315,9 +346,56 @@ mod tests {
             transcript.validation_issues(),
             vec![ValidationIssue {
                 segment_index: 1,
-                error: DurationError::EndBeforeStart {
+                error: ValidationError::Duration(DurationError::EndBeforeStart {
                     start_ms: 3000,
                     end_ms: 2500,
+                }),
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_srt_treats_empty_text_as_validation_issue_not_parse_error() {
+        let input = "1\n00:00:00,000 --> 00:00:01,000\n\n2\n00:00:01,000 --> 00:00:02,000\nok";
+        let transcript = parse_srt(input).expect("empty text still parses");
+        assert_eq!(
+            transcript.validation_issues(),
+            vec![ValidationIssue {
+                segment_index: 1,
+                error: ValidationError::EmptyText,
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_srt_treats_duplicate_indices_as_validation_issue_not_parse_error() {
+        let input =
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n1\n00:00:01,000 --> 00:00:02,000\nsecond";
+        let transcript = parse_srt(input).expect("duplicate indices still parse");
+        assert_eq!(
+            transcript.validation_issues(),
+            vec![ValidationIssue {
+                segment_index: 1,
+                error: ValidationError::NonConsecutiveIndex {
+                    previous: 1,
+                    found: 1,
+                },
+            }]
+        );
+    }
+
+    #[test]
+    fn parse_srt_treats_index_gaps_as_validation_issue_not_parse_error() {
+        let input =
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n3\n00:00:01,000 --> 00:00:02,000\nthird";
+        let transcript = parse_srt(input).expect("index gaps still parse");
+        assert_eq!(
+            transcript.validation_issues(),
+            vec![ValidationIssue {
+                segment_index: 3,
+                error: ValidationError::NonConsecutiveIndex {
+                    previous: 1,
+                    found: 3,
                 },
             }]
         );
