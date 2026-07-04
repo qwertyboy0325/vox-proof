@@ -13,6 +13,16 @@ This document is not canonical architecture. It is not an accepted Material Deci
 
 Its contents become binding only after explicit approval and promotion into canonical repository documentation and, where appropriate, Material Decisions. Until then, this note should prevent future work from conflating source identity, analysis findings, review units, human decisions, and materialized edits.
 
+## 1a. Promoted Decisions (Now Canonical)
+
+The following have been approved and promoted to `docs/architecture/data-contract.md`. They are no longer pending, and the canonical document is authoritative for their active definition:
+
+- Transcript revision identity via a deterministic content hash over parsed segments (previously open question 1).
+- The `SourceAnchor` coordinate model of section 4: a non-empty, character-boundary-aligned byte range over one parsed segment's text, bound to a specific transcript revision. The single-segment v0.1 constraint is retained.
+- The v0.1 normalization decision from section 5: normalization is identity-preserving, so analysis coordinates coincide with source-anchor coordinates.
+
+The remaining sections below stay exploratory. Where a section overlaps a promoted decision, the canonical document wins.
+
 ## 2. Current Product Invariants
 
 This note refines pending data semantics within established VoxProof invariants. It does not change the product direction.
@@ -338,16 +348,19 @@ Work that can proceed without final material decisions:
 - timestamp validation
 - structural validation
 - parser errors distinct from validation issues
+- transcript revision identity (deterministic content hash)
+- source anchor coordinate model within a single segment
+- identity-preserving normalized transcript view
 ```
 
 Decision gates:
 
 ```text
-Before implementing SourceAnchor, CandidateSpan, or ReviewCase identity:
-resolve the source identity and review-unit lifecycle decision.
+Before implementing CandidateSpan or ReviewCase identity:
+resolve the review-unit lifecycle decision. (Source anchor identity is resolved.)
 
-Before implementing normalization transformations or detectors:
-resolve normalization-to-source traceability and AnalysisRun snapshot semantics.
+Before implementing non-identity normalization transformations or detectors:
+resolve detector-to-source traceability and AnalysisRun snapshot semantics.
 
 Before implementing CorrectionDecision application or materialization:
 resolve decision applicability, edit payload, stale-source, overlap, and conflict semantics.
@@ -382,7 +395,7 @@ This is not a rejection of those directions forever. It is a v0.1 anti-drift bou
 
 These decisions remain unresolved and require explicit approval before promotion into canonical architecture:
 
-1. Exact `Transcript` revision identity strategy.
+1. Exact `Transcript` revision identity strategy. Resolved: deterministic content hash over parsed segments, promoted to `docs/architecture/data-contract.md`. A stable cross-version fingerprint algorithm remains open (see question 2).
 2. Exact source fingerprint contents and algorithm.
 3. `CandidateSpan` and `ReviewCase` identifiers and deduplication rules.
 4. The precise meaning of "applicable" for a historical `CorrectionDecision` after re-analysis.
