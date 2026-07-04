@@ -1,3 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 #[derive(Debug, PartialEq, Eq)]
 enum DurationError {
     EndBeforeStart { start_ms: u64, end_ms: u64 },
@@ -14,6 +17,25 @@ enum ValidationError {
     Duration(DurationError),
     EmptyText,
     NonConsecutiveIndex { previous: u32, found: u32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct TranscriptRevisionId(u64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct SourceAnchor {
+    revision: TranscriptRevisionId,
+    segment_position: usize,
+    start_byte: usize,
+    end_byte: usize,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum AnchorError {
+    UnknownSegment { segment_position: usize },
+    EmptyOrInvertedRange { start_byte: usize, end_byte: usize },
+    RangeOutOfBounds { end_byte: usize, text_len: usize },
+    NotCharBoundary { byte: usize },
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -41,6 +63,61 @@ impl Transcript {
 
     fn segments(&self) -> &[Segment] {
         &self.segments
+    }
+
+    fn revision_id(&self) -> TranscriptRevisionId {
+        let mut hasher = DefaultHasher::new();
+        self.segments.hash(&mut hasher);
+        TranscriptRevisionId(hasher.finish())
+    }
+
+    fn anchor(
+        &self,
+        segment_position: usize,
+        start_byte: usize,
+        end_byte: usize,
+    ) -> Result<SourceAnchor, AnchorError> {
+        let segment = self
+            .segments
+            .get(segment_position)
+            .ok_or(AnchorError::UnknownSegment { segment_position })?;
+
+        if start_byte >= end_byte {
+            return Err(AnchorError::EmptyOrInvertedRange {
+                start_byte,
+                end_byte,
+            });
+        }
+
+        let text_len = segment.text.len();
+        if end_byte > text_len {
+            return Err(AnchorError::RangeOutOfBounds { end_byte, text_len });
+        }
+
+        if !segment.text.is_char_boundary(start_byte) {
+            return Err(AnchorError::NotCharBoundary { byte: start_byte });
+        }
+        if !segment.text.is_char_boundary(end_byte) {
+            return Err(AnchorError::NotCharBoundary { byte: end_byte });
+        }
+
+        Ok(SourceAnchor {
+            revision: self.revision_id(),
+            segment_position,
+            start_byte,
+            end_byte,
+        })
+    }
+
+    fn resolve(&self, anchor: &SourceAnchor) -> Option<&str> {
+        if anchor.revision != self.revision_id() {
+            return None;
+        }
+
+        self.segments
+            .get(anchor.segment_position)?
+            .text
+            .get(anchor.start_byte..anchor.end_byte)
     }
 
     fn normalized_view(&self) -> NormalizedTranscript {
@@ -111,7 +188,7 @@ struct NormalizedSegment {
     normalized_text: String,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 struct Segment {
     index: u32,
     start_ms: u64,
@@ -223,8 +300,8 @@ fn main() {}
 #[cfg(test)]
 mod tests {
     use super::{
-        DurationError, NormalizedSegment, ParseError, Segment, Transcript, ValidationError,
-        ValidationIssue, parse_srt,
+        AnchorError, DurationError, NormalizedSegment, ParseError, Segment, Transcript,
+        ValidationError, ValidationIssue, parse_srt,
     };
 
     fn segment(index: u32, start_ms: u64, end_ms: u64, text: &str) -> Segment {
@@ -476,5 +553,88 @@ mod tests {
         let _normalized = transcript.normalized_view();
 
         assert_eq!(transcript.segments(), &[segment(1, 0, 1000, "hello")]);
+    }
+
+    #[test]
+    fn revision_id_is_stable_for_equal_content() {
+        let first = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+        let second = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+
+        assert_eq!(first.revision_id(), second.revision_id());
+    }
+
+    #[test]
+    fn revision_id_differs_for_different_content() {
+        let first = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+        let second = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nworld").expect("valid srt");
+
+        assert_ne!(first.revision_id(), second.revision_id());
+    }
+
+    #[test]
+    fn anchor_resolves_to_expected_substring() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n我們A").expect("valid srt");
+
+        let anchor = transcript.anchor(0, 0, 3).expect("valid anchor");
+
+        assert_eq!(transcript.resolve(&anchor), Some("我"));
+    }
+
+    #[test]
+    fn anchor_rejects_range_crossing_char_boundary() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n我們A").expect("valid srt");
+
+        assert_eq!(
+            transcript.anchor(0, 0, 2),
+            Err(AnchorError::NotCharBoundary { byte: 2 })
+        );
+    }
+
+    #[test]
+    fn anchor_rejects_empty_range() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+
+        assert_eq!(
+            transcript.anchor(0, 2, 2),
+            Err(AnchorError::EmptyOrInvertedRange {
+                start_byte: 2,
+                end_byte: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_rejects_out_of_bounds_range() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+
+        assert_eq!(
+            transcript.anchor(0, 0, 99),
+            Err(AnchorError::RangeOutOfBounds {
+                end_byte: 99,
+                text_len: 5,
+            })
+        );
+    }
+
+    #[test]
+    fn anchor_rejects_unknown_segment() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+
+        assert_eq!(
+            transcript.anchor(9, 0, 1),
+            Err(AnchorError::UnknownSegment {
+                segment_position: 9
+            })
+        );
+    }
+
+    #[test]
+    fn resolve_rejects_anchor_from_a_different_revision() {
+        let original = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+        let anchor = original.anchor(0, 0, 5).expect("valid anchor");
+
+        let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nworld").expect("valid srt");
+
+        assert_eq!(other.resolve(&anchor), None);
     }
 }
