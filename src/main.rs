@@ -43,6 +43,19 @@ impl Transcript {
         &self.segments
     }
 
+    fn normalized_view(&self) -> NormalizedTranscript {
+        let segments = self
+            .segments()
+            .iter()
+            .map(|segment| NormalizedSegment {
+                source_segment_index: segment.index,
+                normalized_text: segment.text.clone(),
+            })
+            .collect();
+
+        NormalizedTranscript { segments }
+    }
+
     fn validation_issues(&self) -> Vec<ValidationIssue> {
         let mut issues = Vec::new();
         let mut previous_index = None;
@@ -79,6 +92,23 @@ impl Transcript {
 
         issues
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct NormalizedTranscript {
+    segments: Vec<NormalizedSegment>,
+}
+
+impl NormalizedTranscript {
+    fn segments(&self) -> &[NormalizedSegment] {
+        &self.segments
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct NormalizedSegment {
+    source_segment_index: u32,
+    normalized_text: String,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -193,7 +223,8 @@ fn main() {}
 #[cfg(test)]
 mod tests {
     use super::{
-        DurationError, ParseError, Segment, Transcript, ValidationError, ValidationIssue, parse_srt,
+        DurationError, NormalizedSegment, ParseError, Segment, Transcript, ValidationError,
+        ValidationIssue, parse_srt,
     };
 
     fn segment(index: u32, start_ms: u64, end_ms: u64, text: &str) -> Segment {
@@ -399,5 +430,51 @@ mod tests {
                 },
             }]
         );
+    }
+
+    #[test]
+    fn normalized_view_preserves_segment_order_and_source_mapping() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond",
+        )
+        .expect("valid srt");
+
+        assert_eq!(
+            transcript.normalized_view().segments(),
+            &[
+                NormalizedSegment {
+                    source_segment_index: 1,
+                    normalized_text: "first".to_string(),
+                },
+                NormalizedSegment {
+                    source_segment_index: 2,
+                    normalized_text: "second".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn normalized_view_is_identity_preserving_for_now() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nline one\nline two").expect("valid srt");
+
+        assert_eq!(
+            transcript.normalized_view().segments(),
+            &[NormalizedSegment {
+                source_segment_index: 1,
+                normalized_text: "line one\nline two".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn normalized_view_does_not_mutate_source_transcript() {
+        let transcript =
+            parse_srt("1\r\n00:00:00,000 --> 00:00:01,000\r\nhello\r\n").expect("valid srt");
+
+        let _normalized = transcript.normalized_view();
+
+        assert_eq!(transcript.segments(), &[segment(1, 0, 1000, "hello")]);
     }
 }
