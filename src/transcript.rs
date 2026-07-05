@@ -114,16 +114,16 @@ impl Transcript {
         let mut previous_index = None;
 
         for segment in self.segments() {
-            if let Some(previous) = previous_index {
-                if segment.index != previous + 1 {
-                    issues.push(ValidationIssue {
-                        segment_index: segment.index,
-                        error: ValidationError::NonConsecutiveIndex {
-                            previous,
-                            found: segment.index,
-                        },
-                    });
-                }
+            if let Some(previous) = previous_index
+                && segment.index != previous + 1
+            {
+                issues.push(ValidationIssue {
+                    segment_index: segment.index,
+                    error: ValidationError::NonConsecutiveIndex {
+                        previous,
+                        found: segment.index,
+                    },
+                });
             }
 
             if segment.text.trim().is_empty() {
