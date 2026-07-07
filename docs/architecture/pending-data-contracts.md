@@ -20,6 +20,7 @@ The following have been approved and promoted to `docs/architecture/data-contrac
 - Transcript revision identity via a deterministic content hash over parsed segments (previously open question 1).
 - The `SourceAnchor` coordinate model of section 4: a non-empty, character-boundary-aligned byte range over one parsed segment's text, bound to a specific transcript revision. The single-segment v0.1 constraint is retained.
 - The v0.1 normalization decision from section 5: normalization is identity-preserving, so analysis coordinates coincide with source-anchor coordinates.
+- The v0.1 review-unit and detection lifecycle: single-anchor `CandidateSpan`; `CandidateKey` as semantic identity; the fixed `DetectionKind` taxonomy; detector provenance and `AnalysisSnapshot`; `AnalysisRun` as a provenance boundary; `ReviewCase` as a human-facing unit that is one-to-one with a `CandidateSpan` in v0.1; mandatory typed `Evidence`; and non-binding `CandidateAlternative`. The canonical contract supersedes the `CandidateSpan`, `Evidence`, and `ReviewCase` wording in section 4 and the `AnalysisRun` wording in section 6.
 
 The remaining sections below stay exploratory. Where a section overlaps a promoted decision, the canonical document wins.
 
@@ -59,6 +60,8 @@ This remains a modular monolith direction, not a plugin platform.
 ## 4. Proposed Domain Separation
 
 The concepts in this section are proposed and non-binding. They describe a possible semantic model for future implementation work.
+
+Note: the `CandidateSpan`, `Evidence`, and `ReviewCase` concepts here are superseded by the canonical v0.1 Review-Unit and Detection Lifecycle Contract in `docs/architecture/data-contract.md`. In particular, v0.1 `CandidateSpan` uses exactly one `SourceAnchor` (not a `SourceSelection`), and one `ReviewCase` maps to exactly one `CandidateSpan`. Where this section differs, the canonical document wins.
 
 ### Transcript and Segment
 
@@ -258,6 +261,8 @@ This does not prescribe a complete token model, grapheme abstraction, cross-segm
 
 ## 6. AnalysisRun Snapshot Semantics
 
+Note: the accepted v0.1 shape of `AnalysisRun` and `AnalysisSnapshot` is now canonical in `docs/architecture/data-contract.md` (a provenance and reproducibility boundary, not a workflow engine, modeling only snapshot fields that genuinely exist). The eventual snapshot fields listed below remain exploratory targets, not v0.1 commitments.
+
 `AnalysisRun` is the boundary that makes findings reproducible and traceable.
 
 An `AnalysisRun` should eventually snapshot, at minimum:
@@ -351,16 +356,22 @@ Work that can proceed without final material decisions:
 - transcript revision identity (deterministic content hash)
 - source anchor coordinate model within a single segment
 - identity-preserving normalized transcript view
+- single-anchor CandidateSpan findings with CandidateKey semantic identity
+- fixed DetectionKind taxonomy
+- detector provenance, AnalysisSnapshot, and AnalysisRun as a provenance boundary
+- ReviewCase as a one-to-one human-facing unit over a CandidateSpan
+- mandatory typed Evidence and non-binding CandidateAlternative
 ```
 
 Decision gates:
 
 ```text
-Before implementing CandidateSpan or ReviewCase identity:
-resolve the review-unit lifecycle decision. (Source anchor identity is resolved.)
+The review-unit and detection lifecycle is resolved and promoted to
+docs/architecture/data-contract.md; single-anchor detectors may proceed.
 
-Before implementing non-identity normalization transformations or detectors:
-resolve detector-to-source traceability and AnalysisRun snapshot semantics.
+Before implementing non-identity normalization transformations:
+resolve normalization-to-source traceability beyond the current
+identity-preserving view.
 
 Before implementing CorrectionDecision application or materialization:
 resolve decision applicability, edit payload, stale-source, overlap, and conflict semantics.
@@ -397,10 +408,10 @@ These decisions remain unresolved and require explicit approval before promotion
 
 1. Exact `Transcript` revision identity strategy. Resolved: deterministic content hash over parsed segments, promoted to `docs/architecture/data-contract.md`. A stable cross-version fingerprint algorithm remains open (see question 2).
 2. Exact source fingerprint contents and algorithm.
-3. `CandidateSpan` and `ReviewCase` identifiers and deduplication rules.
+3. `CandidateSpan` and `ReviewCase` identifiers and deduplication rules. Resolved for semantic identity: `CandidateKey` is derived from source revision, detector identity, detection kind, and `SourceAnchor`, and is promoted to `docs/architecture/data-contract.md`. Persisted-record identity (`CandidateRecordId`) and cross-run carryover remain deferred.
 4. The precise meaning of "applicable" for a historical `CorrectionDecision` after re-analysis.
 5. Whether unresolved conflicts always block all reviewed output, or whether a future explicitly labelled partial-output mode is allowed.
-6. The exact representation of alternatives and generated-candidate provenance.
+6. The exact representation of alternatives and generated-candidate provenance. Resolved: `CandidateAlternative` is a non-binding suggested replacement, and the v0.1 minimum detector provenance is `detector_id` and `detector_version`; promoted to `docs/architecture/data-contract.md`.
 7. Whether adjacent `SourceAnchor`s are always canonicalized into one anchor.
 8. The conditions under which future `EditScript` support would be justified.
 
