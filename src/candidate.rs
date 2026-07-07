@@ -1,7 +1,7 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::collections::HashSet;
 
-use crate::anchor::SourceAnchor;
+use crate::analysis::AnalysisRun;
+use crate::anchor::{SourceAnchor, TranscriptRevisionId};
 use crate::transcript::Transcript;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -35,19 +35,40 @@ impl DetectorProvenance {
     }
 }
 
-/// Semantic identity of a finding. Deliberately excludes `detector_version`:
-/// the contract defers detector-version migration semantics, so a finding's
-/// identity must not be pinned to the exact version that produced it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CandidateKey(u64);
+/// Semantic identity of a finding: detector identity, detection kind, and
+/// the source anchor (which itself carries the transcript revision, so
+/// revision is not duplicated as a separate field here). Deliberately
+/// excludes `detector_version`: the contract defers detector-version
+/// migration semantics, so a finding's identity must not be pinned to the
+/// exact version that produced it. This is a plain value, not an opaque
+/// hash: hashing/serialization is a future representation choice layered
+/// on top, not the identity itself.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CandidateKey {
+    detector_id: String,
+    kind: DetectionKind,
+    anchor: SourceAnchor,
+}
 
 impl CandidateKey {
-    fn compute(detector_id: &str, kind: DetectionKind, anchor: &SourceAnchor) -> Self {
-        let mut hasher = DefaultHasher::new();
-        detector_id.hash(&mut hasher);
-        kind.hash(&mut hasher);
-        anchor.hash(&mut hasher);
-        CandidateKey(hasher.finish())
+    fn new(detector_id: &str, kind: DetectionKind, anchor: SourceAnchor) -> Self {
+        Self {
+            detector_id: detector_id.to_string(),
+            kind,
+            anchor,
+        }
+    }
+
+    pub fn detector_id(&self) -> &str {
+        &self.detector_id
+    }
+
+    pub fn kind(&self) -> DetectionKind {
+        self.kind
+    }
+
+    pub fn anchor(&self) -> &SourceAnchor {
+        &self.anchor
     }
 }
 
@@ -93,7 +114,7 @@ impl CandidateSpan {
         anchor: SourceAnchor,
         evidence: Evidence,
     ) -> Self {
-        let key = CandidateKey::compute(provenance.detector_id(), kind, &anchor);
+        let key = CandidateKey::new(provenance.detector_id(), kind, anchor);
         Self {
             key,
             anchor,
@@ -103,8 +124,8 @@ impl CandidateSpan {
         }
     }
 
-    pub fn key(&self) -> CandidateKey {
-        self.key
+    pub fn key(&self) -> &CandidateKey {
+        &self.key
     }
 
     pub fn anchor(&self) -> &SourceAnchor {
@@ -124,6 +145,17 @@ impl CandidateSpan {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum DetectionError {
+    RevisionMismatch {
+        run_revision: TranscriptRevisionId,
+        transcript_revision: TranscriptRevisionId,
+    },
+    DuplicateGlossaryAlias {
+        alias: String,
+    },
+}
+
 const GLOSSARY_DETECTOR_ID: &str = "glossary-alias-match";
 const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
 
@@ -131,10 +163,30 @@ const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
 /// transcript. Matching is byte-exact on the parsed segment text: no case
 /// folding or other text normalization is applied, because non-identity
 /// normalization is still an open decision gate.
+///
+/// `run` must be an `AnalysisRun` created from `transcript`; a run from a
+/// different transcript revision is rejected. Aliases must be unique across
+/// the whole glossary: a shared alias would let two entries produce
+/// different `Evidence` for the same `CandidateKey`, which would violate
+/// `CandidateKey` as an unambiguous deduplication identity, so it is
+/// rejected as a configuration error rather than silently merged or
+/// arbitrarily chosen.
 pub fn detect_glossary_matches(
+    run: &AnalysisRun,
     transcript: &Transcript,
     glossary: &[GlossaryEntry],
-) -> Vec<CandidateSpan> {
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    let run_revision = run.snapshot().source_revision();
+    let transcript_revision = transcript.revision_id();
+    if run_revision != transcript_revision {
+        return Err(DetectionError::RevisionMismatch {
+            run_revision,
+            transcript_revision,
+        });
+    }
+
+    reject_ambiguous_aliases(glossary)?;
+
     let provenance = DetectorProvenance::new(GLOSSARY_DETECTOR_ID, GLOSSARY_DETECTOR_VERSION);
     let mut spans = Vec::new();
 
@@ -167,5 +219,25 @@ pub fn detect_glossary_matches(
         }
     }
 
-    spans
+    Ok(spans)
+}
+
+fn reject_ambiguous_aliases(glossary: &[GlossaryEntry]) -> Result<(), DetectionError> {
+    let mut seen_aliases = HashSet::new();
+
+    for entry in glossary {
+        for alias in &entry.aliases {
+            if alias.is_empty() {
+                continue;
+            }
+
+            if !seen_aliases.insert(alias.as_str()) {
+                return Err(DetectionError::DuplicateGlossaryAlias {
+                    alias: alias.clone(),
+                });
+            }
+        }
+    }
+
+    Ok(())
 }

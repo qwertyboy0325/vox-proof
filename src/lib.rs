@@ -1,3 +1,4 @@
+pub mod analysis;
 pub mod anchor;
 pub mod candidate;
 pub mod srt;
@@ -5,9 +6,10 @@ pub mod transcript;
 
 #[cfg(test)]
 mod tests {
+    use crate::analysis::AnalysisRun;
     use crate::anchor::AnchorError;
     use crate::candidate::{
-        CandidateSpan, DetectionKind, Evidence, GlossaryEntry, GlossaryEvidence,
+        CandidateSpan, DetectionError, DetectionKind, Evidence, GlossaryEntry, GlossaryEvidence,
         detect_glossary_matches,
     };
     use crate::srt::{ParseError, parse_srt};
@@ -360,9 +362,11 @@ mod tests {
     fn detect_glossary_matches_finds_exact_alias_occurrence() {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:02,500\n我們使用 Kafka 處理事件流")
             .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert_eq!(spans.len(), 1);
         assert_eq!(spans[0].kind(), DetectionKind::GlossaryAliasMatch);
@@ -373,9 +377,11 @@ mod tests {
     fn detect_glossary_matches_ignores_non_matching_text() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello world").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert!(spans.is_empty());
     }
@@ -386,9 +392,11 @@ mod tests {
             "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka mention\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond Kafka mention",
         )
         .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert_eq!(spans.len(), 2);
     }
@@ -397,9 +405,11 @@ mod tests {
     fn detect_glossary_matches_produces_typed_glossary_evidence() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         match spans[0].evidence() {
             Evidence::Glossary(GlossaryEvidence {
@@ -416,9 +426,11 @@ mod tests {
     fn detect_glossary_matches_anchor_resolves_to_matched_text() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert_eq!(transcript.resolve(spans[0].anchor()), Some("Kafka"));
     }
@@ -427,10 +439,13 @@ mod tests {
     fn candidate_key_is_stable_for_equal_detector_kind_and_anchor() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let first = detect_glossary_matches(&transcript, &glossary);
-        let second = detect_glossary_matches(&transcript, &glossary);
+        let first = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+        let second = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert_eq!(first[0].key(), second[0].key());
     }
@@ -439,9 +454,11 @@ mod tests {
     fn candidate_key_differs_for_different_anchor() {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafka appears twice: Kafka")
             .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
 
         assert_eq!(spans.len(), 2);
         assert_ne!(spans[0].key(), spans[1].key());
@@ -451,9 +468,11 @@ mod tests {
     fn candidate_key_differs_for_different_detection_kind() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
         let anchor = *spans[0].anchor();
         let provenance = spans[0].provenance().clone();
         let evidence = spans[0].evidence().clone();
@@ -468,10 +487,52 @@ mod tests {
     fn detect_glossary_matches_skips_empty_alias() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nanything at all").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Empty Alias Entry", &[""])];
 
-        let spans = detect_glossary_matches(&transcript, &glossary);
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("empty alias is skipped, not an error");
 
         assert!(spans.is_empty());
+    }
+
+    #[test]
+    fn detect_glossary_matches_rejects_ambiguous_alias_configuration() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![
+            glossary_entry("Apache Kafka", &["Kafka"]),
+            glossary_entry("Kafka the author", &["Kafka"]),
+        ];
+
+        let result = detect_glossary_matches(&run, &transcript, &glossary);
+
+        assert_eq!(
+            result,
+            Err(DetectionError::DuplicateGlossaryAlias {
+                alias: "Kafka".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn detect_glossary_matches_rejects_mismatched_analysis_run_revision() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka elsewhere")
+            .expect("valid srt");
+        let run = AnalysisRun::new(&other);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let result = detect_glossary_matches(&run, &transcript, &glossary);
+
+        assert_eq!(
+            result,
+            Err(DetectionError::RevisionMismatch {
+                run_revision: other.revision_id(),
+                transcript_revision: transcript.revision_id(),
+            })
+        );
     }
 }
