@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod anchor;
 pub mod candidate;
+pub mod review;
 pub mod srt;
 pub mod transcript;
 
@@ -12,6 +13,7 @@ mod tests {
         CandidateSpan, DetectionError, DetectionKind, Evidence, GlossaryEntry, GlossaryEvidence,
         detect_glossary_matches,
     };
+    use crate::review::ReviewCase;
     use crate::srt::{ParseError, parse_srt};
     use crate::transcript::{
         DurationError, NormalizedSegment, Segment, Transcript, ValidationError, ValidationIssue,
@@ -534,5 +536,43 @@ mod tests {
                 transcript_revision: transcript.revision_id(),
             })
         );
+    }
+
+    #[test]
+    fn review_case_wraps_exactly_one_candidate_span() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let mut spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+        let candidate = spans.remove(0);
+        let expected = candidate.clone();
+
+        let review_case = ReviewCase::from(candidate);
+
+        assert_eq!(review_case.candidate_span(), &expected);
+    }
+
+    #[test]
+    fn review_cases_preserve_one_to_one_mapping_and_order() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka mention\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond Kafka mention",
+        )
+        .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let candidates = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+        let expected: Vec<CandidateSpan> = candidates.clone();
+
+        let review_cases: Vec<ReviewCase> = candidates.into_iter().map(ReviewCase::from).collect();
+
+        assert_eq!(review_cases.len(), expected.len());
+        for (review_case, expected_candidate) in review_cases.iter().zip(expected.iter()) {
+            assert_eq!(review_case.candidate_span(), expected_candidate);
+        }
     }
 }
