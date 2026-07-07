@@ -190,10 +190,17 @@ pub enum DetectionError {
 const GLOSSARY_DETECTOR_ID: &str = "glossary-alias-match";
 const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
 
-/// Finds exact, case-sensitive occurrences of glossary aliases in the
-/// transcript. Matching is byte-exact on the parsed segment text: no case
-/// folding or other text normalization is applied, because non-identity
-/// normalization is still an open decision gate.
+/// Finds exact, case-sensitive occurrences of a matched non-canonical
+/// glossary form in the transcript. Matching is byte-exact on the parsed
+/// segment text: no case folding or other text normalization is applied,
+/// because non-identity normalization is still an open decision gate.
+///
+/// An occurrence whose matched text is exactly the entry's canonical term
+/// is not a finding: `GlossaryAliasMatch` means the source used a
+/// non-canonical form, not merely that a glossary term is present. Such an
+/// occurrence produces no `CandidateSpan`, not a `CandidateSpan` with an
+/// empty `alternatives()`; an empty alternatives list is reserved for
+/// detectors that flag a suspicious span without a reliable replacement.
 ///
 /// `run` must be an `AnalysisRun` created from `transcript`; a run from a
 /// different transcript revision is rejected. Aliases must be unique across
@@ -229,6 +236,10 @@ pub fn detect_glossary_matches(
                 }
 
                 for (start, matched) in segment.text.match_indices(alias.as_str()) {
+                    if matched == entry.canonical_term {
+                        continue;
+                    }
+
                     let end = start + matched.len();
                     let anchor = transcript
                         .anchor(position, start, end)

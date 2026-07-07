@@ -599,6 +599,19 @@ mod tests {
     }
 
     #[test]
+    fn detect_glossary_matches_produces_no_candidate_for_canonical_form_occurrence() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+
+        assert!(spans.is_empty());
+    }
+
+    #[test]
     fn candidate_span_may_carry_zero_alternatives() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
