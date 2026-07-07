@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod anchor;
 pub mod candidate;
+pub mod pipeline;
 pub mod review;
 pub mod srt;
 pub mod transcript;
@@ -13,6 +14,7 @@ mod tests {
         CandidateAlternative, CandidateSpan, DetectionError, DetectionKind, Evidence,
         GlossaryEntry, GlossaryEvidence, detect_glossary_matches,
     };
+    use crate::pipeline::run_glossary_review;
     use crate::review::ReviewCase;
     use crate::srt::{ParseError, parse_srt};
     use crate::transcript::{
@@ -633,5 +635,65 @@ mod tests {
         );
 
         assert!(span_without_alternatives.alternatives().is_empty());
+    }
+
+    #[test]
+    fn run_glossary_review_wraps_matches_as_review_cases() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let review_cases =
+            run_glossary_review(&transcript, &glossary).expect("glossary has no ambiguous aliases");
+
+        assert_eq!(review_cases.len(), 1);
+        let candidate = review_cases[0].candidate_span();
+        assert_eq!(candidate.kind(), DetectionKind::GlossaryAliasMatch);
+        assert_eq!(
+            candidate.alternatives(),
+            &[CandidateAlternative::new("Apache Kafka")]
+        );
+    }
+
+    #[test]
+    fn run_glossary_review_returns_empty_vec_when_nothing_matches() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello world").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let review_cases =
+            run_glossary_review(&transcript, &glossary).expect("glossary has no ambiguous aliases");
+
+        assert!(review_cases.is_empty());
+    }
+
+    #[test]
+    fn run_glossary_review_returns_empty_vec_for_empty_glossary() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+
+        let review_cases =
+            run_glossary_review(&transcript, &[]).expect("empty glossary is not a config error");
+
+        assert!(review_cases.is_empty());
+    }
+
+    #[test]
+    fn run_glossary_review_propagates_duplicate_alias_config_error() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![
+            glossary_entry("Apache Kafka", &["Kafka"]),
+            glossary_entry("Kafka the author", &["Kafka"]),
+        ];
+
+        let result = run_glossary_review(&transcript, &glossary);
+
+        assert_eq!(
+            result,
+            Err(DetectionError::DuplicateGlossaryAlias {
+                alias: "Kafka".to_string(),
+            })
+        );
     }
 }

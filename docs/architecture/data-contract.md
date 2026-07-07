@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in the Rust core; pipeline assembly, ranking, review status/decisions, persistence, and materialization are not yet implemented; end-to-end pipeline not yet verified
+Last reviewed against code: SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in the Rust core; a minimal single-detector assembly function composes the glossary path end-to-end into `Vec<ReviewCase>`; ranking, review status/decisions, persistence, and materialization are not yet implemented; no product-level end-to-end pipeline exists yet
 
 # Conceptual Data Contract
 
