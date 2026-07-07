@@ -98,6 +98,27 @@ pub enum Evidence {
     Glossary(GlossaryEvidence),
 }
 
+/// A non-binding suggested replacement. It is not an edit decision and must
+/// not automatically modify source text: turning an alternative into an
+/// edit requires a separate, explicit policy or human decision, which is
+/// outside this contract gate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CandidateAlternative {
+    replacement_text: String,
+}
+
+impl CandidateAlternative {
+    pub fn new(replacement_text: impl Into<String>) -> Self {
+        Self {
+            replacement_text: replacement_text.into(),
+        }
+    }
+
+    pub fn replacement_text(&self) -> &str {
+        &self.replacement_text
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CandidateSpan {
     key: CandidateKey,
@@ -105,6 +126,7 @@ pub struct CandidateSpan {
     kind: DetectionKind,
     provenance: DetectorProvenance,
     evidence: Evidence,
+    alternatives: Vec<CandidateAlternative>,
 }
 
 impl CandidateSpan {
@@ -113,6 +135,7 @@ impl CandidateSpan {
         provenance: DetectorProvenance,
         anchor: SourceAnchor,
         evidence: Evidence,
+        alternatives: Vec<CandidateAlternative>,
     ) -> Self {
         let key = CandidateKey::new(provenance.detector_id(), kind, anchor);
         Self {
@@ -121,6 +144,7 @@ impl CandidateSpan {
             kind,
             provenance,
             evidence,
+            alternatives,
         }
     }
 
@@ -142,6 +166,13 @@ impl CandidateSpan {
 
     pub fn evidence(&self) -> &Evidence {
         &self.evidence
+    }
+
+    /// Zero or more non-binding suggested replacements. An empty slice
+    /// means the detector found the span suspicious but has no concrete
+    /// suggestion, not that the source text is confirmed correct.
+    pub fn alternatives(&self) -> &[CandidateAlternative] {
+        &self.alternatives
     }
 }
 
@@ -208,11 +239,18 @@ pub fn detect_glossary_matches(
                         matched_form: matched.to_string(),
                     });
 
+                    // The canonical term is factual supporting evidence, not
+                    // an accepted replacement; wrapping it as a
+                    // CandidateAlternative keeps it explicitly non-binding.
+                    let alternatives =
+                        vec![CandidateAlternative::new(entry.canonical_term.clone())];
+
                     spans.push(CandidateSpan::new(
                         DetectionKind::GlossaryAliasMatch,
                         provenance.clone(),
                         anchor,
                         evidence,
+                        alternatives,
                     ));
                 }
             }

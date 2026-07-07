@@ -10,8 +10,8 @@ mod tests {
     use crate::analysis::AnalysisRun;
     use crate::anchor::AnchorError;
     use crate::candidate::{
-        CandidateSpan, DetectionError, DetectionKind, Evidence, GlossaryEntry, GlossaryEvidence,
-        detect_glossary_matches,
+        CandidateAlternative, CandidateSpan, DetectionError, DetectionKind, Evidence,
+        GlossaryEntry, GlossaryEvidence, detect_glossary_matches,
     };
     use crate::review::ReviewCase;
     use crate::srt::{ParseError, parse_srt};
@@ -478,9 +478,15 @@ mod tests {
         let anchor = *spans[0].anchor();
         let provenance = spans[0].provenance().clone();
         let evidence = spans[0].evidence().clone();
+        let alternatives = spans[0].alternatives().to_vec();
 
-        let alternate_kind_span =
-            CandidateSpan::new(DetectionKind::RepeatedPhrase, provenance, anchor, evidence);
+        let alternate_kind_span = CandidateSpan::new(
+            DetectionKind::RepeatedPhrase,
+            provenance,
+            anchor,
+            evidence,
+            alternatives,
+        );
 
         assert_ne!(spans[0].key(), alternate_kind_span.key());
     }
@@ -574,5 +580,45 @@ mod tests {
         for (review_case, expected_candidate) in review_cases.iter().zip(expected.iter()) {
             assert_eq!(review_case.candidate_span(), expected_candidate);
         }
+    }
+
+    #[test]
+    fn detect_glossary_matches_proposes_canonical_term_as_non_binding_alternative() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+
+        assert_eq!(
+            spans[0].alternatives(),
+            &[CandidateAlternative::new("Apache Kafka")]
+        );
+    }
+
+    #[test]
+    fn candidate_span_may_carry_zero_alternatives() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+        let anchor = *spans[0].anchor();
+        let provenance = spans[0].provenance().clone();
+        let evidence = spans[0].evidence().clone();
+
+        let span_without_alternatives = CandidateSpan::new(
+            DetectionKind::GlossaryAliasMatch,
+            provenance,
+            anchor,
+            evidence,
+            Vec::new(),
+        );
+
+        assert!(span_without_alternatives.alternatives().is_empty());
     }
 }
