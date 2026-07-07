@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: SRT parse/validate, transcript revision identity, and source anchors exist in the Rust core; the v0.1 review-unit and detection lifecycle is an accepted contract that is not yet implemented; end-to-end pipeline not yet verified
+Last reviewed against code: SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in the Rust core; pipeline assembly, ranking, review status/decisions, persistence, and materialization are not yet implemented; end-to-end pipeline not yet verified
 
 # Conceptual Data Contract
 
@@ -39,7 +39,7 @@ A single accepted correction does not automatically change the Language Pack. Pr
 
 ## v0.1 Review-Unit and Detection Lifecycle Contract
 
-This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of implementation: only parsing, validation, revision identity, and source anchors currently exist in code.
+This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of full end-to-end implementation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary `Evidence`, `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in code with unit test coverage; pipeline assembly, ranking, review status/decisions, persistence, and materialization do not.
 
 ### CandidateSpan
 
