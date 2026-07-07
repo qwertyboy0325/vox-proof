@@ -1,10 +1,15 @@
 pub mod anchor;
+pub mod candidate;
 pub mod srt;
 pub mod transcript;
 
 #[cfg(test)]
 mod tests {
     use crate::anchor::AnchorError;
+    use crate::candidate::{
+        CandidateSpan, DetectionKind, Evidence, GlossaryEntry, GlossaryEvidence,
+        detect_glossary_matches,
+    };
     use crate::srt::{ParseError, parse_srt};
     use crate::transcript::{
         DurationError, NormalizedSegment, Segment, Transcript, ValidationError, ValidationIssue,
@@ -342,5 +347,131 @@ mod tests {
         let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nworld").expect("valid srt");
 
         assert_eq!(other.resolve(&anchor), None);
+    }
+
+    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
+        GlossaryEntry::new(
+            canonical_term,
+            aliases.iter().map(|alias| alias.to_string()).collect(),
+        )
+    }
+
+    #[test]
+    fn detect_glossary_matches_finds_exact_alias_occurrence() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:02,500\n我們使用 Kafka 處理事件流")
+            .expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].kind(), DetectionKind::GlossaryAliasMatch);
+        assert_eq!(spans[0].provenance().detector_id(), "glossary-alias-match");
+    }
+
+    #[test]
+    fn detect_glossary_matches_ignores_non_matching_text() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello world").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert!(spans.is_empty());
+    }
+
+    #[test]
+    fn detect_glossary_matches_finds_occurrences_across_segments() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka mention\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond Kafka mention",
+        )
+        .expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert_eq!(spans.len(), 2);
+    }
+
+    #[test]
+    fn detect_glossary_matches_produces_typed_glossary_evidence() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        match spans[0].evidence() {
+            Evidence::Glossary(GlossaryEvidence {
+                entry,
+                matched_form,
+            }) => {
+                assert_eq!(entry.canonical_term, "Apache Kafka");
+                assert_eq!(matched_form, "Kafka");
+            }
+        }
+    }
+
+    #[test]
+    fn detect_glossary_matches_anchor_resolves_to_matched_text() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert_eq!(transcript.resolve(spans[0].anchor()), Some("Kafka"));
+    }
+
+    #[test]
+    fn candidate_key_is_stable_for_equal_detector_kind_and_anchor() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let first = detect_glossary_matches(&transcript, &glossary);
+        let second = detect_glossary_matches(&transcript, &glossary);
+
+        assert_eq!(first[0].key(), second[0].key());
+    }
+
+    #[test]
+    fn candidate_key_differs_for_different_anchor() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafka appears twice: Kafka")
+            .expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert_eq!(spans.len(), 2);
+        assert_ne!(spans[0].key(), spans[1].key());
+    }
+
+    #[test]
+    fn candidate_key_differs_for_different_detection_kind() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+        let anchor = *spans[0].anchor();
+        let provenance = spans[0].provenance().clone();
+        let evidence = spans[0].evidence().clone();
+
+        let alternate_kind_span =
+            CandidateSpan::new(DetectionKind::RepeatedPhrase, provenance, anchor, evidence);
+
+        assert_ne!(spans[0].key(), alternate_kind_span.key());
+    }
+
+    #[test]
+    fn detect_glossary_matches_skips_empty_alias() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nanything at all").expect("valid srt");
+        let glossary = vec![glossary_entry("Empty Alias Entry", &[""])];
+
+        let spans = detect_glossary_matches(&transcript, &glossary);
+
+        assert!(spans.is_empty());
     }
 }
