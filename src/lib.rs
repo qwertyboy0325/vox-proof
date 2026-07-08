@@ -240,6 +240,30 @@ mod tests {
     }
 
     #[test]
+    fn parse_srt_preserves_empty_cue_text_as_validation_issue() {
+        let input = "1\n00:00:00,000 --> 00:00:01,000\n\n\
+                     2\n00:00:01,000 --> 00:00:02,000\nhello";
+
+        let transcript = parse_srt(input).expect("syntactically valid srt");
+
+        assert_eq!(
+            transcript.segments(),
+            &[
+                segment(1, 0, 1000, ""),
+                segment(2, 1000, 2000, "hello"),
+            ]
+        );
+
+        assert_eq!(
+            transcript.validation_issues(),
+            vec![ValidationIssue {
+                segment_index: 1,
+                error: ValidationError::EmptyText,
+            }]
+        );
+    }
+
+    #[test]
     fn parse_srt_rejects_malformed_index() {
         let input = "x\n00:00:00,000 --> 00:00:01,000\nhello";
         assert_eq!(
