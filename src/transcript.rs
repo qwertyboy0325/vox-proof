@@ -26,13 +26,18 @@ pub struct Transcript {
 }
 
 impl Transcript {
+    #[cfg(test)]
     pub(crate) fn new() -> Self {
-        let segments = Vec::new();
+        Self::from_segments(Vec::new())
+    }
+
+    pub(crate) fn from_segments(segments: Vec<Segment>) -> Self {
         let revision = compute_revision(&segments);
 
         Self { segments, revision }
     }
 
+    #[cfg(test)]
     pub(crate) fn add_segment(&mut self, segment: Segment) {
         self.segments.push(segment);
         self.revision = compute_revision(&self.segments);
@@ -182,7 +187,7 @@ pub struct NormalizedSegment {
     pub(crate) normalized_text: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Segment {
     pub(crate) index: u32,
     pub(crate) start_ms: u64,

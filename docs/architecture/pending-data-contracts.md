@@ -15,9 +15,9 @@ Its contents become binding only after explicit approval and promotion into cano
 
 ## 1a. Promoted Decisions (Now Canonical)
 
-The following have been approved and promoted to `docs/architecture/data-contract.md`. They are no longer pending, and the canonical document is authoritative for their active definition:
+The following have been approved and promoted to `docs/architecture/data-contract.md` or accepted Material Decisions. They are no longer pending, and the canonical document or decision record is authoritative for their active definition:
 
-- Transcript revision identity via a deterministic content hash over parsed segments (previously open question 1).
+- Stable `TranscriptRevisionId` via a tagged SHA-256 content fingerprint over canonical parsed transcript bytes, recorded in `docs/governance/decisions/MD-001-transcript-revision-id.md` (previously open question 1).
 - The `SourceAnchor` coordinate model of section 4: a non-empty, character-boundary-aligned byte range over one parsed segment's text, bound to a specific transcript revision. The single-segment v0.1 constraint is retained.
 - The v0.1 normalization decision from section 5: normalization is identity-preserving, so analysis coordinates coincide with source-anchor coordinates.
 - The v0.1 review-unit and detection lifecycle: single-anchor `CandidateSpan`; `CandidateKey` as semantic identity; the fixed `DetectionKind` taxonomy; detector provenance and `AnalysisSnapshot`; `AnalysisRun` as a provenance boundary; `ReviewCase` as a human-facing unit that is one-to-one with a `CandidateSpan` in v0.1; mandatory typed `Evidence`; and non-binding `CandidateAlternative`. The canonical contract supersedes the `CandidateSpan`, `Evidence`, and `ReviewCase` wording in section 4 and the `AnalysisRun` wording in section 6.
@@ -353,7 +353,7 @@ Work that can proceed without final material decisions:
 - timestamp validation
 - structural validation
 - parser errors distinct from validation issues
-- transcript revision identity (deterministic content hash)
+- stable transcript revision identity (MD-001)
 - source anchor coordinate model within a single segment
 - identity-preserving normalized transcript view
 - single-anchor CandidateSpan findings with CandidateKey semantic identity
@@ -406,8 +406,8 @@ This is not a rejection of those directions forever. It is a v0.1 anti-drift bou
 
 These decisions remain unresolved and require explicit approval before promotion into canonical architecture:
 
-1. Exact `Transcript` revision identity strategy. Resolved: deterministic content hash over parsed segments, promoted to `docs/architecture/data-contract.md`. A stable cross-version fingerprint algorithm remains open (see question 2).
-2. Exact source fingerprint contents and algorithm.
+1. Exact `Transcript` revision identity strategy. Resolved: stable tagged SHA-256 content fingerprint over canonical parsed transcript bytes, recorded in `docs/governance/decisions/MD-001-transcript-revision-id.md` and reflected in `docs/architecture/data-contract.md`.
+2. Exact raw source-file fingerprint contents and algorithm.
 3. `CandidateSpan` and `ReviewCase` identifiers and deduplication rules. Resolved for semantic identity: `CandidateKey` is derived from source revision, detector identity, detection kind, and `SourceAnchor`, and is promoted to `docs/architecture/data-contract.md`. Persisted-record identity (`CandidateRecordId`) and cross-run carryover remain deferred.
 4. The precise meaning of "applicable" for a historical `CorrectionDecision` after re-analysis.
 5. Whether unresolved conflicts always block all reviewed output, or whether a future explicitly labelled partial-output mode is allowed.

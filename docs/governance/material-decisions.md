@@ -74,6 +74,7 @@ Each Material Decision should include:
 * title
 * status
 * date
+* amended date, if the accepted record was clarified after acceptance
 * decision authority
 * context
 * decision
@@ -81,6 +82,14 @@ Each Material Decision should include:
 * explicitly deferred questions
 * banned or rejected designs, if any
 * implementation notes, if useful
+
+## Decision record amendments
+
+Accepted Material Decisions should be stable records.
+
+If a clarification is needed before implementation or durable artifacts exist, the accepted decision may be amended in place when the change preserves the same approved decision and records the amendment date.
+
+If implementation, persisted data, regression assets, or other durable artifacts already depend on the accepted decision, a semantic change must be recorded as a new Material Decision or as an explicit superseding decision. It must not silently rewrite the accepted record.
 
 ## Implementation rule
 

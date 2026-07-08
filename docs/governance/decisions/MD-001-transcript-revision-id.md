@@ -4,6 +4,8 @@ Status: accepted
 
 Date: 2026-07-08
 
+Amended: 2026-07-08, before implementation, to specify byte-level v1 canonical encoding details.
+
 Decision authority: Ezra
 
 ## Context

@@ -8,7 +8,7 @@ pub enum ParseError {
 }
 
 pub fn parse_srt(input: &str) -> Result<Transcript, ParseError> {
-    let mut transcript = Transcript::new();
+    let mut segments = Vec::new();
 
     for (position, raw_block) in split_into_blocks(input).into_iter().enumerate() {
         let block_number = position + 1;
@@ -36,7 +36,7 @@ pub fn parse_srt(input: &str) -> Result<Transcript, ParseError> {
 
         let text = lines.collect::<Vec<&str>>().join("\n");
 
-        transcript.add_segment(Segment {
+        segments.push(Segment {
             index,
             start_ms,
             end_ms,
@@ -44,7 +44,7 @@ pub fn parse_srt(input: &str) -> Result<Transcript, ParseError> {
         });
     }
 
-    Ok(transcript)
+    Ok(Transcript::from_segments(segments))
 }
 
 fn split_into_blocks(input: &str) -> Vec<Vec<&str>> {

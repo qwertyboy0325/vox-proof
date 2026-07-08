@@ -13,7 +13,7 @@ This document describes the conceptual domain model. It is not yet a final JSON 
 
 `Transcript` represents the source transcript being reviewed. For v0.1, the initial transcript format is SRT. The transcript remains the source material from which review cases and reviewed output are derived.
 
-A `Transcript` has a revision identity derived deterministically from its parsed segments. Source anchors and, later, correction decisions are bound to a specific transcript revision, so any change to source content yields a distinct revision. The exact hashing algorithm is an implementation detail and is not a stable cross-version fingerprint yet.
+A `Transcript` has a revision identity derived deterministically from its parsed segments. Source anchors and, later, correction decisions are bound to a specific transcript revision, so any change to source content yields a distinct revision. The accepted v1 revision format and hashing algorithm are governed by `docs/governance/decisions/MD-001-transcript-revision-id.md`.
 
 ### SourceAnchor
 
