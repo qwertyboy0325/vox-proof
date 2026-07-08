@@ -26,6 +26,8 @@ The v1 revision identity is:
 rev:sha256-v1:<hex-digest>
 ```
 
+`<hex-digest>` is a lowercase hexadecimal SHA-256 digest.
+
 The digest is SHA-256 over canonical transcript bytes.
 
 The algorithm tag is part of the identity format so future hash revisions can coexist with old records.
@@ -38,7 +40,11 @@ The v1 canonical byte stream is:
 
 ```text
 domain separator:
-  voxproof-transcript-rev-v1
+  ASCII bytes: voxproof-transcript-rev-v1
+  NUL byte: 0x00
+
+segment count:
+  number of parsed segments as u64 little-endian
 
 for each segment, in source order:
   cue index as u32 little-endian
