@@ -1,7 +1,5 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
 use crate::anchor::{AnchorError, SourceAnchor, TranscriptRevisionId};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DurationError {
@@ -24,17 +22,20 @@ pub enum ValidationError {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Transcript {
     segments: Vec<Segment>,
+    revision: TranscriptRevisionId,
 }
 
 impl Transcript {
     pub(crate) fn new() -> Self {
-        Self {
-            segments: Vec::new(),
-        }
+        let segments = Vec::new();
+        let revision = compute_revision(&segments);
+
+        Self { segments, revision }
     }
 
     pub(crate) fn add_segment(&mut self, segment: Segment) {
         self.segments.push(segment);
+        self.revision = compute_revision(&self.segments);
     }
 
     pub fn segments(&self) -> &[Segment] {
@@ -42,9 +43,7 @@ impl Transcript {
     }
 
     pub fn revision_id(&self) -> TranscriptRevisionId {
-        let mut hasher = DefaultHasher::new();
-        self.segments.hash(&mut hasher);
-        TranscriptRevisionId(hasher.finish())
+        self.revision
     }
 
     pub fn anchor(
@@ -145,6 +144,25 @@ impl Transcript {
 
         issues
     }
+}
+
+fn compute_revision(segments: &[Segment]) -> TranscriptRevisionId {
+    const DOMAIN_SEPARATOR: &[u8] = b"voxproof-transcript-rev-v1";
+
+    let mut hasher = Sha256::new();
+    hasher.update(DOMAIN_SEPARATOR);
+    hasher.update([0x00]);
+    hasher.update((segments.len() as u64).to_le_bytes());
+
+    for segment in segments {
+        hasher.update(segment.index.to_le_bytes());
+        hasher.update(segment.start_ms.to_le_bytes());
+        hasher.update(segment.end_ms.to_le_bytes());
+        hasher.update((segment.text.len() as u64).to_le_bytes());
+        hasher.update(segment.text.as_bytes());
+    }
+
+    TranscriptRevisionId::from_sha256_digest(hasher.finalize().into())
 }
 
 #[derive(Debug, PartialEq, Eq)]

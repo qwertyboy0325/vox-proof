@@ -248,10 +248,7 @@ mod tests {
 
         assert_eq!(
             transcript.segments(),
-            &[
-                segment(1, 0, 1000, ""),
-                segment(2, 1000, 2000, "hello"),
-            ]
+            &[segment(1, 0, 1000, ""), segment(2, 1000, 2000, "hello"),]
         );
 
         assert_eq!(
@@ -422,6 +419,34 @@ mod tests {
     }
 
     #[test]
+    fn revision_id_differs_when_cue_index_changes() {
+        let first = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+        let second = parse_srt("2\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+
+        assert_ne!(first.revision_id(), second.revision_id());
+    }
+
+    #[test]
+    fn revision_id_matches_for_crlf_and_lf_equivalent_input() {
+        let lf = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello").expect("valid srt");
+        let crlf = parse_srt("1\r\n00:00:00,000 --> 00:00:01,000\r\nhello\r\n").expect("valid srt");
+
+        assert_eq!(lf.segments(), crlf.segments());
+        assert_eq!(lf.revision_id(), crlf.revision_id());
+    }
+
+    #[test]
+    fn revision_id_known_value_locks_canonical_encoding() {
+        let mut transcript = Transcript::new();
+        transcript.add_segment(segment(1, 1000, 2000, "Kafka"));
+
+        assert_eq!(
+            transcript.revision_id().to_tagged_string(),
+            "rev:sha256-v1:eafc2fd34c2d5e9f79729e52c59704579bd8a1b9d047ec680e09aed76bc4c976"
+        );
+    }
+
+    #[test]
     fn anchor_resolves_to_expected_substring() {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n我們A").expect("valid srt");
 
@@ -486,6 +511,17 @@ mod tests {
         let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nworld").expect("valid srt");
 
         assert_eq!(other.resolve(&anchor), None);
+    }
+
+    #[test]
+    fn resolve_rejects_anchor_from_revision_before_add_segment() {
+        let mut transcript = Transcript::new();
+        transcript.add_segment(segment(1, 0, 1000, "hello"));
+        let anchor = transcript.anchor(0, 0, 5).expect("valid anchor");
+
+        transcript.add_segment(segment(2, 1000, 2000, "world"));
+
+        assert_eq!(transcript.resolve(&anchor), None);
     }
 
     fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
