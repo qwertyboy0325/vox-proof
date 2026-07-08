@@ -15,6 +15,12 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [architecture/data-contract.md](architecture/data-contract.md): conceptual domain entities and data ownership boundaries.
 - [quality/evaluation.md](quality/evaluation.md): fixtures, ground truth, metrics, and regression expectations.
 
+## Governance
+
+- [Material Decisions](governance/material-decisions.md)
+- [MD-001: Stable TranscriptRevisionId](governance/decisions/MD-001-transcript-revision-id.md)
+- [MD-002: ReviewCase and Review Ledger Semantics](governance/decisions/MD-002-review-ledger-semantics.md)
+
 ## Document Lifecycle
 
 - `current`: the active source of durable understanding for the project state.
