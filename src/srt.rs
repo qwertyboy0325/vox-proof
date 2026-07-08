@@ -83,12 +83,40 @@ fn parse_timestamp(value: &str) -> Option<u64> {
     let millis: u64 = millis.parse().ok()?;
 
     let mut parts = clock.split(':');
-    let hours: u64 = parts.next()?.parse().ok()?;
-    let minutes: u64 = parts.next()?.parse().ok()?;
-    let seconds: u64 = parts.next()?.parse().ok()?;
+    let hours = parts.next()?;
+    let minutes = parts.next()?;
+    let seconds = parts.next()?;
     if parts.next().is_some() {
         return None;
     }
 
-    Some(((hours * 60 + minutes) * 60 + seconds) * 1000 + millis)
+    if !is_ascii_digits_at_least(hours, 2)
+        || !is_ascii_digits_exactly(minutes, 2)
+        || !is_ascii_digits_exactly(seconds, 2)
+    {
+        return None;
+    }
+
+    let hours: u64 = hours.parse().ok()?;
+    let minutes: u64 = minutes.parse().ok()?;
+    let seconds: u64 = seconds.parse().ok()?;
+    if minutes > 59 || seconds > 59 {
+        return None;
+    }
+
+    hours
+        .checked_mul(60)?
+        .checked_add(minutes)?
+        .checked_mul(60)?
+        .checked_add(seconds)?
+        .checked_mul(1000)?
+        .checked_add(millis)
+}
+
+fn is_ascii_digits_at_least(value: &str, min_len: usize) -> bool {
+    value.len() >= min_len && value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn is_ascii_digits_exactly(value: &str, len: usize) -> bool {
+    value.len() == len && value.bytes().all(|b| b.is_ascii_digit())
 }

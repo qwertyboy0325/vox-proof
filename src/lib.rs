@@ -117,6 +117,115 @@ mod tests {
     }
 
     #[test]
+    fn parse_srt_accepts_strict_timestamp_grammar() {
+        let input = "1\n01:02:03,004 --> 01:02:03,005\nx";
+        let transcript = parse_srt(input).expect("valid srt");
+        let parsed = &transcript.segments()[0];
+        assert_eq!(parsed.start_ms, 3_723_004);
+        assert_eq!(parsed.end_ms, 3_723_005);
+    }
+
+    #[test]
+    fn parse_srt_accepts_hours_with_more_than_two_digits() {
+        let input = "1\n100:00:00,000 --> 100:00:01,000\nx";
+        let transcript = parse_srt(input).expect("valid srt");
+        let parsed = &transcript.segments()[0];
+        assert_eq!(parsed.start_ms, 360_000_000);
+        assert_eq!(parsed.end_ms, 360_001_000);
+    }
+
+    #[test]
+    fn parse_srt_rejects_one_digit_clock_fields() {
+        for timing in [
+            "1:2:3,000 --> 00:00:04,000",
+            "01:2:03,000 --> 00:00:04,000",
+            "01:02:3,000 --> 00:00:04,000",
+        ] {
+            let input = format!("1\n{timing}\nx");
+            assert_eq!(
+                parse_srt(&input),
+                Err(ParseError::MalformedTiming {
+                    block: 1,
+                    found: timing.to_string(),
+                })
+            );
+        }
+    }
+
+    #[test]
+    fn parse_srt_rejects_minutes_out_of_range() {
+        let timing = "00:60:00,000 --> 00:00:01,000";
+        let input = format!("1\n{timing}\nx");
+
+        assert_eq!(
+            parse_srt(&input),
+            Err(ParseError::MalformedTiming {
+                block: 1,
+                found: timing.to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_srt_rejects_seconds_out_of_range() {
+        let timing = "00:00:60,000 --> 00:00:01,000";
+        let input = format!("1\n{timing}\nx");
+
+        assert_eq!(
+            parse_srt(&input),
+            Err(ParseError::MalformedTiming {
+                block: 1,
+                found: timing.to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_srt_rejects_dot_millisecond_separator() {
+        let timing = "00:00:01.000 --> 00:00:02,000";
+        let input = format!("1\n{timing}\nx");
+
+        assert_eq!(
+            parse_srt(&input),
+            Err(ParseError::MalformedTiming {
+                block: 1,
+                found: timing.to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_srt_rejects_extra_clock_components() {
+        let timing = "00:00:01:02,000 --> 00:00:03,000";
+        let input = format!("1\n{timing}\nx");
+
+        assert_eq!(
+            parse_srt(&input),
+            Err(ParseError::MalformedTiming {
+                block: 1,
+                found: timing.to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_srt_rejects_non_three_digit_milliseconds() {
+        for timing in [
+            "00:00:01,00 --> 00:00:02,000",
+            "00:00:01,0000 --> 00:00:02,000",
+        ] {
+            let input = format!("1\n{timing}\nx");
+            assert_eq!(
+                parse_srt(&input),
+                Err(ParseError::MalformedTiming {
+                    block: 1,
+                    found: timing.to_string(),
+                })
+            );
+        }
+    }
+
+    #[test]
     fn parse_srt_joins_multiline_text_with_newline() {
         let input = "1\n00:00:00,000 --> 00:00:01,000\nline one\nline two";
         let transcript = parse_srt(input).expect("valid srt");
