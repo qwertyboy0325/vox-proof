@@ -7,12 +7,15 @@ Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeli
 
 This document records assumptions that may guide discovery. None of these hypotheses are validated.
 
+Concrete discovery leads are recorded in `docs/discussion/2026-07-09.md`. A lead is a person willing to talk or try the tool; it is not validation.
+
 ## Mixed Chinese-English Technical Content
 
 - Hypothesis: Technical-content creators with mixed Chinese-English terminology may have a meaningful transcript QA problem.
 - Why it may be true: Mixed terminology, product names, acronyms, and localized pronunciations may produce errors that are hard to spot manually.
 - What would falsify it: Target users do not experience frequent transcript terminology errors, or existing tools already solve the problem well enough.
 - Validation method: Interview target users, review authorized transcript samples, and measure error patterns against manual correction workflows.
+- Current lead: a high-frequency YouTube content editor with expressed willingness to try the tool (Lead A in `docs/discussion/2026-07-09.md`).
 - Status: Unvalidated.
 
 ## Cross-ASR Post-Processing
@@ -21,6 +24,7 @@ This document records assumptions that may guide discovery. None of these hypoth
 - Why it may be true: Users may already have preferred ASR tools and need targeted QA after transcription.
 - What would falsify it: Users prefer changing ASR systems over adding a post-processing review step.
 - Validation method: Compare user willingness to run post-processing against willingness to replace their transcription workflow.
+- Current lead: a film subtitle corrector already using AI-assisted correction whose residual pain is subtitle timing drift (Lead B in `docs/discussion/2026-07-09.md`).
 - Status: Unvalidated.
 
 ## Language Pack Reuse
@@ -29,6 +33,7 @@ This document records assumptions that may guide discovery. None of these hypoth
 - Why it may be true: Specialized terms, aliases, names, and recurring ASR confusions may repeat across related transcripts.
 - What would falsify it: Corrections are too one-off, context-dependent, or inconsistent to benefit from reusable language memory.
 - Validation method: Analyze authorized transcript sets for repeated correction patterns and measure review burden with and without a Language Pack.
+- Current lead: a teacher organizing recurring lecture content across sessions (Lead C in `docs/discussion/2026-07-09.md`).
 - Status: Unvalidated.
 
 ## Scoped Language Memory

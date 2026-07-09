@@ -414,6 +414,7 @@ These decisions remain unresolved and require explicit approval before promotion
 6. The exact representation of alternatives and generated-candidate provenance. Resolved: `CandidateAlternative` is a non-binding suggested replacement, and the v0.1 minimum detector provenance is `detector_id` and `detector_version`; promoted to `docs/architecture/data-contract.md`.
 7. Whether adjacent `SourceAnchor`s are always canonicalized into one anchor.
 8. The conditions under which future `EditScript` support would be justified.
+9. How a segment-scoped finding (for example a subtitle timing issue affecting a whole cue) is anchored, given that `SourceAnchor` requires a non-empty text range. Raised by a concrete subtitle-QA lead; see `docs/discussion/2026-07-09.md`.
 
 ## 12. Promotion Rule
 
