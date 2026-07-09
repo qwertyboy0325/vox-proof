@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
+Last reviewed against code: v0.1 Track 1 code closed loop exists; real-material/product validation remains pending.
 
 # VoxProof Documentation
 

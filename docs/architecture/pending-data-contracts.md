@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
 Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
-Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet.
+Last reviewed against code: v0.1 Track 1 code closed loop exists; real-material/product validation remains pending.
 
 # Pending Data Contract Decisions
 
@@ -21,8 +21,35 @@ The following have been approved and promoted to `docs/architecture/data-contrac
 - The `SourceAnchor` coordinate model of section 4: a non-empty, character-boundary-aligned byte range over one parsed segment's text, bound to a specific transcript revision. The single-segment v0.1 constraint is retained.
 - The v0.1 normalization decision from section 5: normalization is identity-preserving, so analysis coordinates coincide with source-anchor coordinates.
 - The v0.1 review-unit and detection lifecycle: single-anchor `CandidateSpan`; `CandidateKey` as semantic identity; the fixed `DetectionKind` taxonomy; detector provenance and `AnalysisSnapshot`; `AnalysisRun` as a provenance boundary; `ReviewCase` as a human-facing unit that is one-to-one with a `CandidateSpan` in v0.1; mandatory typed `Evidence`; and non-binding `CandidateAlternative`. The canonical contract supersedes the `CandidateSpan`, `Evidence`, and `ReviewCase` wording in section 4 and the `AnalysisRun` wording in section 6.
+- ReviewCase and review-ledger semantics are accepted in `docs/governance/decisions/MD-002-review-ledger-semantics.md`.
+- Minimal reviewed-output materialization semantics are accepted in `docs/governance/decisions/MD-003-reviewed-output-materialization.md` and implemented for detector-raised `AcceptAlternative` decisions.
 
 The remaining sections below stay exploratory. Where a section overlaps a promoted decision, the canonical document wins.
+
+## 1b. Current Minimal Implementation Notes
+
+The v0.1 Track 1 code closed loop now exists as a local facilitated CLI path:
+
+```text
+vox-proof review <input.srt> <reviewed-output.srt> <decision-log.txt>
+```
+
+The current loop reads an existing SRT file, parses and validates it, runs a temporary built-in demo glossary, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, and writes both output files.
+
+This does not promote a persistence architecture.
+
+Minimal session decision log rendering exists as a non-persistence session artifact. Durable persistence schema remains deferred.
+
+Minimal facilitated CLI review flow exists. Product CLI design remains deferred.
+
+The current CLI glossary is temporary and built in:
+
+```text
+Kafka -> Apache Kafka
+Postgres -> PostgreSQL
+```
+
+Glossary file/config format and Language Pack schema remain deferred.
 
 ## 2. Current Product Invariants
 
@@ -56,6 +83,8 @@ SRT input
 ```
 
 This remains a modular monolith direction, not a plugin platform.
+
+Note: the minimal v0.1 code loop now implements this shape only for the detector-raised glossary path and `AcceptAlternative` materialization authorized by MD-003. The broader conceptual model in this document remains exploratory.
 
 ## 4. Proposed Domain Separation
 
@@ -281,6 +310,8 @@ An `AnalysisRun` should eventually snapshot, at minimum:
 
 ## 7. Conservative Materialization Semantics
 
+Note: minimal v0.1 reviewed-output derivation is now governed by MD-003 and implemented for single-anchor detector-raised `AcceptAlternative` decisions. This section remains exploratory for broader future materialization concerns.
+
 Proposed materializer behavior:
 
 ```text
@@ -361,6 +392,10 @@ Work that can proceed without final material decisions:
 - detector provenance, AnalysisSnapshot, and AnalysisRun as a provenance boundary
 - ReviewCase as a one-to-one human-facing unit over a CandidateSpan
 - mandatory typed Evidence and non-binding CandidateAlternative
+- detector-raised CorrectionDecision and ReviewLedger event recording (MD-002)
+- minimal reviewed-output derivation for accepted `AcceptAlternative` decisions (MD-003)
+- minimal session decision log rendering as a non-persistence artifact
+- minimal facilitated CLI review flow
 ```
 
 Decision gates:
@@ -373,8 +408,10 @@ Before implementing non-identity normalization transformations:
 resolve normalization-to-source traceability beyond the current
 identity-preserving view.
 
-Before implementing CorrectionDecision application or materialization:
-resolve decision applicability, edit payload, stale-source, overlap, and conflict semantics.
+Before expanding beyond the current minimal reviewed-output derivation:
+record the relevant Material Decision for replacement payloads, HumanRaised
+materialization, cross-revision migration, persistence schema, or broader
+serialization commitments.
 ```
 
 Parser work should not be blocked by these pending decisions, because parser and structural validation are prerequisites for source-preserving identity.
@@ -409,8 +446,8 @@ These decisions remain unresolved and require explicit approval before promotion
 1. Exact `Transcript` revision identity strategy. Resolved: stable tagged SHA-256 content fingerprint over canonical parsed transcript bytes, recorded in `docs/governance/decisions/MD-001-transcript-revision-id.md` and reflected in `docs/architecture/data-contract.md`.
 2. Exact raw source-file fingerprint contents and algorithm.
 3. `CandidateSpan` and `ReviewCase` identifiers and deduplication rules. Resolved for semantic identity: `CandidateKey` is derived from source revision, detector identity, detection kind, and `SourceAnchor`, and is promoted to `docs/architecture/data-contract.md`. Persisted-record identity (`CandidateRecordId`) and cross-run carryover remain deferred.
-4. The precise meaning of "applicable" for a historical `CorrectionDecision` after re-analysis.
-5. Whether unresolved conflicts always block all reviewed output, or whether a future explicitly labelled partial-output mode is allowed.
+4. The precise meaning of "applicable" for a historical `CorrectionDecision` after re-analysis. Resolved only for v0.1 materialization against the observed transcript revision by MD-003; cross-revision decision migration remains deferred.
+5. Whether unresolved conflicts always block all reviewed output, or whether a future explicitly labelled partial-output mode is allowed. Resolved only for v0.1 overlapping materializing edits by MD-003; broader partial-output modes remain deferred.
 6. The exact representation of alternatives and generated-candidate provenance. Resolved: `CandidateAlternative` is a non-binding suggested replacement, and the v0.1 minimum detector provenance is `detector_id` and `detector_version`; promoted to `docs/architecture/data-contract.md`.
 7. Whether adjacent `SourceAnchor`s are always canonicalized into one anchor.
 8. The conditions under which future `EditScript` support would be justified.
