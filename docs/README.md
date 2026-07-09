@@ -10,6 +10,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 ## Canonical Documents
 
 - [product/v0.1.md](product/v0.1.md): current v0.1 product scope and acceptance boundary.
+- [product/v0.1-execution-order.md](product/v0.1-execution-order.md): agreed near-term execution order toward a testable v0.1 closed loop.
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
 - [architecture/overview.md](architecture/overview.md): architecture principles and fixed v0.1 processing shape.
 - [architecture/data-contract.md](architecture/data-contract.md): conceptual domain entities and data ownership boundaries.
