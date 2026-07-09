@@ -214,6 +214,14 @@ pub struct Segment {
 }
 
 impl Segment {
+    pub fn index(&self) -> u32 {
+        self.index
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
     pub fn duration_ms(&self) -> Result<u64, DurationError> {
         if self.end_ms < self.start_ms {
             Err(DurationError::EndBeforeStart {

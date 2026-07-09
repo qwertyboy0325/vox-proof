@@ -31,6 +31,12 @@ pub struct SourceAnchor {
     pub(crate) end_byte: usize,
 }
 
+impl SourceAnchor {
+    pub fn segment_position(self) -> usize {
+        self.segment_position
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum AnchorError {
     UnknownSegment { segment_position: usize },
