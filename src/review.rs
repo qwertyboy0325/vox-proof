@@ -140,6 +140,11 @@ impl ReviewLedger {
     pub fn events(&self) -> &[ReviewLedgerEvent] {
         &self.events
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_events(events: Vec<ReviewLedgerEvent>) -> Self {
+        Self { events }
+    }
 }
 
 fn validate_decision(

@@ -3,6 +3,7 @@ pub mod anchor;
 pub mod candidate;
 pub mod pipeline;
 pub mod review;
+pub mod reviewed_output;
 pub mod srt;
 pub mod transcript;
 
