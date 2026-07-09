@@ -21,6 +21,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [Material Decisions](governance/material-decisions.md)
 - [MD-001: Stable TranscriptRevisionId](governance/decisions/MD-001-transcript-revision-id.md)
 - [MD-002: ReviewCase and Review Ledger Semantics](governance/decisions/MD-002-review-ledger-semantics.md)
+- [MD-003: Minimal Reviewed Output Materialization Semantics](governance/decisions/MD-003-reviewed-output-materialization.md)
 
 ## Document Lifecycle
 
