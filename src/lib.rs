@@ -15,7 +15,9 @@ mod tests {
         GlossaryEntry, GlossaryEvidence, detect_glossary_matches,
     };
     use crate::pipeline::run_glossary_review;
-    use crate::review::ReviewCase;
+    use crate::review::{
+        CorrectionDecision, ReviewCase, ReviewCaseStatus, ReviewLedger, ReviewLedgerError,
+    };
     use crate::srt::{ParseError, parse_srt};
     use crate::transcript::{
         DurationError, NormalizedSegment, Segment, Transcript, ValidationError, ValidationIssue,
@@ -755,7 +757,8 @@ mod tests {
         let candidate = spans.remove(0);
         let expected = candidate.clone();
 
-        let review_case = ReviewCase::from(candidate);
+        let mut review_cases = ReviewCase::from_detector_candidates(vec![candidate]);
+        let review_case = review_cases.remove(0);
 
         assert_eq!(review_case.candidate_span(), &expected);
     }
@@ -773,12 +776,256 @@ mod tests {
             .expect("glossary has no ambiguous aliases");
         let expected: Vec<CandidateSpan> = candidates.clone();
 
-        let review_cases: Vec<ReviewCase> = candidates.into_iter().map(ReviewCase::from).collect();
+        let review_cases = ReviewCase::from_detector_candidates(candidates);
 
         assert_eq!(review_cases.len(), expected.len());
         for (review_case, expected_candidate) in review_cases.iter().zip(expected.iter()) {
             assert_eq!(review_case.candidate_span(), expected_candidate);
         }
+    }
+
+    #[test]
+    fn review_case_ids_are_assigned_deterministically_for_detector_cases() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka mention\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond Kafka mention",
+        )
+        .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
+
+        let candidates = detect_glossary_matches(&run, &transcript, &glossary)
+            .expect("glossary has no ambiguous aliases");
+        let review_cases = ReviewCase::from_detector_candidates(candidates);
+
+        assert_eq!(review_cases[0].id().local_index(), 0);
+        assert_eq!(review_cases[1].id().local_index(), 1);
+    }
+
+    #[test]
+    fn new_review_case_has_undecided_status() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let ledger = ReviewLedger::new();
+
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Undecided
+        );
+    }
+
+    #[test]
+    fn recording_reject_decides_that_case() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::Reject,
+            )
+            .expect("reject is valid");
+
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision: transcript.revision_id(),
+                decision: CorrectionDecision::Reject,
+            }
+        );
+    }
+
+    #[test]
+    fn later_decision_supersedes_earlier_decision_for_same_case() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::Reject,
+            )
+            .expect("reject is valid");
+        ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::Defer,
+            )
+            .expect("defer is valid");
+
+        assert_eq!(ledger.events().len(), 2);
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision: transcript.revision_id(),
+                decision: CorrectionDecision::Defer,
+            }
+        );
+    }
+
+    #[test]
+    fn decisions_for_one_case_do_not_affect_another_case() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka mention\n\n2\n00:00:01,000 --> 00:00:02,000\nsecond Kafka mention",
+        )
+        .expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::Reject,
+            )
+            .expect("reject is valid");
+
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision: transcript.revision_id(),
+                decision: CorrectionDecision::Reject,
+            }
+        );
+        assert_eq!(
+            ledger.status_for(review_cases[1].id()),
+            ReviewCaseStatus::Undecided
+        );
+    }
+
+    #[test]
+    fn recorded_status_preserves_observed_revision() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let observed_revision = transcript.revision_id();
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        ledger
+            .record_decision(
+                &review_cases[0],
+                observed_revision,
+                CorrectionDecision::NeedsManualCorrection,
+            )
+            .expect("needs-manual-correction is valid");
+
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision,
+                decision: CorrectionDecision::NeedsManualCorrection,
+            }
+        );
+    }
+
+    #[test]
+    fn accept_alternative_records_decision_when_index_exists() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::AcceptAlternative {
+                    alternative_index: 0,
+                },
+            )
+            .expect("alternative index exists");
+
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision: transcript.revision_id(),
+                decision: CorrectionDecision::AcceptAlternative {
+                    alternative_index: 0,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn accept_alternative_rejects_out_of_range_alternative_index() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut ledger = ReviewLedger::new();
+
+        let result = ledger.record_decision(
+            &review_cases[0],
+            transcript.revision_id(),
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 1,
+            },
+        );
+
+        assert_eq!(
+            result,
+            Err(ReviewLedgerError::AlternativeIndexOutOfRange {
+                case_id: review_cases[0].id(),
+                alternative_index: 1,
+                alternative_count: 1,
+            })
+        );
+        assert!(ledger.events().is_empty());
+        assert_eq!(
+            ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Undecided
+        );
+    }
+
+    #[test]
+    fn review_case_stores_no_mutable_status() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
+        let review_cases =
+            run_glossary_review(&transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+                .expect("glossary has no ambiguous aliases");
+        let mut decided_ledger = ReviewLedger::new();
+
+        decided_ledger
+            .record_decision(
+                &review_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::Reject,
+            )
+            .expect("reject is valid");
+
+        let fresh_ledger = ReviewLedger::new();
+        assert_eq!(
+            decided_ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Decided {
+                observed_revision: transcript.revision_id(),
+                decision: CorrectionDecision::Reject,
+            }
+        );
+        assert_eq!(
+            fresh_ledger.status_for(review_cases[0].id()),
+            ReviewCaseStatus::Undecided
+        );
     }
 
     #[test]

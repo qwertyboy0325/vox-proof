@@ -17,5 +17,5 @@ pub fn run_glossary_review(
 ) -> Result<Vec<ReviewCase>, DetectionError> {
     let run = AnalysisRun::new(transcript);
     let spans = detect_glossary_matches(&run, transcript, glossary)?;
-    Ok(spans.into_iter().map(ReviewCase::from).collect())
+    Ok(ReviewCase::from_detector_candidates(spans))
 }
