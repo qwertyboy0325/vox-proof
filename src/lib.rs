@@ -4,6 +4,7 @@ pub mod candidate;
 pub mod pipeline;
 pub mod review;
 pub mod reviewed_output;
+pub mod session_log;
 pub mod srt;
 pub mod transcript;
 
