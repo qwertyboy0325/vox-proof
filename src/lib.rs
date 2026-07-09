@@ -66,7 +66,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 2,
+                segment_position: 1,
+                cue_index: 2,
                 error: ValidationError::Duration(DurationError::EndBeforeStart {
                     start_ms: 4000,
                     end_ms: 3500,
@@ -254,7 +255,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 1,
+                segment_position: 0,
+                cue_index: 1,
                 error: ValidationError::EmptyText,
             }]
         );
@@ -300,7 +302,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 1,
+                segment_position: 0,
+                cue_index: 1,
                 error: ValidationError::Duration(DurationError::EndBeforeStart {
                     start_ms: 3000,
                     end_ms: 2500,
@@ -316,7 +319,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 1,
+                segment_position: 0,
+                cue_index: 1,
                 error: ValidationError::EmptyText,
             }]
         );
@@ -330,7 +334,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 1,
+                segment_position: 1,
+                cue_index: 1,
                 error: ValidationError::NonConsecutiveIndex {
                     previous: 1,
                     found: 1,
@@ -347,7 +352,8 @@ mod tests {
         assert_eq!(
             transcript.validation_issues(),
             vec![ValidationIssue {
-                segment_index: 3,
+                segment_position: 1,
+                cue_index: 3,
                 error: ValidationError::NonConsecutiveIndex {
                     previous: 1,
                     found: 3,
@@ -453,6 +459,28 @@ mod tests {
         let anchor = transcript.anchor(0, 0, 3).expect("valid anchor");
 
         assert_eq!(transcript.resolve(&anchor), Some("我"));
+    }
+
+    #[test]
+    fn validation_issue_and_anchor_share_segment_position_plane() {
+        let transcript = parse_srt(
+            "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n2\n00:00:03,000 --> 00:00:02,000\nsecond",
+        )
+        .expect("reversed timing still parses");
+        let anchor = transcript.anchor(1, 0, 6).expect("valid anchor");
+
+        assert_eq!(anchor.segment_position, 1);
+        assert_eq!(
+            transcript.validation_issues(),
+            vec![ValidationIssue {
+                segment_position: 1,
+                cue_index: 2,
+                error: ValidationError::Duration(DurationError::EndBeforeStart {
+                    start_ms: 3000,
+                    end_ms: 2000,
+                }),
+            }]
+        );
     }
 
     #[test]

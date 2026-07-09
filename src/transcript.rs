@@ -8,8 +8,23 @@ pub enum DurationError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ValidationIssue {
-    pub(crate) segment_index: u32,
+    pub(crate) segment_position: usize,
+    pub(crate) cue_index: u32,
     pub(crate) error: ValidationError,
+}
+
+impl ValidationIssue {
+    pub fn segment_position(&self) -> usize {
+        self.segment_position
+    }
+
+    pub fn cue_index(&self) -> u32 {
+        self.cue_index
+    }
+
+    pub fn error(&self) -> &ValidationError {
+        &self.error
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -117,12 +132,13 @@ impl Transcript {
         let mut issues = Vec::new();
         let mut previous_index = None;
 
-        for segment in self.segments() {
+        for (position, segment) in self.segments().iter().enumerate() {
             if let Some(previous) = previous_index
                 && segment.index != previous + 1
             {
                 issues.push(ValidationIssue {
-                    segment_index: segment.index,
+                    segment_position: position,
+                    cue_index: segment.index,
                     error: ValidationError::NonConsecutiveIndex {
                         previous,
                         found: segment.index,
@@ -132,14 +148,16 @@ impl Transcript {
 
             if segment.text.trim().is_empty() {
                 issues.push(ValidationIssue {
-                    segment_index: segment.index,
+                    segment_position: position,
+                    cue_index: segment.index,
                     error: ValidationError::EmptyText,
                 });
             }
 
             if let Err(error) = segment.duration_ms() {
                 issues.push(ValidationIssue {
-                    segment_index: segment.index,
+                    segment_position: position,
+                    cue_index: segment.index,
                     error: ValidationError::Duration(error),
                 });
             }

@@ -36,6 +36,7 @@ fn reports_validation_issue_for_reversed_timing() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
     assert!(stdout.contains("1 validation issue"));
+    assert!(stdout.contains("segment position 0 (cue index 1):"));
 }
 
 #[test]

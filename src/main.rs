@@ -28,7 +28,12 @@ fn main() -> ExitCode {
     } else {
         println!("{} validation issue(s):", issues.len());
         for issue in &issues {
-            println!("  {issue:?}");
+            println!(
+                "  segment position {} (cue index {}): {:?}",
+                issue.segment_position(),
+                issue.cue_index(),
+                issue.error()
+            );
         }
     }
 
