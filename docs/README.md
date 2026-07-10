@@ -9,6 +9,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 
 ## Canonical Documents
 
+- [product/versioning.md](product/versioning.md): pre-1.0 version semantics, the version ladder, and per-version allowed claims.
 - [product/v0.1.md](product/v0.1.md): current v0.1 product scope and acceptance boundary.
 - [product/v0.1-execution-order.md](product/v0.1-execution-order.md): agreed near-term execution order toward a testable v0.1 closed loop.
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
