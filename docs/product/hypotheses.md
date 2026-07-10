@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Unvalidated market, user, and future-product hypotheses.
 Does not own: Current v0.1 scope, architecture commitments, implementation tasks, roadmap promises, or validated claims.
-Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
+Last reviewed against code: Track 1 local code loop exists. v0.1 is not established; real-material validation remains pending.
 
 # Product Hypotheses
 

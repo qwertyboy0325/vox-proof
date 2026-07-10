@@ -1,7 +1,7 @@
 Status: current
 Owns: Architecture principles and the current fixed conceptual processing shape.
 Does not own: Product acceptance criteria, field-level schemas, storage paths, implementation tasks, or future orchestration commitments.
-Last reviewed against code: Rust bootstrap exists; no end-to-end VoxProof pipeline behavior has been verified yet
+Last reviewed against code: Track 1 local code loop exists. v0.1 is not established; real-material validation remains pending.
 
 # Architecture Overview
 

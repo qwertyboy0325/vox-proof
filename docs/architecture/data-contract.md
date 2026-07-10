@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in the Rust core; a minimal single-detector assembly function composes the glossary path end-to-end into `Vec<ReviewCase>`; ranking, review status/decisions, persistence, and materialization are not yet implemented; no product-level end-to-end pipeline exists yet
+Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and minimal session decision-log rendering exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
 
 # Conceptual Data Contract
 
@@ -39,7 +39,7 @@ A single accepted correction does not automatically change the Language Pack. Pr
 
 ## v0.1 Review-Unit and Detection Lifecycle Contract
 
-This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of full end-to-end implementation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary `Evidence`, `CandidateAlternative`, the first glossary detector, and the 1:1 `ReviewCase` wrapper exist in code with unit test coverage; pipeline assembly, ranking, review status/decisions, persistence, and materialization do not.
+This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of product validation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary `Evidence`, `CandidateAlternative`, the first glossary detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and minimal session decision-log rendering exist in code with test coverage; durable persistence remains deferred.
 
 ### CandidateSpan
 
@@ -157,10 +157,10 @@ Detector output alone never constitutes an accepted edit.
 
 ### Out of Scope for This Contract Gate
 
-The following are intentionally not decided by this review-unit and detection lifecycle contract, and remain governed by the materialization decision gate in `docs/architecture/pending-data-contracts.md`:
+The following are intentionally not decided by this review-unit and detection lifecycle contract. Minimal v0.1 review-decision and reviewed-output semantics are governed by MD-002 and MD-003; durable persistence and future policy details remain deferred:
 
-- correction-decision application;
-- reviewed-output materialization;
+- persisted correction-decision records;
+- non-minimal reviewed-output materialization formats;
 - overlap and conflict resolution;
 - stale-source handling;
 - historical decision applicability after reruns;
