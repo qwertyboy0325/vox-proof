@@ -13,7 +13,7 @@ alwaysApply: true
 - Do not claim a command, test, benchmark, UI flow, model support, or runtime behavior exists unless it was actually verified.
 - Before reporting completion, run the narrowest relevant validation and state what could not be run.
 - Do not invent landed commits, pull requests, test results, or runtime facts.
-- VoxProof has a Rust bootstrap, but no end-to-end VoxProof pipeline behavior has been verified yet.
+- VoxProof has a tested local Track 1 code loop, but no real-material mechanism validity or product behavior has been established yet.
 - Default to bounded, verifiable VoxProof product slices. Do not artificially decompose coherent work into one-concept micro-exercises.
 - Treat ordinary Rust syntax and common engineering concerns as implementation details unless the user asks for instruction.
 - Slow down and explain carefully at Rust-specific semantic or architectural boundaries, including ownership, borrowing, aliasing, lifetimes, iterator consume/borrow/mutate semantics, trait or generic abstraction boundaries, async, `Send`, `Sync`, shared-state choices, and `unsafe`, FFI, allocation, or performance-sensitive boundaries.

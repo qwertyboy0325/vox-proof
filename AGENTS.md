@@ -30,6 +30,7 @@ Keep generated changes inspectable and bounded, but do not force a beginner tuto
 ## Canonical Topic Map
 
 - v0.1 scope: `docs/product/v0.1.md`
+- Current global execution goal and order: `docs/product/v0.1-execution-order.md`
 - Hypotheses: `docs/product/hypotheses.md`
 - Architecture: `docs/architecture/overview.md`
 - Conceptual data contracts: `docs/architecture/data-contract.md`

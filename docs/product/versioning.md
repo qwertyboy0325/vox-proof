@@ -28,6 +28,8 @@ Until then the version is in progress. An in-progress version grants no claims.
 
 Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, yet v0.1 remains unestablished because no real material has been measured.
 
+Engineering completion and evidence collection may proceed in parallel. A version does not require a separately completed error-distribution study before its bounded implementation work begins, but the implementation cannot establish the version until the required real-material evidence and measurable criteria are satisfied. "Build while measuring" changes execution order; it does not relax claim rules.
+
 ## Claim rules
 
 - A version may claim only what its validation question answered.
@@ -42,7 +44,7 @@ Versions are ordered by validation dependency, not by calendar. Skipping or reor
 
 Question: can VoxProof complete the pain-specific evidence-backed review loop on real material?
 
-Established when: the pain-point MVP loop (defined in `v0.1-execution-order.md`) runs end to end on real, self-owned or authorized material; detector performance is measured against human-confirmed ground truth from a diff study; the numeric acceptance criteria (to be decided before Track 2 validation) are satisfied; outputs conform to MD-003.
+Established when: the pain-point MVP loop (defined in `v0.1-execution-order.md`) runs end to end on real, self-owned or authorized material; detector performance is measured against human-confirmed ground truth from an instrumented diff study; the numeric acceptance criteria (to be decided before claiming v0.1 established) are satisfied; outputs conform to MD-003.
 
 Allowed claim: "the mechanism works on real material."
 

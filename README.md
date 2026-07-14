@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: stable transcript revision identity exists; no end-to-end VoxProof review flow has been verified yet
+Last reviewed against code: the Track 1 local review loop exists and is covered by unit and CLI tests; real-material mechanism validation remains pending
 
 # VoxProof
 
@@ -13,13 +13,17 @@ VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an e
 
 VoxProof is currently under active development.
 
-The current focus is the narrow text-first review wedge:
+The current focus is completing the narrow text-first pain-point MVP while making each real run produce local calibration and evaluation artifacts:
 
 - local-first SRT transcript inspection
 - source-preserving transcript representation
-- stable transcript revision identity
-- evidence-backed candidate review cases
+- usable session terms, glossary, and observed-error-form inputs
+- evidence-backed candidate review cases with provisional deterministic detectors
+- reviewed SRT, decision log, correction profile, and local run metrics
+- raw-ASR-versus-human-final comparison for iterative calibration
 - explicit Material Decisions before durable semantic changes
+
+Engineering completion and validation collection proceed in parallel. The first measured error distribution is expected to come from the first instrumented real-material run rather than block the remaining MVP work. This does not make synthetic tests or an engineering-complete prototype product-validation evidence.
 
 Recent work:
 
@@ -30,6 +34,10 @@ Recent work:
 - v0.1 scope, non-goals, and data-contract documentation
 - Material Decision governance
 - stable `TranscriptRevisionId` decision and implementation
+- human review decisions and append-only review ledger
+- deterministic reviewed SRT derivation
+- decision log rendering
+- minimal facilitated CLI review flow
 
 ## Current Implementation Status
 
@@ -43,13 +51,14 @@ Recent work:
 - [x] Initial glossary-based candidate detector
 - [x] Initial typed evidence model
 - [x] ReviewCase wrapper for detector-raised candidates
+- [x] Segment-position reporting cleanup
+- [x] Human review decision log
+- [x] CLI review flow
 - [ ] Private mixed zh-EN evaluation fixture
-- [ ] Segment-position reporting cleanup
+- [ ] Session-term / observed-form input
 - [ ] Matching semantics v0
 - [ ] Eval harness
-- [ ] Report artifact
-- [ ] Human review decision log
-- [ ] CLI review flow
+- [ ] Correction profile / session report artifact
 - [ ] Persistence
 
 ## What VoxProof Does

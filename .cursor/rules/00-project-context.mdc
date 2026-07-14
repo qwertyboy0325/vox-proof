@@ -13,6 +13,8 @@ alwaysApply: true
 
 - No transcript text may be silently rewritten.
 - Human decisions are canonical.
+- Current execution completes the bounded pain-point MVP while each real run produces local calibration artifacts; detailed order is owned by `docs/product/v0.1-execution-order.md`.
+- Engineering completion and evidence collection proceed in parallel, but no validation claim exists until the required real-material evidence is measured.
 - The canonical documents under `docs/` own their declared scope; defer to them for durable claims.
 - Hypotheses are unvalidated assumptions and must not be represented as product facts.
 
