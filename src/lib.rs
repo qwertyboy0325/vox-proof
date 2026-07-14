@@ -16,9 +16,10 @@ mod tests {
     use crate::anchor::AnchorError;
     use crate::candidate::{
         CandidateAlternative, CandidateSpan, DetectionError, DetectionKind, Evidence,
-        GlossaryEntry, GlossaryEvidence, detect_glossary_matches,
+        GlossaryAliasEvidence, ObservedErrorFormEvidence, SessionTermEntry,
+        detect_glossary_matches, detect_observed_error_form_matches,
     };
-    use crate::pipeline::run_glossary_review;
+    use crate::pipeline::run_term_review;
     use crate::review::{
         CorrectionDecision, ReviewCase, ReviewCaseStatus, ReviewLedger, ReviewLedgerError,
     };
@@ -558,11 +559,33 @@ mod tests {
         assert_eq!(transcript.resolve(&anchor), None);
     }
 
-    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
-        GlossaryEntry::new(
+    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> SessionTermEntry {
+        SessionTermEntry::new(
             canonical_term,
             aliases.iter().map(|alias| alias.to_string()).collect(),
+            Vec::new(),
         )
+    }
+
+    fn observed_error_entry(
+        canonical_term: &str,
+        observed_error_forms: &[&str],
+    ) -> SessionTermEntry {
+        SessionTermEntry::new(
+            canonical_term,
+            Vec::new(),
+            observed_error_forms
+                .iter()
+                .map(|form| form.to_string())
+                .collect(),
+        )
+    }
+
+    fn run_glossary_review(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> Result<Vec<ReviewCase>, DetectionError> {
+        run_term_review(transcript, entries)
     }
 
     #[test]
@@ -619,13 +642,14 @@ mod tests {
             .expect("glossary has no ambiguous aliases");
 
         match spans[0].evidence() {
-            Evidence::Glossary(GlossaryEvidence {
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
                 entry,
                 matched_form,
             }) => {
                 assert_eq!(entry.canonical_term, "Apache Kafka");
                 assert_eq!(matched_form, "Kafka");
             }
+            Evidence::ObservedErrorForm(_) => panic!("expected glossary-alias evidence"),
         }
     }
 
@@ -697,16 +721,20 @@ mod tests {
     }
 
     #[test]
-    fn detect_glossary_matches_skips_empty_alias() {
+    fn detect_glossary_matches_rejects_empty_alias() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nanything at all").expect("valid srt");
         let run = AnalysisRun::new(&transcript);
         let glossary = vec![glossary_entry("Empty Alias Entry", &[""])];
 
-        let spans = detect_glossary_matches(&run, &transcript, &glossary)
-            .expect("empty alias is skipped, not an error");
+        let result = detect_glossary_matches(&run, &transcript, &glossary);
 
-        assert!(spans.is_empty());
+        assert_eq!(
+            result,
+            Err(DetectionError::EmptyAlias {
+                canonical_term: "Empty Alias Entry".to_string(),
+            })
+        );
     }
 
     #[test]
@@ -723,8 +751,8 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(DetectionError::DuplicateGlossaryAlias {
-                alias: "Kafka".to_string(),
+            Err(DetectionError::DuplicateSourceForm {
+                source_form: "Kafka".to_string(),
             })
         );
     }
@@ -745,6 +773,149 @@ mod tests {
             Err(DetectionError::RevisionMismatch {
                 run_revision: other.revision_id(),
                 transcript_revision: transcript.revision_id(),
+            })
+        );
+    }
+
+    #[test]
+    fn observed_error_form_match_has_distinct_typed_evidence_and_identity() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let entries = vec![observed_error_entry("PostgreSQL", &["Postgre SQL"])];
+
+        let spans = detect_observed_error_form_matches(&run, &transcript, &entries)
+            .expect("valid observed error configuration");
+        let alias_spans = detect_glossary_matches(
+            &run,
+            &transcript,
+            &[glossary_entry("PostgreSQL", &["Postgre SQL"])],
+        )
+        .expect("valid alias configuration");
+
+        assert_eq!(spans.len(), 1);
+        assert_eq!(spans[0].kind(), DetectionKind::GlossaryAliasMatch);
+        assert_eq!(
+            spans[0].provenance().detector_id(),
+            "observed-error-form-match"
+        );
+        assert_eq!(spans[0].key().kind(), DetectionKind::GlossaryAliasMatch);
+        assert_eq!(spans[0].anchor(), alias_spans[0].anchor());
+        assert_ne!(spans[0].key(), alias_spans[0].key());
+        assert_eq!(
+            spans[0].alternatives(),
+            &[CandidateAlternative::new("PostgreSQL")]
+        );
+        match spans[0].evidence() {
+            Evidence::ObservedErrorForm(ObservedErrorFormEvidence {
+                entry,
+                matched_form,
+            }) => {
+                assert_eq!(entry.canonical_term, "PostgreSQL");
+                assert_eq!(matched_form, "Postgre SQL");
+            }
+            Evidence::GlossaryAlias(_) => panic!("expected observed-error-form evidence"),
+        }
+    }
+
+    #[test]
+    fn observed_error_matching_is_exact_case_sensitive_and_ignores_canonical_term() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre sql and PostgreSQL")
+            .expect("valid srt");
+        let run = AnalysisRun::new(&transcript);
+        let entries = vec![observed_error_entry("PostgreSQL", &["Postgre SQL"])];
+
+        let spans = detect_observed_error_form_matches(&run, &transcript, &entries)
+            .expect("valid observed error configuration");
+
+        assert!(spans.is_empty());
+    }
+
+    #[test]
+    fn observed_error_detector_rejects_mismatched_analysis_run_revision() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
+        let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nOther").expect("valid srt");
+        let run = AnalysisRun::new(&other);
+
+        let result = detect_observed_error_form_matches(
+            &run,
+            &transcript,
+            &[observed_error_entry("PostgreSQL", &["Postgre SQL"])],
+        );
+
+        assert_eq!(
+            result,
+            Err(DetectionError::RevisionMismatch {
+                run_revision: other.revision_id(),
+                transcript_revision: transcript.revision_id(),
+            })
+        );
+    }
+
+    #[test]
+    fn combined_term_pipeline_returns_both_detectors_in_source_order() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL then Postgres")
+            .expect("valid srt");
+        let entries = vec![SessionTermEntry::new(
+            "PostgreSQL",
+            vec!["Postgres".to_string()],
+            vec!["Postgre SQL".to_string()],
+        )];
+
+        let review_cases =
+            run_term_review(&transcript, &entries).expect("valid session-term configuration");
+        let repeated =
+            run_term_review(&transcript, &entries).expect("valid session-term configuration");
+
+        assert_eq!(review_cases.len(), 2);
+        assert_eq!(
+            review_cases
+                .iter()
+                .map(|case| case.candidate_span().key())
+                .collect::<Vec<_>>(),
+            repeated
+                .iter()
+                .map(|case| case.candidate_span().key())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            review_cases[0].candidate_span().kind(),
+            DetectionKind::GlossaryAliasMatch
+        );
+        assert_eq!(
+            review_cases[1].candidate_span().kind(),
+            DetectionKind::GlossaryAliasMatch
+        );
+        assert_eq!(
+            review_cases[0].candidate_span().provenance().detector_id(),
+            "observed-error-form-match"
+        );
+        assert_eq!(
+            review_cases[1].candidate_span().provenance().detector_id(),
+            "glossary-alias-match"
+        );
+        assert_ne!(
+            review_cases[0].candidate_span().key(),
+            review_cases[1].candidate_span().key()
+        );
+    }
+
+    #[test]
+    fn combined_term_pipeline_rejects_cross_kind_duplicate_source_form() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafka").expect("valid srt");
+        let entries = vec![SessionTermEntry::new(
+            "Apache Kafka",
+            vec!["Kafka".to_string()],
+            vec!["Kafka".to_string()],
+        )];
+
+        let result = run_term_review(&transcript, &entries);
+
+        assert_eq!(
+            result,
+            Err(DetectionError::DuplicateSourceForm {
+                source_form: "Kafka".to_string(),
             })
         );
     }
@@ -1139,8 +1310,8 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(DetectionError::DuplicateGlossaryAlias {
-                alias: "Kafka".to_string(),
+            Err(DetectionError::DuplicateSourceForm {
+                source_form: "Kafka".to_string(),
             })
         );
     }

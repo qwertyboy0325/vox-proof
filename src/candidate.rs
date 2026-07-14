@@ -73,29 +73,42 @@ impl CandidateKey {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GlossaryEntry {
+pub struct SessionTermEntry {
     pub canonical_term: String,
     pub aliases: Vec<String>,
+    pub observed_error_forms: Vec<String>,
 }
 
-impl GlossaryEntry {
-    pub fn new(canonical_term: impl Into<String>, aliases: Vec<String>) -> Self {
+impl SessionTermEntry {
+    pub fn new(
+        canonical_term: impl Into<String>,
+        aliases: Vec<String>,
+        observed_error_forms: Vec<String>,
+    ) -> Self {
         Self {
             canonical_term: canonical_term.into(),
             aliases,
+            observed_error_forms,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GlossaryEvidence {
-    pub entry: GlossaryEntry,
+pub struct GlossaryAliasEvidence {
+    pub entry: SessionTermEntry,
+    pub matched_form: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObservedErrorFormEvidence {
+    pub entry: SessionTermEntry,
     pub matched_form: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Evidence {
-    Glossary(GlossaryEvidence),
+    GlossaryAlias(GlossaryAliasEvidence),
+    ObservedErrorForm(ObservedErrorFormEvidence),
 }
 
 /// A non-binding suggested replacement. It is not an edit decision and must
@@ -182,13 +195,24 @@ pub enum DetectionError {
         run_revision: TranscriptRevisionId,
         transcript_revision: TranscriptRevisionId,
     },
-    DuplicateGlossaryAlias {
-        alias: String,
+    DuplicateSourceForm {
+        source_form: String,
+    },
+    DuplicateCanonicalTerm {
+        canonical_term: String,
+    },
+    EmptyAlias {
+        canonical_term: String,
+    },
+    EmptyObservedErrorForm {
+        canonical_term: String,
     },
 }
 
 const GLOSSARY_DETECTOR_ID: &str = "glossary-alias-match";
 const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
+const OBSERVED_ERROR_FORM_DETECTOR_ID: &str = "observed-error-form-match";
+const OBSERVED_ERROR_FORM_DETECTOR_VERSION: &str = "0.1.0";
 
 /// Finds exact, case-sensitive occurrences of a matched non-canonical
 /// glossary form in the transcript. Matching is byte-exact on the parsed
@@ -212,29 +236,16 @@ const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
 pub fn detect_glossary_matches(
     run: &AnalysisRun,
     transcript: &Transcript,
-    glossary: &[GlossaryEntry],
+    entries: &[SessionTermEntry],
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
-    let run_revision = run.snapshot().source_revision();
-    let transcript_revision = transcript.revision_id();
-    if run_revision != transcript_revision {
-        return Err(DetectionError::RevisionMismatch {
-            run_revision,
-            transcript_revision,
-        });
-    }
-
-    reject_ambiguous_aliases(glossary)?;
+    validate_detection_inputs(run, transcript, entries)?;
 
     let provenance = DetectorProvenance::new(GLOSSARY_DETECTOR_ID, GLOSSARY_DETECTOR_VERSION);
     let mut spans = Vec::new();
 
     for (position, segment) in transcript.segments().iter().enumerate() {
-        for entry in glossary {
+        for entry in entries {
             for alias in &entry.aliases {
-                if alias.is_empty() {
-                    continue;
-                }
-
                 for (start, matched) in segment.text.match_indices(alias.as_str()) {
                     if matched == entry.canonical_term {
                         continue;
@@ -245,7 +256,7 @@ pub fn detect_glossary_matches(
                         .anchor(position, start, end)
                         .expect("a matched substring is always a valid char-boundary anchor");
 
-                    let evidence = Evidence::Glossary(GlossaryEvidence {
+                    let evidence = Evidence::GlossaryAlias(GlossaryAliasEvidence {
                         entry: entry.clone(),
                         matched_form: matched.to_string(),
                     });
@@ -271,18 +282,99 @@ pub fn detect_glossary_matches(
     Ok(spans)
 }
 
-fn reject_ambiguous_aliases(glossary: &[GlossaryEntry]) -> Result<(), DetectionError> {
-    let mut seen_aliases = HashSet::new();
+/// Finds exact, case-sensitive occurrences of explicitly supplied observed
+/// ASR error forms. The evidence reports that the session input classified
+/// the matched form as observed; it does not make the form ground truth or
+/// authorize replacement without a human decision.
+pub fn detect_observed_error_form_matches(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    validate_detection_inputs(run, transcript, entries)?;
 
-    for entry in glossary {
+    let provenance = DetectorProvenance::new(
+        OBSERVED_ERROR_FORM_DETECTOR_ID,
+        OBSERVED_ERROR_FORM_DETECTOR_VERSION,
+    );
+    let mut spans = Vec::new();
+
+    for (position, segment) in transcript.segments().iter().enumerate() {
+        for entry in entries {
+            for observed_form in &entry.observed_error_forms {
+                for (start, matched) in segment.text.match_indices(observed_form.as_str()) {
+                    if matched == entry.canonical_term {
+                        continue;
+                    }
+
+                    let end = start + matched.len();
+                    let anchor = transcript
+                        .anchor(position, start, end)
+                        .expect("a matched substring is always a valid char-boundary anchor");
+                    let evidence = Evidence::ObservedErrorForm(ObservedErrorFormEvidence {
+                        entry: entry.clone(),
+                        matched_form: matched.to_string(),
+                    });
+                    let alternatives =
+                        vec![CandidateAlternative::new(entry.canonical_term.clone())];
+
+                    spans.push(CandidateSpan::new(
+                        DetectionKind::GlossaryAliasMatch,
+                        provenance.clone(),
+                        anchor,
+                        evidence,
+                        alternatives,
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(spans)
+}
+
+fn validate_detection_inputs(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<(), DetectionError> {
+    let run_revision = run.snapshot().source_revision();
+    let transcript_revision = transcript.revision_id();
+    if run_revision != transcript_revision {
+        return Err(DetectionError::RevisionMismatch {
+            run_revision,
+            transcript_revision,
+        });
+    }
+
+    let mut seen_canonical_terms = HashSet::new();
+    let mut seen_source_forms = HashSet::new();
+    for entry in entries {
+        if !seen_canonical_terms.insert(entry.canonical_term.as_str()) {
+            return Err(DetectionError::DuplicateCanonicalTerm {
+                canonical_term: entry.canonical_term.clone(),
+            });
+        }
+
         for alias in &entry.aliases {
             if alias.is_empty() {
-                continue;
+                return Err(DetectionError::EmptyAlias {
+                    canonical_term: entry.canonical_term.clone(),
+                });
             }
+        }
+        for observed_form in &entry.observed_error_forms {
+            if observed_form.is_empty() {
+                return Err(DetectionError::EmptyObservedErrorForm {
+                    canonical_term: entry.canonical_term.clone(),
+                });
+            }
+        }
 
-            if !seen_aliases.insert(alias.as_str()) {
-                return Err(DetectionError::DuplicateGlossaryAlias {
-                    alias: alias.clone(),
+        for source_form in entry.aliases.iter().chain(&entry.observed_error_forms) {
+            if !seen_source_forms.insert(source_form.as_str()) {
+                return Err(DetectionError::DuplicateSourceForm {
+                    source_form: source_form.clone(),
                 });
             }
         }

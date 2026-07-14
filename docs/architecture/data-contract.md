@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary `Evidence`, non-binding `CandidateAlternative`, the first glossary detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and minimal session decision-log rendering exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary and observed-error-form `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
 
 # Conceptual Data Contract
 
@@ -39,7 +39,7 @@ A single accepted correction does not automatically change the Language Pack. Pr
 
 ## v0.1 Review-Unit and Detection Lifecycle Contract
 
-This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of product validation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary `Evidence`, `CandidateAlternative`, the first glossary detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and minimal session decision-log rendering exist in code with test coverage; durable persistence remains deferred.
+This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of product validation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary and observed-error-form `Evidence`, `CandidateAlternative`, exact alias and observed-error-form detectors, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist in code with test coverage; durable persistence remains deferred.
 
 ### CandidateSpan
 
@@ -135,7 +135,7 @@ A `CandidateSpan` must have structured `Evidence`. `Evidence` answers why a find
 - `CandidateAlternative`, which may suggest a possible replacement;
 - an accepted edit, which represents an approved change.
 
-`Evidence` must not degrade into a free-form `reason: String`. The first glossary detector must produce a typed glossary evidence shape that can identify at least the glossary entry, the matched source form, and the canonical glossary term. Detector-specific evidence variants are added alongside the corresponding detector implementation rather than designed exhaustively in advance.
+`Evidence` must not degrade into a free-form `reason: String`. The exact alias detector produces typed glossary-alias evidence; the observed-error-form detector produces a distinct typed evidence variant. Each identifies the matched source form and canonical term. Both use `DetectionKind::GlossaryAliasMatch`, whose accepted meaning includes aliases and other known non-canonical forms; separate detector provenance and typed evidence preserve the distinction without encoding input origin as a detection category. The observed-error classification states only how the user supplied the session input: it is not machine-generated ground truth, automatic learning, or replacement authority. Detector-specific evidence variants are added alongside the corresponding detector implementation rather than designed exhaustively in advance.
 
 ### CandidateAlternative
 

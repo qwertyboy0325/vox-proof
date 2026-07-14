@@ -50,22 +50,23 @@ fn render_decision(decision: CorrectionDecision, output: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::candidate::GlossaryEntry;
-    use crate::pipeline::run_glossary_review;
+    use crate::candidate::SessionTermEntry;
+    use crate::pipeline::run_term_review;
     use crate::review::ReviewCase;
     use crate::reviewed_output::derive_reviewed_srt;
     use crate::srt::parse_srt;
     use crate::transcript::Transcript;
 
-    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
-        GlossaryEntry::new(
+    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> SessionTermEntry {
+        SessionTermEntry::new(
             canonical_term,
             aliases.iter().map(|alias| alias.to_string()).collect(),
+            Vec::new(),
         )
     }
 
     fn kafka_case(transcript: &Transcript) -> Vec<ReviewCase> {
-        run_glossary_review(transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
+        run_term_review(transcript, &[glossary_entry("Apache Kafka", &["Kafka"])])
             .expect("glossary has no ambiguous aliases")
     }
 

@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
 Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
-Last reviewed against code: v0.1 Track 1 code closed loop, provisional session-scoped term input, and human-readable session summary exist; real-material/product validation remains pending.
+Last reviewed against code: v0.1 Track 1 code closed loop, prefixed session-scoped term input with distinct alias and observed-error-form evidence paths, and human-readable session summary exist; real-material/product validation remains pending.
 
 # Pending Data Contract Decisions
 
@@ -34,7 +34,7 @@ The v0.1 Track 1 code closed loop now exists as a local facilitated CLI path:
 vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>
 ```
 
-The current loop reads an existing SRT file and a local session-term file, parses and validates them, runs exact glossary matching, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, derives a human-readable session summary from completed run facts, and writes all three output files.
+The current loop reads an existing SRT file and a local session-term file, parses and validates them, runs exact alias and observed-error-form matching, presents the resulting ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, derives a human-readable session summary from completed run facts, and writes all three output files.
 
 This does not promote a persistence architecture.
 
@@ -47,10 +47,10 @@ The session summary contains session-scoped run identity, candidate/provenance c
 The current CLI term input is a provisional, session-scoped UTF-8 line format:
 
 ```text
-canonical term | alias 1 | alias 2 | ...
+canonical term | alias:alternate form | error:observed ASR form | ...
 ```
 
-Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. It is not a Language Pack or durable persistence format. Product glossary configuration and Language Pack schema remain deferred.
+Every source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Language Pack or durable persistence format. Product glossary configuration and Language Pack schema remain deferred.
 
 ## 2. Current Product Invariants
 
@@ -85,7 +85,7 @@ SRT input
 
 This remains a modular monolith direction, not a plugin platform.
 
-Note: the minimal v0.1 code loop now implements this shape only for the detector-raised glossary path and `AcceptAlternative` materialization authorized by MD-003. The broader conceptual model in this document remains exploratory.
+Note: the minimal v0.1 code loop now implements this shape only for the detector-raised exact alias and observed-error-form paths and `AcceptAlternative` materialization authorized by MD-003. The broader conceptual model in this document remains exploratory.
 
 ## 4. Proposed Domain Separation
 

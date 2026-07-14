@@ -330,10 +330,10 @@ fn format_duration(total_ms: u128) -> String {
 mod tests {
     use super::*;
     use crate::candidate::{
-        CandidateAlternative, CandidateSpan, DetectorProvenance, Evidence, GlossaryEntry,
-        GlossaryEvidence,
+        CandidateAlternative, CandidateSpan, DetectorProvenance, Evidence, GlossaryAliasEvidence,
+        SessionTermEntry,
     };
-    use crate::pipeline::run_glossary_review;
+    use crate::pipeline::run_term_review;
     use crate::review::{ReviewCase, ReviewCaseId};
     use crate::srt::parse_srt;
 
@@ -359,11 +359,19 @@ mod tests {
         }
     }
 
-    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
-        GlossaryEntry::new(
+    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> SessionTermEntry {
+        SessionTermEntry::new(
             canonical_term,
             aliases.iter().map(|alias| alias.to_string()).collect(),
+            Vec::new(),
         )
+    }
+
+    fn run_glossary_review(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> Result<Vec<ReviewCase>, crate::candidate::DetectionError> {
+        run_term_review(transcript, entries)
     }
 
     fn collect<'a>(
@@ -548,7 +556,7 @@ mod tests {
                 DetectionKind::GlossaryAliasMatch,
                 DetectorProvenance::new(detector_id, detector_version),
                 anchor,
-                Evidence::Glossary(GlossaryEvidence {
+                Evidence::GlossaryAlias(GlossaryAliasEvidence {
                     entry: entry.clone(),
                     matched_form: "A".to_string(),
                 }),

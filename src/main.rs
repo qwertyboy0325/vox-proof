@@ -3,7 +3,7 @@ use std::process::ExitCode;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use vox_proof::candidate::Evidence;
-use vox_proof::pipeline::run_glossary_review;
+use vox_proof::pipeline::run_term_review;
 use vox_proof::review::{CorrectionDecision, ReviewCase, ReviewLedger};
 use vox_proof::reviewed_output::derive_reviewed_srt;
 use vox_proof::session_log::render_decision_log;
@@ -82,7 +82,8 @@ fn run_review_command<R: BufRead, W: Write>(
         .map_err(|error| format!("failed to read input SRT: {error}"))?;
     let session_terms_text = std::fs::read_to_string(session_terms_path)
         .map_err(|error| format!("failed to read session terms: {error}"))?;
-    let glossary = parse_session_terms(&session_terms_text).map_err(|error| error.to_string())?;
+    let session_terms =
+        parse_session_terms(&session_terms_text).map_err(|error| error.to_string())?;
     let transcript =
         parse_srt(&input_srt).map_err(|error| format!("failed to parse SRT: {error:?}"))?;
 
@@ -90,12 +91,12 @@ fn run_review_command<R: BufRead, W: Write>(
     writeln!(
         output,
         "loaded {} session term entries from {session_terms_path}",
-        glossary.len()
+        session_terms.len()
     )
     .map_err(|error| error.to_string())?;
 
-    let review_cases = run_glossary_review(&transcript, &glossary)
-        .map_err(|error| format!("failed to run glossary review: {error:?}"))?;
+    let review_cases = run_term_review(&transcript, &session_terms)
+        .map_err(|error| format!("failed to run session-term review: {error:?}"))?;
     let ledger = if review_cases.is_empty() {
         writeln!(output, "no review cases found").map_err(|error| error.to_string())?;
         ReviewLedger::new()
@@ -111,7 +112,7 @@ fn run_review_command<R: BufRead, W: Write>(
         transcript: &transcript,
         review_cases: &review_cases,
         ledger: &ledger,
-        session_term_entries: glossary.len(),
+        session_term_entries: session_terms.len(),
         inputs: SessionInputPaths {
             input_srt: input_path.to_string(),
             session_terms: session_terms_path.to_string(),
@@ -259,10 +260,17 @@ fn print_review_case<W: Write>(
     writeln!(output, "matched_text: {matched_text}")?;
 
     match candidate.evidence() {
-        Evidence::Glossary(evidence) => {
+        Evidence::GlossaryAlias(evidence) => {
             writeln!(
                 output,
                 "evidence: glossary alias '{}' for '{}'",
+                evidence.matched_form, evidence.entry.canonical_term
+            )?;
+        }
+        Evidence::ObservedErrorForm(evidence) => {
+            writeln!(
+                output,
+                "evidence: observed error form '{}' for '{}'",
                 evidence.matched_form, evidence.entry.canonical_term
             )?;
         }

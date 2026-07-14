@@ -1,22 +1,45 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::candidate::GlossaryEntry;
+use crate::candidate::SessionTermEntry;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionTermsError {
     EmptyCanonicalTerm {
         line: usize,
     },
-    MissingAlias {
+    MissingSourceForm {
         line: usize,
+    },
+    UnknownPrefix {
+        line: usize,
+        field: usize,
+        prefix: String,
+    },
+    UnprefixedSourceForm {
+        line: usize,
+        field: usize,
     },
     EmptyAlias {
         line: usize,
         field: usize,
     },
+    EmptyObservedErrorForm {
+        line: usize,
+        field: usize,
+    },
     DuplicateAlias {
         alias: String,
+        first_line: usize,
+        duplicate_line: usize,
+    },
+    DuplicateObservedErrorForm {
+        observed_error_form: String,
+        first_line: usize,
+        duplicate_line: usize,
+    },
+    ConflictingSourceFormKinds {
+        source_form: String,
         first_line: usize,
         duplicate_line: usize,
     },
@@ -36,13 +59,29 @@ impl fmt::Display for SessionTermsError {
                     "invalid session terms at line {line}: canonical term is empty"
                 )
             }
-            Self::MissingAlias { line } => write!(
+            Self::MissingSourceForm { line } => write!(
                 formatter,
-                "invalid session terms at line {line}: at least one alias is required"
+                "invalid session terms at line {line}: at least one prefixed alias or observed error form is required"
+            ),
+            Self::UnknownPrefix {
+                line,
+                field,
+                prefix,
+            } => write!(
+                formatter,
+                "invalid session terms at line {line}: field {field} has unsupported prefix '{prefix}'"
+            ),
+            Self::UnprefixedSourceForm { line, field } => write!(
+                formatter,
+                "invalid session terms at line {line}: field {field} must use alias: or error:"
             ),
             Self::EmptyAlias { line, field } => write!(
                 formatter,
                 "invalid session terms at line {line}: alias field {field} is empty"
+            ),
+            Self::EmptyObservedErrorForm { line, field } => write!(
+                formatter,
+                "invalid session terms at line {line}: observed error form field {field} is empty"
             ),
             Self::DuplicateAlias {
                 alias,
@@ -51,6 +90,22 @@ impl fmt::Display for SessionTermsError {
             } => write!(
                 formatter,
                 "invalid session terms: duplicate alias '{alias}' appears on lines {first_line} and {duplicate_line}"
+            ),
+            Self::DuplicateObservedErrorForm {
+                observed_error_form,
+                first_line,
+                duplicate_line,
+            } => write!(
+                formatter,
+                "invalid session terms: duplicate observed error form '{observed_error_form}' appears on lines {first_line} and {duplicate_line}"
+            ),
+            Self::ConflictingSourceFormKinds {
+                source_form,
+                first_line,
+                duplicate_line,
+            } => write!(
+                formatter,
+                "invalid session terms: source form '{source_form}' is both an alias and observed error form on lines {first_line} and {duplicate_line}"
             ),
             Self::DuplicateCanonicalTerm {
                 canonical_term,
@@ -68,12 +123,13 @@ impl std::error::Error for SessionTermsError {}
 
 /// Parses provisional, session-scoped term input.
 ///
-/// Each non-comment line is `canonical term | alias 1 | alias 2 | ...`.
+/// Each non-comment line is
+/// `canonical term | alias:alternate form | error:observed ASR form | ...`.
 /// The ASCII pipe is always a delimiter; quoting and escaping are unsupported.
-pub fn parse_session_terms(input: &str) -> Result<Vec<GlossaryEntry>, SessionTermsError> {
+pub fn parse_session_terms(input: &str) -> Result<Vec<SessionTermEntry>, SessionTermsError> {
     let mut entries = Vec::new();
     let mut canonical_lines = HashMap::<String, usize>::new();
-    let mut alias_lines = HashMap::<String, usize>::new();
+    let mut source_form_lines = HashMap::<String, (SourceFormKind, usize)>::new();
 
     for (line_index, raw_line) in input.lines().enumerate() {
         let line = line_index + 1;
@@ -88,7 +144,7 @@ pub fn parse_session_terms(input: &str) -> Result<Vec<GlossaryEntry>, SessionTer
             return Err(SessionTermsError::EmptyCanonicalTerm { line });
         }
         if fields.len() == 1 {
-            return Err(SessionTermsError::MissingAlias { line });
+            return Err(SessionTermsError::MissingSourceForm { line });
         }
 
         if let Some(first_line) = canonical_lines.get(canonical_term) {
@@ -99,30 +155,91 @@ pub fn parse_session_terms(input: &str) -> Result<Vec<GlossaryEntry>, SessionTer
             });
         }
 
-        let mut aliases = Vec::with_capacity(fields.len() - 1);
-        for (field_index, alias) in fields[1..].iter().enumerate() {
-            if alias.is_empty() {
-                return Err(SessionTermsError::EmptyAlias {
-                    line,
-                    field: field_index + 2,
-                });
+        let mut aliases = Vec::new();
+        let mut observed_error_forms = Vec::new();
+        for (field_index, field) in fields[1..].iter().enumerate() {
+            let field_number = field_index + 2;
+            let (kind, value) = parse_source_form_field(field, line, field_number)?;
+
+            if let Some((first_kind, first_line)) = source_form_lines.get(value) {
+                let error = match (first_kind, kind) {
+                    (SourceFormKind::Alias, SourceFormKind::Alias) => {
+                        SessionTermsError::DuplicateAlias {
+                            alias: value.to_string(),
+                            first_line: *first_line,
+                            duplicate_line: line,
+                        }
+                    }
+                    (SourceFormKind::ObservedError, SourceFormKind::ObservedError) => {
+                        SessionTermsError::DuplicateObservedErrorForm {
+                            observed_error_form: value.to_string(),
+                            first_line: *first_line,
+                            duplicate_line: line,
+                        }
+                    }
+                    _ => SessionTermsError::ConflictingSourceFormKinds {
+                        source_form: value.to_string(),
+                        first_line: *first_line,
+                        duplicate_line: line,
+                    },
+                };
+                return Err(error);
             }
-            if let Some(first_line) = alias_lines.get(*alias) {
-                return Err(SessionTermsError::DuplicateAlias {
-                    alias: (*alias).to_string(),
-                    first_line: *first_line,
-                    duplicate_line: line,
-                });
+
+            match kind {
+                SourceFormKind::Alias => aliases.push(value.to_string()),
+                SourceFormKind::ObservedError => observed_error_forms.push(value.to_string()),
             }
-            aliases.push((*alias).to_string());
-            alias_lines.insert((*alias).to_string(), line);
+            source_form_lines.insert(value.to_string(), (kind, line));
         }
 
         canonical_lines.insert(canonical_term.to_string(), line);
-        entries.push(GlossaryEntry::new(canonical_term, aliases));
+        entries.push(SessionTermEntry::new(
+            canonical_term,
+            aliases,
+            observed_error_forms,
+        ));
     }
 
     Ok(entries)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SourceFormKind {
+    Alias,
+    ObservedError,
+}
+
+fn parse_source_form_field(
+    field: &str,
+    line: usize,
+    field_number: usize,
+) -> Result<(SourceFormKind, &str), SessionTermsError> {
+    let Some((prefix, raw_value)) = field.split_once(':') else {
+        return Err(SessionTermsError::UnprefixedSourceForm {
+            line,
+            field: field_number,
+        });
+    };
+    let value = raw_value.trim();
+
+    match prefix.trim() {
+        "alias" if value.is_empty() => Err(SessionTermsError::EmptyAlias {
+            line,
+            field: field_number,
+        }),
+        "alias" => Ok((SourceFormKind::Alias, value)),
+        "error" if value.is_empty() => Err(SessionTermsError::EmptyObservedErrorForm {
+            line,
+            field: field_number,
+        }),
+        "error" => Ok((SourceFormKind::ObservedError, value)),
+        unsupported => Err(SessionTermsError::UnknownPrefix {
+            line,
+            field: field_number,
+            prefix: unsupported.to_string(),
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -130,35 +247,49 @@ mod tests {
     use super::{SessionTermsError, parse_session_terms};
 
     #[test]
-    fn parses_one_valid_entry() {
-        let entries = parse_session_terms("Apache Kafka | Kafka").expect("valid session terms");
+    fn parses_valid_alias_only_entry() {
+        let entries =
+            parse_session_terms("Apache Kafka | alias:Kafka").expect("valid session terms");
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].canonical_term, "Apache Kafka");
         assert_eq!(entries[0].aliases, ["Kafka"]);
+        assert!(entries[0].observed_error_forms.is_empty());
     }
 
     #[test]
-    fn parses_multiple_aliases() {
+    fn parses_valid_observed_error_only_entry() {
         let entries =
-            parse_session_terms("Apache Kafka | Kafka | 卡夫卡").expect("valid session terms");
+            parse_session_terms("Apache Kafka | error:阿帕契卡夫卡").expect("valid session terms");
 
-        assert_eq!(entries[0].aliases, ["Kafka", "卡夫卡"]);
+        assert!(entries[0].aliases.is_empty());
+        assert_eq!(entries[0].observed_error_forms, ["阿帕契卡夫卡"]);
+    }
+
+    #[test]
+    fn parses_mixed_alias_and_observed_error_entry() {
+        let entries = parse_session_terms("SHIBUYA SKY | alias:Shibuya Sky | error:澀谷 Sky")
+            .expect("valid session terms");
+
+        assert_eq!(entries[0].aliases, ["Shibuya Sky"]);
+        assert_eq!(entries[0].observed_error_forms, ["澀谷 Sky"]);
     }
 
     #[test]
     fn trims_surrounding_whitespace() {
         let entries =
-            parse_session_terms("  PostgreSQL  |  Postgres  | Postgre SQL \t").expect("valid");
+            parse_session_terms("  PostgreSQL  |  alias:  Postgres  | error:  Postgre SQL \t")
+                .expect("valid");
 
         assert_eq!(entries[0].canonical_term, "PostgreSQL");
-        assert_eq!(entries[0].aliases, ["Postgres", "Postgre SQL"]);
+        assert_eq!(entries[0].aliases, ["Postgres"]);
+        assert_eq!(entries[0].observed_error_forms, ["Postgre SQL"]);
     }
 
     #[test]
     fn ignores_blank_and_comment_lines() {
         let entries = parse_session_terms(
-            "\n  # session terms\nApache Kafka | Kafka\n\t\n  # another comment\n",
+            "\n  # session terms\nApache Kafka | alias:Kafka\n\t\n  # another comment\n",
         )
         .expect("valid session terms");
 
@@ -174,25 +305,53 @@ mod tests {
     }
 
     #[test]
-    fn rejects_entry_with_no_aliases() {
+    fn rejects_entry_with_no_source_forms() {
         assert_eq!(
             parse_session_terms("Apache Kafka"),
-            Err(SessionTermsError::MissingAlias { line: 1 })
+            Err(SessionTermsError::MissingSourceForm { line: 1 })
         );
     }
 
     #[test]
-    fn rejects_empty_alias_fields() {
+    fn rejects_unprefixed_source_form() {
         assert_eq!(
-            parse_session_terms("Apache Kafka | Kafka | "),
-            Err(SessionTermsError::EmptyAlias { line: 1, field: 3 })
+            parse_session_terms("Apache Kafka | Kafka"),
+            Err(SessionTermsError::UnprefixedSourceForm { line: 1, field: 2 })
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_prefix() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | typo:Kafka"),
+            Err(SessionTermsError::UnknownPrefix {
+                line: 1,
+                field: 2,
+                prefix: "typo".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_empty_alias_value() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | alias: "),
+            Err(SessionTermsError::EmptyAlias { line: 1, field: 2 })
+        );
+    }
+
+    #[test]
+    fn rejects_empty_observed_error_value() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | error: "),
+            Err(SessionTermsError::EmptyObservedErrorForm { line: 1, field: 2 })
         );
     }
 
     #[test]
     fn rejects_duplicate_aliases_within_one_entry() {
         assert_eq!(
-            parse_session_terms("Apache Kafka | Kafka | Kafka"),
+            parse_session_terms("Apache Kafka | alias:Kafka | alias:Kafka"),
             Err(SessionTermsError::DuplicateAlias {
                 alias: "Kafka".to_string(),
                 first_line: 1,
@@ -204,7 +363,43 @@ mod tests {
     #[test]
     fn rejects_duplicate_aliases_across_entries() {
         assert_eq!(
-            parse_session_terms("Apache Kafka | Kafka\nAuthor Kafka | Kafka"),
+            parse_session_terms("Apache Kafka | alias:Kafka\nAuthor Kafka | alias:Kafka",),
+            Err(SessionTermsError::DuplicateAlias {
+                alias: "Kafka".to_string(),
+                first_line: 1,
+                duplicate_line: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_duplicate_observed_error_forms() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | error:卡夫卡\nAuthor Kafka | error:卡夫卡",),
+            Err(SessionTermsError::DuplicateObservedErrorForm {
+                observed_error_form: "卡夫卡".to_string(),
+                first_line: 1,
+                duplicate_line: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_same_form_as_alias_and_observed_error() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | alias:Kafka\nOther | error:Kafka",),
+            Err(SessionTermsError::ConflictingSourceFormKinds {
+                source_form: "Kafka".to_string(),
+                first_line: 1,
+                duplicate_line: 2,
+            })
+        );
+    }
+
+    #[test]
+    fn rejects_same_source_form_mapping_to_different_canonical_terms() {
+        assert_eq!(
+            parse_session_terms("Apache Kafka | alias:Kafka\nAuthor Kafka | alias:Kafka",),
             Err(SessionTermsError::DuplicateAlias {
                 alias: "Kafka".to_string(),
                 first_line: 1,
@@ -216,7 +411,7 @@ mod tests {
     #[test]
     fn rejects_duplicate_canonical_terms() {
         assert_eq!(
-            parse_session_terms("PostgreSQL | Postgres\nPostgreSQL | Postgre SQL"),
+            parse_session_terms("PostgreSQL | alias:Postgres\nPostgreSQL | error:Postgre SQL",),
             Err(SessionTermsError::DuplicateCanonicalTerm {
                 canonical_term: "PostgreSQL".to_string(),
                 first_line: 1,
@@ -228,12 +423,13 @@ mod tests {
     #[test]
     fn reports_physical_source_line_numbers() {
         let error =
-            parse_session_terms("# comment\n\nApache Kafka | Kafka\nOther | Kafka").unwrap_err();
+            parse_session_terms("# comment\n\nApache Kafka | alias:Kafka\nOther | error:Kafka")
+                .unwrap_err();
 
         assert_eq!(
             error,
-            SessionTermsError::DuplicateAlias {
-                alias: "Kafka".to_string(),
+            SessionTermsError::ConflictingSourceFormKinds {
+                source_form: "Kafka".to_string(),
                 first_line: 3,
                 duplicate_line: 4,
             }
@@ -242,16 +438,17 @@ mod tests {
 
     #[test]
     fn preserves_unicode_and_exact_case() {
-        let entries =
-            parse_session_terms("SHIBUYA SKY | Shibuya Sky | 澀谷 Sky").expect("valid terms");
+        let entries = parse_session_terms("SHIBUYA SKY | alias:Shibuya Sky | error:澀谷 Sky")
+            .expect("valid terms");
 
         assert_eq!(entries[0].canonical_term, "SHIBUYA SKY");
-        assert_eq!(entries[0].aliases, ["Shibuya Sky", "澀谷 Sky"]);
+        assert_eq!(entries[0].aliases, ["Shibuya Sky"]);
+        assert_eq!(entries[0].observed_error_forms, ["澀谷 Sky"]);
     }
 
     #[test]
     fn does_not_add_canonical_term_as_alias() {
-        let entries = parse_session_terms("Apache Kafka | Kafka").expect("valid terms");
+        let entries = parse_session_terms("Apache Kafka | alias:Kafka").expect("valid terms");
 
         assert_eq!(entries[0].aliases, ["Kafka"]);
         assert!(

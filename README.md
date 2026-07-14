@@ -40,6 +40,7 @@ Recent work:
 - minimal facilitated CLI review flow
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
+- distinct exact alias and observed-error-form evidence paths
 
 ## Current Implementation Status
 
@@ -58,6 +59,7 @@ Recent work:
 - [x] CLI review flow
 - [ ] Private mixed zh-EN evaluation fixture
 - [x] Session-term / observed-form input
+- [x] Explicit observed-error-form mapping
 - [ ] Matching semantics v0
 - [ ] Eval harness
 - [x] Correction profile / session report artifact

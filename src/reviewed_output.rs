@@ -172,17 +172,25 @@ mod tests {
     use crate::anchor::SourceAnchor;
     use crate::candidate::{
         CandidateAlternative, CandidateSpan, DetectionKind, DetectorProvenance, Evidence,
-        GlossaryEntry, GlossaryEvidence,
+        GlossaryAliasEvidence, SessionTermEntry,
     };
-    use crate::pipeline::run_glossary_review;
+    use crate::pipeline::run_term_review;
     use crate::review::{ReviewLedgerError, ReviewLedgerEvent};
     use crate::srt::parse_srt;
 
-    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> GlossaryEntry {
-        GlossaryEntry::new(
+    fn glossary_entry(canonical_term: &str, aliases: &[&str]) -> SessionTermEntry {
+        SessionTermEntry::new(
             canonical_term,
             aliases.iter().map(|alias| alias.to_string()).collect(),
+            Vec::new(),
         )
+    }
+
+    fn run_glossary_review(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> Result<Vec<ReviewCase>, crate::candidate::DetectionError> {
+        run_term_review(transcript, entries)
     }
 
     fn kafka_case(transcript: &Transcript) -> Vec<ReviewCase> {
@@ -404,7 +412,7 @@ mod tests {
             DetectionKind::GlossaryAliasMatch,
             DetectorProvenance::new("test-detector", "0.1.0"),
             bad_anchor,
-            Evidence::Glossary(GlossaryEvidence {
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
                 entry: glossary_entry("Apache Kafka", &["Kafka"]),
                 matched_form: "Kafka".to_string(),
             }),

@@ -84,7 +84,7 @@ fn fails_on_malformed_srt() {
 fn review_accept_alternative_writes_reviewed_srt_and_decision_log() {
     let dir = temp_dir("review-accept");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
@@ -121,10 +121,77 @@ fn review_accept_alternative_writes_reviewed_srt_and_decision_log() {
 }
 
 #[test]
+fn review_renders_and_summarizes_alias_and_observed_error_cases_distinctly() {
+    let dir = temp_dir("review-alias-and-observed-error");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nPostgres then Postgre SQL",
+    );
+    let terms_path = write_session_terms(&dir, "PostgreSQL | alias:Postgres | error:Postgre SQL");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\na 0\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert!(stdout.contains("evidence: glossary alias 'Postgres' for 'PostgreSQL'"));
+    assert!(stdout.contains("evidence: observed error form 'Postgre SQL' for 'PostgreSQL'"));
+    assert!(reviewed_srt.contains("Postgres then PostgreSQL"));
+    assert!(decision_log.contains("decision: reject"));
+    assert!(decision_log.contains("decision: accept_alternative"));
+    assert!(session_summary.contains("glossary_alias_match: 2"));
+    assert!(session_summary.contains("glossary-alias-match @ 0.1.0: 1"));
+    assert!(session_summary.contains("observed-error-form-match @ 0.1.0: 1"));
+}
+
+#[test]
+fn rejecting_observed_error_form_leaves_source_text_unchanged() {
+    let dir = temp_dir("review-reject-observed-error");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL");
+    let terms_path = write_session_terms(&dir, "PostgreSQL | error:Postgre SQL");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success());
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    assert!(reviewed_srt.contains("Postgre SQL"));
+    assert!(!reviewed_srt.contains("\nPostgreSQL\n"));
+}
+
+#[test]
 fn review_reject_writes_unchanged_reviewed_srt_and_decision_log() {
     let dir = temp_dir("review-reject");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
@@ -153,7 +220,7 @@ fn review_reject_writes_unchanged_reviewed_srt_and_decision_log() {
 fn review_invalid_decision_input_prompts_again() {
     let dir = temp_dir("review-invalid-then-accept");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
@@ -181,7 +248,7 @@ fn review_invalid_decision_input_prompts_again() {
 fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
     let dir = temp_dir("review-no-cases");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nhello");
-    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
@@ -240,10 +307,43 @@ fn review_invalid_session_terms_fails_before_writing_outputs() {
 }
 
 #[test]
+fn conflicting_alias_and_observed_error_fails_before_writing_outputs() {
+    let dir = temp_dir("review-conflicting-source-forms");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nKafka");
+    let terms_path = write_session_terms(
+        &dir,
+        "Apache Kafka | alias:Kafka\nOther Kafka | error:Kafka",
+    );
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+    );
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("both an alias and observed error form"));
+    assert!(stderr.contains("lines 1 and 2"));
+    assert!(!reviewed_path.exists());
+    assert!(!log_path.exists());
+    assert!(!summary_path.exists());
+}
+
+#[test]
 fn review_has_no_hard_coded_demo_glossary_fallback() {
     let dir = temp_dir("review-no-demo-fallback");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "PostgreSQL | Postgres");
+    let terms_path = write_session_terms(&dir, "PostgreSQL | alias:Postgres");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
@@ -272,7 +372,7 @@ fn review_has_no_hard_coded_demo_glossary_fallback() {
 fn review_summary_write_failure_reports_incomplete_output_without_success_claim() {
     let dir = temp_dir("review-summary-write-failure");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("summary-target");
