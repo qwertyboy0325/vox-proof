@@ -1,11 +1,16 @@
 use std::io::{self, BufRead, Read, Write};
 use std::process::ExitCode;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use vox_proof::candidate::Evidence;
 use vox_proof::pipeline::run_glossary_review;
 use vox_proof::review::{CorrectionDecision, ReviewCase, ReviewLedger};
 use vox_proof::reviewed_output::derive_reviewed_srt;
 use vox_proof::session_log::render_decision_log;
+use vox_proof::session_summary::{
+    CompletedSession, SessionInputPaths, SessionOutputPaths, SessionTiming,
+    collect_session_summary, render_session_summary,
+};
 use vox_proof::session_terms::parse_session_terms;
 use vox_proof::srt::parse_srt;
 use vox_proof::transcript::Transcript;
@@ -44,7 +49,7 @@ fn run_parse_command(args: &[String]) -> Result<(), String> {
 }
 
 fn run_review_from_args(args: &[String]) -> Result<(), String> {
-    if args.len() != 5 {
+    if args.len() != 6 {
         return Err(usage().to_string());
     }
 
@@ -55,6 +60,7 @@ fn run_review_from_args(args: &[String]) -> Result<(), String> {
         &args[2],
         &args[3],
         &args[4],
+        &args[5],
         stdin.lock(),
         stdout.lock(),
     )
@@ -65,9 +71,13 @@ fn run_review_command<R: BufRead, W: Write>(
     session_terms_path: &str,
     reviewed_output_path: &str,
     decision_log_path: &str,
+    session_summary_path: &str,
     input: R,
     mut output: W,
 ) -> Result<(), String> {
+    let session_start = SystemTime::now();
+    let session_timer = Instant::now();
+
     let input_srt = std::fs::read_to_string(input_path)
         .map_err(|error| format!("failed to read input SRT: {error}"))?;
     let session_terms_text = std::fs::read_to_string(session_terms_path)
@@ -96,15 +106,47 @@ fn run_review_command<R: BufRead, W: Write>(
     let reviewed_srt = derive_reviewed_srt(&transcript, &review_cases, &ledger)
         .map_err(|error| format!("failed to derive reviewed SRT: {error:?}"))?;
     let decision_log = render_decision_log(&ledger);
+    let session_end = SystemTime::now();
+    let summary = collect_session_summary(CompletedSession {
+        transcript: &transcript,
+        review_cases: &review_cases,
+        ledger: &ledger,
+        session_term_entries: glossary.len(),
+        inputs: SessionInputPaths {
+            input_srt: input_path.to_string(),
+            session_terms: session_terms_path.to_string(),
+        },
+        timing: SessionTiming {
+            start_unix_ms: unix_time_ms(session_start)?,
+            end_unix_ms: unix_time_ms(session_end)?,
+            elapsed_ms: session_timer.elapsed().as_millis(),
+        },
+        outputs: SessionOutputPaths {
+            reviewed_srt: reviewed_output_path.to_string(),
+            decision_log: decision_log_path.to_string(),
+            session_summary: session_summary_path.to_string(),
+        },
+    });
+    let session_summary = render_session_summary(&summary);
 
     std::fs::write(reviewed_output_path, reviewed_srt)
         .map_err(|error| format!("failed to write reviewed SRT: {error}"))?;
-    std::fs::write(decision_log_path, decision_log)
-        .map_err(|error| format!("failed to write decision log: {error}"))?;
+    std::fs::write(decision_log_path, decision_log).map_err(|error| {
+        format!(
+            "failed to write decision log: {error}; reviewed SRT may already exist; session output is incomplete"
+        )
+    })?;
+    std::fs::write(session_summary_path, session_summary).map_err(|error| {
+        format!(
+            "failed to write session summary: {error}; reviewed SRT and decision log may already exist; session output is incomplete"
+        )
+    })?;
 
     writeln!(output, "wrote reviewed SRT: {reviewed_output_path}")
         .map_err(|error| error.to_string())?;
     writeln!(output, "wrote decision log: {decision_log_path}")
+        .map_err(|error| error.to_string())?;
+    writeln!(output, "wrote session summary: {session_summary_path}")
         .map_err(|error| error.to_string())?;
 
     Ok(())
@@ -270,6 +312,12 @@ fn read_parse_input(args: &[String]) -> Result<String, String> {
     }
 }
 
+fn unix_time_ms(time: SystemTime) -> Result<u128, String> {
+    time.duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .map_err(|error| format!("system clock is before Unix epoch: {error}"))
+}
+
 fn usage() -> &'static str {
-    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt>"
+    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
 }

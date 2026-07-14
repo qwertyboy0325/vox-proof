@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
 Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
-Last reviewed against code: v0.1 Track 1 code closed loop and provisional session-scoped term input exist; real-material/product validation remains pending.
+Last reviewed against code: v0.1 Track 1 code closed loop, provisional session-scoped term input, and human-readable session summary exist; real-material/product validation remains pending.
 
 # Pending Data Contract Decisions
 
@@ -31,16 +31,18 @@ The remaining sections below stay exploratory. Where a section overlaps a promot
 The v0.1 Track 1 code closed loop now exists as a local facilitated CLI path:
 
 ```text
-vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt>
+vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>
 ```
 
-The current loop reads an existing SRT file and a local session-term file, parses and validates them, runs exact glossary matching, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, and writes both output files.
+The current loop reads an existing SRT file and a local session-term file, parses and validates them, runs exact glossary matching, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, derives a human-readable session summary from completed run facts, and writes all three output files.
 
 This does not promote a persistence architecture.
 
 Minimal session decision log rendering exists as a non-persistence session artifact. Durable persistence schema remains deferred.
 
 Minimal facilitated CLI review flow exists. Product CLI design remains deferred.
+
+The session summary contains session-scoped run identity, candidate/provenance counts, effective decision counts, accepted replacement outcomes, simple local timing, and output display paths. It is export-only plain text, not a stable machine schema, Language Pack, validation result, or durable persistence record.
 
 The current CLI term input is a provisional, session-scoped UTF-8 line format:
 

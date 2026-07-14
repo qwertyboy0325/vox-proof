@@ -39,6 +39,7 @@ Recent work:
 - decision log rendering
 - minimal facilitated CLI review flow
 - provisional session-scoped term / observed-form file input
+- human-readable session summary and minimum local run metrics
 
 ## Current Implementation Status
 
@@ -59,7 +60,7 @@ Recent work:
 - [x] Session-term / observed-form input
 - [ ] Matching semantics v0
 - [ ] Eval harness
-- [ ] Correction profile / session report artifact
+- [x] Correction profile / session report artifact
 - [ ] Persistence
 
 ## What VoxProof Does

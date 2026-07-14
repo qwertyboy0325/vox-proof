@@ -87,6 +87,7 @@ fn review_accept_alternative_writes_reviewed_srt_and_decision_log() {
     let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -95,6 +96,7 @@ fn review_accept_alternative_writes_reviewed_srt_and_decision_log() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "a 0\n",
     );
@@ -102,11 +104,20 @@ fn review_accept_alternative_writes_reviewed_srt_and_decision_log() {
     assert!(output.status.success());
     let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
     let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
     let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
     assert!(stdout.contains("loaded 1 session term entries"));
+    assert!(stdout.contains("wrote session summary"));
     assert!(reviewed_srt.contains("Apache Kafka"));
     assert!(decision_log.contains("decision: accept_alternative"));
     assert!(decision_log.contains("alternative_index: 0"));
+    assert!(session_summary.contains("transcript_segments: 1"));
+    assert!(session_summary.contains("session_term_entries: 1"));
+    assert!(session_summary.contains("review_cases_raised: 1"));
+    assert!(session_summary.contains("accepted_alternatives: 1"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 1"));
+    assert!(session_summary.contains("glossary-alias-match @ 0.1.0: 1"));
+    assert!(session_summary.contains(summary_path.to_str().expect("utf8 summary path")));
 }
 
 #[test]
@@ -116,6 +127,7 @@ fn review_reject_writes_unchanged_reviewed_srt_and_decision_log() {
     let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -124,6 +136,7 @@ fn review_reject_writes_unchanged_reviewed_srt_and_decision_log() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "r\n",
     );
@@ -143,6 +156,7 @@ fn review_invalid_decision_input_prompts_again() {
     let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -151,6 +165,7 @@ fn review_invalid_decision_input_prompts_again() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "bad\na 0\n",
     );
@@ -169,6 +184,7 @@ fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
     let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -177,6 +193,7 @@ fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "",
     );
@@ -185,9 +202,12 @@ fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
     let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
     let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
     let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
     assert!(stdout.contains("no review cases found"));
     assert!(reviewed_srt.contains("hello"));
     assert_eq!(decision_log, "voxproof decision log v0\n");
+    assert!(session_summary.contains("review_cases_raised: 0"));
+    assert!(session_summary.contains("total_decisions_recorded: 0"));
 }
 
 #[test]
@@ -197,6 +217,7 @@ fn review_invalid_session_terms_fails_before_writing_outputs() {
     let terms_path = write_session_terms(&dir, "Apache Kafka");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -205,6 +226,7 @@ fn review_invalid_session_terms_fails_before_writing_outputs() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "",
     );
@@ -214,6 +236,7 @@ fn review_invalid_session_terms_fails_before_writing_outputs() {
     assert!(stderr.contains("invalid session terms at line 1"));
     assert!(!reviewed_path.exists());
     assert!(!log_path.exists());
+    assert!(!summary_path.exists());
 }
 
 #[test]
@@ -223,6 +246,7 @@ fn review_has_no_hard_coded_demo_glossary_fallback() {
     let terms_path = write_session_terms(&dir, "PostgreSQL | Postgres");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
 
     let output = run_with_args_and_stdin(
         &[
@@ -231,6 +255,7 @@ fn review_has_no_hard_coded_demo_glossary_fallback() {
             terms_path.to_str().expect("utf8 terms path"),
             reviewed_path.to_str().expect("utf8 reviewed path"),
             log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
         ],
         "",
     );
@@ -244,6 +269,40 @@ fn review_has_no_hard_coded_demo_glossary_fallback() {
 }
 
 #[test]
+fn review_summary_write_failure_reports_incomplete_output_without_success_claim() {
+    let dir = temp_dir("review-summary-write-failure");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("summary-target");
+    std::fs::create_dir(&summary_path).expect("create directory at summary output path");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(!output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(!stdout.contains("wrote reviewed SRT"));
+    assert!(!stdout.contains("wrote decision log"));
+    assert!(!stdout.contains("wrote session summary"));
+    assert!(stderr.contains("failed to write session summary"));
+    assert!(stderr.contains("session output is incomplete"));
+    assert!(reviewed_path.exists());
+    assert!(log_path.exists());
+}
+
+#[test]
 fn review_wrong_command_shape_prints_usage_and_exits_nonzero() {
     let output = run_with_args_and_stdin(&["review"], "");
 
@@ -251,6 +310,6 @@ fn review_wrong_command_shape_prints_usage_and_exits_nonzero() {
     let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
     assert!(stderr.contains("usage:"));
     assert!(stderr.contains(
-        "vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt>"
+        "vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
     ));
 }
