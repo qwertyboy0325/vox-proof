@@ -5,3 +5,7 @@ edition = "2024"
 
 [dependencies]
 sha2 = "0.10"
+
+[dev-dependencies]
+pinyin = "0.11.0"
+rphonetic = "3.0.6"
