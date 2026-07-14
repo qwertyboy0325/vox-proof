@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
 Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
-Last reviewed against code: v0.1 Track 1 code closed loop exists; real-material/product validation remains pending.
+Last reviewed against code: v0.1 Track 1 code closed loop and provisional session-scoped term input exist; real-material/product validation remains pending.
 
 # Pending Data Contract Decisions
 
@@ -31,10 +31,10 @@ The remaining sections below stay exploratory. Where a section overlaps a promot
 The v0.1 Track 1 code closed loop now exists as a local facilitated CLI path:
 
 ```text
-vox-proof review <input.srt> <reviewed-output.srt> <decision-log.txt>
+vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt>
 ```
 
-The current loop reads an existing SRT file, parses and validates it, runs a temporary built-in demo glossary, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, and writes both output files.
+The current loop reads an existing SRT file and a local session-term file, parses and validates them, runs exact glossary matching, presents glossary ReviewCases for human decisions, records decisions in an in-memory ReviewLedger, derives reviewed SRT, renders a session decision log, and writes both output files.
 
 This does not promote a persistence architecture.
 
@@ -42,14 +42,13 @@ Minimal session decision log rendering exists as a non-persistence session artif
 
 Minimal facilitated CLI review flow exists. Product CLI design remains deferred.
 
-The current CLI glossary is temporary and built in:
+The current CLI term input is a provisional, session-scoped UTF-8 line format:
 
 ```text
-Kafka -> Apache Kafka
-Postgres -> PostgreSQL
+canonical term | alias 1 | alias 2 | ...
 ```
 
-Glossary file/config format and Language Pack schema remain deferred.
+Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. It is not a Language Pack or durable persistence format. Product glossary configuration and Language Pack schema remain deferred.
 
 ## 2. Current Product Invariants
 

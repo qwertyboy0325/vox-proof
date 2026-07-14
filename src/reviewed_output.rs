@@ -419,7 +419,7 @@ mod tests {
             },
         }]);
 
-        let result = derive_reviewed_srt(&transcript, &[review_case.clone()], &ledger);
+        let result = derive_reviewed_srt(&transcript, std::slice::from_ref(&review_case), &ledger);
 
         assert_eq!(
             result,

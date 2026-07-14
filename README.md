@@ -38,6 +38,7 @@ Recent work:
 - deterministic reviewed SRT derivation
 - decision log rendering
 - minimal facilitated CLI review flow
+- provisional session-scoped term / observed-form file input
 
 ## Current Implementation Status
 
@@ -55,7 +56,7 @@ Recent work:
 - [x] Human review decision log
 - [x] CLI review flow
 - [ ] Private mixed zh-EN evaluation fixture
-- [ ] Session-term / observed-form input
+- [x] Session-term / observed-form input
 - [ ] Matching semantics v0
 - [ ] Eval harness
 - [ ] Correction profile / session report artifact

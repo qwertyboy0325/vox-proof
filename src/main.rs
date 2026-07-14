@@ -1,11 +1,12 @@
 use std::io::{self, BufRead, Read, Write};
 use std::process::ExitCode;
 
-use vox_proof::candidate::{Evidence, GlossaryEntry};
+use vox_proof::candidate::Evidence;
 use vox_proof::pipeline::run_glossary_review;
 use vox_proof::review::{CorrectionDecision, ReviewCase, ReviewLedger};
 use vox_proof::reviewed_output::derive_reviewed_srt;
 use vox_proof::session_log::render_decision_log;
+use vox_proof::session_terms::parse_session_terms;
 use vox_proof::srt::parse_srt;
 use vox_proof::transcript::Transcript;
 
@@ -43,17 +44,25 @@ fn run_parse_command(args: &[String]) -> Result<(), String> {
 }
 
 fn run_review_from_args(args: &[String]) -> Result<(), String> {
-    if args.len() != 4 {
+    if args.len() != 5 {
         return Err(usage().to_string());
     }
 
     let stdin = io::stdin();
     let stdout = io::stdout();
-    run_review_command(&args[1], &args[2], &args[3], stdin.lock(), stdout.lock())
+    run_review_command(
+        &args[1],
+        &args[2],
+        &args[3],
+        &args[4],
+        stdin.lock(),
+        stdout.lock(),
+    )
 }
 
 fn run_review_command<R: BufRead, W: Write>(
     input_path: &str,
+    session_terms_path: &str,
     reviewed_output_path: &str,
     decision_log_path: &str,
     input: R,
@@ -61,15 +70,17 @@ fn run_review_command<R: BufRead, W: Write>(
 ) -> Result<(), String> {
     let input_srt = std::fs::read_to_string(input_path)
         .map_err(|error| format!("failed to read input SRT: {error}"))?;
+    let session_terms_text = std::fs::read_to_string(session_terms_path)
+        .map_err(|error| format!("failed to read session terms: {error}"))?;
+    let glossary = parse_session_terms(&session_terms_text).map_err(|error| error.to_string())?;
     let transcript =
         parse_srt(&input_srt).map_err(|error| format!("failed to parse SRT: {error:?}"))?;
 
     print_parse_summary(&transcript, &mut output).map_err(|error| error.to_string())?;
-
-    let glossary = demo_glossary();
     writeln!(
         output,
-        "using temporary demo glossary: Kafka -> Apache Kafka, Postgres -> PostgreSQL"
+        "loaded {} session term entries from {session_terms_path}",
+        glossary.len()
     )
     .map_err(|error| error.to_string())?;
 
@@ -223,15 +234,6 @@ fn print_review_case<W: Write>(
     Ok(())
 }
 
-fn demo_glossary() -> Vec<GlossaryEntry> {
-    // Temporary demo glossary for the facilitated v0.1 CLI loop. This is not a
-    // product glossary system and intentionally avoids file/config parsing.
-    vec![
-        GlossaryEntry::new("Apache Kafka", vec!["Kafka".to_string()]),
-        GlossaryEntry::new("PostgreSQL", vec!["Postgres".to_string()]),
-    ]
-}
-
 fn print_parse_summary<W: Write>(transcript: &Transcript, output: &mut W) -> io::Result<()> {
     writeln!(output, "parsed {} segment(s)", transcript.segments().len())?;
 
@@ -269,5 +271,5 @@ fn read_parse_input(args: &[String]) -> Result<String, String> {
 }
 
 fn usage() -> &'static str {
-    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <reviewed-output.srt> <decision-log.txt>"
+    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt>"
 }
