@@ -7,7 +7,7 @@ Last reviewed against code: the Track 1 local review loop exists and is covered 
 
 Local-first, evidence-backed transcript QA.
 
-VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with optional audio and a Language Pack. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a corrected transcript.
+VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with provisional session-scoped term input. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a reviewed transcript. Optional audio, Domain Collections, policies, models, and automation are future directions rather than current runtime inputs.
 
 ## Current Focus
 
@@ -67,7 +67,7 @@ Recent work:
 
 ## What VoxProof Does
 
-`existing SRT + optional audio + Language Pack -> evidence-backed review -> reviewed SRT + decision records`
+`existing SRT + provisional session terms -> exact evidence -> human review -> reviewed SRT + decision records`
 
 ## Direction Beyond v0.1
 

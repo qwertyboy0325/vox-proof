@@ -48,7 +48,7 @@ Established when: the pain-point MVP loop (defined in `v0.1-execution-order.md`)
 
 Allowed claim: "the mechanism works on real material."
 
-Forbidden claims: adoption, workflow value, time savings, Language Pack value, product-market fit, or that anyone wants the product.
+Forbidden claims: adoption, workflow value, time savings, Domain Collection, Language Pack, or Knowledge Pack value, product-market fit, or that anyone wants the product.
 
 ### v0.2 — External testability
 
@@ -64,11 +64,11 @@ Forbidden claims: value or time-saving claims, adoption beyond the observed sess
 
 Question: do prior decisions or observed error forms improve future candidate quality?
 
-Established when: measured across at least two related real materials. Any machine-readable correction-profile re-import (Language Pack scope) is decided here at the earliest, not in v0.1 or v0.2.
+Established when: measured across at least two related real materials. Any machine-readable correction-profile re-import or reusable correction/domain asset is decided here at the earliest, not in v0.1 or v0.2. Its eventual Domain Collection, Language Pack, Knowledge Pack, or other format remains unresolved.
 
 Allowed claim: "recorded corrections measurably improve later review on related material."
 
-Forbidden claims: general Language Pack product value.
+Forbidden claims: general reusable-asset or pack product value.
 
 ### v0.4 — Workflow value signal
 
@@ -98,7 +98,7 @@ Not a validation milestone; a product commitment. A stable local-first, human-in
 
 - v0.1: diff study, deterministic detector ladder rungs as justified, CLI/operator review flow, Track 2 mechanism validation.
 - v0.2: conditional thin GUI, third-party test readiness, the Lead A session.
-- v0.3+: correction-profile re-import, Language Pack, reuse measurement.
+- v0.3+: correction-profile re-import, reusable correction/domain assets, and reuse measurement; final pack format remains deferred.
 - Not version-bound: a local non-LLM evidence model (ladder rung 3) is gated by residual-class evidence plus an accepted Material Decision, whenever that evidence appears.
 
 Anything not assigned to a version by its scope document does not silently belong to v0.1.

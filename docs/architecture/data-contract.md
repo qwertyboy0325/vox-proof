@@ -27,29 +27,36 @@ For v0.1 a source anchor stays within a single segment. Cross-segment and discon
 
 Normalization produces a derived analysis view of the transcript. It never rewrites source text. For v0.1 the normalization is identity-preserving, so analysis coordinates coincide with source-anchor coordinates. Any future non-identity normalization must map its analysis coordinates back to source anchors rather than becoming a second source of truth.
 
-### LanguagePack
+### Reusable Knowledge Inputs
 
-`LanguagePack` provides reusable language knowledge for analysis. It is more than a word list. It may eventually contain canonical terms, aliases, language metadata, term type, pronunciation hints, observed ASR confusions, related terms, scope, approval status, and version.
+The provisional product terminology distinguishes:
 
-The relationship among `LanguagePack`, Domain Collection, and Knowledge Pack remains unresolved. The current session-term file is a provisional session-scoped adapter and is not a schema for any of them. `product/correction-system-boundaries.md` owns their product authority limits.
+- a Domain Collection as a reusable domain/context knowledge unit;
+- an Active Domain Collection Selection as a session-scoped selection of one immutable collection revision for analysis;
+- a Language Pack as reusable language-specific resources;
+- a Knowledge Pack as a packaging, import/export, and distribution bundle rather than an active runtime authority.
+
+Multiple Domain Collections are allowed by the conceptual product model, although a first runtime may support fewer. Imported, available, selected, and active-for-analysis remain distinct states. The current session-term file is a provisional session-scoped adapter and is not a schema or import format for any of these concepts.
+
+Future session-term, collection, and language-resource adapters may produce a shared resolved terminology input for evidence producers. That intermediate boundary, the refined terminology, and activation/version semantics remain provisional. Product authority, recommendation, and authorization rules are canonical in `product/correction-system-boundaries.md`.
 
 ### Cross-Version Correction-System Placeholders
 
 The following conceptual boundaries prevent future capabilities from being collapsed into the current v0.1 types. They do not define accepted runtime types, fields, schemas, persistence, precedence, or orchestration:
 
 - **Evidence** records inspectable reasons that a source span may deserve review. It does not establish truth or authorize an edit.
-- **Context** describes immutable circumstances relevant to analysis, such as scenario, active domain selections, surrounding transcript availability, or optional ASR evidence references. A future `SessionContext` does not own transcript state, decisions, policy, UI state, or orchestration.
-- **Policy** represents user-controlled comparison, suggestion, cleanup, presentation, or automation choices. It does not invent source facts.
+- **Context** describes immutable resolved circumstances relevant to analysis, such as scenario, expected language mix, active collection selections, surrounding transcript availability, or optional ASR evidence references. A future `SessionContext` does not own transcript state, decisions, policy, projection requests, authorization, UI state, persistence, or orchestration.
+- **Policy** represents peer inputs for user-controlled matching, suggestion, cleanup, presentation, or automation behavior. Recommendations, resolved active policy, and explicit authorization remain distinct. Policy does not invent source facts.
 - **Transformation** records the semantic intent of an accepted operation. Replacement text alone is not a complete future contract for normalization, cleanup, editorial work, or deletion.
 - **Projection** is a derived output view materialized from immutable source plus applicable accepted or explicitly authorized transformations.
 
-Matching policy, projection requests, and automation authorization may remain peer inputs rather than fields of a catch-all `SessionContext`. Responsibility boundaries and current-versus-future scope are canonical in `product/correction-system-boundaries.md`.
+Matching and other policies, projection requests, and automation authorization are peer inputs rather than fields of a catch-all `SessionContext`. Responsibility boundaries and current-versus-future scope are canonical in `product/correction-system-boundaries.md`.
 
 ### CorrectionDecision
 
-`CorrectionDecision` records a human decision for a review case: acceptance, rejection, edit, or deferral. Human decisions are the source of transcript changes.
+`CorrectionDecision` currently records rejection, deferral, acceptance of a detector alternative, or a need for manual correction. Human decisions are the only implemented source of transcript changes.
 
-A single accepted correction does not automatically change the Language Pack. Promotion of observed corrections into a Language Pack is a future governed process, not v0.1 behavior.
+A single accepted correction does not automatically change reusable domain or language resources or become active policy. Promotion remains a future governed process, not v0.1 behavior.
 
 ## v0.1 Review-Unit and Detection Lifecycle Contract
 
@@ -115,7 +122,9 @@ Detector provenance explains where a `CandidateSpan` came from. The v0.1 minimum
 
 `DetectionKind` remains a first-class field of `CandidateSpan` and `CandidateKey`; it is not duplicated as unstructured provenance metadata. Provenance must not be modeled as a generic metadata bag such as `HashMap<String, String>` or arbitrary JSON.
 
-`AnalysisSnapshot` is an accepted first-class concept representing the effective inputs and configuration under which analysis was performed. Its scope, as applicable, includes source revision, detector identity and version, language-pack revision, normalization profile, detector configuration, and other effective analysis settings. Snapshot data belongs at `AnalysisRun` scope and is not duplicated into every `CandidateSpan`. For v0.1, only snapshot fields that genuinely exist in the implementation are modeled; language-pack persistence, configuration blobs, timestamps, and storage identifiers are not invented to fill out the type.
+The current `AnalysisSnapshot` is an accepted first-class concept that records source revision for one analysis run. Future reproducibility must also distinguish behavior-affecting context, active knowledge-asset revisions, resolved matching behavior, detector identities, versions and configurations, normalization or representation versions, optional ASR evidence, and candidate-affecting suggestion behavior.
+
+It remains unresolved whether those future inputs extend `AnalysisSnapshot`, belong to a higher-level analysis-run provenance concept, or are composed from multiple immutable records. The current type is part of the future reproducibility boundary, not a commitment that it will be the sole owner. Effective run-level data must not be duplicated into every `CandidateSpan`; final IDs, hashes, schemas, serialization, and persistence remain deferred.
 
 ### AnalysisRun
 

@@ -44,7 +44,7 @@ Future evaluation should consider:
 - Unsafe correction count.
 - Manual correction time.
 - Deterministic output for the same inputs and configuration.
-- Regression behavior when rules, Language Packs, or future models change.
+- Regression behavior when active Domain Collections, language resources, resolved policies, detector configurations, or future models change.
 
 ## Claims and Data Rights
 

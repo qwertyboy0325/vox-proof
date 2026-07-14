@@ -412,7 +412,7 @@ Additional vision-level observations:
 
 - Lead A is currently the closest lead to a high-frequency commercial content workflow. This lead has expressed willingness to try VoxProof, and the pain is tied directly to work hours and income.
 - Lead B reframes the need from transcript correction to subtitle QA. Correct text does not guarantee deliverable subtitles; timestamp, segment boundary, and alignment QA need long-term space.
-- Lead C points toward a lecture / teaching transcript review surface and is a natural probe for the Language Pack reuse hypothesis.
+- Lead C points toward a lecture / teaching transcript review surface and is a natural probe for the Domain Collection reuse hypothesis.
 - Inferred cohorts must not be presented as validated markets.
 
 ## 10. Whether VoxProof Could Be More Mainstream Than LRTimelapse
@@ -720,7 +720,7 @@ When helping with VoxProof:
 
 ## 18. Product Flywheel, Accumulated Assets, And Knowledge Packs
 
-Canonical automation and promotion semantics are owned by `docs/product/correction-system-boundaries.md`, not by this exploratory vision. In the flows below, a preserved decision may inform a policy or reusable-asset suggestion; it does not automatically become reusable policy or enter a pack. Promotion requires explicit user authorization and scope.
+Canonical automation, promotion, and refined pack terminology are owned by `docs/product/correction-system-boundaries.md`, not by this exploratory vision. In the flows below, a preserved decision may inform a policy or reusable-asset suggestion; it does not automatically become reusable policy or enter a pack. Promotion requires explicit user authorization and scope. Knowledge Pack is provisionally a distribution and reusable-asset bundle, not an active runtime authority.
 
 VoxProof's long-term value is not only fixing one transcript or subtitle file. Each human review can produce an accumulated asset.
 
@@ -731,8 +731,9 @@ Raw transcript / subtitle
 -> VoxProof raises ReviewCases
 -> human accepts / rejects / edits
 -> CorrectionDecision is stored
--> decision becomes reusable asset
--> reusable assets form Knowledge Pack / Domain Pack
+-> decision may inform a reusable-asset suggestion
+-> user explicitly authorizes promotion and scope
+-> authorized reusable assets may be bundled in a Knowledge Pack
 -> future review becomes faster and more accurate
 -> user trusts the system more
 -> user reviews more material
@@ -768,7 +769,7 @@ Human-in-the-loop is not a cost center.
 Human decision is the product's most important data asset.
 ```
 
-### What A Knowledge Pack / Domain Pack Might Contain
+### What A Knowledge Pack Might Contain
 
 A VoxProof Knowledge Pack should not be only a glossary. Over time, it could contain:
 
@@ -950,7 +951,7 @@ A Knowledge Pack should not become black-box automatic learning.
 
 Important boundaries:
 
-- Only human-confirmed decisions enter canonical packs.
+- Only explicitly promoted human-confirmed decisions enter canonical packs.
 - Model suggestions cannot directly write trusted assets.
 - Rejected decisions should be preserved to avoid repeated false positives.
 - Packs should be inspectable, exportable, retractable, and versioned.

@@ -9,7 +9,7 @@ alwaysApply: true
 - Current v0.1 is post-ASR review, not ASR generation.
 - Core flow:
 
-  `existing SRT + optional audio + Language Pack -> evidence-backed review -> reviewed SRT + decision records`
+  `existing SRT + provisional session terms -> exact evidence -> human review -> reviewed SRT + decision records`
 
 - No transcript text may be silently rewritten.
 - Human decisions are canonical.

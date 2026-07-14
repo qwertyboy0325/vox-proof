@@ -42,7 +42,7 @@ Minimal session decision log rendering exists as a non-persistence session artif
 
 Minimal facilitated CLI review flow exists. Product CLI design remains deferred.
 
-The session summary contains session-scoped run identity, candidate/provenance counts, effective decision counts, accepted replacement outcomes, simple local timing, and output display paths. It is export-only plain text, not a stable machine schema, Language Pack, validation result, or durable persistence record.
+The session summary contains session-scoped run identity, candidate/provenance counts, effective decision counts, accepted replacement outcomes, simple local timing, and output display paths. It is export-only plain text, not a stable machine schema, reusable knowledge asset, validation result, or durable persistence record.
 
 The current CLI term input is a provisional, session-scoped UTF-8 line format:
 
@@ -50,7 +50,7 @@ The current CLI term input is a provisional, session-scoped UTF-8 line format:
 canonical term | alias:alternate form | error:observed ASR form | ...
 ```
 
-Every source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Language Pack or durable persistence format. Product glossary configuration and Language Pack schema remain deferred.
+Every source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Domain Collection or pack format. Reusable knowledge schemas and persistence remain deferred.
 
 ## 2. Current Product Invariants
 
@@ -293,21 +293,23 @@ This does not prescribe a complete token model, grapheme abstraction, cross-segm
 
 Note: the accepted v0.1 shape of `AnalysisRun` and `AnalysisSnapshot` is now canonical in `docs/architecture/data-contract.md` (a provenance and reproducibility boundary, not a workflow engine, modeling only snapshot fields that genuinely exist). The eventual snapshot fields listed below remain exploratory targets, not v0.1 commitments.
 
-`AnalysisRun` is the boundary that makes findings reproducible and traceable.
+Future analysis-run provenance is the boundary that makes findings reproducible and traceable. The canonical direction deliberately leaves unresolved whether it extends `AnalysisSnapshot`, adds a higher-level concept, or composes multiple records.
 
-An `AnalysisRun` should eventually snapshot, at minimum:
+That boundary should eventually distinguish, at minimum:
 
 ```text
 - Transcript revision identity
-- LanguagePack version or snapshot
+- active Domain Collection and language-resource revisions
+- resolved matching behavior
 - normalizer version and configuration
 - enabled analyzers
 - analyzer rule versions and configuration
 - ranking configuration
+- optional ASR evidence source or revision
 - optional audio identity, if audio is used
 ```
 
-`CandidateSpan`, `Evidence`, `ReviewCase`, rank, and alternatives are `AnalysisRun`-scoped. A new run with different source, `LanguagePack`, normalizer, analyzer, or ranking configuration is not silently equivalent to a prior run. Old decisions must not be blindly reapplied across changed source or changed analysis conditions.
+`CandidateSpan`, `Evidence`, `ReviewCase`, rank, and alternatives are analysis-run-scoped. A run with different source, active knowledge revisions, matching behavior, normalizer, analyzer, or ranking configuration is not silently equivalent to a prior run. Old decisions must not be blindly reapplied across changed source or changed analysis conditions.
 
 ## 7. Conservative Materialization Semantics
 
@@ -349,31 +351,11 @@ Partial mutation followed by a claimed successful reviewed output would violate 
 
 ## 8. LanguagePack Boundary
 
-v0.1 should not become a language-memory platform.
+Status: superseded exploratory proposal.
 
-The proposed minimal v0.1 `LanguagePack` snapshot is:
+The earlier proposal for a minimal v0.1 `LanguagePack` snapshot is no longer an active design direction. Current v0.1 uses a provisional session-term adapter. The refined provisional distinctions among Domain Collection, Active Domain Collection Selection, Language Pack, Knowledge Pack, and resolved terminology input are owned by `product/correction-system-boundaries.md` and summarized in `architecture/data-contract.md`.
 
-```text
-- version identifier
-- canonical terms
-- aliases
-- optional pronunciation or pinyin hints
-```
-
-It should be frozen into the `AnalysisRun` snapshot.
-
-Explicitly deferred:
-
-```text
-- speaker, project, team, or domain scope
-- correction auto-promotion
-- approval workflows
-- persistent language memory
-- database-backed pack management
-- pack collaboration
-```
-
-These may be future hypotheses, but they are not current data-contract commitments.
+No pack schema, activation contract, persistence design, or policy authority is accepted here.
 
 ## 9. Implementation Gates
 

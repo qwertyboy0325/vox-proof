@@ -27,12 +27,12 @@ Concrete discovery leads are recorded in `docs/discussion/2026-07-09.md`. A lead
 - Current lead: a film subtitle corrector already using AI-assisted correction whose residual pain is subtitle timing drift (Lead B in `docs/discussion/2026-07-09.md`).
 - Status: Unvalidated.
 
-## Language Pack Reuse
+## Domain Collection Reuse
 
-- Hypothesis: A Language Pack may reduce repeated correction effort.
+- Hypothesis: Reusable Domain Collections may reduce repeated correction effort.
 - Why it may be true: Specialized terms, aliases, names, and recurring ASR confusions may repeat across related transcripts.
 - What would falsify it: Corrections are too one-off, context-dependent, or inconsistent to benefit from reusable language memory.
-- Validation method: Analyze authorized transcript sets for repeated correction patterns and measure review burden with and without a Language Pack.
+- Validation method: Analyze authorized transcript sets for repeated correction patterns and measure review burden with and without a relevant Domain Collection.
 - Current lead: a teacher organizing recurring lecture content across sessions (Lead C in `docs/discussion/2026-07-09.md`).
 - Status: Unvalidated.
 
