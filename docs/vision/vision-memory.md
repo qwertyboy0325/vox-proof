@@ -720,6 +720,8 @@ When helping with VoxProof:
 
 ## 18. Product Flywheel, Accumulated Assets, And Knowledge Packs
 
+Canonical automation and promotion semantics are owned by `docs/product/correction-system-boundaries.md`, not by this exploratory vision. In the flows below, a preserved decision may inform a policy or reusable-asset suggestion; it does not automatically become reusable policy or enter a pack. Promotion requires explicit user authorization and scope.
+
 VoxProof's long-term value is not only fixing one transcript or subtitle file. Each human review can produce an accumulated asset.
 
 Core flywheel:

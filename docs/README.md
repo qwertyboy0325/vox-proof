@@ -9,6 +9,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 
 ## Canonical Documents
 
+- [product/correction-system-boundaries.md](product/correction-system-boundaries.md): cross-version correction taxonomy and evidence, context, policy, transformation, projection, authorization, and Domain Collection boundaries.
 - [product/versioning.md](product/versioning.md): pre-1.0 version semantics, the version ladder, and per-version allowed claims.
 - [product/v0.1.md](product/v0.1.md): current v0.1 product scope and acceptance boundary.
 - [product/v0.1-execution-order.md](product/v0.1-execution-order.md): current global execution goal, parallel completion-and-validation posture, and near-term order toward a testable v0.1 loop.

@@ -20,6 +20,21 @@ Ground truth must distinguish:
 - Terminology corrections.
 - Edits that alter meaning.
 
+## Evaluation Category Boundaries
+
+Future evaluation must distinguish:
+
+- accuracy restoration;
+- representation and formatting normalization;
+- disfluency cleanup;
+- editorial transformation;
+- human-facing output quality;
+- machine-facing output utility.
+
+Results from one category must not be reported as evidence for another. In particular, a readable output is not proof of source accuracy, and machine-facing utility is not proof that the same representation is preferable for people. The category definitions are owned by `product/correction-system-boundaries.md`.
+
+This slice does not define metrics or numeric gates for these categories.
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:

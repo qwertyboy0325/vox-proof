@@ -1,6 +1,6 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
-Does not own: Final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
+Does not own: Cross-version correction-system product semantics (owned by `product/correction-system-boundaries.md`), final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
 Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary and observed-error-form `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
 
 # Conceptual Data Contract
@@ -30,6 +30,20 @@ Normalization produces a derived analysis view of the transcript. It never rewri
 ### LanguagePack
 
 `LanguagePack` provides reusable language knowledge for analysis. It is more than a word list. It may eventually contain canonical terms, aliases, language metadata, term type, pronunciation hints, observed ASR confusions, related terms, scope, approval status, and version.
+
+The relationship among `LanguagePack`, Domain Collection, and Knowledge Pack remains unresolved. The current session-term file is a provisional session-scoped adapter and is not a schema for any of them. `product/correction-system-boundaries.md` owns their product authority limits.
+
+### Cross-Version Correction-System Placeholders
+
+The following conceptual boundaries prevent future capabilities from being collapsed into the current v0.1 types. They do not define accepted runtime types, fields, schemas, persistence, precedence, or orchestration:
+
+- **Evidence** records inspectable reasons that a source span may deserve review. It does not establish truth or authorize an edit.
+- **Context** describes immutable circumstances relevant to analysis, such as scenario, active domain selections, surrounding transcript availability, or optional ASR evidence references. A future `SessionContext` does not own transcript state, decisions, policy, UI state, or orchestration.
+- **Policy** represents user-controlled comparison, suggestion, cleanup, presentation, or automation choices. It does not invent source facts.
+- **Transformation** records the semantic intent of an accepted operation. Replacement text alone is not a complete future contract for normalization, cleanup, editorial work, or deletion.
+- **Projection** is a derived output view materialized from immutable source plus applicable accepted or explicitly authorized transformations.
+
+Matching policy, projection requests, and automation authorization may remain peer inputs rather than fields of a catch-all `SessionContext`. Responsibility boundaries and current-versus-future scope are canonical in `product/correction-system-boundaries.md`.
 
 ### CorrectionDecision
 
