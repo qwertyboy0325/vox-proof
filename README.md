@@ -1,13 +1,17 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: the Track 1 local review loop exists and is covered by unit and CLI tests; real-material mechanism validation remains pending
+Last reviewed against code: the authoritative exact local review loop and the experiment-only contextual retrieval/ranking sidecar exist and are covered by unit and CLI tests; real-material effectiveness validation remains pending
 
 # VoxProof
 
 Local-first, evidence-backed transcript QA.
 
-VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with provisional session-scoped term input. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a reviewed transcript. Optional audio, Domain Collections, policies, models, and automation are future directions rather than current runtime inputs.
+VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with provisional session-scoped term input. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a reviewed transcript.
+
+The authoritative review path remains deterministic and human-governed. An experiment-only sidecar can also retrieve bounded non-exact candidates from the current session terms and optionally rank them through a strict external-command interface. Experimental results are not canonical Evidence, ReviewCases, ReviewLedger decisions, or materialized edits.
+
+Optional audio, Domain Collections, policies, automation, and formal model-dependent product behavior remain future directions rather than current authoritative runtime contracts.
 
 ## Current Focus
 
@@ -21,6 +25,8 @@ The current focus is completing the narrow text-first pain-point MVP while makin
 - evidence-backed candidate review cases with provisional deterministic detectors
 - reviewed SRT, decision log, correction profile, and local run metrics
 - raw-ASR-versus-human-final comparison for iterative calibration
+- real-material evaluation of bounded non-exact retrieval
+- measurement of candidate recall, contextual-ranking uplift, and false-positive burden
 - explicit Material Decisions before durable semantic changes
 
 Engineering completion and validation collection proceed in parallel. The first measured error distribution is expected to come from the first instrumented real-material run rather than block the remaining MVP work. This does not make synthetic tests or an engineering-complete prototype product-validation evidence.
@@ -41,6 +47,11 @@ Recent work:
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
 - distinct exact alias and observed-error-form evidence paths
+- phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
+- experiment-only bounded Latin and Han-pinyin candidate retrieval
+- rules-only, deterministic-fake, and strict external-command contextual-ranking modes
+- versioned contextual-resolution sidecar with request-local candidate IDs
+- authority-preserving manual-correction markers with explicit alias-and-rerun guidance
 
 ## Current Implementation Status
 
@@ -60,6 +71,12 @@ Recent work:
 - [ ] Private mixed zh-EN evaluation fixture
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping
+- [x] Phonetic representation characterization
+- [x] Experimental bounded non-exact candidate retrieval
+- [x] Experimental contextual-ranking subprocess boundary
+- [x] Experiment-only contextual-resolution JSON sidecar
+- [ ] Authorized real-material contextual-resolution study
+- [ ] Measured retrieval and ranking baseline
 - [ ] Matching semantics v0
 - [ ] Eval harness
 - [x] Correction profile / session report artifact
@@ -67,13 +84,23 @@ Recent work:
 
 ## What VoxProof Does
 
+Authoritative path:
+
 `existing SRT + provisional session terms -> exact evidence -> human review -> reviewed SRT + decision records`
+
+Experimental sidecar:
+
+`existing SRT + provisional session terms + session description -> bounded non-exact retrieval -> optional contextual ranking -> experiment sidecar`
+
+Experimental candidates do not become canonical Evidence, ReviewCases, ReviewLedger decisions, or materialized edits.
 
 ## Direction Beyond v0.1
 
-v0.1 deliberately establishes an evidence-backed human-review foundation before introducing model-dependent behavior. Future exploration may use multiple local models for semantic and contextual interpretation, with scoped adaptation to recurring speaker, project, team, or domain language patterns and review preferences.
+v0.1 deliberately establishes an evidence-backed human-review foundation before formalizing model-dependent behavior. Current experimentation may use bounded candidate retrieval and external contextual ranking, but it does not establish production provider, policy, automation, or non-exact Evidence semantics.
 
-These are research directions rather than implemented capabilities or delivery commitments. See [Product Hypotheses](docs/product/hypotheses.md) for the assumptions that would need validation.
+Future exploration may use multiple local models for semantic and contextual interpretation, with scoped adaptation to recurring speaker, project, team, or domain language patterns and review preferences.
+
+These remain research directions rather than delivery commitments. See [Product Hypotheses](docs/product/hypotheses.md) for the assumptions that would need validation.
 
 ## Non-Goals
 
