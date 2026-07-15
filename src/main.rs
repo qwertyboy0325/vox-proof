@@ -9,7 +9,8 @@ use vox_proof::experimental_ranking::{
     rank_experimental_candidates,
 };
 use vox_proof::experimental_retrieval::{
-    ExperimentalCandidateReport, ExperimentalPinyinEligibilityProfile, ExperimentalRetrievalConfig,
+    ExperimentalCandidateReport, ExperimentalLatinSpanEligibilityProfile,
+    ExperimentalPinyinEligibilityProfile, ExperimentalRetrievalConfig,
     retrieve_experimental_candidates,
 };
 use vox_proof::pipeline::run_term_review;
@@ -47,6 +48,7 @@ struct ExperimentalRunSidecar {
     session_description: String,
     ranker_mode: String,
     pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
+    latin_span_eligibility_profile: ExperimentalLatinSpanEligibilityProfile,
     reports: Vec<ExperimentalCandidateReport>,
     rankings: Vec<ExperimentalRankingResult>,
     manual_correction_markers: Vec<ExperimentalManualCorrectionMarker>,
@@ -141,6 +143,12 @@ fn run_experiment_command<R: BufRead, W: Write>(
     .map_err(|error| error.to_string())?;
     writeln!(
         output,
+        "experimental Latin span eligibility profile: {:?}",
+        retrieval_config.latin_span_eligibility_profile
+    )
+    .map_err(|error| error.to_string())?;
+    writeln!(
+        output,
         "experimental non-exact suggestions are not review cases and cannot change reviewed SRT"
     )
     .map_err(|error| error.to_string())?;
@@ -191,10 +199,11 @@ fn run_experiment_command<R: BufRead, W: Write>(
         },
     });
     let sidecar = ExperimentalRunSidecar {
-        schema_revision: "experimental-contextual-resolution-sidecar-v2",
+        schema_revision: "experimental-contextual-resolution-sidecar-v3",
         session_description,
         ranker_mode: ranker_mode.to_string(),
         pinyin_eligibility_profile: retrieval_config.pinyin_eligibility_profile,
+        latin_span_eligibility_profile: retrieval_config.latin_span_eligibility_profile,
         reports,
         rankings,
         manual_correction_markers,
@@ -224,31 +233,53 @@ fn run_experiment_command<R: BufRead, W: Write>(
 }
 
 fn experimental_retrieval_config_from_environment() -> Result<ExperimentalRetrievalConfig, String> {
-    let profile = match std::env::var("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE") {
-        Ok(value) if value == "unfiltered-baseline-v1" => {
-            ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1
-        }
-        Ok(value) if value == "suppress-short-han-to-short-uppercase-acronym-v1" => {
-            ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1
-        }
-        Ok(value) => {
-            return Err(format!(
-                "unknown VOX_PROOF_EXPERIMENT_PINYIN_PROFILE '{value}'; expected unfiltered-baseline-v1 or suppress-short-han-to-short-uppercase-acronym-v1"
-            ));
-        }
-        Err(std::env::VarError::NotPresent) => {
-            ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1
-        }
-        Err(error) => {
-            return Err(format!(
-                "failed to read VOX_PROOF_EXPERIMENT_PINYIN_PROFILE: {error}"
-            ));
-        }
-    };
     Ok(ExperimentalRetrievalConfig {
-        pinyin_eligibility_profile: profile,
+        pinyin_eligibility_profile: experimental_pinyin_profile_from_environment()?,
+        latin_span_eligibility_profile: experimental_latin_profile_from_environment()?,
         ..ExperimentalRetrievalConfig::default()
     })
+}
+
+fn experimental_pinyin_profile_from_environment()
+-> Result<ExperimentalPinyinEligibilityProfile, String> {
+    match std::env::var("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE") {
+        Ok(value) if value == "unfiltered-baseline-v1" => {
+            Ok(ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1)
+        }
+        Ok(value) if value == "suppress-short-han-to-short-uppercase-acronym-v1" => {
+            Ok(ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1)
+        }
+        Ok(value) => Err(format!(
+            "unknown VOX_PROOF_EXPERIMENT_PINYIN_PROFILE '{value}'; expected unfiltered-baseline-v1 or suppress-short-han-to-short-uppercase-acronym-v1"
+        )),
+        Err(std::env::VarError::NotPresent) => {
+            Ok(ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1)
+        }
+        Err(std::env::VarError::NotUnicode(_)) => {
+            Err("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE contains a non-Unicode value".to_string())
+        }
+    }
+}
+
+fn experimental_latin_profile_from_environment()
+-> Result<ExperimentalLatinSpanEligibilityProfile, String> {
+    match std::env::var("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE") {
+        Ok(value) if value == "unfiltered-baseline-v1" => {
+            Ok(ExperimentalLatinSpanEligibilityProfile::UnfilteredBaselineV1)
+        }
+        Ok(value) if value == "suppress-target-embedded-in-larger-window-v1" => {
+            Ok(ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1)
+        }
+        Ok(value) => Err(format!(
+            "unknown VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE '{value}'; expected unfiltered-baseline-v1 or suppress-target-embedded-in-larger-window-v1"
+        )),
+        Err(std::env::VarError::NotPresent) => {
+            Ok(ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1)
+        }
+        Err(std::env::VarError::NotUnicode(_)) => {
+            Err("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE contains a non-Unicode value".to_string())
+        }
+    }
 }
 
 fn ranker_from_mode(mode: &str) -> Result<ExperimentalContextRanker, String> {

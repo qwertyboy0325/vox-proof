@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
@@ -8,19 +9,42 @@ fn run_with_stdin(input: &str) -> Output {
 }
 
 fn run_with_args_and_stdin(args: &[&str], input: &str) -> Output {
-    run_with_args_stdin_and_profile(args, input, None)
+    run_with_args_stdin_and_profiles(args, input, None, None)
 }
 
-fn run_with_args_stdin_and_profile(args: &[&str], input: &str, profile: Option<&str>) -> Output {
+fn run_with_args_stdin_and_profiles(
+    args: &[&str],
+    input: &str,
+    pinyin_profile: Option<&str>,
+    latin_profile: Option<&str>,
+) -> Output {
+    run_with_args_stdin_and_os_profiles(
+        args,
+        input,
+        pinyin_profile.map(OsStr::new),
+        latin_profile.map(OsStr::new),
+    )
+}
+
+fn run_with_args_stdin_and_os_profiles(
+    args: &[&str],
+    input: &str,
+    pinyin_profile: Option<&OsStr>,
+    latin_profile: Option<&OsStr>,
+) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_vox-proof"));
     command
         .args(args)
         .env_remove("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE")
+        .env_remove("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if let Some(profile) = profile {
+    if let Some(profile) = pinyin_profile {
         command.env("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE", profile);
+    }
+    if let Some(profile) = latin_profile {
+        command.env("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE", profile);
     }
     let mut child = command.spawn().expect("spawn binary");
 
@@ -104,11 +128,15 @@ fn experimental_selection_writes_only_sidecar_marker_and_keeps_exact_output_auth
         serde_json::from_str(&report).expect("parse experimental report");
     assert_eq!(
         report_json["schema_revision"],
-        "experimental-contextual-resolution-sidecar-v2"
+        "experimental-contextual-resolution-sidecar-v3"
     );
     assert_eq!(
         report_json["pinyin_eligibility_profile"],
         "suppress_short_han_to_short_uppercase_acronym_v1"
+    );
+    assert_eq!(
+        report_json["latin_span_eligibility_profile"],
+        "suppress_target_embedded_in_larger_window_v1"
     );
     assert!(reviewed.contains("卡夫卡"));
     assert!(!decision_log.contains("manual_correction"));
@@ -127,7 +155,7 @@ fn experimental_unknown_pinyin_profile_fails_without_sidecar() {
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");
 
-    let output = run_with_args_stdin_and_profile(
+    let output = run_with_args_stdin_and_profiles(
         &[
             "review-experiment",
             input_path.to_str().expect("utf8 input path"),
@@ -141,6 +169,7 @@ fn experimental_unknown_pinyin_profile_fails_without_sidecar() {
         ],
         "",
         Some("unknown-profile"),
+        None,
     );
 
     assert!(!output.status.success());
@@ -149,6 +178,121 @@ fn experimental_unknown_pinyin_profile_fails_without_sidecar() {
     assert!(stderr.contains("unfiltered-baseline-v1"));
     assert!(stderr.contains("suppress-short-han-to-short-uppercase-acronym-v1"));
     assert!(!report_path.exists());
+}
+
+#[test]
+fn experimental_unknown_latin_profile_fails_without_sidecar() {
+    let dir = temp_dir("experimental-unknown-latin-profile");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nhello");
+    let terms_path = write_session_terms(&dir, "Kafka | alias:Kafka");
+    let description_path = write_description(&dir, "Synthetic technical discussion.");
+    let report_path = dir.join("experimental-report.json");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_stdin_and_profiles(
+        &[
+            "review-experiment",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            description_path.to_str().expect("utf8 description path"),
+            "rules-only",
+            report_path.to_str().expect("utf8 report path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+        None,
+        Some("unknown-profile"),
+    );
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("unknown VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE 'unknown-profile'"));
+    assert!(stderr.contains("unfiltered-baseline-v1"));
+    assert!(stderr.contains("suppress-target-embedded-in-larger-window-v1"));
+    assert!(!report_path.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn experimental_non_unicode_latin_profile_fails_without_sidecar() {
+    use std::os::unix::ffi::OsStringExt;
+
+    let dir = temp_dir("experimental-non-unicode-latin-profile");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nhello");
+    let terms_path = write_session_terms(&dir, "Kafka | alias:Kafka");
+    let description_path = write_description(&dir, "Synthetic technical discussion.");
+    let report_path = dir.join("experimental-report.json");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+    let invalid_profile = std::ffi::OsString::from_vec(vec![0xff]);
+
+    let output = run_with_args_stdin_and_os_profiles(
+        &[
+            "review-experiment",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            description_path.to_str().expect("utf8 description path"),
+            "rules-only",
+            report_path.to_str().expect("utf8 report path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+        None,
+        Some(invalid_profile.as_os_str()),
+    );
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(
+        stderr.contains("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE contains a non-Unicode value")
+    );
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn experimental_explicit_default_latin_profile_is_accepted() {
+    let dir = temp_dir("experimental-explicit-default-latin-profile");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nhello");
+    let terms_path = write_session_terms(&dir, "Kafka | alias:Kafka");
+    let description_path = write_description(&dir, "Synthetic technical discussion.");
+    let report_path = dir.join("experimental-report.json");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_stdin_and_profiles(
+        &[
+            "review-experiment",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            description_path.to_str().expect("utf8 description path"),
+            "rules-only",
+            report_path.to_str().expect("utf8 report path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+        None,
+        Some("suppress-target-embedded-in-larger-window-v1"),
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let report: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(report_path).expect("read experimental report"),
+    )
+    .expect("parse experimental report");
+    assert_eq!(
+        report["latin_span_eligibility_profile"],
+        "suppress_target_embedded_in_larger_window_v1"
+    );
 }
 
 #[test]

@@ -10,13 +10,20 @@ use crate::anchor::SourceAnchor;
 use crate::candidate::SessionTermEntry;
 use crate::transcript::Transcript;
 
-pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.2";
+pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.3";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExperimentalPinyinEligibilityProfile {
     UnfilteredBaselineV1,
     SuppressShortHanToShortUppercaseAcronymV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentalLatinSpanEligibilityProfile {
+    UnfilteredBaselineV1,
+    SuppressTargetEmbeddedInLargerWindowV1,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +34,7 @@ pub struct ExperimentalRetrievalConfig {
     pub max_pinyin_expansions: usize,
     pub max_latin_window_tokens: usize,
     pub pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
+    pub latin_span_eligibility_profile: ExperimentalLatinSpanEligibilityProfile,
 }
 
 impl Default for ExperimentalRetrievalConfig {
@@ -39,6 +47,8 @@ impl Default for ExperimentalRetrievalConfig {
             max_latin_window_tokens: 3,
             pinyin_eligibility_profile:
                 ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1,
+            latin_span_eligibility_profile:
+                ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1,
         }
     }
 }
@@ -255,6 +265,9 @@ fn latin_reports(
             if !is_ascii_alphabetic_term(&entry.canonical_term) {
                 return None;
             }
+            if suppress_latin_candidate(window, entry, config.latin_span_eligibility_profile) {
+                return None;
+            }
             let target = normalize_latin(&entry.canonical_term);
             let distance = levenshtein(&source, &target)?;
             if target.len() < 3
@@ -286,6 +299,31 @@ fn latin_reports(
                 None,
             ))
         })
+        .collect()
+}
+
+fn suppress_latin_candidate(
+    window: &SourceWindow,
+    entry: &SessionTermEntry,
+    profile: ExperimentalLatinSpanEligibilityProfile,
+) -> bool {
+    if profile == ExperimentalLatinSpanEligibilityProfile::UnfilteredBaselineV1 {
+        return false;
+    }
+
+    let source_tokens = ascii_lowercase_tokens(&window.surface);
+    let target_tokens = ascii_lowercase_tokens(&entry.canonical_term);
+    source_tokens.len() > target_tokens.len()
+        && !target_tokens.is_empty()
+        && source_tokens
+            .windows(target_tokens.len())
+            .any(|tokens| tokens == target_tokens)
+}
+
+fn ascii_lowercase_tokens(value: &str) -> Vec<String> {
+    value
+        .split_ascii_whitespace()
+        .map(str::to_ascii_lowercase)
         .collect()
 }
 
@@ -557,6 +595,20 @@ mod tests {
         SessionTermEntry::new(canonical, Vec::new(), Vec::new())
     }
 
+    fn latin_suppression_applies(source: &str, target: &str) -> bool {
+        let transcript = parse_srt(&format!("1\n00:00:00,000 --> 00:00:01,000\n{source}")).unwrap();
+        let window = SourceWindow {
+            anchor: transcript.anchor(0, 0, source.len()).unwrap(),
+            surface: source.to_string(),
+            kind: SourceWindowKind::Latin,
+        };
+        suppress_latin_candidate(
+            &window,
+            &entry(target),
+            ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1,
+        )
+    }
+
     #[test]
     fn retrieval_is_deterministic_and_is_limited_to_session_terms() {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre sequel").unwrap();
@@ -742,6 +794,138 @@ mod tests {
         ] {
             let config = ExperimentalRetrievalConfig {
                 pinyin_eligibility_profile: profile,
+                ..ExperimentalRetrievalConfig::default()
+            };
+            assert_eq!(
+                retrieve_experimental_candidates(&transcript, &entries, &config),
+                retrieve_experimental_candidates(&transcript, &entries, &config)
+            );
+        }
+    }
+
+    #[test]
+    fn unfiltered_latin_profile_retains_embedded_target_candidate() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nuse iPhone").unwrap();
+        let config = ExperimentalRetrievalConfig {
+            latin_span_eligibility_profile:
+                ExperimentalLatinSpanEligibilityProfile::UnfilteredBaselineV1,
+            ..ExperimentalRetrievalConfig::default()
+        };
+        let reports = retrieve_experimental_candidates(&transcript, &[entry("iPhone")], &config);
+        assert!(
+            reports
+                .iter()
+                .any(|report| report.source_surface == "use iPhone")
+        );
+    }
+
+    #[test]
+    fn default_latin_profile_suppresses_embedded_target_candidate() {
+        for (source, target) in [
+            ("use iPhone", "iPhone"),
+            ("for iPhone", "iPhone"),
+            ("to Guangdong", "Guangdong"),
+            ("My Cantonese", "Cantonese"),
+            ("Cantonese is", "Cantonese"),
+            ("the integrated circuit", "integrated circuit"),
+            ("basketball god", "basketball"),
+        ] {
+            assert!(
+                latin_suppression_applies(source, target),
+                "expected {source} -> {target} to be suppressed"
+            );
+        }
+    }
+
+    #[test]
+    fn latin_embedded_matching_is_case_insensitive_and_token_sequence_based() {
+        assert!(latin_suppression_applies("USE IPHONE", "iPhone"));
+        assert!(!latin_suppression_applies("use iPhones", "iPhone"));
+        assert!(!latin_suppression_applies("concatenate tokens", "cat"));
+        assert!(!latin_suppression_applies("i phone", "iPhone"));
+    }
+
+    #[test]
+    fn latin_profile_retains_typo_and_multi_token_corrections() {
+        for (source, target) in [
+            ("passanger", "passenger"),
+            ("neuro network", "neural network"),
+            ("deplanning", "deep learning"),
+            ("ten days", "tennis"),
+            (
+                "information system management",
+                "information systems management",
+            ),
+        ] {
+            assert!(
+                !latin_suppression_applies(source, target),
+                "did not expect {source} -> {target} to be suppressed"
+            );
+            let transcript =
+                parse_srt(&format!("1\n00:00:00,000 --> 00:00:01,000\n{source}")).unwrap();
+            let reports = retrieve_experimental_candidates(
+                &transcript,
+                &[entry(target)],
+                &ExperimentalRetrievalConfig::default(),
+            );
+            assert!(
+                reports.iter().any(|report| report.canonical_term == target),
+                "expected {source} -> {target} to remain eligible"
+            );
+        }
+    }
+
+    #[test]
+    fn latin_profile_does_not_change_pinyin_retrieval() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n卡夫卡").unwrap();
+        let entries = [entry("Kafka")];
+        let unfiltered = retrieve_experimental_candidates(
+            &transcript,
+            &entries,
+            &ExperimentalRetrievalConfig {
+                latin_span_eligibility_profile:
+                    ExperimentalLatinSpanEligibilityProfile::UnfilteredBaselineV1,
+                ..ExperimentalRetrievalConfig::default()
+            },
+        );
+        let suppressed = retrieve_experimental_candidates(
+            &transcript,
+            &entries,
+            &ExperimentalRetrievalConfig::default(),
+        );
+        assert_eq!(unfiltered, suppressed);
+    }
+
+    #[test]
+    fn latin_profile_does_not_change_exact_alias_review() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nuse iPhone").unwrap();
+        let entries = vec![SessionTermEntry::new(
+            "iPhone",
+            vec!["use iPhone".to_string()],
+            Vec::new(),
+        )];
+        assert_eq!(run_term_review(&transcript, &entries).unwrap().len(), 1);
+        assert!(
+            retrieve_experimental_candidates(
+                &transcript,
+                &entries,
+                &ExperimentalRetrievalConfig::default()
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn latin_retrieval_is_deterministic_under_both_profiles() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\nuse iPhone passanger").unwrap();
+        let entries = [entry("iPhone"), entry("passenger")];
+        for profile in [
+            ExperimentalLatinSpanEligibilityProfile::UnfilteredBaselineV1,
+            ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1,
+        ] {
+            let config = ExperimentalRetrievalConfig {
+                latin_span_eligibility_profile: profile,
                 ..ExperimentalRetrievalConfig::default()
             };
             assert_eq!(

@@ -39,9 +39,9 @@ fake. Both modes require human review. A selection records an
 experiment-only `manual_correction_requested` marker in the sidecar and gives
 alias-and-rerun guidance; it cannot alter the reviewed SRT.
 
-## Experimental pinyin eligibility profiles
+## Experimental retrieval eligibility profiles
 
-The default profile is
+The default pinyin profile is
 `suppress_short_han_to_short_uppercase_acronym_v1`. It suppresses the measured
 short-Han-to-short-uppercase-acronym collision class before experimental
 ranking. Set:
@@ -52,11 +52,26 @@ VOX_PROOF_EXPERIMENT_PINYIN_PROFILE=unfiltered-baseline-v1
 
 to reproduce the earlier unfiltered candidate behavior. The unfiltered profile
 is retained only as a calibration baseline, not as a recommended runtime
-setting. Experimental sidecar schema v2 records the active
-`pinyin_eligibility_profile` so runs remain distinguishable.
+setting.
 
-Both profiles are experiment-specific retrieval configurations. Neither
-establishes formal matching-policy or language-policy semantics.
+The independent default Latin source-span profile is
+`suppress_target_embedded_in_larger_window_v1`. It suppresses Latin candidates
+whose complete canonical token sequence is already embedded inside a larger
+source window. Set:
+
+```text
+VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE=unfiltered-baseline-v1
+```
+
+to reproduce the previous Latin span behavior. This unfiltered profile is also
+retained only as a calibration baseline. The default can be selected explicitly
+with
+`VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE=suppress-target-embedded-in-larger-window-v1`.
+
+Experimental sidecar schema v3 records both `pinyin_eligibility_profile` and
+`latin_span_eligibility_profile` so runs remain distinguishable. These profiles
+are experiment-specific retrieval configurations. Neither establishes formal
+matching-policy, language-policy, deletion, or cleanup semantics.
 
 `external-command` is optional and requires
 `VOX_PROOF_EXPERIMENT_COMMAND` to name a local executable. The command receives
