@@ -2,7 +2,15 @@ use std::io::{self, BufRead, Read, Write};
 use std::process::ExitCode;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use serde::Serialize;
 use vox_proof::candidate::Evidence;
+use vox_proof::experimental_ranking::{
+    ExperimentalContextRanker, ExperimentalRankingResult, ExternalCommandRanker,
+    rank_experimental_candidates,
+};
+use vox_proof::experimental_retrieval::{
+    ExperimentalCandidateReport, ExperimentalRetrievalConfig, retrieve_experimental_candidates,
+};
 use vox_proof::pipeline::run_term_review;
 use vox_proof::review::{CorrectionDecision, ReviewCase, ReviewLedger};
 use vox_proof::reviewed_output::derive_reviewed_srt;
@@ -17,10 +25,10 @@ use vox_proof::transcript::Transcript;
 
 fn main() -> ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let result = if args.first().map(String::as_str) == Some("review") {
-        run_review_from_args(&args)
-    } else {
-        run_parse_command(&args)
+    let result = match args.first().map(String::as_str) {
+        Some("review") => run_review_from_args(&args),
+        Some("review-experiment") => run_experiment_from_args(&args),
+        _ => run_parse_command(&args),
     };
 
     match result {
@@ -30,6 +38,26 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+#[derive(Serialize)]
+struct ExperimentalRunSidecar {
+    schema_revision: &'static str,
+    session_description: String,
+    ranker_mode: String,
+    reports: Vec<ExperimentalCandidateReport>,
+    rankings: Vec<ExperimentalRankingResult>,
+    manual_correction_markers: Vec<ExperimentalManualCorrectionMarker>,
+    note: &'static str,
+}
+
+#[derive(Serialize)]
+struct ExperimentalManualCorrectionMarker {
+    marker: &'static str,
+    candidate_id: String,
+    source_surface: String,
+    canonical_term: String,
+    guidance: &'static str,
 }
 
 fn run_parse_command(args: &[String]) -> Result<(), String> {
@@ -46,6 +74,277 @@ fn run_parse_command(args: &[String]) -> Result<(), String> {
     let stdout = io::stdout();
     let mut output = stdout.lock();
     print_parse_summary(&transcript, &mut output).map_err(|error| error.to_string())
+}
+
+fn run_experiment_from_args(args: &[String]) -> Result<(), String> {
+    if args.len() != 9 {
+        return Err(experiment_usage().to_string());
+    }
+    let ranker = ranker_from_mode(&args[4])?;
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    run_experiment_command(
+        &args[1],
+        &args[2],
+        &args[3],
+        &args[4],
+        ranker,
+        &args[5],
+        &args[6],
+        &args[7],
+        &args[8],
+        stdin.lock(),
+        stdout.lock(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_experiment_command<R: BufRead, W: Write>(
+    input_path: &str,
+    session_terms_path: &str,
+    description_path: &str,
+    ranker_mode: &str,
+    ranker: ExperimentalContextRanker,
+    experimental_report_path: &str,
+    reviewed_output_path: &str,
+    decision_log_path: &str,
+    session_summary_path: &str,
+    mut input: R,
+    mut output: W,
+) -> Result<(), String> {
+    let session_start = SystemTime::now();
+    let session_timer = Instant::now();
+    let input_srt = std::fs::read_to_string(input_path)
+        .map_err(|error| format!("failed to read input SRT: {error}"))?;
+    let session_terms_text = std::fs::read_to_string(session_terms_path)
+        .map_err(|error| format!("failed to read session terms: {error}"))?;
+    let session_description = std::fs::read_to_string(description_path)
+        .map_err(|error| format!("failed to read experimental session description: {error}"))?;
+    let session_terms =
+        parse_session_terms(&session_terms_text).map_err(|error| error.to_string())?;
+    let transcript =
+        parse_srt(&input_srt).map_err(|error| format!("failed to parse SRT: {error:?}"))?;
+
+    print_parse_summary(&transcript, &mut output).map_err(|error| error.to_string())?;
+    writeln!(output, "experimental ranker mode: {ranker_mode}")
+        .map_err(|error| error.to_string())?;
+    writeln!(
+        output,
+        "experimental non-exact suggestions are not review cases and cannot change reviewed SRT"
+    )
+    .map_err(|error| error.to_string())?;
+
+    let reports = retrieve_experimental_candidates(
+        &transcript,
+        &session_terms,
+        &ExperimentalRetrievalConfig::default(),
+    );
+    let (rankings, manual_correction_markers) = review_experimental_reports(
+        &transcript,
+        &reports,
+        &ranker,
+        &session_description,
+        &mut input,
+        &mut output,
+    )?;
+
+    // The exact path remains independently authoritative and intentionally
+    // receives no experimental reports, selections, or ranker output.
+    let review_cases = run_term_review(&transcript, &session_terms)
+        .map_err(|error| format!("failed to run session-term review: {error:?}"))?;
+    let ledger = if review_cases.is_empty() {
+        writeln!(output, "no exact review cases found").map_err(|error| error.to_string())?;
+        ReviewLedger::new()
+    } else {
+        review_cases_interactively(&transcript, &review_cases, &mut input, &mut output)?
+    };
+
+    let reviewed_srt = derive_reviewed_srt(&transcript, &review_cases, &ledger)
+        .map_err(|error| format!("failed to derive reviewed SRT: {error:?}"))?;
+    let decision_log = render_decision_log(&ledger);
+    let session_end = SystemTime::now();
+    let summary = collect_session_summary(CompletedSession {
+        transcript: &transcript,
+        review_cases: &review_cases,
+        ledger: &ledger,
+        session_term_entries: session_terms.len(),
+        inputs: SessionInputPaths {
+            input_srt: input_path.to_string(),
+            session_terms: session_terms_path.to_string(),
+        },
+        timing: SessionTiming {
+            start_unix_ms: unix_time_ms(session_start)?,
+            end_unix_ms: unix_time_ms(session_end)?,
+            elapsed_ms: session_timer.elapsed().as_millis(),
+        },
+        outputs: SessionOutputPaths {
+            reviewed_srt: reviewed_output_path.to_string(),
+            decision_log: decision_log_path.to_string(),
+            session_summary: session_summary_path.to_string(),
+        },
+    });
+    let sidecar = ExperimentalRunSidecar {
+        schema_revision: "experimental-contextual-resolution-sidecar-v1",
+        session_description,
+        ranker_mode: ranker_mode.to_string(),
+        reports,
+        rankings,
+        manual_correction_markers,
+        note: "Experimental only: these markers are not ReviewLedger decisions, candidates, or materialized edits.",
+    };
+    let sidecar_json = serde_json::to_string_pretty(&sidecar)
+        .map_err(|error| format!("failed to render experimental report: {error}"))?;
+
+    std::fs::write(experimental_report_path, sidecar_json)
+        .map_err(|error| format!("failed to write experimental report: {error}"))?;
+    std::fs::write(reviewed_output_path, reviewed_srt)
+        .map_err(|error| format!("failed to write reviewed SRT: {error}"))?;
+    std::fs::write(decision_log_path, decision_log).map_err(|error| {
+        format!("failed to write decision log: {error}; reviewed SRT may already exist; session output is incomplete")
+    })?;
+    std::fs::write(session_summary_path, render_session_summary(&summary)).map_err(|error| {
+        format!("failed to write session summary: {error}; reviewed SRT and decision log may already exist; session output is incomplete")
+    })?;
+    writeln!(
+        output,
+        "wrote experimental report: {experimental_report_path}"
+    )
+    .map_err(|error| error.to_string())?;
+    writeln!(output, "wrote reviewed SRT: {reviewed_output_path}")
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn ranker_from_mode(mode: &str) -> Result<ExperimentalContextRanker, String> {
+    match mode {
+        "rules-only" => Ok(ExperimentalContextRanker::RulesOnly),
+        "fake" => Ok(ExperimentalContextRanker::DeterministicFake),
+        "external-command" => {
+            let program = std::env::var("VOX_PROOF_EXPERIMENT_COMMAND").map_err(|_| {
+                "external-command requires VOX_PROOF_EXPERIMENT_COMMAND; no credentials are read".to_string()
+            })?;
+            let timeout_ms = std::env::var("VOX_PROOF_EXPERIMENT_TIMEOUT_MS")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(1_000);
+            Ok(ExperimentalContextRanker::ExternalCommand(
+                ExternalCommandRanker {
+                    program,
+                    arguments: Vec::new(),
+                    timeout_ms,
+                    max_request_bytes: 256 * 1024,
+                    max_output_bytes: 16 * 1024,
+                },
+            ))
+        }
+        _ => Err("ranker mode must be rules-only, fake, or external-command".to_string()),
+    }
+}
+
+fn review_experimental_reports<R: BufRead, W: Write>(
+    transcript: &Transcript,
+    reports: &[ExperimentalCandidateReport],
+    ranker: &ExperimentalContextRanker,
+    session_description: &str,
+    input: &mut R,
+    output: &mut W,
+) -> Result<
+    (
+        Vec<ExperimentalRankingResult>,
+        Vec<ExperimentalManualCorrectionMarker>,
+    ),
+    String,
+> {
+    let mut groups = std::collections::BTreeMap::<
+        (usize, usize, usize),
+        Vec<&ExperimentalCandidateReport>,
+    >::new();
+    for report in reports {
+        groups
+            .entry((
+                report.source_anchor.segment_position,
+                report.source_anchor.start_byte,
+                report.source_anchor.end_byte,
+            ))
+            .or_default()
+            .push(report);
+    }
+    let mut rankings = Vec::new();
+    let mut markers = Vec::new();
+    for group in groups.into_values() {
+        let first = group[0];
+        let nearby_context = transcript
+            .segments()
+            .get(first.source_anchor.segment_position)
+            .map(|segment| segment.text())
+            .unwrap_or("");
+        let ranking = rank_experimental_candidates(
+            ranker,
+            session_description,
+            nearby_context,
+            &first.source_surface,
+            &group
+                .iter()
+                .map(|report| (*report).clone())
+                .collect::<Vec<_>>(),
+        );
+        writeln!(output, "\nexperimental source: {}", first.source_surface)
+            .map_err(|error| error.to_string())?;
+        writeln!(output, "nearby context: {nearby_context}").map_err(|error| error.to_string())?;
+        for report in &group {
+            writeln!(
+                output,
+                "  {}: {} via {:?}; distance={}; ratio={}/{}",
+                report.candidate_id,
+                report.canonical_term,
+                report.producer,
+                report.distance,
+                report.ratio_numerator,
+                report.ratio_denominator
+            )
+            .map_err(|error| error.to_string())?;
+        }
+        writeln!(
+            output,
+            "ranking: {:?}; disposition={:?}; selected={:?}; fallback={:?}; requires_review={}",
+            ranking.assessment,
+            ranking.disposition,
+            ranking.selected_candidate_id,
+            ranking.failure,
+            ranking.requires_review
+        )
+        .map_err(|error| error.to_string())?;
+        write!(output, "Experimental selection [s <candidate-id>/n]: ")
+            .map_err(|error| error.to_string())?;
+        output.flush().map_err(|error| error.to_string())?;
+        let mut line = String::new();
+        input
+            .read_line(&mut line)
+            .map_err(|error| format!("failed to read experimental selection: {error}"))?;
+        if let Some(id) = line.trim().strip_prefix("s ") {
+            let selected = group
+                .iter()
+                .find(|report| report.candidate_id == id)
+                .ok_or("experimental selection must name a displayed candidate ID")?;
+            markers.push(ExperimentalManualCorrectionMarker {
+                marker: "manual_correction_requested",
+                candidate_id: selected.candidate_id.clone(),
+                source_surface: selected.source_surface.clone(),
+                canonical_term: selected.canonical_term.clone(),
+                guidance: "Reviewed SRT remains unchanged. Add this source form as an explicit session alias for the canonical term, then rerun the exact review flow.",
+            });
+            writeln!(
+                output,
+                "recorded experimental manual-correction marker; reviewed SRT remains unchanged. Add `alias:{}` to the existing `{}` session-term entry and rerun.",
+                selected.source_surface, selected.canonical_term
+            )
+            .map_err(|error| error.to_string())?;
+        } else if line.trim() != "n" {
+            return Err("experimental selection must be s <candidate-id> or n".to_string());
+        }
+        rankings.push(ranking);
+    }
+    Ok((rankings, markers))
 }
 
 fn run_review_from_args(args: &[String]) -> Result<(), String> {
@@ -328,4 +627,8 @@ fn unix_time_ms(time: SystemTime) -> Result<u128, String> {
 
 fn usage() -> &'static str {
     "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
+}
+
+fn experiment_usage() -> &'static str {
+    "usage:\n  vox-proof review-experiment <input.srt> <session-terms.txt> <session-description.txt> <rules-only|fake|external-command> <experimental-report.json> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
 }

@@ -51,6 +51,53 @@ fn write_session_terms(dir: &std::path::Path, contents: &str) -> PathBuf {
     path
 }
 
+fn write_description(dir: &std::path::Path, contents: &str) -> PathBuf {
+    let path = dir.join("session-description.txt");
+    std::fs::write(&path, contents).expect("write session description");
+    path
+}
+
+#[test]
+fn experimental_selection_writes_only_sidecar_marker_and_keeps_exact_output_authority() {
+    let dir = temp_dir("experimental-sidecar-marker");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\n卡夫卡");
+    let terms_path = write_session_terms(&dir, "Kafka | alias:Kafka");
+    let description_path = write_description(&dir, "Synthetic Kafka technical discussion.");
+    let report_path = dir.join("experimental-report.json");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review-experiment",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            description_path.to_str().expect("utf8 description path"),
+            "fake",
+            report_path.to_str().expect("utf8 report path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "s experimental-0\n",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let report = std::fs::read_to_string(&report_path).expect("read experimental report");
+    let reviewed = std::fs::read_to_string(&reviewed_path).expect("read reviewed output");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    assert!(report.contains("manual_correction_markers"));
+    assert!(report.contains("manual_correction_requested"));
+    assert!(report.contains("experimental-0"));
+    assert!(report.contains("Experimental only"));
+    assert!(reviewed.contains("卡夫卡"));
+    assert!(!decision_log.contains("manual_correction"));
+    assert!(stdout.contains("reviewed SRT remains unchanged"));
+    assert!(stdout.contains("Add `alias:卡夫卡`"));
+}
+
 #[test]
 fn reports_parsed_segments_and_no_issues_for_valid_srt() {
     let output = run_with_stdin("1\n00:00:00,000 --> 00:00:02,500\nhello");

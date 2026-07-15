@@ -1,0 +1,5 @@
+PostgreSQL | alias:PostgreSQL
+SQL | alias:S Q L
+Kafka | alias:Kafka
+C++ | alias:C plus plus
+Postage | alias:Postage
