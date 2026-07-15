@@ -8,13 +8,21 @@ fn run_with_stdin(input: &str) -> Output {
 }
 
 fn run_with_args_and_stdin(args: &[&str], input: &str) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_vox-proof"))
+    run_with_args_stdin_and_profile(args, input, None)
+}
+
+fn run_with_args_stdin_and_profile(args: &[&str], input: &str, profile: Option<&str>) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_vox-proof"));
+    command
         .args(args)
+        .env_remove("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("spawn binary");
+        .stderr(Stdio::piped());
+    if let Some(profile) = profile {
+        command.env("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE", profile);
+    }
+    let mut child = command.spawn().expect("spawn binary");
 
     child
         .stdin
@@ -92,10 +100,55 @@ fn experimental_selection_writes_only_sidecar_marker_and_keeps_exact_output_auth
     assert!(report.contains("manual_correction_requested"));
     assert!(report.contains("experimental-0"));
     assert!(report.contains("Experimental only"));
+    let report_json: serde_json::Value =
+        serde_json::from_str(&report).expect("parse experimental report");
+    assert_eq!(
+        report_json["schema_revision"],
+        "experimental-contextual-resolution-sidecar-v2"
+    );
+    assert_eq!(
+        report_json["pinyin_eligibility_profile"],
+        "suppress_short_han_to_short_uppercase_acronym_v1"
+    );
     assert!(reviewed.contains("卡夫卡"));
     assert!(!decision_log.contains("manual_correction"));
     assert!(stdout.contains("reviewed SRT remains unchanged"));
     assert!(stdout.contains("Add `alias:卡夫卡`"));
+}
+
+#[test]
+fn experimental_unknown_pinyin_profile_fails_without_sidecar() {
+    let dir = temp_dir("experimental-unknown-pinyin-profile");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\n卡夫卡");
+    let terms_path = write_session_terms(&dir, "Kafka | alias:Kafka");
+    let description_path = write_description(&dir, "Synthetic Kafka technical discussion.");
+    let report_path = dir.join("experimental-report.json");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_stdin_and_profile(
+        &[
+            "review-experiment",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            description_path.to_str().expect("utf8 description path"),
+            "rules-only",
+            report_path.to_str().expect("utf8 report path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+        Some("unknown-profile"),
+    );
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("unknown VOX_PROOF_EXPERIMENT_PINYIN_PROFILE 'unknown-profile'"));
+    assert!(stderr.contains("unfiltered-baseline-v1"));
+    assert!(stderr.contains("suppress-short-han-to-short-uppercase-acronym-v1"));
+    assert!(!report_path.exists());
 }
 
 #[test]

@@ -10,7 +10,14 @@ use crate::anchor::SourceAnchor;
 use crate::candidate::SessionTermEntry;
 use crate::transcript::Transcript;
 
-pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.1";
+pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.2";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentalPinyinEligibilityProfile {
+    UnfilteredBaselineV1,
+    SuppressShortHanToShortUppercaseAcronymV1,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExperimentalRetrievalConfig {
@@ -19,6 +26,7 @@ pub struct ExperimentalRetrievalConfig {
     pub max_pinyin_distance: usize,
     pub max_pinyin_expansions: usize,
     pub max_latin_window_tokens: usize,
+    pub pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
 }
 
 impl Default for ExperimentalRetrievalConfig {
@@ -29,6 +37,8 @@ impl Default for ExperimentalRetrievalConfig {
             max_pinyin_distance: 3,
             max_pinyin_expansions: 32,
             max_latin_window_tokens: 3,
+            pinyin_eligibility_profile:
+                ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1,
         }
     }
 }
@@ -292,6 +302,9 @@ fn pinyin_reports(
     entries
         .iter()
         .filter_map(|entry| {
+            if suppress_pinyin_candidate(window, entry, config.pinyin_eligibility_profile) {
+                return None;
+            }
             let target = representation_for_pinyin_target(&entry.canonical_term)?;
             let mut best = None;
             for source in &expansion.readings {
@@ -329,6 +342,25 @@ fn pinyin_reports(
             ))
         })
         .collect()
+}
+
+fn suppress_pinyin_candidate(
+    window: &SourceWindow,
+    entry: &SessionTermEntry,
+    profile: ExperimentalPinyinEligibilityProfile,
+) -> bool {
+    if profile == ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1 {
+        return false;
+    }
+
+    let source_length = window.surface.chars().count();
+    let target = entry.canonical_term.as_str();
+    is_all_han_term(&window.surface)
+        && (1..=2).contains(&source_length)
+        && !target.is_empty()
+        && !target.chars().any(char::is_whitespace)
+        && target.chars().all(|ch| ch.is_ascii_uppercase())
+        && (1..=3).contains(&target.len())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -518,6 +550,7 @@ fn levenshtein(left: &str, right: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pipeline::run_term_review;
     use crate::srt::parse_srt;
 
     fn entry(canonical: &str) -> SessionTermEntry {
@@ -637,5 +670,84 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["Kafka"]
         );
+    }
+
+    #[test]
+    fn unfiltered_profile_retains_short_han_to_short_acronym_baseline() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n對").unwrap();
+        let config = ExperimentalRetrievalConfig {
+            pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1,
+            ..ExperimentalRetrievalConfig::default()
+        };
+        let reports = retrieve_experimental_candidates(&transcript, &[entry("AI")], &config);
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].source_surface, "對");
+        assert_eq!(reports[0].canonical_term, "AI");
+    }
+
+    #[test]
+    fn default_profile_suppresses_short_han_to_short_acronym() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n對 嗯 會").unwrap();
+        let reports = retrieve_experimental_candidates(
+            &transcript,
+            &[entry("AI")],
+            &ExperimentalRetrievalConfig::default(),
+        );
+        assert!(reports.is_empty());
+    }
+
+    #[test]
+    fn default_profile_retains_longer_han_to_latin_transliterations() {
+        for (source, target) in [("卡夫卡", "Kafka"), ("阿里佩", "Alipay")] {
+            let transcript =
+                parse_srt(&format!("1\n00:00:00,000 --> 00:00:01,000\n{source}")).unwrap();
+            let reports = retrieve_experimental_candidates(
+                &transcript,
+                &[entry(target)],
+                &ExperimentalRetrievalConfig::default(),
+            );
+            assert!(
+                reports.iter().any(|report| report.canonical_term == target),
+                "expected {source} -> {target} to remain eligible"
+            );
+        }
+    }
+
+    #[test]
+    fn exact_alias_path_is_unaffected_by_experimental_profile() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n對").unwrap();
+        let entries = vec![SessionTermEntry::new(
+            "AI",
+            vec!["對".to_string()],
+            Vec::new(),
+        )];
+        let review_cases = run_term_review(&transcript, &entries).unwrap();
+        assert_eq!(review_cases.len(), 1);
+
+        let reports = retrieve_experimental_candidates(
+            &transcript,
+            &entries,
+            &ExperimentalRetrievalConfig::default(),
+        );
+        assert!(reports.is_empty());
+    }
+
+    #[test]
+    fn profile_specific_retrieval_is_deterministic() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n卡夫卡 對").unwrap();
+        let entries = vec![entry("Kafka"), entry("AI")];
+        for profile in [
+            ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1,
+            ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1,
+        ] {
+            let config = ExperimentalRetrievalConfig {
+                pinyin_eligibility_profile: profile,
+                ..ExperimentalRetrievalConfig::default()
+            };
+            assert_eq!(
+                retrieve_experimental_candidates(&transcript, &entries, &config),
+                retrieve_experimental_candidates(&transcript, &entries, &config)
+            );
+        }
     }
 }

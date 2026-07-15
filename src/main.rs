@@ -9,7 +9,8 @@ use vox_proof::experimental_ranking::{
     rank_experimental_candidates,
 };
 use vox_proof::experimental_retrieval::{
-    ExperimentalCandidateReport, ExperimentalRetrievalConfig, retrieve_experimental_candidates,
+    ExperimentalCandidateReport, ExperimentalPinyinEligibilityProfile, ExperimentalRetrievalConfig,
+    retrieve_experimental_candidates,
 };
 use vox_proof::pipeline::run_term_review;
 use vox_proof::review::{CorrectionDecision, ReviewCase, ReviewLedger};
@@ -45,6 +46,7 @@ struct ExperimentalRunSidecar {
     schema_revision: &'static str,
     session_description: String,
     ranker_mode: String,
+    pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
     reports: Vec<ExperimentalCandidateReport>,
     rankings: Vec<ExperimentalRankingResult>,
     manual_correction_markers: Vec<ExperimentalManualCorrectionMarker>,
@@ -81,6 +83,7 @@ fn run_experiment_from_args(args: &[String]) -> Result<(), String> {
         return Err(experiment_usage().to_string());
     }
     let ranker = ranker_from_mode(&args[4])?;
+    let retrieval_config = experimental_retrieval_config_from_environment()?;
     let stdin = io::stdin();
     let stdout = io::stdout();
     run_experiment_command(
@@ -89,6 +92,7 @@ fn run_experiment_from_args(args: &[String]) -> Result<(), String> {
         &args[3],
         &args[4],
         ranker,
+        retrieval_config,
         &args[5],
         &args[6],
         &args[7],
@@ -105,6 +109,7 @@ fn run_experiment_command<R: BufRead, W: Write>(
     description_path: &str,
     ranker_mode: &str,
     ranker: ExperimentalContextRanker,
+    retrieval_config: ExperimentalRetrievalConfig,
     experimental_report_path: &str,
     reviewed_output_path: &str,
     decision_log_path: &str,
@@ -130,15 +135,17 @@ fn run_experiment_command<R: BufRead, W: Write>(
         .map_err(|error| error.to_string())?;
     writeln!(
         output,
+        "experimental pinyin eligibility profile: {:?}",
+        retrieval_config.pinyin_eligibility_profile
+    )
+    .map_err(|error| error.to_string())?;
+    writeln!(
+        output,
         "experimental non-exact suggestions are not review cases and cannot change reviewed SRT"
     )
     .map_err(|error| error.to_string())?;
 
-    let reports = retrieve_experimental_candidates(
-        &transcript,
-        &session_terms,
-        &ExperimentalRetrievalConfig::default(),
-    );
+    let reports = retrieve_experimental_candidates(&transcript, &session_terms, &retrieval_config);
     let (rankings, manual_correction_markers) = review_experimental_reports(
         &transcript,
         &reports,
@@ -184,9 +191,10 @@ fn run_experiment_command<R: BufRead, W: Write>(
         },
     });
     let sidecar = ExperimentalRunSidecar {
-        schema_revision: "experimental-contextual-resolution-sidecar-v1",
+        schema_revision: "experimental-contextual-resolution-sidecar-v2",
         session_description,
         ranker_mode: ranker_mode.to_string(),
+        pinyin_eligibility_profile: retrieval_config.pinyin_eligibility_profile,
         reports,
         rankings,
         manual_correction_markers,
@@ -213,6 +221,34 @@ fn run_experiment_command<R: BufRead, W: Write>(
     writeln!(output, "wrote reviewed SRT: {reviewed_output_path}")
         .map_err(|error| error.to_string())?;
     Ok(())
+}
+
+fn experimental_retrieval_config_from_environment() -> Result<ExperimentalRetrievalConfig, String> {
+    let profile = match std::env::var("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE") {
+        Ok(value) if value == "unfiltered-baseline-v1" => {
+            ExperimentalPinyinEligibilityProfile::UnfilteredBaselineV1
+        }
+        Ok(value) if value == "suppress-short-han-to-short-uppercase-acronym-v1" => {
+            ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1
+        }
+        Ok(value) => {
+            return Err(format!(
+                "unknown VOX_PROOF_EXPERIMENT_PINYIN_PROFILE '{value}'; expected unfiltered-baseline-v1 or suppress-short-han-to-short-uppercase-acronym-v1"
+            ));
+        }
+        Err(std::env::VarError::NotPresent) => {
+            ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1
+        }
+        Err(error) => {
+            return Err(format!(
+                "failed to read VOX_PROOF_EXPERIMENT_PINYIN_PROFILE: {error}"
+            ));
+        }
+    };
+    Ok(ExperimentalRetrievalConfig {
+        pinyin_eligibility_profile: profile,
+        ..ExperimentalRetrievalConfig::default()
+    })
 }
 
 fn ranker_from_mode(mode: &str) -> Result<ExperimentalContextRanker, String> {
