@@ -605,6 +605,57 @@ fn no_extra_parts<'a>(
     }
 }
 
+fn write_nearby_source_context<W: Write>(
+    transcript: &Transcript,
+    segment_position: usize,
+    output: &mut W,
+) -> io::Result<()> {
+    let segments = transcript.segments();
+    writeln!(
+        output,
+        "nearby_context_note: presentation only; not evidence, not ranking input, and not used for materialization"
+    )?;
+
+    if segment_position == 0 {
+        writeln!(output, "previous_cue_index: (none)")?;
+        writeln!(output, "previous_cue_text: (none)")?;
+    } else if let Some(previous) = segments.get(segment_position - 1) {
+        writeln!(output, "previous_cue_index: {}", previous.index())?;
+        writeln!(output, "previous_cue_text: {}", previous.text())?;
+    } else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "previous cue at segment position {} is unavailable in transcript with {} segment(s)",
+                segment_position - 1,
+                segments.len()
+            ),
+        ));
+    }
+
+    let current = segments.get(segment_position).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "review anchor segment position {segment_position} is outside transcript bounds (segment count: {})",
+                segments.len()
+            ),
+        )
+    })?;
+    writeln!(output, "cue_index: {}", current.index())?;
+    writeln!(output, "cue_text: {}", current.text())?;
+
+    if let Some(following) = segments.get(segment_position + 1) {
+        writeln!(output, "following_cue_index: {}", following.index())?;
+        writeln!(output, "following_cue_text: {}", following.text())?;
+    } else {
+        writeln!(output, "following_cue_index: (none)")?;
+        writeln!(output, "following_cue_text: (none)")?;
+    }
+
+    Ok(())
+}
+
 fn print_review_case<W: Write>(
     transcript: &Transcript,
     review_case: &ReviewCase,
@@ -613,16 +664,12 @@ fn print_review_case<W: Write>(
     let candidate = review_case.candidate_span();
     let anchor = candidate.anchor();
     let segment_position = anchor.segment_position();
-    let segment = transcript.segments().get(segment_position);
     let matched_text = transcript.resolve(anchor).unwrap_or("<unresolved anchor>");
 
     writeln!(output)?;
     writeln!(output, "case_id: local:{}", review_case.id().local_index())?;
     writeln!(output, "source_segment_position: {segment_position}")?;
-    if let Some(segment) = segment {
-        writeln!(output, "cue_index: {}", segment.index())?;
-        writeln!(output, "cue_text: {}", segment.text())?;
-    }
+    write_nearby_source_context(transcript, segment_position, output)?;
     writeln!(output, "matched_text: {matched_text}")?;
 
     match candidate.evidence() {

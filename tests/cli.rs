@@ -657,3 +657,207 @@ fn review_wrong_command_shape_prints_usage_and_exits_nonzero() {
         "vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
     ));
 }
+
+#[test]
+fn review_prompt_shows_adjacent_source_cue_context_for_middle_cue() {
+    let dir = temp_dir("review-nearby-context-middle");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nfirst cue\n\n2\n00:00:01,000 --> 00:00:02,000\nmiddle Kafka cue\n\n3\n00:00:02,000 --> 00:00:03,000\nlast cue",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    assert!(stdout.contains(
+        "nearby_context_note: presentation only; not evidence, not ranking input, and not used for materialization"
+    ));
+    assert!(stdout.contains("previous_cue_index: 1"));
+    assert!(stdout.contains("previous_cue_text: first cue"));
+    assert!(stdout.contains("cue_index: 2"));
+    assert!(stdout.contains("cue_text: middle Kafka cue"));
+    assert!(!stdout.contains("review_cue_"));
+    assert!(stdout.contains("following_cue_index: 3"));
+    assert!(stdout.contains("following_cue_text: last cue"));
+}
+
+#[test]
+fn review_prompt_omits_missing_previous_context_for_first_cue() {
+    let dir = temp_dir("review-nearby-context-first");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nfirst Kafka cue\n\n2\n00:00:01,000 --> 00:00:02,000\nlast cue",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\nr\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    assert!(stdout.contains("previous_cue_index: (none)"));
+    assert!(stdout.contains("previous_cue_text: (none)"));
+    assert!(stdout.contains("cue_index: 1"));
+    assert!(stdout.contains("cue_text: first Kafka cue"));
+    assert!(!stdout.contains("review_cue_"));
+    assert!(stdout.contains("following_cue_index: 2"));
+    assert!(stdout.contains("following_cue_text: last cue"));
+}
+
+#[test]
+fn review_prompt_omits_missing_following_context_for_last_cue() {
+    let dir = temp_dir("review-nearby-context-last");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nfirst cue\n\n2\n00:00:01,000 --> 00:00:02,000\nlast Kafka cue",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    assert!(stdout.contains("previous_cue_index: 1"));
+    assert!(stdout.contains("previous_cue_text: first cue"));
+    assert!(stdout.contains("cue_index: 2"));
+    assert!(stdout.contains("cue_text: last Kafka cue"));
+    assert!(!stdout.contains("review_cue_"));
+    assert!(stdout.contains("following_cue_index: (none)"));
+    assert!(stdout.contains("following_cue_text: (none)"));
+}
+
+#[test]
+fn review_prompt_renders_unicode_and_multiline_nearby_context() {
+    let dir = temp_dir("review-nearby-context-unicode-multiline");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\n前段\n\n2\n00:00:01,000 --> 00:00:02,000\n中間\nKafka\n段\n\n3\n00:00:02,000 --> 00:00:03,000\n後段",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    assert!(stdout.contains("previous_cue_text: 前段"));
+    assert!(stdout.contains("cue_text: 中間\nKafka\n段"));
+    assert!(!stdout.contains("review_cue_"));
+    assert!(stdout.contains("following_cue_text: 後段"));
+}
+
+#[test]
+fn review_nearby_context_does_not_change_accept_or_reject_outputs() {
+    let dir = temp_dir("review-nearby-context-output-unchanged");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nbefore\n\n2\n00:00:01,000 --> 00:00:02,000\nI use Kafka\n\n3\n00:00:02,000 --> 00:00:03,000\nafter",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let accept_output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "a 0\n",
+    );
+
+    assert!(accept_output.status.success());
+    let accept_stdout = String::from_utf8(accept_output.stdout).expect("utf8 stdout");
+    let accept_reviewed = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let accept_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let accept_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+    assert!(accept_stdout.contains("nearby_context_note:"));
+    assert!(accept_stdout.contains("cue_index:"));
+    assert!(accept_stdout.contains("cue_text:"));
+    assert!(!accept_stdout.contains("review_cue_"));
+    assert!(accept_reviewed.contains("I use Apache Kafka"));
+    assert!(accept_log.contains("decision: accept_alternative"));
+    assert!(accept_summary.contains("accepted_alternatives: 1"));
+
+    let reject_output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(reject_output.status.success());
+    let reject_stdout = String::from_utf8(reject_output.stdout).expect("utf8 stdout");
+    let reject_reviewed = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let reject_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let reject_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+    assert!(reject_stdout.contains("nearby_context_note:"));
+    assert!(reject_stdout.contains("cue_index:"));
+    assert!(reject_stdout.contains("cue_text:"));
+    assert!(!reject_stdout.contains("review_cue_"));
+    assert!(reject_reviewed.contains("I use Kafka"));
+    assert!(!reject_reviewed.contains("Apache Kafka"));
+    assert!(reject_log.contains("decision: reject"));
+    assert!(reject_summary.contains("rejected: 1"));
+}
