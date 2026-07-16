@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: the authoritative exact local review loop and the experiment-only contextual retrieval/ranking sidecar exist and are covered by unit and CLI tests; real-material effectiveness validation remains pending
+Last reviewed against code: the authoritative exact local review loop now includes nearby source context in review prompts, and the experiment-only contextual retrieval/ranking sidecar exists; both are covered by unit and CLI tests; real-material effectiveness validation remains pending
 
 # VoxProof
 
@@ -44,6 +44,7 @@ Recent work:
 - deterministic reviewed SRT derivation
 - decision log rendering
 - minimal facilitated CLI review flow
+- nearby source context in authoritative review prompts
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
 - distinct exact alias and observed-error-form evidence paths
@@ -68,6 +69,7 @@ Recent work:
 - [x] Segment-position reporting cleanup
 - [x] Human review decision log
 - [x] CLI review flow
+- [x] Nearby source context in authoritative review prompts
 - [ ] Private mixed zh-EN evaluation fixture
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping
