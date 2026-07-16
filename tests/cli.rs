@@ -72,7 +72,11 @@ fn temp_dir(test_name: &str) -> PathBuf {
 }
 
 fn write_input_srt(dir: &std::path::Path, contents: &str) -> PathBuf {
-    let path = dir.join("input.srt");
+    write_named_input_srt(dir, "input.srt", contents)
+}
+
+fn write_named_input_srt(dir: &std::path::Path, filename: &str, contents: &str) -> PathBuf {
+    let path = dir.join(filename);
     std::fs::write(&path, contents).expect("write input srt");
     path
 }
@@ -860,4 +864,310 @@ fn review_nearby_context_does_not_change_accept_or_reject_outputs() {
     assert!(!reject_reviewed.contains("Apache Kafka"));
     assert!(reject_log.contains("decision: reject"));
     assert!(reject_summary.contains("rejected: 1"));
+}
+
+fn run_compare(args: &[&str]) -> Output {
+    run_with_args_and_stdin(args, "")
+}
+
+#[test]
+fn compare_writes_strict_skeleton_aligned_report() {
+    let dir = temp_dir("compare-success");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n2\n00:00:01,000 --> 00:00:02,000\nKafka\n\n3\n00:00:02,000 --> 00:00:03,000\nlast",
+    );
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\nfirst\n\n2\n00:00:01,000 --> 00:00:02,000\nApache Kafka\n\n3\n00:00:02,000 --> 00:00:03,000\nlast",
+    );
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let report = std::fs::read_to_string(&report_path).expect("read report");
+    assert!(stdout.contains("wrote comparison report:"));
+    assert!(report.contains("\"schema_revision\": \"voxproof-calibration-comparison-v0\""));
+    assert!(
+        report.contains("\"compatibility_policy_id\": \"identical-cue-count-index-and-timing-v0\"")
+    );
+    assert!(report.contains("\"cue_count\": 3"));
+    assert!(report.contains("\"unchanged_count\": 2"));
+    assert!(report.contains("\"text_changed_count\": 1"));
+    assert!(report.contains("\"change_kind\": \"text_changed\""));
+    assert!(report.contains("\"raw_text\": \"Kafka\""));
+    assert!(report.contains("\"final_text\": \"Apache Kafka\""));
+    assert!(report.ends_with('\n'));
+}
+
+#[test]
+fn compare_rejects_malformed_raw_srt() {
+    let dir = temp_dir("compare-malformed-raw");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "not srt");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to parse raw SRT"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_malformed_final_srt() {
+    let dir = temp_dir("compare-malformed-final");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path = write_named_input_srt(&dir, "final.srt", "not srt");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to parse final SRT"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_raw_validation_issue() {
+    let dir = temp_dir("compare-raw-validation");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:03,000 --> 00:00:02,500\nreversed",
+    );
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("raw SRT has validation issues; comparison refused"));
+    assert!(stderr.contains("segment position 0 (cue index 1):"));
+    assert!(stderr.contains("EndBeforeStart { start_ms: 3000, end_ms: 2500 }"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_final_validation_issue() {
+    let dir = temp_dir("compare-final-validation");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        "1\n00:00:03,000 --> 00:00:02,500\nreversed",
+    );
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("final SRT has validation issues; comparison refused"));
+    assert!(stderr.contains("segment position 0 (cue index 1):"));
+    assert!(stderr.contains("EndBeforeStart { start_ms: 3000, end_ms: 2500 }"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_unreadable_raw_input() {
+    let dir = temp_dir("compare-unreadable-raw");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+    let missing_raw = dir.join("missing-raw.srt");
+
+    let output = run_compare(&[
+        "compare",
+        missing_raw.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to read raw input"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_unreadable_final_input() {
+    let dir = temp_dir("compare-unreadable-final");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+    let missing_final = dir.join("missing-final.srt");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        missing_final.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to read final input"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_cue_count_mismatch_without_report() {
+    let dir = temp_dir("compare-count-mismatch");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\none\n\n2\n00:00:01,000 --> 00:00:02,000\ntwo",
+    );
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("comparison refused: cue count mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_index_mismatch_without_report() {
+    let dir = temp_dir("compare-index-mismatch");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "2\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("comparison refused: cue index mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_rejects_timing_mismatch_without_report() {
+    let dir = temp_dir("compare-timing-mismatch");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,100\none");
+    let report_path = dir.join("comparison-report.json");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("comparison refused: end timing mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn compare_refuses_existing_destination_and_preserves_bytes() {
+    let dir = temp_dir("compare-existing-destination");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let report_path = dir.join("comparison-report.json");
+    let existing = b"{\"existing\":true}\n";
+    std::fs::write(&report_path, existing).expect("seed report");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination already exists"));
+    assert_eq!(
+        std::fs::read(&report_path).expect("read preserved report"),
+        existing
+    );
+}
+
+#[test]
+fn compare_refuses_output_path_equal_to_raw_input_and_preserves_raw_bytes() {
+    let dir = temp_dir("compare-output-equals-raw");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let raw_bytes = std::fs::read(&raw_path).expect("read raw bytes");
+
+    let output = run_compare(&[
+        "compare",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        raw_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination already exists"));
+    assert_eq!(std::fs::read(&raw_path).expect("read raw bytes"), raw_bytes);
+}
+
+#[test]
+fn compare_wrong_arity_prints_usage_and_exits_nonzero() {
+    let output = run_compare(&["compare", "raw.srt", "final.srt"]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("usage:"));
+    assert!(
+        stderr.contains(
+            "vox-proof compare <raw-input.srt> <final-input.srt> <comparison-report.json>"
+        )
+    );
 }

@@ -1,11 +1,30 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code: Track 1 local code loop exists. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. v0.1 is not established; real-material validation remains pending.
 
 # Quality and Evaluation
 
 No benchmark or validated performance result exists yet.
+
+## Provisional Calibration Comparison
+
+Implemented local command:
+
+```text
+vox-proof compare <raw-input.srt> <final-input.srt> <comparison-report.json>
+```
+
+Boundary:
+
+- schema revision: `voxproof-calibration-comparison-v0`
+- compatibility policy: `identical-cue-count-index-and-timing-v0`
+- provisional calibration artifact only; not canonical Evidence, not ground truth, and not a Material Decision
+- both inputs must parse with zero validation issues and identical cue count, cue index, `start_ms`, and `end_ms` at every `segment_position`
+- incompatible structure fails closed with a deterministic refusal and no report file
+- per-cue records use only `unchanged` and `text_changed` with exact parsed Unicode text preserved
+- no precision, recall, correctness, accuracy/formatting/editorial classification, or product-performance claims
+- mismatched segmentation or timing requires a future compatibility policy; v0 does not align cues
 
 ## Fixtures
 

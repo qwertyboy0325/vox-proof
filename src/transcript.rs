@@ -222,6 +222,14 @@ impl Segment {
         &self.text
     }
 
+    pub fn start_ms(&self) -> u64 {
+        self.start_ms
+    }
+
+    pub fn end_ms(&self) -> u64 {
+        self.end_ms
+    }
+
     pub fn duration_ms(&self) -> Result<u64, DurationError> {
         if self.end_ms < self.start_ms {
             Err(DurationError::EndBeforeStart {

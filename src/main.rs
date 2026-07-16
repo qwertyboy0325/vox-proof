@@ -3,6 +3,9 @@ use std::process::ExitCode;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use vox_proof::calibration::{
+    build_comparison_report, render_comparison_report, write_comparison_report_exclusive,
+};
 use vox_proof::candidate::Evidence;
 use vox_proof::experimental_ranking::{
     ExperimentalContextRanker, ExperimentalRankingResult, ExternalCommandRanker,
@@ -30,6 +33,7 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("review") => run_review_from_args(&args),
         Some("review-experiment") => run_experiment_from_args(&args),
+        Some("compare") => run_compare_from_args(&args),
         _ => run_parse_command(&args),
     };
 
@@ -414,6 +418,38 @@ fn review_experimental_reports<R: BufRead, W: Write>(
     Ok((rankings, markers))
 }
 
+fn run_compare_from_args(args: &[String]) -> Result<(), String> {
+    if args.len() != 4 {
+        return Err(compare_usage().to_string());
+    }
+
+    run_compare_command(&args[1], &args[2], &args[3])
+}
+
+fn run_compare_command(raw_path: &str, final_path: &str, report_path: &str) -> Result<(), String> {
+    let raw_srt = std::fs::read_to_string(raw_path)
+        .map_err(|error| format!("failed to read raw input: {error}"))?;
+    let final_srt = std::fs::read_to_string(final_path)
+        .map_err(|error| format!("failed to read final input: {error}"))?;
+
+    let raw_transcript =
+        parse_srt(&raw_srt).map_err(|error| format!("failed to parse raw SRT: {error:?}"))?;
+    let final_transcript =
+        parse_srt(&final_srt).map_err(|error| format!("failed to parse final SRT: {error:?}"))?;
+
+    let report = build_comparison_report(&raw_transcript, &final_transcript, raw_path, final_path)
+        .map_err(|refusal| refusal.message())?;
+
+    let json = render_comparison_report(&report)
+        .map_err(|error| format!("failed to serialize comparison report: {error}"))?;
+
+    write_comparison_report_exclusive(report_path, &json)?;
+
+    let stdout = io::stdout();
+    let mut output = stdout.lock();
+    writeln!(output, "wrote comparison report: {report_path}").map_err(|error| error.to_string())
+}
+
 fn run_review_from_args(args: &[String]) -> Result<(), String> {
     if args.len() != 6 {
         return Err(usage().to_string());
@@ -740,7 +776,11 @@ fn unix_time_ms(time: SystemTime) -> Result<u128, String> {
 }
 
 fn usage() -> &'static str {
-    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>"
+    "usage:\n  vox-proof [input.srt]\n  vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision-log.txt> <session-summary.txt>\n  vox-proof compare <raw-input.srt> <final-input.srt> <comparison-report.json>"
+}
+
+fn compare_usage() -> &'static str {
+    "usage:\n  vox-proof compare <raw-input.srt> <final-input.srt> <comparison-report.json>"
 }
 
 fn experiment_usage() -> &'static str {
