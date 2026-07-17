@@ -1,5 +1,6 @@
 use std::ffi::OsStr;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -56,6 +57,55 @@ fn run_with_args_stdin_and_os_profiles(
         .expect("write stdin");
 
     child.wait_with_output().expect("wait for binary output")
+}
+
+fn run_with_seekable_stdin(args: &[&str], stdin_path: &std::path::Path, payload: &[u8]) -> Output {
+    {
+        let mut writer = File::create(stdin_path).expect("create stdin file");
+        writer.write_all(payload).expect("write stdin payload");
+        writer.flush().expect("flush stdin payload");
+    }
+
+    let mut position_probe = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(stdin_path)
+        .expect("open stdin for shared offset probe");
+    position_probe
+        .seek(SeekFrom::Start(0))
+        .expect("rewind shared stdin offset");
+
+    let stdin_for_child = position_probe
+        .try_clone()
+        .expect("clone stdin handle for child");
+
+    let mut command = Command::new(env!("CARGO_BIN_EXE_vox-proof"));
+    command
+        .args(args)
+        .env_remove("VOX_PROOF_EXPERIMENT_PINYIN_PROFILE")
+        .env_remove("VOX_PROOF_EXPERIMENT_LATIN_SPAN_PROFILE")
+        .stdin(stdin_for_child)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let output = command
+        .spawn()
+        .expect("spawn binary")
+        .wait_with_output()
+        .expect("wait for binary output");
+
+    assert_eq!(
+        position_probe.stream_position().expect("stdin offset"),
+        0,
+        "evaluate must not read seekable stdin"
+    );
+    assert_eq!(
+        std::fs::read(stdin_path).expect("read stdin payload"),
+        payload,
+        "stdin payload must remain byte-identical"
+    );
+
+    output
 }
 
 fn temp_dir(test_name: &str) -> PathBuf {
@@ -1318,5 +1368,669 @@ fn compare_wrong_arity_prints_usage_and_exits_nonzero() {
         stderr.contains(
             "vox-proof compare <raw-input.srt> <final-input.srt> <comparison-report.json>"
         )
+    );
+}
+
+fn run_evaluate(args: &[&str]) -> Output {
+    run_with_args_and_stdin(args, "")
+}
+
+#[test]
+fn evaluate_writes_calibration_correspondence_report() {
+    let dir = temp_dir("evaluate-success");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\nsame\n\n2\n00:00:01,000 --> 00:00:02,000\nASIS\n\n3\n00:00:02,000 --> 00:00:03,000\nlast",
+    );
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\nsame\n\n2\n00:00:01,000 --> 00:00:02,000\nASUS\n\n3\n00:00:02,000 --> 00:00:03,000\nlast",
+    );
+    let terms_path = write_session_terms(&dir, "ASUS\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let report = std::fs::read_to_string(&report_path).expect("read report");
+    assert!(stdout.contains("wrote calibration evaluation report:"));
+    assert!(report.contains("\"schema_revision\": \"voxproof-calibration-correspondence-v0\""));
+    assert!(report.contains("\"max_lcs_cells\": 4000000"));
+    assert!(report.contains("\"review_case_count\": 1"));
+    assert!(report.contains("\"changed_cue_count\": 1"));
+    assert!(report.contains("\"unchanged_cue_count\": 2"));
+}
+
+#[test]
+fn evaluate_zero_case_report_still_inventories_edits() {
+    let dir = temp_dir("evaluate-zero-cases");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\nxxx");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\nyyy");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(output.status.success(), "{output:?}");
+    let report = std::fs::read_to_string(&report_path).expect("read report");
+    assert!(report.contains("\"review_case_count\": 0"));
+    assert!(report.contains("\"local_edit_count\": 1"));
+}
+
+#[test]
+fn evaluate_rejects_malformed_raw_srt() {
+    let dir = temp_dir("evaluate-malformed-raw");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\nbad timing\nhello");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\nhello");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to parse raw SRT"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_cue_count_mismatch_without_report() {
+    let dir = temp_dir("evaluate-count-mismatch");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\none\n\n2\n00:00:01,000 --> 00:00:02,000\ntwo",
+    );
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("cue count mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_refuses_existing_destination_and_preserves_bytes() {
+    let dir = temp_dir("evaluate-existing-destination");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+    let existing = b"{\"existing\":true}\n";
+    std::fs::write(&report_path, existing).expect("write existing report");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination already exists"));
+    assert_eq!(
+        std::fs::read(&report_path).expect("read report bytes"),
+        existing
+    );
+}
+
+#[test]
+fn evaluate_refuses_output_path_equal_to_raw_input_and_preserves_raw_bytes() {
+    let dir = temp_dir("evaluate-output-equals-raw");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let raw_bytes = std::fs::read(&raw_path).expect("read raw bytes");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        raw_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination must differ from all inputs"));
+    assert_eq!(std::fs::read(&raw_path).expect("read raw bytes"), raw_bytes);
+}
+
+#[test]
+fn evaluate_wrong_arity_prints_usage_and_exits_nonzero() {
+    let output = run_evaluate(&["evaluate", "raw.srt", "final.srt", "terms.txt"]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("usage:"));
+    assert!(stderr.contains(
+        "vox-proof evaluate <raw-input.srt> <final-input.srt> <session-terms.txt> <evaluation-report.json>"
+    ));
+}
+
+#[test]
+fn evaluate_work_budget_refusal_creates_no_report() {
+    let dir = temp_dir("evaluate-work-budget");
+    let raw_text = "a".repeat(2001);
+    let final_text = "b".repeat(2000);
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        &format!("1\n00:00:00,000 --> 00:00:01,000\n{raw_text}"),
+    );
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        &format!("1\n00:00:00,000 --> 00:00:01,000\n{final_text}"),
+    );
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("local diff work budget exceeded"));
+    assert!(stderr.contains("raw_scalar_count: 2001"));
+    assert!(stderr.contains("final_scalar_count: 2000"));
+    assert!(stderr.contains("max_lcs_cells: 4000000"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_malformed_final_srt() {
+    let dir = temp_dir("evaluate-malformed-final");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path = write_named_input_srt(&dir, "final.srt", "not srt");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("failed to parse final SRT"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_malformed_session_terms() {
+    let dir = temp_dir("evaluate-malformed-terms");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = dir.join("terms.txt");
+    std::fs::write(&terms_path, "bad | alias:\n").expect("write terms");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("session terms"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_raw_validation_issue() {
+    let dir = temp_dir("evaluate-raw-validation");
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        "1\n00:00:03,000 --> 00:00:02,500\nreversed",
+    );
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("raw SRT has validation issues; evaluation refused"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_final_validation_issue() {
+    let dir = temp_dir("evaluate-final-validation");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        "1\n00:00:03,000 --> 00:00:02,500\nreversed",
+    );
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("final SRT has validation issues; evaluation refused"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_index_mismatch_without_report() {
+    let dir = temp_dir("evaluate-index-mismatch");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "2\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("cue index mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_start_timing_mismatch_without_report() {
+    let dir = temp_dir("evaluate-start-mismatch");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,100 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("start timing mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_rejects_end_timing_mismatch_without_report() {
+    let dir = temp_dir("evaluate-end-mismatch");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,100\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("end timing mismatch"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_structural_refusal_precedes_work_budget_without_report() {
+    let dir = temp_dir("evaluate-structural-before-budget");
+    let raw_text = "a".repeat(2001);
+    let final_text = "b".repeat(2000);
+    let raw_path = write_named_input_srt(
+        &dir,
+        "raw.srt",
+        &format!(
+            "1\n00:00:00,000 --> 00:00:01,000\n{raw_text}\n\n2\n00:00:01,000 --> 00:00:02,000\nx"
+        ),
+    );
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        &format!("1\n00:00:00,000 --> 00:00:01,000\n{final_text}"),
+    );
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("cue count mismatch"));
+    assert!(!stderr.contains("local diff work budget exceeded"));
+    assert!(!report_path.exists());
+}
+
+#[test]
+fn evaluate_refuses_output_path_equal_to_final_input_and_preserves_final_bytes() {
+    let dir = temp_dir("evaluate-output-equals-final");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let final_bytes = std::fs::read(&final_path).expect("read final bytes");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        final_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination must differ from all inputs"));
+    assert_eq!(
+        std::fs::read(&final_path).expect("read final bytes"),
+        final_bytes
+    );
+}
+
+#[test]
+fn evaluate_refuses_output_path_equal_to_terms_input_and_preserves_terms_bytes() {
+    let dir = temp_dir("evaluate-output-equals-terms");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let terms_bytes = std::fs::read(&terms_path).expect("read terms bytes");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        terms_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert!(stderr.contains("destination must differ from all inputs"));
+    assert_eq!(
+        std::fs::read(&terms_path).expect("read terms bytes"),
+        terms_bytes
+    );
+}
+
+#[test]
+fn evaluate_report_carries_local_calibration_disclaimer() {
+    let dir = temp_dir("evaluate-disclaimer");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+
+    let output = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_path.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(output.status.success(), "{output:?}");
+    let report = std::fs::read_to_string(&report_path).expect("read report");
+    assert!(report.contains("Deterministic local calibration correspondence artifact only"));
+    assert!(!report.contains("Material Decision"));
+}
+
+#[test]
+fn evaluate_is_deterministic_for_identical_inputs() {
+    let dir = temp_dir("evaluate-deterministic");
+    let raw_path =
+        write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\nKafka");
+    let final_path = write_named_input_srt(
+        &dir,
+        "final.srt",
+        "1\n00:00:00,000 --> 00:00:01,000\nApache Kafka",
+    );
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka\n");
+    let report_a = dir.join("evaluation-report-a.json");
+    let report_b = dir.join("evaluation-report-b.json");
+
+    let first = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_a.to_str().expect("utf8 report path"),
+    ]);
+    let second = run_evaluate(&[
+        "evaluate",
+        raw_path.to_str().expect("utf8 raw path"),
+        final_path.to_str().expect("utf8 final path"),
+        terms_path.to_str().expect("utf8 terms path"),
+        report_b.to_str().expect("utf8 report path"),
+    ]);
+
+    assert!(first.status.success(), "{first:?}");
+    assert!(second.status.success(), "{second:?}");
+    let a = std::fs::read_to_string(&report_a).expect("read a");
+    let b = std::fs::read_to_string(&report_b).expect("read b");
+    assert_eq!(a, b);
+}
+
+#[test]
+fn evaluate_leaves_seekable_stdin_unread_and_emits_only_success_line() {
+    let dir = temp_dir("evaluate-stdin-unread");
+    let raw_path = write_named_input_srt(&dir, "raw.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let final_path =
+        write_named_input_srt(&dir, "final.srt", "1\n00:00:00,000 --> 00:00:01,000\none");
+    let terms_path = write_session_terms(&dir, "Kafka\n");
+    let report_path = dir.join("evaluation-report.json");
+    let stdin_path = dir.join("stdin-payload.txt");
+    let payload = b"THIS MUST REMAIN UNREAD\n";
+
+    let output = run_with_seekable_stdin(
+        &[
+            "evaluate",
+            raw_path.to_str().expect("utf8 raw path"),
+            final_path.to_str().expect("utf8 final path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            report_path.to_str().expect("utf8 report path"),
+        ],
+        &stdin_path,
+        payload,
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let stderr = String::from_utf8(output.stderr).expect("utf8 stderr");
+    assert_eq!(
+        stdout,
+        format!(
+            "wrote calibration evaluation report: {}\n",
+            report_path.display()
+        )
+    );
+    assert!(stderr.is_empty(), "stderr must be empty, got: {stderr:?}");
+    assert!(!stdout.contains("decision:"));
+    assert!(!stdout.contains("usage:"));
+    let report = std::fs::read_to_string(&report_path).expect("read report");
+    assert!(report.contains("\"schema_revision\": \"voxproof-calibration-correspondence-v0\""));
+    assert!(report.contains("\"review_case_count\": 0"));
+}
+
+#[test]
+fn compare_contract_unchanged_alongside_evaluate_work() {
+    let dir = temp_dir("compare-evaluate-coexistence");
+    let raw_srt =
+        "1\n00:00:00,000 --> 00:00:01,000\nKafka\n\n2\n00:00:01,000 --> 00:00:02,000\nlast";
+    let final_srt =
+        "1\n00:00:00,000 --> 00:00:01,000\nApache Kafka\n\n2\n00:00:01,000 --> 00:00:02,000\nlast";
+    let raw_path = write_named_input_srt(&dir, "raw.srt", raw_srt);
+    let final_path = write_named_input_srt(&dir, "final.srt", final_srt);
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:Kafka\n");
+    let compare_report_path = dir.join("comparison-report.json");
+    let evaluate_report_path = dir.join("evaluation-report.json");
+    let raw_path_str = raw_path.to_str().expect("utf8 raw path");
+    let final_path_str = final_path.to_str().expect("utf8 final path");
+    let expected_compare_literal = format!(
+        r#"{{
+  "schema_revision": "voxproof-calibration-comparison-v0",
+  "compatibility_policy_id": "identical-cue-count-index-and-timing-v0",
+  "note": "Calibration artifact only. Not canonical Evidence, not ground truth, not precision/recall/correctness, and not a Material Decision.",
+  "inputs": {{
+    "raw_path": "{raw_path_str}",
+    "final_path": "{final_path_str}",
+    "raw_revision_id": "rev:sha256-v1:2a94d52a44510636b806d59bc4e9c215a341ee85575a3996d7607269051cc68e",
+    "final_revision_id": "rev:sha256-v1:7cec84e3e2fa628481c9b8dee314b0157e94a87a8b3963e6c238932f422f21b0"
+  }},
+  "summary": {{
+    "cue_count": 2,
+    "unchanged_count": 1,
+    "text_changed_count": 1
+  }},
+  "cues": [
+    {{
+      "segment_position": 0,
+      "cue_index": 1,
+      "start_ms": 0,
+      "end_ms": 1000,
+      "change_kind": "text_changed",
+      "raw_text": "Kafka",
+      "final_text": "Apache Kafka"
+    }},
+    {{
+      "segment_position": 1,
+      "cue_index": 2,
+      "start_ms": 1000,
+      "end_ms": 2000,
+      "change_kind": "unchanged",
+      "raw_text": "last",
+      "final_text": "last"
+    }}
+  ]
+}}
+"#
+    );
+
+    let compare_output = run_compare(&[
+        "compare",
+        raw_path_str,
+        final_path_str,
+        compare_report_path
+            .to_str()
+            .expect("utf8 compare report path"),
+    ]);
+    assert!(compare_output.status.success(), "{compare_output:?}");
+    let compare_stdout = String::from_utf8(compare_output.stdout).expect("utf8 compare stdout");
+    let compare_stderr = String::from_utf8(compare_output.stderr).expect("utf8 compare stderr");
+    assert_eq!(
+        compare_stdout,
+        format!(
+            "wrote comparison report: {}\n",
+            compare_report_path.display()
+        )
+    );
+    assert!(compare_stderr.is_empty(), "compare stderr must be empty");
+    let compare_report_bytes =
+        std::fs::read(&compare_report_path).expect("read compare report bytes");
+    assert_eq!(compare_report_bytes, expected_compare_literal.as_bytes());
+
+    let evaluate_output = run_evaluate(&[
+        "evaluate",
+        raw_path_str,
+        final_path_str,
+        terms_path.to_str().expect("utf8 terms path"),
+        evaluate_report_path
+            .to_str()
+            .expect("utf8 evaluate report path"),
+    ]);
+    assert!(evaluate_output.status.success(), "{evaluate_output:?}");
+    let evaluate_report =
+        std::fs::read_to_string(&evaluate_report_path).expect("read evaluate report");
+    assert!(
+        evaluate_report.contains("\"schema_revision\": \"voxproof-calibration-correspondence-v0\"")
+    );
+    assert!(!evaluate_report.contains("voxproof-calibration-comparison-v0"));
+    assert!(
+        !compare_report_bytes
+            .starts_with(b"{\"schema_revision\": \"voxproof-calibration-correspondence-v0\"")
     );
 }

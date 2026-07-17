@@ -11,6 +11,21 @@ use crate::transcript::Transcript;
 pub struct SessionTermsIdentity([u8; 32]);
 
 impl SessionTermsIdentity {
+    /// Tagged local provenance encoding authorized by MD-006.
+    pub(crate) fn to_tagged_string(self) -> String {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+
+        let mut encoded = String::with_capacity("session-terms:sha256-v1:".len() + 64);
+        encoded.push_str("session-terms:sha256-v1:");
+
+        for byte in self.0 {
+            encoded.push(HEX[(byte >> 4) as usize] as char);
+            encoded.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+
+        encoded
+    }
+
     pub fn from_entries(entries: &[SessionTermEntry]) -> Self {
         const DOMAIN_SEPARATOR: &[u8] = b"voxproof-session-terms-identity-v1";
 
@@ -266,6 +281,16 @@ mod tests {
         assert_eq!(
             SessionTermsIdentity::from_entries(&entries),
             SessionTermsIdentity::from_entries(&entries)
+        );
+    }
+
+    #[test]
+    fn session_term_identity_tagged_string_known_value_locks_encoding() {
+        let entries = [entry("ASUS", &[], &[])];
+
+        assert_eq!(
+            SessionTermsIdentity::from_entries(&entries).to_tagged_string(),
+            "session-terms:sha256-v1:6571769bb0833faf4542b452474f74d1e2b4c0bd109178ecc0bf2fa67a86f6ec"
         );
     }
 

@@ -19,12 +19,34 @@ Boundary:
 
 - schema revision: `voxproof-calibration-comparison-v0`
 - compatibility policy: `identical-cue-count-index-and-timing-v0`
-- provisional calibration artifact only; not canonical Evidence, not ground truth, and not a Material Decision
+- provisional calibration artifact only; not canonical Evidence, certified ground truth, correctness, precision/recall, detector effectiveness, or product validation
 - both inputs must parse with zero validation issues and identical cue count, cue index, `start_ms`, and `end_ms` at every `segment_position`
 - incompatible structure fails closed with a deterministic refusal and no report file
 - per-cue records use only `unchanged` and `text_changed` with exact parsed Unicode text preserved
 - no precision, recall, correctness, accuracy/formatting/editorial classification, or product-performance claims
 - mismatched segmentation or timing requires a future compatibility policy; v0 does not align cues
+
+## Provisional Calibration Correspondence
+
+Implemented local command:
+
+```text
+vox-proof evaluate <raw-input.srt> <final-input.srt> <session-terms.txt> <evaluation-report.json>
+```
+
+Boundary:
+
+- schema revision: `voxproof-calibration-correspondence-v0`
+- compatibility policy: `identical-cue-count-index-and-timing-v0` (unchanged from compare)
+- provisional calibration artifact only; not canonical Evidence, certified ground truth, correctness, precision/recall, detector effectiveness, or product validation
+- stdin is never read; decision logs are not inputs in v0
+- canonical ReviewCases are generated afresh from raw plus parsed effective session terms under the committed canonical analysis profile
+- both SRT inputs must parse with zero validation issues and identical cue count, cue index, `start_ms`, and `end_ms` at every `segment_position`
+- incompatible structure, analysis refusal, or local diff work-budget refusal fails closed with a deterministic message and no report file
+- local edits use Unicode-scalar Hirschberg LCS v1 with `max_lcs_cells = 4_000_000` per changed cue; this is a resource-safety boundary only
+- report emits deterministic local edit inventories, ReviewCase bindings, neutral correspondence facts, and precisely defined summary counts only
+- no precision, recall, correctness, effectiveness, or ratio claims in v0
+- existing `vox-proof compare` command, schema, and bytes remain unchanged
 
 ## Exploratory Real-Material Phonetic Mechanism Probes
 

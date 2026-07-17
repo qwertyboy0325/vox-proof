@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod anchor;
 pub mod calibration;
+pub mod calibration_join;
 pub mod candidate;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
