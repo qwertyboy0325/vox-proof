@@ -549,7 +549,7 @@ mod tests {
     use super::*;
     use crate::analysis::{
         AlgorithmIdentity, AnalysisConfigurationIdentity, AnalysisRun,
-        CanonicalDetectorSetIdentity, DetectorConfigIdentity,
+        CanonicalDetectorSetIdentity, DetectorConfigIdentity, SessionTermsIdentity,
     };
     use crate::candidate::{
         CANONICAL_SESSION_TERM_ALGORITHM, CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY,
@@ -716,6 +716,76 @@ mod tests {
 
         assert_eq!(evidence.comparison.ratio_permille, 500);
         assert_eq!(evidence.comparison.matched_key, "SKL");
+    }
+
+    #[test]
+    fn canonical_only_asus_produces_expected_asis_evidence() {
+        let entries = [entry("ASUS", &[], &[])];
+        let transcript = transcript("ASIS");
+        let span = winner_for(&transcript, &entries);
+        let evidence = phonetic_evidence(&span);
+
+        assert_eq!(evidence.observed_surface, "ASIS");
+        assert_eq!(evidence.target_surface, "ASUS");
+        assert_eq!(evidence.target_kind, PhoneticTargetKind::CanonicalTerm);
+        assert_eq!(evidence.canonical_term, "ASUS");
+        assert_eq!(evidence.comparison.edit_distance, 1);
+        assert_eq!(evidence.comparison.ratio_numerator, 3);
+        assert_eq!(evidence.comparison.ratio_denominator, 4);
+        assert_eq!(evidence.comparison.ratio_permille, 750);
+        assert_eq!(evidence.comparison.matched_key, "ASS");
+        assert_eq!(span.alternatives()[0].replacement_text(), "ASUS");
+    }
+
+    #[test]
+    fn canonical_only_and_self_alias_produce_same_canonical_phonetic_case() {
+        let transcript = transcript("ASIS");
+        let canonical_only = [entry("ASUS", &[], &[])];
+        let self_alias = [entry("ASUS", &["ASUS"], &[])];
+
+        assert_ne!(
+            SessionTermsIdentity::from_entries(&canonical_only),
+            SessionTermsIdentity::from_entries(&self_alias)
+        );
+        assert_eq!(
+            run_term_review(&transcript, &canonical_only).expect("canonical-only review"),
+            run_term_review(&transcript, &self_alias).expect("legacy self-alias review")
+        );
+    }
+
+    #[test]
+    fn non_ascii_canonical_only_entry_is_valid_but_not_a_phonetic_target() {
+        let entries = [entry("華碩", &[], &[])];
+        let transcript = transcript("華碩");
+
+        assert!(
+            run_term_review(&transcript, &entries)
+                .expect("valid review")
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn exact_canonical_occurrence_with_canonical_only_entry_emits_no_case() {
+        let entries = [entry("ASUS", &[], &[])];
+        let transcript = transcript("ASUS");
+        let analysis_run = run(&transcript, &entries);
+
+        assert!(
+            detect_glossary_matches(&analysis_run, &transcript, &entries)
+                .expect("valid exact alias detector")
+                .is_empty()
+        );
+        assert!(
+            detect_observed_error_form_matches(&analysis_run, &transcript, &entries)
+                .expect("valid observed-error detector")
+                .is_empty()
+        );
+        assert!(
+            run_term_review(&transcript, &entries)
+                .expect("valid review")
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1213,6 +1283,42 @@ mod tests {
                 detect_ascii_latin_phonetic_matches(&bad_run, &review_transcript, &entries);
             assert!(result.is_err(), "expected {label} mismatch to fail closed");
         }
+    }
+
+    #[test]
+    fn canonical_only_identity_mismatch_fails_closed_before_findings() {
+        let review_transcript = transcript("ASIS");
+        let canonical_only = [entry("ASUS", &[], &[])];
+        let self_alias = [entry("ASUS", &["ASUS"], &[])];
+        let run = AnalysisRun::for_canonical_session_terms(&review_transcript, &canonical_only);
+
+        assert_eq!(
+            detect_ascii_latin_phonetic_matches(&run, &review_transcript, &self_alias),
+            Err(DetectionError::SessionTermsIdentityMismatch {
+                run_identity: SessionTermsIdentity::from_entries(&canonical_only),
+                provided_identity: SessionTermsIdentity::from_entries(&self_alias),
+            })
+        );
+    }
+
+    #[test]
+    fn canonical_only_review_case_order_and_ids_ignore_entry_order() {
+        let transcript = transcript("ASIS then Postgre sequel");
+        let first = [entry("ASUS", &[], &[]), entry("PostgreSQL", &[], &[])];
+        let second = [first[1].clone(), first[0].clone()];
+
+        let first_cases = run_term_review(&transcript, &first).expect("valid");
+        let second_cases = run_term_review(&transcript, &second).expect("valid");
+
+        assert_eq!(first_cases, second_cases);
+        assert!(!first_cases.is_empty());
+        assert_eq!(
+            first_cases
+                .iter()
+                .map(|review_case| review_case.id().local_index())
+                .collect::<Vec<_>>(),
+            (0..first_cases.len()).collect::<Vec<_>>()
+        );
     }
 
     #[test]

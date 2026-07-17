@@ -446,6 +446,118 @@ fn review_renders_and_summarizes_phonetic_similarity_case() {
 }
 
 #[test]
+fn review_rejects_canonical_only_phonetic_case_without_changing_srt() {
+    let dir = temp_dir("review-canonical-only-reject");
+    let input_srt = "1\n00:00:00,000 --> 00:00:01,000\nASIS\n";
+    let input_path = write_input_srt(&dir, input_srt);
+    let terms_path = write_session_terms(&dir, "ASUS\n");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert!(stdout.contains("loaded 1 session term entries"));
+    assert!(stdout.contains("evidence: phonetic similarity 'ASIS' -> 'ASUS' (canonical_term)"));
+    assert!(stdout.contains("distance=1 ratio=3/4 permille=750 matched_key='ASS'"));
+    assert_eq!(reviewed_srt, input_srt);
+    assert!(decision_log.contains("decision: reject"));
+    assert!(session_summary.contains("review_cases_raised: 1"));
+    assert!(session_summary.contains("rejected: 1"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 0"));
+}
+
+#[test]
+fn review_accepts_canonical_only_phonetic_case_and_materializes_target() {
+    let dir = temp_dir("review-canonical-only-accept");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nASIS\n");
+    let terms_path = write_session_terms(&dir, "ASUS\n");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "a 0\n",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert_eq!(reviewed_srt, "1\n00:00:00,000 --> 00:00:01,000\nASUS\n");
+    assert!(decision_log.contains("decision: accept_alternative"));
+    assert!(decision_log.contains("alternative_index: 0"));
+    assert!(session_summary.contains("phonetic_similarity: 1"));
+    assert!(session_summary.contains("accepted_alternatives: 1"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 1"));
+    assert!(session_summary.contains("source_segments_affected: 1"));
+}
+
+#[test]
+fn review_accepts_mixed_canonical_only_alias_and_error_form_file() {
+    let dir = temp_dir("review-mixed-session-term-kinds");
+    let input_path = write_input_srt(
+        &dir,
+        "1\n00:00:00,000 --> 00:00:01,000\nASUS\n\n2\n00:00:01,000 --> 00:00:02,000\nKafka\n\n3\n00:00:02,000 --> 00:00:03,000\npost gray sequel\n",
+    );
+    let terms_path = write_session_terms(
+        &dir,
+        "ASUS\nApache Kafka | alias:Kafka\nPostgreSQL | error:post gray sequel\n",
+    );
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        &"r\n".repeat(20),
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+
+    assert!(stdout.contains("loaded 3 session term entries"));
+    assert!(stdout.contains("evidence: glossary alias 'Kafka' for 'Apache Kafka'"));
+    assert!(stdout.contains("evidence: observed error form 'post gray sequel' for 'PostgreSQL'"));
+    assert!(reviewed_srt.contains("\nASUS\n"));
+    assert!(reviewed_srt.contains("\nKafka\n"));
+    assert!(reviewed_srt.contains("\npost gray sequel\n"));
+}
+
+#[test]
 fn rejecting_observed_error_form_leaves_source_text_unchanged() {
     let dir = temp_dir("review-reject-observed-error");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL");
@@ -566,7 +678,7 @@ fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
 fn review_invalid_session_terms_fails_before_writing_outputs() {
     let dir = temp_dir("review-invalid-terms");
     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
-    let terms_path = write_session_terms(&dir, "Apache Kafka");
+    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:");
     let reviewed_path = dir.join("reviewed.srt");
     let log_path = dir.join("decision-log.txt");
     let summary_path = dir.join("session-summary.txt");

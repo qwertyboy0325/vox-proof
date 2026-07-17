@@ -260,6 +260,50 @@ mod tests {
     }
 
     #[test]
+    fn canonical_only_session_term_identity_is_deterministic() {
+        let entries = [entry("ASUS", &[], &[])];
+
+        assert_eq!(
+            SessionTermsIdentity::from_entries(&entries),
+            SessionTermsIdentity::from_entries(&entries)
+        );
+    }
+
+    #[test]
+    fn canonical_only_and_self_alias_have_distinct_session_term_identities() {
+        let canonical_only = [entry("ASUS", &[], &[])];
+        let self_alias = [entry("ASUS", &["ASUS"], &[])];
+
+        assert_ne!(
+            SessionTermsIdentity::from_entries(&canonical_only),
+            SessionTermsIdentity::from_entries(&self_alias)
+        );
+    }
+
+    #[test]
+    fn canonical_only_entry_order_changes_session_term_identity() {
+        let first = [entry("ASUS", &[], &[]), entry("Microsoft", &[], &[])];
+        let second = [first[1].clone(), first[0].clone()];
+
+        assert_ne!(
+            SessionTermsIdentity::from_entries(&first),
+            SessionTermsIdentity::from_entries(&second)
+        );
+    }
+
+    #[test]
+    fn canonical_only_entries_bind_into_analysis_snapshot() {
+        let transcript = transcript("ASIS");
+        let entries = [entry("ASUS", &[], &[])];
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
+
+        assert_eq!(
+            run.snapshot().session_terms(),
+            SessionTermsIdentity::from_entries(&entries)
+        );
+    }
+
+    #[test]
     fn transcript_change_changes_snapshot() {
         let entries = [entry("Apache Kafka", &["Kafka"], &[])];
 

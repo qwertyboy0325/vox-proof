@@ -8,6 +8,9 @@ pub enum SessionTermsError {
     EmptyCanonicalTerm {
         line: usize,
     },
+    /// Legacy compatibility variant. Canonical-only entries are valid and current
+    /// parsing/validation paths do not emit this error solely because source-form
+    /// collections are empty.
     MissingSourceForm {
         line: usize,
     },
@@ -123,7 +126,7 @@ impl std::error::Error for SessionTermsError {}
 
 /// Parses provisional, session-scoped term input.
 ///
-/// Each non-comment line is
+/// Each non-comment line is either `canonical term` or
 /// `canonical term | alias:alternate form | error:observed ASR form | ...`.
 /// The ASCII pipe is always a delimiter; quoting and escaping are unsupported.
 pub fn parse_session_terms(input: &str) -> Result<Vec<SessionTermEntry>, SessionTermsError> {
@@ -142,9 +145,6 @@ pub fn parse_session_terms(input: &str) -> Result<Vec<SessionTermEntry>, Session
         let canonical_term = fields[0];
         if canonical_term.is_empty() {
             return Err(SessionTermsError::EmptyCanonicalTerm { line });
-        }
-        if fields.len() == 1 {
-            return Err(SessionTermsError::MissingSourceForm { line });
         }
 
         if let Some(first_line) = canonical_lines.get(canonical_term) {
@@ -276,6 +276,124 @@ mod tests {
     }
 
     #[test]
+    fn canonical_only_entry_does_not_emit_missing_source_form() {
+        match parse_session_terms("ASUS") {
+            Ok(entries) => {
+                assert_eq!(entries.len(), 1);
+                assert!(entries[0].aliases.is_empty());
+                assert!(entries[0].observed_error_forms.is_empty());
+            }
+            Err(SessionTermsError::MissingSourceForm { .. }) => {
+                panic!("canonical-only entry must not emit MissingSourceForm");
+            }
+            Err(other) => panic!("unexpected parse error: {other}"),
+        }
+    }
+
+    #[test]
+    fn legacy_missing_source_form_variant_remains_available_for_compatibility() {
+        let first = SessionTermsError::MissingSourceForm { line: 3 };
+        let second = SessionTermsError::MissingSourceForm { line: 3 };
+
+        assert_eq!(first, second);
+        assert_eq!(
+            first.to_string(),
+            "invalid session terms at line 3: at least one prefixed alias or observed error form is required"
+        );
+        assert_eq!(format!("{first:?}"), "MissingSourceForm { line: 3 }");
+    }
+
+    #[test]
+    fn valid_canonical_only_paths_never_emit_missing_source_form() {
+        for input in [
+            "ASUS",
+            "Google Translate",
+            "華碩",
+            "ASUS\nApache Kafka | alias:Kafka",
+        ] {
+            match parse_session_terms(input) {
+                Ok(_) => {}
+                Err(SessionTermsError::MissingSourceForm { line }) => {
+                    panic!("input {input:?} must not emit MissingSourceForm at line {line}");
+                }
+                Err(other) => panic!("input {input:?} failed unexpectedly: {other}"),
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_only_pipeline_does_not_emit_missing_source_form() {
+        use crate::pipeline::run_term_review;
+        use crate::srt::parse_srt;
+
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nASIS").expect("valid srt");
+        let entries = parse_session_terms("ASUS").expect("canonical-only parse");
+
+        assert!(run_term_review(&transcript, &entries).is_ok());
+    }
+
+    #[test]
+    fn parses_canonical_only_ascii_entry_with_empty_source_forms() {
+        let entries = parse_session_terms("ASUS").expect("valid canonical-only term");
+
+        assert_eq!(
+            entries,
+            [crate::candidate::SessionTermEntry::new(
+                "ASUS",
+                Vec::new(),
+                Vec::new()
+            )]
+        );
+    }
+
+    #[test]
+    fn parses_multi_word_canonical_only_entry() {
+        let entries =
+            parse_session_terms("Google Translate").expect("valid multi-word canonical term");
+
+        assert_eq!(entries[0].canonical_term, "Google Translate");
+        assert!(entries[0].aliases.is_empty());
+        assert!(entries[0].observed_error_forms.is_empty());
+    }
+
+    #[test]
+    fn parses_unicode_canonical_only_entry() {
+        let entries = parse_session_terms("華碩").expect("valid Unicode canonical term");
+
+        assert_eq!(entries[0].canonical_term, "華碩");
+        assert!(entries[0].aliases.is_empty());
+        assert!(entries[0].observed_error_forms.is_empty());
+    }
+
+    #[test]
+    fn parses_mixed_entry_kinds_in_source_order() {
+        let entries = parse_session_terms(
+            "ASUS\nApache Kafka | alias:Kafka\nPostgreSQL | error:post gray sequel",
+        )
+        .expect("valid mixed session terms");
+
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.canonical_term.as_str())
+                .collect::<Vec<_>>(),
+            ["ASUS", "Apache Kafka", "PostgreSQL"]
+        );
+        assert!(entries[0].aliases.is_empty());
+        assert_eq!(entries[1].aliases, ["Kafka"]);
+        assert_eq!(entries[2].observed_error_forms, ["post gray sequel"]);
+    }
+
+    #[test]
+    fn legacy_self_referential_alias_remains_explicit_and_parseable() {
+        let entries = parse_session_terms("ASUS | alias:ASUS").expect("valid legacy entry");
+
+        assert_eq!(entries[0].canonical_term, "ASUS");
+        assert_eq!(entries[0].aliases, ["ASUS"]);
+        assert!(entries[0].observed_error_forms.is_empty());
+    }
+
+    #[test]
     fn trims_surrounding_whitespace() {
         let entries =
             parse_session_terms("  PostgreSQL  |  alias:  Postgres  | error:  Postgre SQL \t")
@@ -302,13 +420,9 @@ mod tests {
             parse_session_terms(" | Kafka"),
             Err(SessionTermsError::EmptyCanonicalTerm { line: 1 })
         );
-    }
-
-    #[test]
-    fn rejects_entry_with_no_source_forms() {
         assert_eq!(
-            parse_session_terms("Apache Kafka"),
-            Err(SessionTermsError::MissingSourceForm { line: 1 })
+            parse_session_terms("\t | alias:Kafka"),
+            Err(SessionTermsError::EmptyCanonicalTerm { line: 1 })
         );
     }
 

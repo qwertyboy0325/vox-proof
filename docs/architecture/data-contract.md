@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Cross-version correction-system product semantics (owned by `product/correction-system-boundaries.md`), final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, native canonical-only session-term entries, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
 
 # Conceptual Data Contract
 
@@ -37,6 +37,8 @@ The provisional product terminology distinguishes:
 - a Knowledge Pack as a packaging, import/export, and distribution bundle rather than an active runtime authority.
 
 Multiple Domain Collections are allowed by the conceptual product model, although a first runtime may support fewer. Imported, available, selected, and active-for-analysis remain distinct states. The current session-term file is a provisional session-scoped adapter and is not a schema or import format for any of these concepts.
+
+The provisional adapter natively represents a canonical-only entry as a canonical term with empty alias and observed-error-form collections. A line may therefore contain a canonical term alone. `alias:` and `error:` prefixes remain required for non-canonical source forms. A canonical-only entry is an effective analysis input, not shorthand for a self-referential alias; those two structures remain distinct in session-term identity. This representation does not establish a public serialization or persistence contract.
 
 Future session-term, collection, and language-resource adapters may produce a shared resolved terminology input for evidence producers. That intermediate boundary, the refined terminology, and activation/version semantics remain provisional. Product authority, recommendation, and authorization rules are canonical in `product/correction-system-boundaries.md`.
 

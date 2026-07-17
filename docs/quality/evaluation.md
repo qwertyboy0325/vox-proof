@@ -66,9 +66,9 @@ These package and seal artifacts are local untracked research artifacts; this do
 
 Prohibited interpretations include a true-positive rate, precision or recall, human correctness adjudication, product validation, threshold validation, proof of general effectiveness, or a claim that synthetic reject controls are human decisions.
 
-### Canonical-only session-term limitation
+### Canonical-only session-term provenance
 
-The current session-term parser requires at least one prefixed source form for every canonical entry. The FLEURS canonical-only target list therefore used self-referential `alias:<canonical>` entries solely for syntactic compliance; no alternate observed forms were invented. This is a provisional parser/data-contract workaround, not the recommended durable representation of canonical-only phonetic targets. Resolving canonical-only session-term representation remains future v0.1 work; these observations do not authorize a persistence schema.
+Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS probe ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form, and this implementation change does not rewrite or reinterpret the sealed study or authorize a persistence schema.
 
 ## Fixtures
 

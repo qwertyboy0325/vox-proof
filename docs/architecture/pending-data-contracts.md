@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
 Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
-Last reviewed against code: v0.1 Track 1 code closed loop, prefixed session-scoped term input with distinct alias and observed-error-form evidence paths, and human-readable session summary exist; real-material/product validation remains pending.
+Last reviewed against code: v0.1 Track 1 code closed loop, native canonical-only and prefixed-source-form session-term input with distinct alias and observed-error-form evidence paths, and human-readable session summary exist; real-material/product validation remains pending.
 
 # Pending Data Contract Decisions
 
@@ -47,10 +47,11 @@ The session summary contains session-scoped run identity, candidate/provenance c
 The current CLI term input is a provisional, session-scoped UTF-8 line format:
 
 ```text
+canonical term
 canonical term | alias:alternate form | error:observed ASR form | ...
 ```
 
-Every source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Domain Collection or pack format. Reusable knowledge schemas and persistence remain deferred.
+A canonical term may appear alone and is represented with empty alias and observed-error-form collections. Every non-canonical source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Domain Collection or pack format. Reusable knowledge schemas and persistence remain deferred.
 
 ## 2. Current Product Invariants
 
