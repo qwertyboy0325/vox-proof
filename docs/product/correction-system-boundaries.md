@@ -1,7 +1,7 @@
 Status: current
 Owns: Cross-version product boundaries for correction categories, evidence, context, policy, transformations, projections, user authorization, Domain Collection authority, and provisional pack terminology relationships.
 Does not own: Current version scope, final data schemas, runtime pipeline design, persistence, implementation tasks, quality metrics, final pack schemas or storage, or accepted Material Decisions.
-Last reviewed against code: The current local loop implements exact, case-sensitive, bounded accuracy-oriented term restoration through human-reviewed replacements and provisional session-term input. Duplicate source forms are rejected. `SessionContext`, policy resolution, Domain Collections, LLM or automation runtimes, typed transformation intent, multiple projections, typed ASR metadata, multi-alternative cross-collection resolution, and phonetic evidence are not implemented.
+Last reviewed against code: The current local loop implements exact, case-sensitive, bounded accuracy-oriented term restoration through human-reviewed replacements and provisional session-term input. Effective canonical analysis identity binds transcript, ordered session terms, detector set, detector configuration, and algorithm version. Duplicate source forms are rejected. `SessionContext`, policy resolution, Domain Collections, LLM or automation runtimes, typed transformation intent, multiple projections, typed ASR metadata, multi-alternative cross-collection resolution, and phonetic evidence are not implemented.
 
 # Correction System Boundaries
 
@@ -293,17 +293,18 @@ Revocation storage, historical applicability, rematerialization, and audit schem
 
 ## Analysis Reproducibility Direction
 
-The current `AnalysisSnapshot` records only transcript revision and is insufficient to distinguish future runs with different active collections, resolved matching behavior, detector configuration, phonetic thresholds, optional ASR evidence, or suggestion behavior that changes candidate generation or queue membership.
+The current `AnalysisSnapshot` records transcript revision, deterministic effective session-term identity, active canonical detector-set identity, detector/configuration identity, and algorithm/version identity. Exact canonical detectors fail closed when invoked with a run whose transcript, terms, or fixed exact-analysis identities do not match.
 
-The future reproducibility boundary should be able to identify source revision, effective context inputs, active terminology or domain-asset revisions, resolved matching behavior, detector identities, versions and configuration fingerprints, normalization or representation version, optional ASR evidence source or revision, and candidate-affecting suggestion behavior.
+The future reproducibility boundary should additionally be able to identify effective context inputs, active terminology or domain-asset revisions, optional ASR evidence source or revision, and candidate-affecting suggestion behavior.
 
-This document does not decide whether the implementation extends `AnalysisSnapshot`, adds a higher-level analysis-run provenance concept, or composes multiple records. It also does not decide IDs, hash formats, serialization, or persistence. Wall-clock timestamps, UI state, user identity, file paths, session UUIDs, purely visual presentation settings, automation authorization, and projection requests that do not affect analysis do not belong in semantic analysis identity.
+MD-004 owns the current effective identity boundary and explicitly defers public hash encoding, serialization, and persistence. It does not decide whether later inputs continue to extend `AnalysisSnapshot`, belong to a higher-level analysis-run provenance concept, or compose multiple records. Wall-clock timestamps, UI state, user identity, file paths, session UUIDs, purely visual presentation settings, automation authorization, and projection requests that do not affect analysis do not belong in semantic analysis identity.
 
 ## Current Implementation Mapping
 
 Implemented:
 
 - immutable transcript and revision identity;
+- effective analysis identity covering transcript, session terms, active canonical detector set, detector configuration, and algorithm version;
 - source anchors;
 - exact alias and observed-error-form evidence;
 - exact, case-sensitive matching with duplicate source forms rejected;

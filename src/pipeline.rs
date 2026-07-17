@@ -14,7 +14,7 @@ pub fn run_term_review(
     transcript: &Transcript,
     entries: &[SessionTermEntry],
 ) -> Result<Vec<ReviewCase>, DetectionError> {
-    let run = AnalysisRun::new(transcript);
+    let run = AnalysisRun::for_exact_session_terms(transcript, entries);
     let mut spans = detect_glossary_matches(&run, transcript, entries)?;
     spans.extend(detect_observed_error_form_matches(
         &run, transcript, entries,

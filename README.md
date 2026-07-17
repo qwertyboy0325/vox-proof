@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: the authoritative exact local review loop now includes nearby source context in review prompts and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs; the experiment-only contextual retrieval/ranking sidecar exists; all are covered by unit and CLI tests; real-material effectiveness validation remains pending
+Last reviewed against code: the authoritative exact local review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs; the experiment-only contextual retrieval/ranking sidecar exists; canonical phonetic evidence production remains unimplemented; all implemented paths are covered by unit and CLI tests; real-material effectiveness validation remains pending
 
 # VoxProof
 
@@ -49,6 +49,7 @@ Recent work:
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
 - distinct exact alias and observed-error-form evidence paths
+- effective analysis identity for the canonical exact detector set
 - phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
 - experiment-only bounded Latin and Han-pinyin candidate retrieval
 - rules-only, deterministic-fake, and strict external-command contextual-ranking modes
@@ -75,6 +76,7 @@ Recent work:
 - [ ] Private mixed zh-EN evaluation fixture
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping
+- [x] Effective canonical analysis identity prerequisite
 - [x] Phonetic representation characterization
 - [x] Experimental bounded non-exact candidate retrieval
 - [x] Experimental contextual-ranking subprocess boundary

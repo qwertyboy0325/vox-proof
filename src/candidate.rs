@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use crate::analysis::AnalysisRun;
+use crate::analysis::{
+    AlgorithmIdentity, AnalysisConfigurationIdentity, AnalysisRun, CanonicalDetectorSetIdentity,
+    DetectorConfigIdentity, DetectorIdentity, SessionTermsIdentity,
+};
 use crate::anchor::{SourceAnchor, TranscriptRevisionId};
 use crate::transcript::Transcript;
 
@@ -23,6 +26,13 @@ impl DetectorProvenance {
         Self {
             detector_id: detector_id.into(),
             detector_version: detector_version.into(),
+        }
+    }
+
+    fn from_detector_identity(identity: DetectorIdentity) -> Self {
+        Self {
+            detector_id: identity.id().to_string(),
+            detector_version: identity.version().to_string(),
         }
     }
 
@@ -195,6 +205,22 @@ pub enum DetectionError {
         run_revision: TranscriptRevisionId,
         transcript_revision: TranscriptRevisionId,
     },
+    SessionTermsIdentityMismatch {
+        run_identity: SessionTermsIdentity,
+        provided_identity: SessionTermsIdentity,
+    },
+    DetectorSetIdentityMismatch {
+        run_identity: CanonicalDetectorSetIdentity,
+        required_identity: CanonicalDetectorSetIdentity,
+    },
+    DetectorConfigIdentityMismatch {
+        run_identity: DetectorConfigIdentity,
+        required_identity: DetectorConfigIdentity,
+    },
+    AlgorithmIdentityMismatch {
+        run_identity: AlgorithmIdentity,
+        required_identity: AlgorithmIdentity,
+    },
     DuplicateSourceForm {
         source_form: String,
     },
@@ -209,10 +235,33 @@ pub enum DetectionError {
     },
 }
 
-const GLOSSARY_DETECTOR_ID: &str = "glossary-alias-match";
-const GLOSSARY_DETECTOR_VERSION: &str = "0.1.0";
-const OBSERVED_ERROR_FORM_DETECTOR_ID: &str = "observed-error-form-match";
-const OBSERVED_ERROR_FORM_DETECTOR_VERSION: &str = "0.1.0";
+pub(crate) const GLOSSARY_DETECTOR: DetectorIdentity =
+    DetectorIdentity::new("glossary-alias-match", "0.1.0");
+pub(crate) const OBSERVED_ERROR_FORM_DETECTOR: DetectorIdentity =
+    DetectorIdentity::new("observed-error-form-match", "0.1.0");
+
+pub(crate) const EXACT_SESSION_TERM_DETECTORS: &[DetectorIdentity] =
+    &[GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR];
+
+pub(crate) const EXACT_SESSION_TERM_DETECTOR_SET: CanonicalDetectorSetIdentity =
+    CanonicalDetectorSetIdentity::new(EXACT_SESSION_TERM_DETECTORS);
+
+pub(crate) const EXACT_SESSION_TERM_DETECTOR_CONFIG: DetectorConfigIdentity =
+    DetectorConfigIdentity::new("exact-case-sensitive-cue-local", "0.1.0");
+
+pub(crate) const EXACT_SESSION_TERM_ALGORITHM: AlgorithmIdentity =
+    AlgorithmIdentity::new("rust-str-match-indices", "1");
+
+pub(crate) const EXACT_SESSION_TERM_ANALYSIS_IDENTITY: AnalysisConfigurationIdentity =
+    AnalysisConfigurationIdentity::new(
+        EXACT_SESSION_TERM_DETECTOR_SET,
+        EXACT_SESSION_TERM_DETECTOR_CONFIG,
+        EXACT_SESSION_TERM_ALGORITHM,
+    );
+
+pub(crate) const fn exact_session_term_analysis_identity() -> AnalysisConfigurationIdentity {
+    EXACT_SESSION_TERM_ANALYSIS_IDENTITY
+}
 
 /// Finds exact, case-sensitive occurrences of a matched non-canonical
 /// glossary form in the transcript. Matching is byte-exact on the parsed
@@ -240,7 +289,7 @@ pub fn detect_glossary_matches(
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
     validate_detection_inputs(run, transcript, entries)?;
 
-    let provenance = DetectorProvenance::new(GLOSSARY_DETECTOR_ID, GLOSSARY_DETECTOR_VERSION);
+    let provenance = DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR);
     let mut spans = Vec::new();
 
     for (position, segment) in transcript.segments().iter().enumerate() {
@@ -293,10 +342,7 @@ pub fn detect_observed_error_form_matches(
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
     validate_detection_inputs(run, transcript, entries)?;
 
-    let provenance = DetectorProvenance::new(
-        OBSERVED_ERROR_FORM_DETECTOR_ID,
-        OBSERVED_ERROR_FORM_DETECTOR_VERSION,
-    );
+    let provenance = DetectorProvenance::from_detector_identity(OBSERVED_ERROR_FORM_DETECTOR);
     let mut spans = Vec::new();
 
     for (position, segment) in transcript.segments().iter().enumerate() {
@@ -344,6 +390,36 @@ fn validate_detection_inputs(
         return Err(DetectionError::RevisionMismatch {
             run_revision,
             transcript_revision,
+        });
+    }
+
+    let run_session_terms = run.snapshot().session_terms();
+    let provided_session_terms = SessionTermsIdentity::from_entries(entries);
+    if run_session_terms != provided_session_terms {
+        return Err(DetectionError::SessionTermsIdentityMismatch {
+            run_identity: run_session_terms,
+            provided_identity: provided_session_terms,
+        });
+    }
+
+    let run_configuration = run.snapshot().configuration();
+    let required_configuration = exact_session_term_analysis_identity();
+    if run_configuration.detector_set() != required_configuration.detector_set() {
+        return Err(DetectionError::DetectorSetIdentityMismatch {
+            run_identity: run_configuration.detector_set(),
+            required_identity: required_configuration.detector_set(),
+        });
+    }
+    if run_configuration.detector_config() != required_configuration.detector_config() {
+        return Err(DetectionError::DetectorConfigIdentityMismatch {
+            run_identity: run_configuration.detector_config(),
+            required_identity: required_configuration.detector_config(),
+        });
+    }
+    if run_configuration.algorithm() != required_configuration.algorithm() {
+        return Err(DetectionError::AlgorithmIdentityMismatch {
+            run_identity: run_configuration.algorithm(),
+            required_identity: required_configuration.algorithm(),
         });
     }
 

@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Cross-version correction-system product semantics (owned by `product/correction-system-boundaries.md`), final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary and observed-error-form `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary and observed-error-form `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence and canonical phonetic evidence production remain deferred. v0.1 is not established; real-material validation remains pending.
 
 # Conceptual Data Contract
 
@@ -122,9 +122,9 @@ Detector provenance explains where a `CandidateSpan` came from. The v0.1 minimum
 
 `DetectionKind` remains a first-class field of `CandidateSpan` and `CandidateKey`; it is not duplicated as unstructured provenance metadata. Provenance must not be modeled as a generic metadata bag such as `HashMap<String, String>` or arbitrary JSON.
 
-The current `AnalysisSnapshot` is an accepted first-class concept that records source revision for one analysis run. Future reproducibility must also distinguish behavior-affecting context, active knowledge-asset revisions, resolved matching behavior, detector identities, versions and configurations, normalization or representation versions, optional ASR evidence, and candidate-affecting suggestion behavior.
+The current `AnalysisSnapshot` is an accepted first-class concept that records source revision, deterministic effective session-term identity, active canonical detector-set identity, detector/configuration identity, and algorithm/version identity for one analysis run. Session-term identity includes canonical terms, aliases, and observed error forms and binds their parsed order in v0 because direct exact-detector `CandidateSpan` ordering is observable. The canonical review pipeline still sorts findings before review-case identity is assigned, so term order does not change review-case IDs or downstream output.
 
-It remains unresolved whether those future inputs extend `AnalysisSnapshot`, belong to a higher-level analysis-run provenance concept, or are composed from multiple immutable records. The current type is part of the future reproducibility boundary, not a commitment that it will be the sole owner. Effective run-level data must not be duplicated into every `CandidateSpan`; final IDs, hashes, schemas, serialization, and persistence remain deferred.
+MD-004 owns this effective identity boundary and the minimum future canonical phonetic-evidence boundary. Additional behavior-affecting context, active knowledge-asset revisions, optional ASR evidence, and candidate-affecting suggestion behavior remain future identity inputs. The current type is part of the future reproducibility boundary, not a commitment that it will be the sole owner. Effective run-level data must not be duplicated into every `CandidateSpan`; final public IDs, encodings, schemas, serialization, and persistence remain deferred.
 
 ### AnalysisRun
 
