@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; real-material effectiveness validation remains pending
+Last reviewed against code/evidence: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); exploratory real-speech zero-candidate and reference-supported emitted-candidate mechanism paths have executed; the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; real-user and product-effectiveness validation remain pending
 
 # VoxProof
 
@@ -51,6 +51,7 @@ Recent work:
 - distinct exact alias and observed-error-form evidence paths
 - effective analysis identity for the canonical session-term detector set
 - bounded ASCII-Latin phonetic similarity evidence in the authoritative review pipeline
+- exploratory real-speech zero-candidate and reference-supported emitted-candidate mechanism paths for the bounded phonetic producer
 - phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
 - experiment-only bounded Latin and Han-pinyin candidate retrieval
 - rules-only, deterministic-fake, and strict external-command contextual-ranking modes

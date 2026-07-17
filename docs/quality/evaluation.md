@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Two exploratory real-material bounded ASCII-Latin phonetic mechanism probes have exercised zero-candidate and reference-supported emitted-candidate paths. v0.1 is not established; effectiveness, threshold, facilitated-user, and product validation remain pending.
 
 # Quality and Evaluation
 
@@ -25,6 +25,50 @@ Boundary:
 - per-cue records use only `unchanged` and `text_changed` with exact parsed Unicode text preserved
 - no precision, recall, correctness, accuracy/formatting/editorial classification, or product-performance claims
 - mismatched segmentation or timing requires a future compatibility policy; v0 does not align cues
+
+## Exploratory Real-Material Phonetic Mechanism Probes
+
+Classification: exploratory real-material mechanism observations only. They are not benchmarks, product validation, threshold validation, precision/recall evidence, human correctness adjudication, or general ASR claims.
+
+The strongest permitted aggregate conclusion is:
+
+> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. These observations support mechanism viability only; effectiveness, thresholds, precision/recall, and v0.1 establishment remain unresolved.
+
+### Probe A: AMI ES2004d zero-candidate path
+
+- Input was an immutable real AMI meeting-ASR transcript with 258 cues and four frozen session-term entries.
+- The authoritative canonical pipeline completed with 0 exact-alias, 0 observed-error-form, and 0 phonetic ReviewCases.
+- Reviewed output remained byte-identical to the raw input.
+- Permitted conclusion: the committed pipeline can complete without forcing candidates on this material.
+- The absence of candidates does not establish that every cue was correct or establish a zero false-positive rate, precision, recall, correctness, or product effectiveness.
+
+### Probe B: FLEURS en_us target-positive path
+
+- Source was official `google/fleurs`, configuration `en_us`, split `train`, pinned at revision `ab93cf03f9d0cd083c853fad065a6377067408aa`.
+- Before audio or ASR access, the frozen targets were `Google Translate`, `Microsoft`, `MySpace`, `Yahoo`, `ASUS`, and `Apple`.
+- A deterministic metadata rule selected all 15 rows whose references contained a frozen target, totaling 152.28 seconds. Selection was intentionally target-conditioned and is not an unbiased corpus sample.
+- Local Whisper `small.en` and its inference configuration were fixed before inference. No human audio listening or audio-based human adjudication occurred.
+- The skeleton-compatible raw/reference pair contained 15 cues: 3 `unchanged` and 12 `text_changed`.
+- The authoritative review pipeline emitted exactly one phonetic ReviewCase: observed surface `ASIS`, canonical target `ASUS`, edit distance 1, `ratio_permille` 750, and matched key `ASS`.
+- The frozen FLEURS reference contains `ASUS` at the deterministically localized compatible position. This is a **reference-supported real-speech positive-path mechanism observation**, not a human correctness label or audio adjudication.
+- A synthetic reject control was used only to render and complete the probe. It is not a human judgment; reviewed SRT remained byte-identical to raw.
+- Two runs produced identical candidate content.
+- The 12 `text_changed` cues are not a detector-opportunity denominator. No `1/12` recall, accuracy ratio, or similar effectiveness value may be computed from this probe.
+
+Local evidence identifiers:
+
+- package: `voxproof-fleurs-en-positive-control-24363d9-20260717-final.zip`
+- package SHA-256: `d23bf1b0fc84b7276b98668de660639d500221e44ca30c22fdfd2c57250ee46b`
+- seal: `package-seal-fleurs-en-positive-control-24363d9-20260717-final.json`
+- seal SHA-256: `05a84e53e859120727118117d9b8b979779d2f95d45b96b4146186b2c16f4164`
+
+These package and seal artifacts are local untracked research artifacts; this document does not imply that they are available from the public repository.
+
+Prohibited interpretations include a true-positive rate, precision or recall, human correctness adjudication, product validation, threshold validation, proof of general effectiveness, or a claim that synthetic reject controls are human decisions.
+
+### Canonical-only session-term limitation
+
+The current session-term parser requires at least one prefixed source form for every canonical entry. The FLEURS canonical-only target list therefore used self-referential `alias:<canonical>` entries solely for syntactic compliance; no alternate observed forms were invented. This is a provisional parser/data-contract workaround, not the recommended durable representation of canonical-only phonetic targets. Resolving canonical-only session-term representation remains future v0.1 work; these observations do not authorize a persistence schema.
 
 ## Fixtures
 
