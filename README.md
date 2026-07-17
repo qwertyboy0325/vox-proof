@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code/evidence: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); exploratory real-speech zero-candidate and reference-supported emitted-candidate mechanism paths have executed; the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; real-user and product-effectiveness validation remain pending
+Last reviewed against code/evidence: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`), and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); exploratory real-speech zero-candidate and reference-supported emitted-candidate phonetic producer paths have executed, and an exploratory calibration correspondence evaluate path has executed on frozen public FLEURS material; the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; real-user and product-effectiveness validation remain pending
 
 # VoxProof
 
@@ -46,12 +46,14 @@ Recent work:
 - minimal facilitated CLI review flow
 - nearby source context in authoritative review prompts
 - raw-versus-final comparison/change inventory for strict skeleton-compatible inputs (`vox-proof compare`)
+- strict skeleton-compatible calibration correspondence evaluation for strict skeleton-compatible inputs (`vox-proof evaluate`, committed at `e21be2e`)
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
 - distinct exact alias and observed-error-form evidence paths
 - effective analysis identity for the canonical session-term detector set
 - bounded ASCII-Latin phonetic similarity evidence in the authoritative review pipeline
 - exploratory real-speech zero-candidate and reference-supported emitted-candidate mechanism paths for the bounded phonetic producer
+- exploratory calibration correspondence evaluate path on frozen public FLEURS material at `e21be2e`
 - phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
 - experiment-only bounded Latin and Han-pinyin candidate retrieval
 - rules-only, deterministic-fake, and strict external-command contextual-ranking modes
@@ -75,6 +77,7 @@ Recent work:
 - [x] CLI review flow
 - [x] Nearby source context in authoritative review prompts
 - [x] Raw-versus-final comparison/change inventory for strict skeleton-compatible inputs
+- [x] Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`)
 - [ ] Private mixed zh-EN evaluation fixture
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping

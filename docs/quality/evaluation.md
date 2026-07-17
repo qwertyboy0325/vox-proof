@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Two exploratory real-material bounded ASCII-Latin phonetic mechanism probes have exercised zero-candidate and reference-supported emitted-candidate paths. v0.1 is not established; effectiveness, threshold, facilitated-user, and product validation remain pending.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. v0.1 is not established; effectiveness, threshold, facilitated-user, and product validation remain pending.
 
 # Quality and Evaluation
 
@@ -54,7 +54,7 @@ Classification: exploratory real-material mechanism observations only. They are 
 
 The strongest permitted aggregate conclusion is:
 
-> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. These observations support mechanism viability only; effectiveness, thresholds, precision/recall, and v0.1 establishment remain unresolved.
+> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. The committed strict skeleton-compatible `evaluate` mechanism has exercised a deterministic calibration correspondence path on frozen public FLEURS material. These observations support mechanism viability only; effectiveness, thresholds, precision/recall, and v0.1 establishment remain unresolved.
 
 ### Probe A: AMI ES2004d zero-candidate path
 
@@ -64,7 +64,7 @@ The strongest permitted aggregate conclusion is:
 - Permitted conclusion: the committed pipeline can complete without forcing candidates on this material.
 - The absence of candidates does not establish that every cue was correct or establish a zero false-positive rate, precision, recall, correctness, or product effectiveness.
 
-### Probe B: FLEURS en_us target-positive path
+### Probe B: FLEURS en_us phonetic producer path (repository HEAD `24363d9`)
 
 - Source was official `google/fleurs`, configuration `en_us`, split `train`, pinned at revision `ab93cf03f9d0cd083c853fad065a6377067408aa`.
 - Before audio or ASR access, the frozen targets were `Google Translate`, `Microsoft`, `MySpace`, `Yahoo`, `ASUS`, and `Apple`.
@@ -84,13 +84,45 @@ Local evidence identifiers:
 - seal: `package-seal-fleurs-en-positive-control-24363d9-20260717-final.json`
 - seal SHA-256: `05a84e53e859120727118117d9b8b979779d2f95d45b96b4146186b2c16f4164`
 
+### Probe C: FLEURS en_us calibration correspondence evaluate path (repository HEAD `e21be2e`)
+
+Classification: exploratory mechanism-level calibration correspondence probe only. It validates only that the committed strict skeleton-compatible `evaluate` mechanism produces a deterministic, internally consistent calibration correspondence artifact on frozen public real-speech material.
+
+This probe is distinct from Probe B. Probe B exercised the authoritative review phonetic producer at repository HEAD `24363d9`. Probe C exercised `vox-proof evaluate` at repository HEAD `e21be2e` on the same frozen 15-cue raw/reference pair and the same six frozen targets, but with a study-local canonical-only projection of the historical self-alias session-term representation. Target set and ordering were preserved; only the self-referential alias suffix was removed.
+
+Observed mechanism facts:
+
+- 15 cues; 41 local edits; 1 canonical ReviewCase; 1 edit/candidate correspondence.
+- Two evaluate runs exited 0 with byte-identical reports.
+- Independent verification passed 95/95 checks.
+- Sole phonetic candidate: observed surface `ASIS`, canonical target `ASUS`, edit distance 1, ratio 3/4, `ratio_permille` 750, matched key `ASS`.
+- Candidate raw anchor bytes 86..90 within its cue; replacement edit `I` -> `U` at bytes 88..89; relation `CandidateContainsEdit`, not `Exact`.
+- The frozen reference cue contains `ASUS` at the deterministically localized compatible position. This is text localization only; no audio listening or human correctness adjudication occurred.
+
+Not validated by this probe: correctness or ground truth, precision/recall, detector effectiveness or threshold quality, general ASR quality, human review quality, product effectiveness, or v0.1 establishment.
+
+Local evidence identifiers:
+
+- implementation commit: `e21be2e8fb337f30c1fcff6be26eba499fbfab23`
+- package: `voxproof-fleurs-calibration-evaluate-e21be2e-20260717-final.zip`
+- package SHA-256: `8d345e4009ffa7684d16d3b3976ac4f812c15509f05a089ccc2abfdc63c54d26`
+- package bytes: 34304
+- entry count: 22
+- entry-manifest SHA-256: `58c96c8b25aaf9ba57eef4c33ea6442f9d328287abb059b1967041048189313a`
+- seal: `package-seal-fleurs-calibration-evaluate-e21be2e-20260717-final.json`
+- seal SHA-256: `e445a407d6fda5d38a47db3ca6b103419b0dc523cfa97dff8e13a9da3866b6c0`
+- evaluation report SHA-256: `5c2d2d5b45447415e0e8b10e9b16e764f0dc68e69f889fa887591a14c2c55e15`
+- handoff SHA-256: `2c0e9520918152ce15480ab26668c7876b5185f68db12829523faceb68309cfd`
+- closure verification: 84/84 PASS
+- closure output SHA-256: `b63a9974754a52f940ec382e8c43bc9ce4a28832781c9f583d6bf749016b5355`
+
 These package and seal artifacts are local untracked research artifacts; this document does not imply that they are available from the public repository.
 
 Prohibited interpretations include a true-positive rate, precision or recall, human correctness adjudication, product validation, threshold validation, proof of general effectiveness, or a claim that synthetic reject controls are human decisions.
 
 ### Canonical-only session-term provenance
 
-Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS probe ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form, and this implementation change does not rewrite or reinterpret the sealed study or authorize a persistence schema.
+Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS phonetic producer probe (Probe B, repository HEAD `24363d9`) ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form. The calibration correspondence evaluate probe (Probe C, repository HEAD `e21be2e`) projected the same six frozen targets study-locally to native canonical-only entries without changing target set or ordering. This implementation change does not rewrite or reinterpret the sealed phonetic producer study or authorize a persistence schema.
 
 ## Fixtures
 
