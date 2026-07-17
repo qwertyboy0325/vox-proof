@@ -185,12 +185,15 @@ pub struct AnalysisRun {
 }
 
 impl AnalysisRun {
-    pub fn for_exact_session_terms(transcript: &Transcript, entries: &[SessionTermEntry]) -> Self {
+    pub fn for_canonical_session_terms(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> Self {
         Self {
             snapshot: AnalysisSnapshot {
                 source_revision: transcript.revision_id(),
                 session_terms: SessionTermsIdentity::from_entries(entries),
-                configuration: crate::candidate::exact_session_term_analysis_identity(),
+                configuration: crate::candidate::canonical_session_term_analysis_identity(),
             },
         }
     }
@@ -219,9 +222,10 @@ impl AnalysisRun {
 mod tests {
     use super::*;
     use crate::candidate::{
-        EXACT_SESSION_TERM_ALGORITHM, EXACT_SESSION_TERM_ANALYSIS_IDENTITY,
-        EXACT_SESSION_TERM_DETECTOR_CONFIG, EXACT_SESSION_TERM_DETECTOR_SET,
-        EXACT_SESSION_TERM_DETECTORS, GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR,
+        CANONICAL_SESSION_TERM_ALGORITHM, CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY,
+        CANONICAL_SESSION_TERM_DETECTOR_CONFIG, CANONICAL_SESSION_TERM_DETECTOR_SET,
+        CANONICAL_SESSION_TERM_DETECTORS, GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR,
+        PHONETIC_DETECTOR,
     };
     use crate::srt::parse_srt;
 
@@ -249,8 +253,8 @@ mod tests {
         let transcript = transcript("Kafka");
         let entries = [entry("Apache Kafka", &["Kafka"], &["卡夫卡"])];
 
-        let first = AnalysisRun::for_exact_session_terms(&transcript, &entries);
-        let second = AnalysisRun::for_exact_session_terms(&transcript, &entries);
+        let first = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
+        let second = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
 
         assert_eq!(first.snapshot(), second.snapshot());
     }
@@ -259,8 +263,8 @@ mod tests {
     fn transcript_change_changes_snapshot() {
         let entries = [entry("Apache Kafka", &["Kafka"], &[])];
 
-        let first = AnalysisRun::for_exact_session_terms(&transcript("Kafka"), &entries);
-        let second = AnalysisRun::for_exact_session_terms(&transcript("Postgres"), &entries);
+        let first = AnalysisRun::for_canonical_session_terms(&transcript("Kafka"), &entries);
+        let second = AnalysisRun::for_canonical_session_terms(&transcript("Postgres"), &entries);
 
         assert_ne!(first.snapshot(), second.snapshot());
     }
@@ -372,23 +376,30 @@ mod tests {
     fn detector_version_change_structurally_changes_detector_set_identity() {
         const CHANGED_GLOSSARY: DetectorIdentity =
             DetectorIdentity::new("glossary-alias-match", "0.2.0");
-        const CHANGED_DETECTORS: &[DetectorIdentity] =
-            &[CHANGED_GLOSSARY, OBSERVED_ERROR_FORM_DETECTOR];
+        const CHANGED_DETECTORS: &[DetectorIdentity] = &[
+            CHANGED_GLOSSARY,
+            OBSERVED_ERROR_FORM_DETECTOR,
+            PHONETIC_DETECTOR,
+        ];
         const CHANGED_SET: CanonicalDetectorSetIdentity =
             CanonicalDetectorSetIdentity::new(CHANGED_DETECTORS);
 
-        assert_ne!(EXACT_SESSION_TERM_DETECTOR_SET, CHANGED_SET);
+        assert_ne!(CANONICAL_SESSION_TERM_DETECTOR_SET, CHANGED_SET);
         assert_eq!(
-            EXACT_SESSION_TERM_DETECTOR_SET.detectors(),
-            EXACT_SESSION_TERM_DETECTORS
+            CANONICAL_SESSION_TERM_DETECTOR_SET.detectors(),
+            CANONICAL_SESSION_TERM_DETECTORS
         );
     }
 
     #[test]
-    fn exact_session_term_detector_set_order_is_deterministic() {
+    fn canonical_session_term_detector_set_order_is_deterministic() {
         assert_eq!(
-            EXACT_SESSION_TERM_DETECTOR_SET.detectors(),
-            &[GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR]
+            CANONICAL_SESSION_TERM_DETECTOR_SET.detectors(),
+            &[
+                GLOSSARY_DETECTOR,
+                OBSERVED_ERROR_FORM_DETECTOR,
+                PHONETIC_DETECTOR
+            ]
         );
     }
 
@@ -402,21 +413,21 @@ mod tests {
 
         let transcript = transcript("Kafka");
         let entries = [entry("Apache Kafka", &["Kafka"], &[])];
-        let base = AnalysisRun::for_exact_session_terms(&transcript, &entries).snapshot();
+        let base = AnalysisRun::for_canonical_session_terms(&transcript, &entries).snapshot();
 
         let detector_set_changed = AnalysisConfigurationIdentity::new(
             CHANGED_DETECTOR_SET,
-            EXACT_SESSION_TERM_DETECTOR_CONFIG,
-            EXACT_SESSION_TERM_ALGORITHM,
+            CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
+            CANONICAL_SESSION_TERM_ALGORITHM,
         );
         let config_changed = AnalysisConfigurationIdentity::new(
-            EXACT_SESSION_TERM_DETECTOR_SET,
+            CANONICAL_SESSION_TERM_DETECTOR_SET,
             DetectorConfigIdentity::new("exact-case-sensitive-cue-local", "0.2.0"),
-            EXACT_SESSION_TERM_ALGORITHM,
+            CANONICAL_SESSION_TERM_ALGORITHM,
         );
         let algorithm_changed = AnalysisConfigurationIdentity::new(
-            EXACT_SESSION_TERM_DETECTOR_SET,
-            EXACT_SESSION_TERM_DETECTOR_CONFIG,
+            CANONICAL_SESSION_TERM_DETECTOR_SET,
+            CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
             AlgorithmIdentity::new("rust-str-match-indices", "2"),
         );
 
@@ -435,15 +446,15 @@ mod tests {
     }
 
     #[test]
-    fn for_exact_session_terms_binds_owned_exact_profile() {
+    fn for_canonical_session_terms_binds_owned_canonical_profile() {
         let transcript = transcript("Kafka");
         let entries = [entry("Apache Kafka", &["Kafka"], &[])];
 
-        let run = AnalysisRun::for_exact_session_terms(&transcript, &entries);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
 
         assert_eq!(
             run.snapshot().configuration(),
-            EXACT_SESSION_TERM_ANALYSIS_IDENTITY
+            CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY
         );
     }
 }

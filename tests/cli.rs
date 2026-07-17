@@ -389,7 +389,7 @@ fn review_renders_and_summarizes_alias_and_observed_error_cases_distinctly() {
             log_path.to_str().expect("utf8 log path"),
             summary_path.to_str().expect("utf8 summary path"),
         ],
-        "r\na 0\n",
+        "r\nr\na 0\n",
     );
 
     assert!(output.status.success());
@@ -406,6 +406,43 @@ fn review_renders_and_summarizes_alias_and_observed_error_cases_distinctly() {
     assert!(session_summary.contains("glossary_alias_match: 2"));
     assert!(session_summary.contains("glossary-alias-match @ 0.1.0: 1"));
     assert!(session_summary.contains("observed-error-form-match @ 0.1.0: 1"));
+}
+
+#[test]
+fn review_renders_and_summarizes_phonetic_similarity_case() {
+    let dir = temp_dir("review-phonetic-similarity");
+    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nPostgre sequel");
+    let terms_path = write_session_terms(&dir, "PostgreSQL | alias:Postgres");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert!(stdout.contains("evidence: phonetic similarity 'Postgre sequel' -> 'PostgreSQL'"));
+    assert!(stdout.contains("phonetic_source: normalized='postgresequel'"));
+    assert!(stdout.contains("phonetic_target: normalized='postgresql'"));
+    assert!(stdout.contains("phonetic_score: distance="));
+    assert!(stdout.contains("matched_key='PSTKRSKL'"));
+    assert!(stdout.contains(
+        "phonetic_identity: config=canonical-session-term-cue-local/0.2.0 algorithm=canonical-exact-plus-ascii-double-metaphone-levenshtein/rphonetic-3.0.6-v1"
+    ));
+    assert!(session_summary.contains("phonetic_similarity: 1"));
+    assert!(session_summary.contains("ascii-latin-phonetic-similarity @ 0.1.0: 1"));
 }
 
 #[test]
@@ -426,7 +463,7 @@ fn rejecting_observed_error_form_leaves_source_text_unchanged() {
             log_path.to_str().expect("utf8 log path"),
             summary_path.to_str().expect("utf8 summary path"),
         ],
-        "r\n",
+        "r\nr\n",
     );
 
     assert!(output.status.success());

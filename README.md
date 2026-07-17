@@ -1,7 +1,7 @@
 Status: current
 Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code: the authoritative exact local review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs; the experiment-only contextual retrieval/ranking sidecar exists; canonical phonetic evidence production remains unimplemented; all implemented paths are covered by unit and CLI tests; real-material effectiveness validation remains pending
+Last reviewed against code: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; real-material effectiveness validation remains pending
 
 # VoxProof
 
@@ -49,7 +49,8 @@ Recent work:
 - provisional session-scoped term / observed-form file input
 - human-readable session summary and minimum local run metrics
 - distinct exact alias and observed-error-form evidence paths
-- effective analysis identity for the canonical exact detector set
+- effective analysis identity for the canonical session-term detector set
+- bounded ASCII-Latin phonetic similarity evidence in the authoritative review pipeline
 - phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
 - experiment-only bounded Latin and Han-pinyin candidate retrieval
 - rules-only, deterministic-fake, and strict external-command contextual-ranking modes
@@ -77,6 +78,7 @@ Recent work:
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping
 - [x] Effective canonical analysis identity prerequisite
+- [x] Bounded ASCII-Latin phonetic similarity evidence
 - [x] Phonetic representation characterization
 - [x] Experimental bounded non-exact candidate retrieval
 - [x] Experimental contextual-ranking subprocess boundary
@@ -92,7 +94,7 @@ Recent work:
 
 Authoritative path:
 
-`existing SRT + provisional session terms -> exact evidence -> human review -> reviewed SRT + decision records`
+`existing SRT + provisional session terms -> bounded exact and phonetic evidence -> human review -> reviewed SRT + decision records`
 
 Experimental sidecar:
 

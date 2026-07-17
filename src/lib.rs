@@ -4,6 +4,7 @@ pub mod calibration;
 pub mod candidate;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
+pub mod phonetic;
 pub mod pipeline;
 pub mod review;
 pub mod reviewed_output;
@@ -22,14 +23,14 @@ mod tests {
     };
     use crate::anchor::AnchorError;
     use crate::candidate::{
+        CANONICAL_SESSION_TERM_ALGORITHM, CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY,
+        CANONICAL_SESSION_TERM_DETECTOR_CONFIG, CANONICAL_SESSION_TERM_DETECTOR_SET,
+        GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR, PHONETIC_DETECTOR,
+    };
+    use crate::candidate::{
         CandidateAlternative, CandidateSpan, DetectionError, DetectionKind, Evidence,
         GlossaryAliasEvidence, ObservedErrorFormEvidence, SessionTermEntry,
         detect_glossary_matches, detect_observed_error_form_matches,
-    };
-    use crate::candidate::{
-        EXACT_SESSION_TERM_ALGORITHM, EXACT_SESSION_TERM_ANALYSIS_IDENTITY,
-        EXACT_SESSION_TERM_DETECTOR_CONFIG, EXACT_SESSION_TERM_DETECTOR_SET, GLOSSARY_DETECTOR,
-        OBSERVED_ERROR_FORM_DETECTOR,
     };
     use crate::pipeline::run_term_review;
     use crate::review::{
@@ -600,8 +601,11 @@ mod tests {
         run_term_review(transcript, entries)
     }
 
-    fn exact_analysis_run(transcript: &Transcript, entries: &[SessionTermEntry]) -> AnalysisRun {
-        AnalysisRun::for_exact_session_terms(transcript, entries)
+    fn canonical_analysis_run(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> AnalysisRun {
+        AnalysisRun::for_canonical_session_terms(transcript, entries)
     }
 
     #[test]
@@ -609,7 +613,7 @@ mod tests {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:02,500\n我們使用 Kafka 處理事件流")
             .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -624,7 +628,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nhello world").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -639,7 +643,7 @@ mod tests {
         )
         .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -652,7 +656,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -666,6 +670,7 @@ mod tests {
                 assert_eq!(matched_form, "Kafka");
             }
             Evidence::ObservedErrorForm(_) => panic!("expected glossary-alias evidence"),
+            Evidence::PhoneticSimilarity(_) => panic!("expected glossary-alias evidence"),
         }
     }
 
@@ -674,7 +679,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -687,7 +692,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let first = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -702,7 +707,7 @@ mod tests {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafka appears twice: Kafka")
             .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -716,7 +721,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -741,7 +746,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nanything at all").expect("valid srt");
         let glossary = vec![glossary_entry("Empty Alias Entry", &[""])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let result = detect_glossary_matches(&run, &transcript, &glossary);
 
@@ -761,7 +766,7 @@ mod tests {
             glossary_entry("Apache Kafka", &["Kafka"]),
             glossary_entry("Kafka the author", &["Kafka"]),
         ];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let result = detect_glossary_matches(&run, &transcript, &glossary);
 
@@ -780,7 +785,7 @@ mod tests {
         let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka elsewhere")
             .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&other, &glossary);
+        let run = canonical_analysis_run(&other, &glossary);
 
         let result = detect_glossary_matches(&run, &transcript, &glossary);
 
@@ -799,7 +804,7 @@ mod tests {
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let run_entries = [glossary_entry("Apache Kafka", &["Kafka"])];
         let provided_entries = [glossary_entry("Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &run_entries);
+        let run = canonical_analysis_run(&transcript, &run_entries);
 
         let result = detect_glossary_matches(&run, &transcript, &provided_entries);
 
@@ -822,21 +827,21 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let entries = [glossary_entry("Apache Kafka", &["Kafka"])];
-        let required = EXACT_SESSION_TERM_ANALYSIS_IDENTITY;
+        let required = CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY;
         let configurations = [
             AnalysisConfigurationIdentity::new(
                 OTHER_DETECTOR_SET,
-                EXACT_SESSION_TERM_DETECTOR_CONFIG,
-                EXACT_SESSION_TERM_ALGORITHM,
+                CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
+                CANONICAL_SESSION_TERM_ALGORITHM,
             ),
             AnalysisConfigurationIdentity::new(
-                EXACT_SESSION_TERM_DETECTOR_SET,
+                CANONICAL_SESSION_TERM_DETECTOR_SET,
                 DetectorConfigIdentity::new("other-config", "0.1.0"),
-                EXACT_SESSION_TERM_ALGORITHM,
+                CANONICAL_SESSION_TERM_ALGORITHM,
             ),
             AnalysisConfigurationIdentity::new(
-                EXACT_SESSION_TERM_DETECTOR_SET,
-                EXACT_SESSION_TERM_DETECTOR_CONFIG,
+                CANONICAL_SESSION_TERM_DETECTOR_SET,
+                CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
                 AlgorithmIdentity::new("other-algorithm", "0.1.0"),
             ),
         ];
@@ -886,9 +891,9 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
         let entries = vec![observed_error_entry("PostgreSQL", &["Postgre SQL"])];
-        let run = exact_analysis_run(&transcript, &entries);
+        let run = canonical_analysis_run(&transcript, &entries);
         let alias_entries = [glossary_entry("PostgreSQL", &["Postgre SQL"])];
-        let alias_run = exact_analysis_run(&transcript, &alias_entries);
+        let alias_run = canonical_analysis_run(&transcript, &alias_entries);
 
         let spans = detect_observed_error_form_matches(&run, &transcript, &entries)
             .expect("valid observed error configuration");
@@ -917,6 +922,7 @@ mod tests {
                 assert_eq!(matched_form, "Postgre SQL");
             }
             Evidence::GlossaryAlias(_) => panic!("expected observed-error-form evidence"),
+            Evidence::PhoneticSimilarity(_) => panic!("expected observed-error-form evidence"),
         }
     }
 
@@ -925,7 +931,7 @@ mod tests {
         let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre sql and PostgreSQL")
             .expect("valid srt");
         let entries = vec![observed_error_entry("PostgreSQL", &["Postgre SQL"])];
-        let run = exact_analysis_run(&transcript, &entries);
+        let run = canonical_analysis_run(&transcript, &entries);
 
         let spans = detect_observed_error_form_matches(&run, &transcript, &entries)
             .expect("valid observed error configuration");
@@ -939,7 +945,7 @@ mod tests {
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
         let other = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nOther").expect("valid srt");
         let entries = [observed_error_entry("PostgreSQL", &["Postgre SQL"])];
-        let run = exact_analysis_run(&other, &entries);
+        let run = canonical_analysis_run(&other, &entries);
 
         let result = detect_observed_error_form_matches(&run, &transcript, &entries);
 
@@ -967,36 +973,48 @@ mod tests {
         let repeated =
             run_term_review(&transcript, &entries).expect("valid session-term configuration");
 
-        assert_eq!(review_cases.len(), 2);
+        assert_eq!(review_cases.len(), 3);
         assert_eq!(
             review_cases
                 .iter()
-                .map(|case| case.candidate_span().key())
+                .map(|case| case.candidate_span().provenance().detector_id())
                 .collect::<Vec<_>>(),
             repeated
                 .iter()
-                .map(|case| case.candidate_span().key())
+                .map(|case| case.candidate_span().provenance().detector_id())
                 .collect::<Vec<_>>()
         );
         assert_eq!(
             review_cases[0].candidate_span().kind(),
-            DetectionKind::GlossaryAliasMatch
+            DetectionKind::PhoneticSimilarity
         );
         assert_eq!(
             review_cases[1].candidate_span().kind(),
             DetectionKind::GlossaryAliasMatch
         );
         assert_eq!(
+            review_cases[2].candidate_span().kind(),
+            DetectionKind::GlossaryAliasMatch
+        );
+        assert_eq!(
             review_cases[0].candidate_span().provenance().detector_id(),
-            "observed-error-form-match"
+            "ascii-latin-phonetic-similarity"
         );
         assert_eq!(
             review_cases[1].candidate_span().provenance().detector_id(),
+            "observed-error-form-match"
+        );
+        assert_eq!(
+            review_cases[2].candidate_span().provenance().detector_id(),
             "glossary-alias-match"
         );
         assert_ne!(
             review_cases[0].candidate_span().key(),
             review_cases[1].candidate_span().key()
+        );
+        assert_ne!(
+            review_cases[1].candidate_span().key(),
+            review_cases[2].candidate_span().key()
         );
     }
 
@@ -1026,7 +1044,7 @@ mod tests {
                 .iter()
                 .map(|review_case| review_case.id().local_index())
                 .collect::<Vec<_>>(),
-            vec![0, 1, 2]
+            vec![0, 1, 2, 3]
         );
     }
 
@@ -1054,7 +1072,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let mut spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1074,7 +1092,7 @@ mod tests {
         )
         .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let candidates = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1095,7 +1113,7 @@ mod tests {
         )
         .expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let candidates = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1337,7 +1355,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1353,7 +1371,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1366,7 +1384,7 @@ mod tests {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1429,26 +1447,28 @@ mod tests {
     #[test]
     fn detector_provenance_uses_detector_identities_bound_in_active_set() {
         assert!(
-            EXACT_SESSION_TERM_DETECTOR_SET
+            CANONICAL_SESSION_TERM_DETECTOR_SET
                 .detectors()
                 .iter()
                 .any(|identity| identity.id() == GLOSSARY_DETECTOR.id()
                     && identity.version() == GLOSSARY_DETECTOR.version())
         );
+        assert!(CANONICAL_SESSION_TERM_DETECTOR_SET.detectors().iter().any(
+            |identity| identity.id() == OBSERVED_ERROR_FORM_DETECTOR.id()
+                && identity.version() == OBSERVED_ERROR_FORM_DETECTOR.version()
+        ));
         assert!(
-            EXACT_SESSION_TERM_DETECTOR_SET
+            CANONICAL_SESSION_TERM_DETECTOR_SET
                 .detectors()
                 .iter()
-                .any(
-                    |identity| identity.id() == OBSERVED_ERROR_FORM_DETECTOR.id()
-                        && identity.version() == OBSERVED_ERROR_FORM_DETECTOR.version()
-                )
+                .any(|identity| identity.id() == PHONETIC_DETECTOR.id()
+                    && identity.version() == PHONETIC_DETECTOR.version())
         );
 
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let glossary = vec![glossary_entry("Apache Kafka", &["Kafka"])];
-        let run = exact_analysis_run(&transcript, &glossary);
+        let run = canonical_analysis_run(&transcript, &glossary);
 
         let glossary_spans = detect_glossary_matches(&run, &transcript, &glossary)
             .expect("glossary has no ambiguous aliases");
@@ -1464,7 +1484,7 @@ mod tests {
         let observed_entries = vec![observed_error_entry("PostgreSQL", &["Postgre SQL"])];
         let observed_transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
-        let observed_run = exact_analysis_run(&observed_transcript, &observed_entries);
+        let observed_run = canonical_analysis_run(&observed_transcript, &observed_entries);
         let observed_spans = detect_observed_error_form_matches(
             &observed_run,
             &observed_transcript,
@@ -1490,8 +1510,8 @@ mod tests {
             glossary_entry("PostgreSQL", &["Postgres"]),
         ];
         let second_order = [first_order[1].clone(), first_order[0].clone()];
-        let run_first = exact_analysis_run(&transcript, &first_order);
-        let run_second = exact_analysis_run(&transcript, &second_order);
+        let run_first = canonical_analysis_run(&transcript, &first_order);
+        let run_second = canonical_analysis_run(&transcript, &second_order);
 
         let first_spans = detect_glossary_matches(&run_first, &transcript, &first_order)
             .expect("glossary has no ambiguous aliases");
@@ -1514,7 +1534,7 @@ mod tests {
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgre SQL").expect("valid srt");
         let run_entries = [observed_error_entry("PostgreSQL", &["Postgre SQL"])];
         let provided_entries = [observed_error_entry("Postgres", &["Postgre SQL"])];
-        let run = exact_analysis_run(&transcript, &run_entries);
+        let run = canonical_analysis_run(&transcript, &run_entries);
 
         let result = detect_observed_error_form_matches(&run, &transcript, &provided_entries);
 
@@ -1528,18 +1548,18 @@ mod tests {
     }
 
     #[test]
-    fn authoritative_pipeline_binds_owned_exact_analysis_profile() {
+    fn authoritative_pipeline_binds_owned_canonical_analysis_profile() {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nusing Kafka here").expect("valid srt");
         let entries = vec![glossary_entry("Apache Kafka", &["Kafka"])];
 
-        let run = AnalysisRun::for_exact_session_terms(&transcript, &entries);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
         let review_cases =
             run_term_review(&transcript, &entries).expect("glossary has no ambiguous aliases");
 
         assert_eq!(
             run.snapshot().configuration(),
-            EXACT_SESSION_TERM_ANALYSIS_IDENTITY
+            CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY
         );
         assert_eq!(review_cases.len(), 1);
     }

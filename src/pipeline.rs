@@ -5,7 +5,7 @@ use crate::candidate::{
 use crate::review::ReviewCase;
 use crate::transcript::Transcript;
 
-/// Composes the two exact session-term evidence paths into human-facing
+/// Composes the canonical session-term evidence paths into human-facing
 /// review units under one `AnalysisRun`.
 ///
 /// Findings are ordered by source segment, byte range, and detector identity.
@@ -14,9 +14,12 @@ pub fn run_term_review(
     transcript: &Transcript,
     entries: &[SessionTermEntry],
 ) -> Result<Vec<ReviewCase>, DetectionError> {
-    let run = AnalysisRun::for_exact_session_terms(transcript, entries);
+    let run = AnalysisRun::for_canonical_session_terms(transcript, entries);
     let mut spans = detect_glossary_matches(&run, transcript, entries)?;
     spans.extend(detect_observed_error_form_matches(
+        &run, transcript, entries,
+    )?);
+    spans.extend(crate::phonetic::detect_ascii_latin_phonetic_matches(
         &run, transcript, entries,
     )?);
     spans.sort_by(|left, right| {

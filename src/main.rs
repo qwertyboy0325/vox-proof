@@ -6,7 +6,7 @@ use serde::Serialize;
 use vox_proof::calibration::{
     build_comparison_report, render_comparison_report, write_comparison_report_exclusive,
 };
-use vox_proof::candidate::Evidence;
+use vox_proof::candidate::{Evidence, PhoneticTargetKind};
 use vox_proof::experimental_ranking::{
     ExperimentalContextRanker, ExperimentalRankingResult, ExternalCommandRanker,
     rank_experimental_candidates,
@@ -721,6 +721,51 @@ fn print_review_case<W: Write>(
                 output,
                 "evidence: observed error form '{}' for '{}'",
                 evidence.matched_form, evidence.entry.canonical_term
+            )?;
+        }
+        Evidence::PhoneticSimilarity(evidence) => {
+            let target_kind = match evidence.target_kind {
+                PhoneticTargetKind::CanonicalTerm => "canonical_term",
+                PhoneticTargetKind::Alias => "alias",
+            };
+            writeln!(
+                output,
+                "evidence: phonetic similarity '{}' -> '{}' ({}) for '{}'",
+                evidence.observed_surface,
+                evidence.target_surface,
+                target_kind,
+                evidence.canonical_term
+            )?;
+            writeln!(
+                output,
+                "phonetic_source: normalized='{}' primary='{}' alternate='{}'",
+                evidence.source_representation.normalized_letters,
+                evidence.source_representation.primary_key,
+                evidence.source_representation.alternate_key
+            )?;
+            writeln!(
+                output,
+                "phonetic_target: normalized='{}' primary='{}' alternate='{}'",
+                evidence.target_representation.normalized_letters,
+                evidence.target_representation.primary_key,
+                evidence.target_representation.alternate_key
+            )?;
+            writeln!(
+                output,
+                "phonetic_score: distance={} ratio={}/{} permille={} matched_key='{}'",
+                evidence.comparison.edit_distance,
+                evidence.comparison.ratio_numerator,
+                evidence.comparison.ratio_denominator,
+                evidence.comparison.ratio_permille,
+                evidence.comparison.matched_key
+            )?;
+            writeln!(
+                output,
+                "phonetic_identity: config={}/{} algorithm={}/{}",
+                evidence.detector_config.id(),
+                evidence.detector_config.version(),
+                evidence.algorithm.id(),
+                evidence.algorithm.version()
             )?;
         }
     }

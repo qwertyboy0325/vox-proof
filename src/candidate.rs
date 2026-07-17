@@ -29,7 +29,7 @@ impl DetectorProvenance {
         }
     }
 
-    fn from_detector_identity(identity: DetectorIdentity) -> Self {
+    pub(crate) fn from_detector_identity(identity: DetectorIdentity) -> Self {
         Self {
             detector_id: identity.id().to_string(),
             detector_version: identity.version().to_string(),
@@ -115,10 +115,47 @@ pub struct ObservedErrorFormEvidence {
     pub matched_form: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhoneticTargetKind {
+    CanonicalTerm,
+    Alias,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsciiLatinPhoneticRepresentation {
+    pub normalized_letters: String,
+    pub primary_key: String,
+    pub alternate_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhoneticComparisonFacts {
+    pub edit_distance: usize,
+    pub ratio_numerator: usize,
+    pub ratio_denominator: usize,
+    pub ratio_permille: usize,
+    pub matched_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PhoneticSimilarityEvidence {
+    pub observed_surface: String,
+    pub target_surface: String,
+    pub target_kind: PhoneticTargetKind,
+    pub canonical_term: String,
+    pub source_representation: AsciiLatinPhoneticRepresentation,
+    pub target_representation: AsciiLatinPhoneticRepresentation,
+    pub comparison: PhoneticComparisonFacts,
+    pub detector_config: DetectorConfigIdentity,
+    pub algorithm: AlgorithmIdentity,
+}
+
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Evidence {
     GlossaryAlias(GlossaryAliasEvidence),
     ObservedErrorForm(ObservedErrorFormEvidence),
+    PhoneticSimilarity(PhoneticSimilarityEvidence),
 }
 
 /// A non-binding suggested replacement. It is not an edit decision and must
@@ -240,27 +277,115 @@ pub(crate) const GLOSSARY_DETECTOR: DetectorIdentity =
 pub(crate) const OBSERVED_ERROR_FORM_DETECTOR: DetectorIdentity =
     DetectorIdentity::new("observed-error-form-match", "0.1.0");
 
-pub(crate) const EXACT_SESSION_TERM_DETECTORS: &[DetectorIdentity] =
-    &[GLOSSARY_DETECTOR, OBSERVED_ERROR_FORM_DETECTOR];
+pub(crate) const PHONETIC_DETECTOR: DetectorIdentity =
+    DetectorIdentity::new("ascii-latin-phonetic-similarity", "0.1.0");
 
-pub(crate) const EXACT_SESSION_TERM_DETECTOR_SET: CanonicalDetectorSetIdentity =
-    CanonicalDetectorSetIdentity::new(EXACT_SESSION_TERM_DETECTORS);
+pub(crate) const CANONICAL_SESSION_TERM_DETECTORS: &[DetectorIdentity] = &[
+    GLOSSARY_DETECTOR,
+    OBSERVED_ERROR_FORM_DETECTOR,
+    PHONETIC_DETECTOR,
+];
 
-pub(crate) const EXACT_SESSION_TERM_DETECTOR_CONFIG: DetectorConfigIdentity =
-    DetectorConfigIdentity::new("exact-case-sensitive-cue-local", "0.1.0");
+pub(crate) const CANONICAL_SESSION_TERM_DETECTOR_SET: CanonicalDetectorSetIdentity =
+    CanonicalDetectorSetIdentity::new(CANONICAL_SESSION_TERM_DETECTORS);
 
-pub(crate) const EXACT_SESSION_TERM_ALGORITHM: AlgorithmIdentity =
-    AlgorithmIdentity::new("rust-str-match-indices", "1");
+pub(crate) const CANONICAL_SESSION_TERM_DETECTOR_CONFIG: DetectorConfigIdentity =
+    DetectorConfigIdentity::new("canonical-session-term-cue-local", "0.2.0");
 
-pub(crate) const EXACT_SESSION_TERM_ANALYSIS_IDENTITY: AnalysisConfigurationIdentity =
+pub(crate) const CANONICAL_SESSION_TERM_ALGORITHM: AlgorithmIdentity = AlgorithmIdentity::new(
+    "canonical-exact-plus-ascii-double-metaphone-levenshtein",
+    "rphonetic-3.0.6-v1",
+);
+
+pub(crate) const CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY: AnalysisConfigurationIdentity =
     AnalysisConfigurationIdentity::new(
-        EXACT_SESSION_TERM_DETECTOR_SET,
-        EXACT_SESSION_TERM_DETECTOR_CONFIG,
-        EXACT_SESSION_TERM_ALGORITHM,
+        CANONICAL_SESSION_TERM_DETECTOR_SET,
+        CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
+        CANONICAL_SESSION_TERM_ALGORITHM,
     );
 
-pub(crate) const fn exact_session_term_analysis_identity() -> AnalysisConfigurationIdentity {
-    EXACT_SESSION_TERM_ANALYSIS_IDENTITY
+pub(crate) const fn canonical_session_term_analysis_identity() -> AnalysisConfigurationIdentity {
+    CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY
+}
+
+pub(crate) fn validate_detection_inputs(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<(), DetectionError> {
+    let run_revision = run.snapshot().source_revision();
+    let transcript_revision = transcript.revision_id();
+    if run_revision != transcript_revision {
+        return Err(DetectionError::RevisionMismatch {
+            run_revision,
+            transcript_revision,
+        });
+    }
+
+    let run_session_terms = run.snapshot().session_terms();
+    let provided_session_terms = SessionTermsIdentity::from_entries(entries);
+    if run_session_terms != provided_session_terms {
+        return Err(DetectionError::SessionTermsIdentityMismatch {
+            run_identity: run_session_terms,
+            provided_identity: provided_session_terms,
+        });
+    }
+
+    let run_configuration = run.snapshot().configuration();
+    let required_configuration = canonical_session_term_analysis_identity();
+    if run_configuration.detector_set() != required_configuration.detector_set() {
+        return Err(DetectionError::DetectorSetIdentityMismatch {
+            run_identity: run_configuration.detector_set(),
+            required_identity: required_configuration.detector_set(),
+        });
+    }
+    if run_configuration.detector_config() != required_configuration.detector_config() {
+        return Err(DetectionError::DetectorConfigIdentityMismatch {
+            run_identity: run_configuration.detector_config(),
+            required_identity: required_configuration.detector_config(),
+        });
+    }
+    if run_configuration.algorithm() != required_configuration.algorithm() {
+        return Err(DetectionError::AlgorithmIdentityMismatch {
+            run_identity: run_configuration.algorithm(),
+            required_identity: required_configuration.algorithm(),
+        });
+    }
+
+    let mut seen_canonical_terms = HashSet::new();
+    let mut seen_source_forms = HashSet::new();
+    for entry in entries {
+        if !seen_canonical_terms.insert(entry.canonical_term.as_str()) {
+            return Err(DetectionError::DuplicateCanonicalTerm {
+                canonical_term: entry.canonical_term.clone(),
+            });
+        }
+
+        for alias in &entry.aliases {
+            if alias.is_empty() {
+                return Err(DetectionError::EmptyAlias {
+                    canonical_term: entry.canonical_term.clone(),
+                });
+            }
+        }
+        for observed_form in &entry.observed_error_forms {
+            if observed_form.is_empty() {
+                return Err(DetectionError::EmptyObservedErrorForm {
+                    canonical_term: entry.canonical_term.clone(),
+                });
+            }
+        }
+
+        for source_form in entry.aliases.iter().chain(&entry.observed_error_forms) {
+            if !seen_source_forms.insert(source_form.as_str()) {
+                return Err(DetectionError::DuplicateSourceForm {
+                    source_form: source_form.clone(),
+                });
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Finds exact, case-sensitive occurrences of a matched non-canonical
@@ -377,84 +502,4 @@ pub fn detect_observed_error_form_matches(
     }
 
     Ok(spans)
-}
-
-fn validate_detection_inputs(
-    run: &AnalysisRun,
-    transcript: &Transcript,
-    entries: &[SessionTermEntry],
-) -> Result<(), DetectionError> {
-    let run_revision = run.snapshot().source_revision();
-    let transcript_revision = transcript.revision_id();
-    if run_revision != transcript_revision {
-        return Err(DetectionError::RevisionMismatch {
-            run_revision,
-            transcript_revision,
-        });
-    }
-
-    let run_session_terms = run.snapshot().session_terms();
-    let provided_session_terms = SessionTermsIdentity::from_entries(entries);
-    if run_session_terms != provided_session_terms {
-        return Err(DetectionError::SessionTermsIdentityMismatch {
-            run_identity: run_session_terms,
-            provided_identity: provided_session_terms,
-        });
-    }
-
-    let run_configuration = run.snapshot().configuration();
-    let required_configuration = exact_session_term_analysis_identity();
-    if run_configuration.detector_set() != required_configuration.detector_set() {
-        return Err(DetectionError::DetectorSetIdentityMismatch {
-            run_identity: run_configuration.detector_set(),
-            required_identity: required_configuration.detector_set(),
-        });
-    }
-    if run_configuration.detector_config() != required_configuration.detector_config() {
-        return Err(DetectionError::DetectorConfigIdentityMismatch {
-            run_identity: run_configuration.detector_config(),
-            required_identity: required_configuration.detector_config(),
-        });
-    }
-    if run_configuration.algorithm() != required_configuration.algorithm() {
-        return Err(DetectionError::AlgorithmIdentityMismatch {
-            run_identity: run_configuration.algorithm(),
-            required_identity: required_configuration.algorithm(),
-        });
-    }
-
-    let mut seen_canonical_terms = HashSet::new();
-    let mut seen_source_forms = HashSet::new();
-    for entry in entries {
-        if !seen_canonical_terms.insert(entry.canonical_term.as_str()) {
-            return Err(DetectionError::DuplicateCanonicalTerm {
-                canonical_term: entry.canonical_term.clone(),
-            });
-        }
-
-        for alias in &entry.aliases {
-            if alias.is_empty() {
-                return Err(DetectionError::EmptyAlias {
-                    canonical_term: entry.canonical_term.clone(),
-                });
-            }
-        }
-        for observed_form in &entry.observed_error_forms {
-            if observed_form.is_empty() {
-                return Err(DetectionError::EmptyObservedErrorForm {
-                    canonical_term: entry.canonical_term.clone(),
-                });
-            }
-        }
-
-        for source_form in entry.aliases.iter().chain(&entry.observed_error_forms) {
-            if !seen_source_forms.insert(source_form.as_str()) {
-                return Err(DetectionError::DuplicateSourceForm {
-                    source_form: source_form.clone(),
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
