@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. v0.1 remains in progress and not established. MD-007's ten mechanism gates are frozen; qualifying owner-operated human-review evidence, the required mixed zh-EN fixture, and documented satisfaction of the frozen gates remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. v0.1 remains in progress and not established. The required mixed zh-EN fixture and MD-007 D11 release mechanics remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -54,7 +54,7 @@ Classification: exploratory real-material mechanism observations only. They are 
 
 The strongest permitted aggregate conclusion is:
 
-> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. The committed strict skeleton-compatible `evaluate` mechanism has exercised a deterministic calibration correspondence path on frozen public FLEURS material. These observations support mechanism viability only. They do not establish product or detector-effectiveness thresholds, precision/recall, or v0.1 establishment; MD-007's separate v0.1 mechanism gates are frozen and remain subject to qualifying human-review evidence.
+> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. The committed strict skeleton-compatible `evaluate` mechanism has exercised a deterministic calibration correspondence path on frozen public FLEURS material. These observations support mechanism viability only. They do not establish product or detector-effectiveness thresholds, precision/recall, or v0.1 establishment. Qualifying owner-operated human-review evidence under MD-007 D8 was recorded separately at repository HEAD `7efe8ba`.
 
 ### Probe A: AMI ES2004d zero-candidate path
 
@@ -124,13 +124,118 @@ Prohibited interpretations include a true-positive rate, precision or recall, hu
 
 Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS phonetic producer probe (Probe B, repository HEAD `24363d9`) ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form. The calibration correspondence evaluate probe (Probe C, repository HEAD `e21be2e`) projected the same six frozen targets study-locally to native canonical-only entries without changing target set or ordering. This implementation change does not rewrite or reinterpret the sealed phonetic producer study or authorize a persistence schema.
 
+## Qualifying Owner-Operated FLEURS Human Review
+
+Classification: qualifying MD-007 D8 human-correction mechanism evidence on frozen real-speech material. Not product validation, effectiveness, precision/recall, external-user evidence, or v0.1 establishment.
+
+Repository HEAD: `7efe8bad77dc2d9f37f613a1660703c0bcf9653c`
+
+Study: owner-operated FLEURS real-speech human review on the frozen 15-cue material from Probe B.
+
+Reviewer: Ezra, project owner, qualifying v0.1 human reviewer under MD-007.
+
+### Human review completion
+
+- 15/15 audio cues listened to
+- 15/15 cues adjudicated
+- 0 unresolved
+- 14 raw-confirmed
+- 1 corrected
+
+### Authoritative correction
+
+- ReviewCase: `local:0`
+- Cue: 2
+- Observed: `ASIS`
+- Accepted alternative: `ASUS`
+- CLI decision: `a 0`
+- Decision timestamp: `2026-07-17T08:23:46Z`
+
+The authoritative reviewed output and human-final transcript had identical text in all 15 cues. Byte-level file inequality occurred only because the human-final file had one trailing LF byte.
+
+### Deterministic evidence
+
+On identical inputs after human review:
+
+- raw-vs-human-final `compare` run 1 and run 2: byte-identical reports
+- raw-vs-reviewed `compare` run 1 and run 2: byte-identical reports
+- `evaluate` run 1 and run 2: byte-identical reports
+
+Observed correspondence facts (descriptive only; not product-quality ratios):
+
+- 1 replacement edit
+- 1 ReviewCase
+- 1 overlap
+- 0 unclassified
+- 15/15 cue indices and timing skeleton preserved
+- all summary counts recomputed exactly from detailed records
+- all ten MD-007 D9 mechanism gates passed
+
+### Limitations and reviewer disclosure
+
+- Owner-operated review; not blind ground truth; not external-user evidence.
+- Reviewer English/accent/domain familiarity was limited.
+- The study-local temporary review GUI displayed raw ASR text; raw-text anchoring was therefore possible.
+- The reviewer already knew the public/community reference supported `ASUS` for the `ASIS` cue.
+- The community/reference transcript was excluded from correctness authority.
+- Reviewer and community/reference transcript disagreed on 11 cues; this disagreement is descriptive only.
+- The temporary review GUI was study-local tooling, not product UI.
+- An audio-playback defect was repaired study-locally and disclosed in package provenance.
+
+These limitations constrain interpretation but do not invalidate the verified mechanism properties.
+
+### Sealed evidence identity
+
+Evidence topology: ZIP → bound by final seal → verified by detached final closure attestation.
+
+| Artifact | Filename | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| Human-review ZIP | `voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.zip` | 88513 | `e57681bf386d819eefe63542d3164448934e03f480e8c824af98cc6a1525e42f` |
+| Final seal | `package-seal-voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.json` | 5636 | `e36f4c6a9b807042d04d08f5a99691b2bd7f9ef5e896f443c7aa2adde11b3151` |
+| Detached closure attestation | `final-closure-attestation-voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.json` | 18329 | `56eaa0daf6bc3035888667fae3d8b49dde2e8d27fd5f9347152e986f07cf28d9` |
+
+Closure: 155/155 checks PASS.
+
+These package, seal, and attestation artifacts are local untracked research artifacts; this document does not imply that they are available from the public repository.
+
+## Research Artifact-Loss Incident
+
+Missing artifact: `calibration-comparison-v0.patch`
+
+Expected historical size: 42536 bytes
+
+Expected historical SHA-256: `67552483588a464219f992b6492e94c7a006a77a6b2981c8089f220a6e9cda4e`
+
+Classification: lost / not exactly recoverable
+
+No exact copy was found in the repository, parent directories, `/private/tmp`, Trash, ZIP entries, or reachable/unreachable Git objects. Metadata references remain.
+
+Bounded disappearance window:
+
+- present in metadata around 2026-07-17 04:32 UTC
+- first filesystem-proven absence around 2026-07-17 06:44 UTC
+
+Likely disappearance during canonical-only session-term work is an inference, not a proven cause. Owner approved classification as lost. No replacement was generated. Future recovery requires an exact SHA-256 match and a new append-only recovery record.
+
+Current code and accepted human-review evidence do not depend on the missing patch. The incident therefore does not independently block v0.1 establishment.
+
+Inventory semantics:
+
+- 51 expected verification paths
+- 50 physical repo-root research files before the human-review package
+- 1 historical baseline artifact missing
+
+Do not write “51 files present.”
+
+Incident record in sealed package: `post-review/artifact-loss-incident.json` (SHA-256: `54298c64e66a7592eaa49d19b1ea1f4ca3761ed598373761a6339047aeeb124e`).
+
 ## v0.1 Establishment Mechanism Gates
 
-The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten gates must pass on qualifying human-correction evidence under MD-007 D8. They are mechanism-establishment gates, not product-effectiveness thresholds. Candidate yield, correctness observations, and error distributions remain descriptive only.
+The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten gates passed on qualifying human-correction evidence under MD-007 D8 at repository HEAD `7efe8ba`. They are mechanism-establishment gates, not product-effectiveness thresholds. Candidate yield, correctness observations, and error distributions remain descriptive only.
 
 No other document may restate, weaken, or diverge from the ten gates. Other documents may summarize and must link to MD-007.
 
-v0.1 is not established. Tagging `v0.1.0` is allowed only after every MD-007 gate is documented as satisfied, the mixed zh-EN fixture required by MD-007 D10 exists, and release mechanics in MD-007 D11 are followed.
+v0.1 is not established. Tagging `v0.1.0` is allowed only after the mixed zh-EN fixture required by MD-007 D10 exists, release mechanics in MD-007 D11 are satisfied, and an explicit establishment Material Decision is recorded.
 
 ## Fixtures
 

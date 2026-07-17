@@ -26,7 +26,7 @@ A version is established only when all of the following are defined and satisfie
 
 Until then the version is in progress. An in-progress version grants no claims.
 
-Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, and exploratory real-material mechanism probes have exercised phonetic and calibration-correspondence paths, but those probes do not constitute the qualifying owner-operated human-correction measurement; no qualifying MD-007 human-review run has yet been measured, so v0.1 remains unestablished.
+Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, exploratory real-material mechanism probes have exercised phonetic and calibration-correspondence paths, and qualifying owner-operated FLEURS human-review evidence under MD-007 D8 was recorded at repository HEAD `7efe8ba` with all ten MD-007 D9 gates passing; v0.1 remains unestablished because the mixed zh-EN fixture, release mechanics, and explicit establishment decision are still pending.
 
 Engineering completion and evidence collection may proceed in parallel. A version does not require a separately completed error-distribution study before its bounded implementation work begins, but the implementation cannot establish the version until the required real-material evidence and measurable criteria are satisfied. "Build while measuring" changes execution order; it does not relax claim rules.
 
@@ -107,5 +107,5 @@ Anything not assigned to a version by its scope document does not silently belon
 
 ## Current Version Status
 
-- v0.1: in progress, not established. The code loop exists; MD-007 gates are frozen; qualifying human-correction evidence and the mixed zh-EN pre-tag fixture remain pending.
+- v0.1: in progress, not established. The code loop exists; qualifying owner-operated human-correction evidence under MD-007 D8 is recorded and all ten MD-007 D9 mechanism gates passed at repository HEAD `7efe8ba`; the mixed zh-EN pre-tag fixture, full isolated fmt/clippy/tests after that fixture, final gate matrix and release notes, explicit establishment Material Decision, final release audit, and annotated `v0.1.0` tag remain pending.
 - v0.2 and later: not started.
