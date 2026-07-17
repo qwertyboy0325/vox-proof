@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. v0.1 is not established; effectiveness, threshold, facilitated-user, and product validation remain pending.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. v0.1 remains in progress and not established. MD-007's ten mechanism gates are frozen; qualifying owner-operated human-review evidence, the required mixed zh-EN fixture, and documented satisfaction of the frozen gates remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -54,7 +54,7 @@ Classification: exploratory real-material mechanism observations only. They are 
 
 The strongest permitted aggregate conclusion is:
 
-> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. The committed strict skeleton-compatible `evaluate` mechanism has exercised a deterministic calibration correspondence path on frozen public FLEURS material. These observations support mechanism viability only; effectiveness, thresholds, precision/recall, and v0.1 establishment remain unresolved.
+> The committed bounded ASCII-Latin phonetic producer has exercised both a zero-candidate real-material path and a reference-supported emitted-candidate real-speech path. The committed strict skeleton-compatible `evaluate` mechanism has exercised a deterministic calibration correspondence path on frozen public FLEURS material. These observations support mechanism viability only. They do not establish product or detector-effectiveness thresholds, precision/recall, or v0.1 establishment; MD-007's separate v0.1 mechanism gates are frozen and remain subject to qualifying human-review evidence.
 
 ### Probe A: AMI ES2004d zero-candidate path
 
@@ -124,7 +124,17 @@ Prohibited interpretations include a true-positive rate, precision or recall, hu
 
 Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS phonetic producer probe (Probe B, repository HEAD `24363d9`) ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form. The calibration correspondence evaluate probe (Probe C, repository HEAD `e21be2e`) projected the same six frozen targets study-locally to native canonical-only entries without changing target set or ordering. This implementation change does not rewrite or reinterpret the sealed phonetic producer study or authorize a persistence schema.
 
+## v0.1 Establishment Mechanism Gates
+
+The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten gates must pass on qualifying human-correction evidence under MD-007 D8. They are mechanism-establishment gates, not product-effectiveness thresholds. Candidate yield, correctness observations, and error distributions remain descriptive only.
+
+No other document may restate, weaken, or diverge from the ten gates. Other documents may summarize and must link to MD-007.
+
+v0.1 is not established. Tagging `v0.1.0` is allowed only after every MD-007 gate is documented as satisfied, the mixed zh-EN fixture required by MD-007 D10 exists, and release mechanics in MD-007 D11 are followed.
+
 ## Fixtures
+
+An authorized mixed Traditional-Chinese/ASCII-Latin fixture is required by MD-007 D10 before tagging v0.1.0. Its v0.1 purpose is limited to locking Unicode and UTF-8 byte-anchor safety, detector eligibility and hard-boundary behavior, deterministic ReviewCase and evidence behavior, human-authority and materialization behavior, and unchanged behavior for unsupported or non-eligible forms. It is not real-speech evidence or product-effectiveness evidence unless separately sourced, classified, and governed as such.
 
 Future fixtures should use authorized short mixed Chinese-English transcript samples. Fixtures should be small enough to review manually and explicit about rights to use the transcript and any related audio.
 
@@ -150,7 +160,7 @@ Future evaluation must distinguish:
 
 Results from one category must not be reported as evidence for another. In particular, a readable output is not proof of source accuracy, and machine-facing utility is not proof that the same representation is preferable for people. The category definitions are owned by `product/correction-system-boundaries.md`.
 
-This slice does not define metrics or numeric gates for these categories.
+This slice does not define additional metrics or gates beyond MD-007 for v0.1 establishment.
 
 ## Future Evaluation Areas
 

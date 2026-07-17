@@ -21,12 +21,12 @@ A version is established only when all of the following are defined and satisfie
 2. Minimum loop: the smallest end-to-end flow that can answer it.
 3. Allowed inputs and outputs.
 4. Non-goals for the version.
-5. Measurable criteria, satisfied on evidence of the required class (see the evidence rules in `v0.1-execution-order.md`: validation evidence comes from real material and real human correction).
+5. Measurable criteria, satisfied on evidence of the required class (see MD-007 and the evidence rules in `v0.1-execution-order.md`: validation evidence comes from real material and real human correction).
 6. Allowed claims, stated in advance.
 
 Until then the version is in progress. An in-progress version grants no claims.
 
-Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, yet v0.1 remains unestablished because no real material has been measured.
+Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, and exploratory real-material mechanism probes have exercised phonetic and calibration-correspondence paths, but those probes do not constitute the qualifying owner-operated human-correction measurement; no qualifying MD-007 human-review run has yet been measured, so v0.1 remains unestablished.
 
 Engineering completion and evidence collection may proceed in parallel. A version does not require a separately completed error-distribution study before its bounded implementation work begins, but the implementation cannot establish the version until the required real-material evidence and measurable criteria are satisfied. "Build while measuring" changes execution order; it does not relax claim rules.
 
@@ -44,9 +44,11 @@ Versions are ordered by validation dependency, not by calendar. Skipping or reor
 
 Question: can VoxProof complete the pain-specific evidence-backed review loop on real material?
 
-Established when: the pain-point MVP loop (defined in `v0.1-execution-order.md`) runs end to end on real, self-owned or authorized material; detector performance is measured against human-confirmed ground truth from an instrumented diff study; the numeric acceptance criteria (to be decided before claiming v0.1 established) are satisfied; outputs conform to MD-003.
+Established when: the pain-point MVP loop (defined in `v0.1-execution-order.md`) runs end to end on real, self-owned or authorized material; qualifying human-correction evidence under MD-007 D8 is recorded; all ten frozen mechanism gates in MD-007 D9 pass; the mixed zh-EN fixture required by MD-007 D10 exists; release mechanics in MD-007 D11 are satisfied; outputs conform to MD-003; and an explicit establishment decision is recorded.
 
-Allowed claim: "the mechanism works on real material."
+Allowed claim: "the reproducible correction mechanism with explicit human authority works on real material under the bounded v0.1 establishment scope defined in MD-007 D7."
+
+Forbidden beyond MD-007 D7: product effectiveness, general ASR quality, precision/recall, time savings, external-user usability, or detector effectiveness beyond explicitly bounded mechanism evidence.
 
 Forbidden claims: adoption, workflow value, time savings, Domain Collection, Language Pack, or Knowledge Pack value, product-market fit, or that anyone wants the product.
 
@@ -105,5 +107,5 @@ Anything not assigned to a version by its scope document does not silently belon
 
 ## Current Version Status
 
-- v0.1: in progress, not established. The code loop exists; real-material evidence is pending.
+- v0.1: in progress, not established. The code loop exists; MD-007 gates are frozen; qualifying human-correction evidence and the mixed zh-EN pre-tag fixture remain pending.
 - v0.2 and later: not started.

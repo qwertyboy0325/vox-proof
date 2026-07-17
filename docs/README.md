@@ -27,6 +27,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [MD-004: Effective Analysis Identity and Phonetic Evidence Boundary](governance/decisions/MD-004-effective-analysis-identity-and-phonetic-evidence-boundary.md)
 - [MD-005: Bounded ASCII-Latin Phonetic Evidence v0](governance/decisions/MD-005-bounded-ascii-latin-phonetic-evidence-v0.md)
 - [MD-006: Strict Skeleton Calibration Correspondence v0](governance/decisions/MD-006-strict-skeleton-calibration-correspondence-v0.md)
+- [MD-007: v0.1 Establishment Evidence and Release Gates](governance/decisions/MD-007-v0.1-establishment-evidence-and-release-gates.md)
 
 ## Document Lifecycle
 
