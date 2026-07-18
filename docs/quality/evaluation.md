@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented in repository tests. v0.1 remains in progress and not established. MD-007 D11 release mechanics remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented in repository tests at commit `05b7a2f`. Final post-commit isolated validation passed at repository HEAD `05b7a2f` (2026-07-18T03:35:31Z). Gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`. v0.1 remains in progress and not established. Explicit establishment Material Decision, final independent release audit, and annotated `v0.1.0` tag remain pending under MD-007 D11. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -229,11 +229,30 @@ Do not write “51 files present.”
 
 Incident record in sealed package: `post-review/artifact-loss-incident.json` (SHA-256: `54298c64e66a7592eaa49d19b1ea1f4ca3761ed598373761a6339047aeeb124e`).
 
+## Final Post-Commit Isolated Validation
+
+Classification: repository build/test hygiene evidence at a fixed commit. Not human-review evidence, not product validation, and not v0.1 establishment.
+
+Recorded at repository HEAD `05b7a2f90ef114817996e9db7f6aa85e4a277f0e` on 2026-07-18T03:35:31Z with a clean tracked working tree.
+
+| Command | Result |
+| --- | --- |
+| `cargo fmt --check` | PASS |
+| `cargo clippy --all-targets --all-features -- -D warnings` | PASS |
+| `cargo test --all-targets --all-features` | PASS; 377 tests (lib 299, main 0, cli 67, example 11) |
+| `git diff --check` | PASS |
+
+Toolchain: `rustc 1.96.0 (ac68faa20 2026-05-25)`, `cargo 1.96.0 (30a34c682 2026-05-25)`.
+
+Authoritative gate matrix and release-notes draft: `product/v0.1.0-release-preparation.md`.
+
 ## v0.1 Establishment Mechanism Gates
 
 The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten gates passed on qualifying human-correction evidence under MD-007 D8 at repository HEAD `7efe8ba`. They are mechanism-establishment gates, not product-effectiveness thresholds. Candidate yield, correctness observations, and error distributions remain descriptive only.
 
 No other document may restate, weaken, or diverge from the ten gates. Other documents may summarize and must link to MD-007.
+
+The consolidated gate matrix, D10 fixture record, final validation record, release-notes draft, and remaining establishment actions are owned by `product/v0.1.0-release-preparation.md`.
 
 v0.1 is not established. Tagging `v0.1.0` is allowed only after release mechanics in MD-007 D11 are satisfied and an explicit establishment Material Decision is recorded.
 

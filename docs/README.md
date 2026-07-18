@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: v0.1 Track 1 code closed loop exists; real-material/product validation remains pending.
+Last reviewed against code: v0.1 Track 1 code closed loop exists; qualifying real-material mechanism evidence exists; product and external-user validation remain pending.
 
 # VoxProof Documentation
 
@@ -12,6 +12,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [product/correction-system-boundaries.md](product/correction-system-boundaries.md): cross-version correction taxonomy and evidence, context, policy, transformation, projection, authorization, and Domain Collection boundaries.
 - [product/versioning.md](product/versioning.md): pre-1.0 version semantics, the version ladder, and per-version allowed claims.
 - [product/v0.1.md](product/v0.1.md): current v0.1 product scope and acceptance boundary.
+- [product/v0.1.0-release-preparation.md](product/v0.1.0-release-preparation.md): v0.1.0 gate matrix, release-notes draft, final post-commit validation record, and remaining establishment actions (draft; v0.1 not established).
 - [product/v0.1-execution-order.md](product/v0.1-execution-order.md): current global execution goal, parallel completion-and-validation posture, and near-term order toward a testable v0.1 loop.
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
 - [architecture/overview.md](architecture/overview.md): architecture principles and fixed v0.1 processing shape.
