@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented at implementation baseline `05b7a2f`. Final post-commit isolated validation passed at implementation baseline `05b7a2f` (2026-07-18T03:35:31Z). Gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`. v0.1 is established by MD-008 as a bounded core mechanism only; annotated `v0.1.0` tag remains pending final isolated validation on the MD-containing tag-target commit. Product and external-user validation remain deferred beyond v0.1.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented at implementation baseline `05b7a2f`. Final post-commit isolated validation passed at implementation baseline `05b7a2f` (2026-07-18T03:35:31Z). Historical tag-target validation passed at MD-008 establishment commit `cde7fd9` (2026-07-18T04:09:43Z). Gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`. v0.1 is established by MD-008 as a bounded core mechanism only; local annotated tag pending recreation. Product and external-user validation remain deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -246,6 +246,12 @@ Toolchain: `rustc 1.96.0 (ac68faa20 2026-05-25)`, `cargo 1.96.0 (30a34c682 2026-
 
 Authoritative gate matrix and release-notes draft: `product/v0.1.0-release-preparation.md`.
 
+## Tag-target validation (MD-008 establishment commit)
+
+Historical validation at commit `cde7fd9cd43d9b582b3475d9ec78f7f6e33805ca` on 2026-07-18T04:09:43Z supported the first local annotated `v0.1.0` tag attempt, deleted before push solely to synchronize canonical release-state documentation. Full record: `product/v0.1.0-release-preparation.md`.
+
+Replacement tag-target validation on the documentation-synchronized commit is required before recreating the local annotated tag.
+
 ## v0.1 Establishment Mechanism Gates
 
 The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten gates passed on qualifying human-correction evidence under MD-007 D8 at repository HEAD `7efe8ba`. They are mechanism-establishment gates, not product-effectiveness thresholds. Candidate yield, correctness observations, and error distributions remain descriptive only.
@@ -254,7 +260,7 @@ No other document may restate, weaken, or diverge from the ten gates. Other docu
 
 The consolidated gate matrix, D10 fixture record, final validation record, release-notes draft, and remaining release actions are owned by `product/v0.1.0-release-preparation.md`.
 
-v0.1 is established by MD-008 as a bounded core mechanism only. Tagging `v0.1.0` is allowed only after final isolated validation on the MD-containing tag-target commit.
+v0.1 is established by MD-008 as a bounded core mechanism only. Local annotated `v0.1.0` tag pending recreation on the documentation-synchronized replacement tag target after final isolated validation on that exact commit.
 
 ## Fixtures
 

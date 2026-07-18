@@ -1,7 +1,7 @@
 Status: current
 Owns: Pre-1.0 version semantics — what a VoxProof version number means, the pre-1.0 version ladder, what it takes for a version to be established, and the claims each version allows and forbids.
 Does not own: The scope of any individual version (owned by that version's scope document, e.g. `v0.1.md`), execution order, hypotheses, data contracts, or material decisions.
-Last reviewed against code: Track 1 code closed loop exists; v0.1 is established by MD-008 and not yet tagged (see Current Version Status).
+Last reviewed against code: Track 1 code closed loop exists; v0.1 is established by MD-008; local annotated tag pending recreation (see Current Version Status).
 
 # VoxProof Pre-1.0 Version Semantics
 
@@ -26,7 +26,7 @@ A version is established only when all of the following are defined and satisfie
 
 Until then the version is in progress. An in-progress version grants no claims.
 
-Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, qualifying owner-operated FLEURS human-review evidence under MD-007 D8 was recorded at repository HEAD `7efe8ba` with all ten MD-007 D9 gates passing, the authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 exists at implementation baseline `05b7a2f`, final post-commit isolated validation passed at `05b7a2f`, gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`, and v0.1 is established by MD-008 as a bounded core mechanism only; annotated `v0.1.0` tag remains pending final isolated validation on the MD-containing tag-target commit.
+Code completeness never establishes a version; evidence does. The standing example: the Track 1 code loop is complete and runs locally, qualifying owner-operated FLEURS human-review evidence under MD-007 D8 was recorded at repository HEAD `7efe8ba` with all ten MD-007 D9 gates passing, the authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 exists at implementation baseline `05b7a2f`, final post-commit isolated validation passed at `05b7a2f`, historical tag-target validation passed at `cde7fd9`, gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`, and v0.1 is established by MD-008 as a bounded core mechanism only; local annotated tag pending recreation.
 
 Engineering completion and evidence collection may proceed in parallel. A version does not require a separately completed error-distribution study before its bounded implementation work begins, but the implementation cannot establish the version until the required real-material evidence and measurable criteria are satisfied. "Build while measuring" changes execution order; it does not relax claim rules.
 
@@ -107,5 +107,5 @@ Anything not assigned to a version by its scope document does not silently belon
 
 ## Current Version Status
 
-- v0.1: established, not yet tagged. The bounded core mechanism is established by MD-008 at implementation baseline `05b7a2f`; the annotated `v0.1.0` tag must target the later MD-containing commit after final isolated validation on that exact commit. Product and external-user validation remain pending beyond v0.1.
+- v0.1: established; local annotated tag pending recreation on the documentation-synchronized replacement tag target. The bounded core mechanism is established by MD-008 at implementation baseline `05b7a2f`; historical tag-target validation passed at MD-008 establishment commit `cde7fd9` (2026-07-18T04:09:43Z). A prior unpublished local annotated tag was deleted before push to synchronize canonical release-state documentation. Product and external-user validation remain pending beyond v0.1.
 - v0.2 and later: not started.
