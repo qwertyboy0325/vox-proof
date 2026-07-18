@@ -5,6 +5,9 @@ Last reviewed against code/evidence: the canonical exact and bounded ASCII-Latin
 
 # VoxProof
 
+![Local-first](https://img.shields.io/badge/runtime-local--first-informational)
+![v0.2 architecture: draft](https://img.shields.io/badge/v0.2%20architecture-draft-yellow)
+
 Local-first, evidence-backed transcript QA.
 
 VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with provisional session-scoped term input. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a reviewed transcript.
