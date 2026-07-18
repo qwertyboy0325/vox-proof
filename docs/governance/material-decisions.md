@@ -70,6 +70,8 @@ MD-008
 
 Accepted v0.1 establishment decision: `decisions/MD-008-v0.1-core-mechanism-establishment.md`.
 
+Proposed licensing decision (not accepted): `decisions/MD-009-proposed-dual-licensing.md`. Readiness audit: `licensing-readiness.md`.
+
 ## Decision record shape
 
 Each Material Decision should include:
