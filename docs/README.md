@@ -17,6 +17,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
 - [architecture/overview.md](architecture/overview.md): architecture principles and fixed v0.1 processing shape.
 - [architecture/data-contract.md](architecture/data-contract.md): conceptual domain entities and data ownership boundaries.
+- [architecture/v0.2-c4-architecture.md](architecture/v0.2-c4-architecture.md): **draft / proposed** v0.2 C4 architecture views, trust boundaries, and open decisions (not approved architecture; companion DSL: `architecture/v0.2-c4.dsl`).
 - [quality/evaluation.md](quality/evaluation.md): fixtures, ground truth, metrics, and regression expectations.
 
 ## Governance
