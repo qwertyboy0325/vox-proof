@@ -65,7 +65,10 @@ Each decision should use a stable identifier:
 MD-001
 MD-002
 MD-003
+MD-008
 ```
+
+Accepted v0.1 establishment decision: `decisions/MD-008-v0.1-core-mechanism-establishment.md`.
 
 ## Decision record shape
 

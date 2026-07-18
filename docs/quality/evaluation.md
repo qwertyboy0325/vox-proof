@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented in repository tests at commit `05b7a2f`. Final post-commit isolated validation passed at repository HEAD `05b7a2f` (2026-07-18T03:35:31Z). Gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`. v0.1 remains in progress and not established. Explicit establishment Material Decision, final independent release audit, and annotated `v0.1.0` tag remain pending under MD-007 D11. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented at implementation baseline `05b7a2f`. Final post-commit isolated validation passed at implementation baseline `05b7a2f` (2026-07-18T03:35:31Z). Gate matrix and release-notes draft are recorded in `product/v0.1.0-release-preparation.md`. v0.1 is established by MD-008 as a bounded core mechanism only; annotated `v0.1.0` tag remains pending final isolated validation on the MD-containing tag-target commit. Product and external-user validation remain deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -252,9 +252,9 @@ The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten ga
 
 No other document may restate, weaken, or diverge from the ten gates. Other documents may summarize and must link to MD-007.
 
-The consolidated gate matrix, D10 fixture record, final validation record, release-notes draft, and remaining establishment actions are owned by `product/v0.1.0-release-preparation.md`.
+The consolidated gate matrix, D10 fixture record, final validation record, release-notes draft, and remaining release actions are owned by `product/v0.1.0-release-preparation.md`.
 
-v0.1 is not established. Tagging `v0.1.0` is allowed only after release mechanics in MD-007 D11 are satisfied and an explicit establishment Material Decision is recorded.
+v0.1 is established by MD-008 as a bounded core mechanism only. Tagging `v0.1.0` is allowed only after final isolated validation on the MD-containing tag-target commit.
 
 ## Fixtures
 
