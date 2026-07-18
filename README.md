@@ -78,7 +78,7 @@ Recent work:
 - [x] Nearby source context in authoritative review prompts
 - [x] Raw-versus-final comparison/change inventory for strict skeleton-compatible inputs
 - [x] Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`)
-- [ ] Private mixed zh-EN evaluation fixture
+- [x] Mixed Traditional-Chinese / ASCII-Latin synthetic fixture (MD-007 D10 mechanism tests; not real-speech or product validation)
 - [x] Session-term / observed-form input
 - [x] Explicit observed-error-form mapping
 - [x] Effective canonical analysis identity prerequisite

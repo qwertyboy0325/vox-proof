@@ -558,6 +558,8 @@ mod tests {
         detect_glossary_matches, detect_observed_error_form_matches,
     };
     use crate::pipeline::run_term_review;
+    use crate::review::{CorrectionDecision, ReviewLedger};
+    use crate::reviewed_output::derive_reviewed_srt;
     use crate::srt::parse_srt;
 
     fn entry(canonical: &str, aliases: &[&str], errors: &[&str]) -> SessionTermEntry {
@@ -906,6 +908,46 @@ mod tests {
         assert_eq!(evidence.target_surface, "PostgreSQL");
         assert_eq!(evidence.comparison.matched_key, "PSTKRSKL");
         assert_anchor_uses_ascii_whitespace_only(text, span);
+    }
+
+    #[test]
+    fn mixed_zh_tw_ascii_latin_fixture_preserves_utf8_anchors_and_human_authority() {
+        let text = "這次使用 ASIS 主機進行測試。";
+        let entries = [entry("ASUS", &[], &[])];
+        let transcript = transcript(text);
+        let source_bytes = text.as_bytes();
+
+        let first_cases = run_term_review(&transcript, &entries).expect("valid review");
+        let second_cases = run_term_review(&transcript, &entries).expect("valid review");
+        assert_eq!(first_cases, second_cases);
+        assert_eq!(first_cases.len(), 1);
+
+        let span = first_cases[0].candidate_span();
+        let anchor = span.anchor();
+        assert_eq!(anchor.segment_position, 0);
+        assert_eq!(&source_bytes[anchor.start_byte..anchor.end_byte], b"ASIS");
+        assert!(anchor.start_byte > 0);
+        assert!(source_bytes[..anchor.start_byte].ends_with(b" "));
+        assert!(source_bytes[anchor.end_byte..].starts_with(b" \xe4"));
+        assert_eq!(phonetic_evidence(span).observed_surface, "ASIS");
+        assert_eq!(span.alternatives()[0].replacement_text(), "ASUS");
+
+        let mut ledger = ReviewLedger::new();
+        ledger
+            .record_decision(
+                &first_cases[0],
+                transcript.revision_id(),
+                CorrectionDecision::AcceptAlternative {
+                    alternative_index: 0,
+                },
+            )
+            .expect("valid accept decision");
+        let reviewed =
+            derive_reviewed_srt(&transcript, &first_cases, &ledger).expect("reviewed srt");
+        assert_eq!(
+            reviewed,
+            "1\n00:00:00,000 --> 00:00:01,000\n這次使用 ASUS 主機進行測試。\n"
+        );
     }
 
     #[test]

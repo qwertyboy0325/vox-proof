@@ -1,7 +1,7 @@
 Status: current
 Owns: Quality expectations, fixture principles, ground-truth distinctions, metrics, and regression expectations.
 Does not own: Product scope, architecture, implementation tasks, benchmark results, or validated performance claims.
-Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. v0.1 remains in progress and not established. The required mixed zh-EN fixture and MD-007 D11 release mechanics remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
+Last reviewed against code/evidence: Track 1 local code loop and raw-versus-final comparison/change inventory for strict skeleton-compatible inputs exist. Strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`) exists. Three exploratory real-material mechanism probes have exercised zero-candidate phonetic, reference-supported emitted-candidate phonetic, and calibration correspondence evaluate paths. Qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba`; all ten MD-007 mechanism gates passed on that evidence; sealed package, final seal, and detached final closure attestation passed 155/155 checks. The authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented in repository tests. v0.1 remains in progress and not established. MD-007 D11 release mechanics remain pending. External facilitated/target-cohort and product-effectiveness validation are deferred beyond v0.1.
 
 # Quality and Evaluation
 
@@ -235,11 +235,32 @@ The authoritative frozen v0.1 mechanism gates are owned by MD-007 D9. All ten ga
 
 No other document may restate, weaken, or diverge from the ten gates. Other documents may summarize and must link to MD-007.
 
-v0.1 is not established. Tagging `v0.1.0` is allowed only after the mixed zh-EN fixture required by MD-007 D10 exists, release mechanics in MD-007 D11 are satisfied, and an explicit establishment Material Decision is recorded.
+v0.1 is not established. Tagging `v0.1.0` is allowed only after release mechanics in MD-007 D11 are satisfied and an explicit establishment Material Decision is recorded.
 
 ## Fixtures
 
-An authorized mixed Traditional-Chinese/ASCII-Latin fixture is required by MD-007 D10 before tagging v0.1.0. Its v0.1 purpose is limited to locking Unicode and UTF-8 byte-anchor safety, detector eligibility and hard-boundary behavior, deterministic ReviewCase and evidence behavior, human-authority and materialization behavior, and unchanged behavior for unsupported or non-eligible forms. It is not real-speech evidence or product-effectiveness evidence unless separately sourced, classified, and governed as such.
+### Authorized mixed Traditional-Chinese / ASCII-Latin fixture (MD-007 D10)
+
+Classification: authorized synthetic/deterministic mixed Traditional-Chinese / ASCII-Latin mechanism fixture only. Not real-speech evidence, detector-effectiveness evidence, precision/recall evidence, general CJK or pinyin support, or product-validation evidence.
+
+Fixture location:
+
+- `tests/fixtures/mixed-zh-tw-ascii-latin/input.srt`
+- `tests/fixtures/mixed-zh-tw-ascii-latin/session-terms.txt`
+- `tests/fixtures/mixed-zh-tw-ascii-latin/unsupported-forms.srt`
+
+Exercised public path: `vox-proof review` through the canonical session-term pipeline (`run_term_review` → bounded ASCII-Latin phonetic evidence → explicit human decision → reviewed SRT, decision log, session summary).
+
+Verified mechanism properties only:
+
+- UTF-8 byte-anchor safety for an eligible ASCII-Latin span embedded in Traditional-Chinese context (`ASIS` → `ASUS` via canonical-only phonetic evidence);
+- hard-boundary and eligibility behavior for unsupported or non-eligible forms (Traditional-Chinese-only text, full-width Latin, exact canonical suppression, sub-minimum ASCII token length);
+- deterministic ReviewCase and evidence behavior across reruns;
+- explicit human accept/reject authority with exact materialization on accept and byte-preserving source text on reject;
+- cue index and timing skeleton preservation;
+- no silent normalization or auto-acceptance.
+
+Test names: `mixed_zh_tw_ascii_latin_fixture_preserves_utf8_anchors_and_human_authority`, `mixed_zh_tw_ascii_latin_rejection_preserves_source`, `mixed_zh_tw_unsupported_forms_remain_unchanged`, `mixed_zh_tw_ascii_latin_review_is_deterministic`, plus the in-crate byte-anchor unit test of the same name under `phonetic::tests`.
 
 Future fixtures should use authorized short mixed Chinese-English transcript samples. Fixtures should be small enough to review manually and explicit about rights to use the transcript and any related audio.
 

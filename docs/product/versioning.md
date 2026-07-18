@@ -107,5 +107,5 @@ Anything not assigned to a version by its scope document does not silently belon
 
 ## Current Version Status
 
-- v0.1: in progress, not established. The code loop exists; qualifying owner-operated human-correction evidence under MD-007 D8 is recorded and all ten MD-007 D9 mechanism gates passed at repository HEAD `7efe8ba`; the mixed zh-EN pre-tag fixture, full isolated fmt/clippy/tests after that fixture, final gate matrix and release notes, explicit establishment Material Decision, final release audit, and annotated `v0.1.0` tag remain pending.
+- v0.1: in progress, not established. The code loop exists; qualifying owner-operated human-correction evidence under MD-007 D8 is recorded and all ten MD-007 D9 mechanism gates passed at repository HEAD `7efe8ba`; the authorized mixed Traditional-Chinese / ASCII-Latin fixture required by MD-007 D10 is implemented in repository tests; final post-commit / release-time isolated fmt, clippy, and full test validation, final gate matrix and release notes, explicit establishment Material Decision, final release audit, and annotated `v0.1.0` tag remain pending.
 - v0.2 and later: not started.

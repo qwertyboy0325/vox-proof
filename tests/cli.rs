@@ -2034,3 +2034,208 @@ fn compare_contract_unchanged_alongside_evaluate_work() {
             .starts_with(b"{\"schema_revision\": \"voxproof-calibration-correspondence-v0\"")
     );
 }
+
+const MIXED_ZH_TW_ELIGIBLE_CUE: &str = "這次使用 ASIS 主機進行測試。";
+
+fn fixture_path(relative: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(relative)
+}
+
+fn mixed_zh_tw_fixture_root() -> PathBuf {
+    fixture_path("tests/fixtures/mixed-zh-tw-ascii-latin")
+}
+
+fn mixed_zh_tw_eligible_input_path() -> PathBuf {
+    mixed_zh_tw_fixture_root().join("input.srt")
+}
+
+fn mixed_zh_tw_session_terms_path() -> PathBuf {
+    mixed_zh_tw_fixture_root().join("session-terms.txt")
+}
+
+fn strip_nondeterministic_session_summary_lines(summary: &str) -> String {
+    summary
+        .lines()
+        .filter(|line| {
+            !line.starts_with("session_start_unix_ms:")
+                && !line.starts_with("session_end_unix_ms:")
+                && !line.starts_with("session_elapsed_ms:")
+                && !line.starts_with("session_elapsed:")
+                && !line.starts_with("input_srt:")
+                && !line.starts_with("session_terms:")
+                && !line.starts_with("reviewed_srt:")
+                && !line.starts_with("decision_log:")
+                && !line.starts_with("session_summary:")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
+}
+
+#[test]
+fn mixed_zh_tw_ascii_latin_fixture_preserves_utf8_anchors_and_human_authority() {
+    let dir = temp_dir("mixed-zh-tw-accept");
+    let input_path = mixed_zh_tw_eligible_input_path();
+    let terms_path = mixed_zh_tw_session_terms_path();
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "a 0\n",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+    let input_srt = std::fs::read_to_string(&input_path).expect("read input srt");
+
+    assert!(stdout.contains("evidence: phonetic similarity 'ASIS' -> 'ASUS' (canonical_term)"));
+    assert_eq!(
+        reviewed_srt,
+        "1\n00:00:00,000 --> 00:00:05,000\n這次使用 ASUS 主機進行測試。\n"
+    );
+    assert!(decision_log.contains("decision: accept_alternative"));
+    assert!(decision_log.contains("alternative_index: 0"));
+    assert!(session_summary.contains("review_cases_raised: 1"));
+    assert!(session_summary.contains("accepted_alternatives: 1"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 1"));
+    assert!(session_summary.contains("phonetic_similarity: 1"));
+    assert!(input_srt.contains("00:00:00,000 --> 00:00:05,000"));
+    assert!(reviewed_srt.contains("00:00:00,000 --> 00:00:05,000"));
+    assert!(!reviewed_srt.contains(MIXED_ZH_TW_ELIGIBLE_CUE));
+    assert!(reviewed_srt.contains("這次使用 ASUS 主機進行測試。"));
+}
+
+#[test]
+fn mixed_zh_tw_ascii_latin_rejection_preserves_source() {
+    let dir = temp_dir("mixed-zh-tw-reject");
+    let input_path = mixed_zh_tw_eligible_input_path();
+    let input_bytes = std::fs::read(&input_path).expect("read input bytes");
+    let terms_path = mixed_zh_tw_session_terms_path();
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "r\n",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let reviewed_bytes = std::fs::read(&reviewed_path).expect("read reviewed bytes");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert_eq!(reviewed_bytes, input_bytes);
+    assert!(decision_log.contains("decision: reject"));
+    assert!(decision_log.contains("case_id: local:0"));
+    assert!(session_summary.contains("rejected: 1"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 0"));
+}
+
+#[test]
+fn mixed_zh_tw_unsupported_forms_remain_unchanged() {
+    let dir = temp_dir("mixed-zh-tw-unsupported");
+    let fixture_root = mixed_zh_tw_fixture_root();
+    let input_path = fixture_root.join("unsupported-forms.srt");
+    let input_bytes = std::fs::read(&input_path).expect("read unsupported fixture bytes");
+    let terms_path = fixture_root.join("session-terms.txt");
+    let reviewed_path = dir.join("reviewed.srt");
+    let log_path = dir.join("decision-log.txt");
+    let summary_path = dir.join("session-summary.txt");
+
+    let output = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_path.to_str().expect("utf8 reviewed path"),
+            log_path.to_str().expect("utf8 log path"),
+            summary_path.to_str().expect("utf8 summary path"),
+        ],
+        "",
+    );
+
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
+    let reviewed_bytes = std::fs::read(&reviewed_path).expect("read reviewed bytes");
+    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
+    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
+
+    assert!(stdout.contains("no review cases found"));
+    assert_eq!(reviewed_bytes, input_bytes);
+    assert_eq!(decision_log, "voxproof decision log v0\n");
+    assert!(session_summary.contains("review_cases_raised: 0"));
+    assert!(session_summary.contains("accepted_replacements_materialized: 0"));
+}
+
+#[test]
+fn mixed_zh_tw_ascii_latin_review_is_deterministic() {
+    let dir = temp_dir("mixed-zh-tw-deterministic");
+    let input_path = mixed_zh_tw_eligible_input_path();
+    let terms_path = mixed_zh_tw_session_terms_path();
+    let reviewed_a = dir.join("reviewed-a.srt");
+    let log_a = dir.join("decision-log-a.txt");
+    let summary_a = dir.join("session-summary-a.txt");
+    let reviewed_b = dir.join("reviewed-b.srt");
+    let log_b = dir.join("decision-log-b.txt");
+    let summary_b = dir.join("session-summary-b.txt");
+
+    let first = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_a.to_str().expect("utf8 reviewed path"),
+            log_a.to_str().expect("utf8 log path"),
+            summary_a.to_str().expect("utf8 summary path"),
+        ],
+        "a 0\n",
+    );
+    let second = run_with_args_and_stdin(
+        &[
+            "review",
+            input_path.to_str().expect("utf8 input path"),
+            terms_path.to_str().expect("utf8 terms path"),
+            reviewed_b.to_str().expect("utf8 reviewed path"),
+            log_b.to_str().expect("utf8 log path"),
+            summary_b.to_str().expect("utf8 summary path"),
+        ],
+        "a 0\n",
+    );
+    assert!(first.status.success(), "{first:?}");
+    assert!(second.status.success(), "{second:?}");
+
+    let reviewed_a_bytes = std::fs::read(&reviewed_a).expect("read reviewed a");
+    let reviewed_b_bytes = std::fs::read(&reviewed_b).expect("read reviewed b");
+    let log_a_text = std::fs::read_to_string(&log_a).expect("read log a");
+    let log_b_text = std::fs::read_to_string(&log_b).expect("read log b");
+    let summary_a_text = strip_nondeterministic_session_summary_lines(
+        &std::fs::read_to_string(&summary_a).expect("read summary a"),
+    );
+    let summary_b_text = strip_nondeterministic_session_summary_lines(
+        &std::fs::read_to_string(&summary_b).expect("read summary b"),
+    );
+
+    assert_eq!(reviewed_a_bytes, reviewed_b_bytes);
+    assert_eq!(log_a_text, log_b_text);
+    assert_eq!(summary_a_text, summary_b_text);
+}
