@@ -1,7 +1,7 @@
 Status: current
 Owns: Conceptual domain model and data ownership boundaries.
 Does not own: Cross-version correction-system product semantics (owned by `product/correction-system-boundaries.md`), final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
-Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, native canonical-only session-term entries, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, native canonical-only session-term entries, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session export artifacts exist. The v0.1 core mechanism is established by MD-008. The accepted establishment evidence covers the bounded mechanism and owner-operated real-material review. Product effectiveness, external-user validation, broad detector effectiveness, and durable persistence remain unestablished.
 
 # Conceptual Data Contract
 
@@ -58,11 +58,13 @@ Matching and other policies, projection requests, and automation authorization a
 
 `CorrectionDecision` currently records rejection, deferral, acceptance of a detector alternative, or a need for manual correction. Human decisions are the only implemented source of transcript changes.
 
+Human decisions are recorded as append-only `ReviewLedger` events, keyed to the corresponding `ReviewCase` identity. `ReviewLedger` events are authoritative for decision state. Rendered decision logs are deterministic exports, not a second decision authority. Normative event semantics are governed by `docs/governance/decisions/MD-002-review-ledger-semantics.md`.
+
 A single accepted correction does not automatically change reusable domain or language resources or become active policy. Promotion remains a future governed process, not v0.1 behavior.
 
 ## v0.1 Review-Unit and Detection Lifecycle Contract
 
-This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of product validation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist in code with test coverage; durable persistence remains deferred.
+This section is authoritative for how detector findings and human review units are modeled in v0.1. Each decision carries a status marker. It states accepted commitments, deferred directions, and out-of-scope behavior. It is a contract, not a claim of product validation. As of this revision, `AnalysisRun`, `AnalysisSnapshot`, `CandidateKey`, `DetectionKind`, `DetectorProvenance`, `CandidateSpan`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session export artifacts exist in code with test coverage. Decision logs and session summaries are deterministic export artifacts. They do not constitute a durable restore/session persistence contract. Durable persistence remains deferred.
 
 ### CandidateSpan
 
@@ -110,6 +112,8 @@ Status: accepted for v0.1
 - `MixedLanguageAnomaly`: a span mixes scripts or languages in a way that suggests a transcription error rather than intended usage.
 - `PhoneticSimilarity`: the source text is phonetically close to a known term, suggesting a possible mishearing.
 - `RepeatedPhrase`: a phrase repeats in a way that suggests an ASR duplication artifact.
+
+Some taxonomy values do not yet have implemented producers; reserved categories must not be read as shipped detector behavior.
 
 New categories may be added later only when a real uncovered review case and its localized review semantics are understood. Placeholder or catch-all categories, such as a generic "unexpected token pattern", "semantic inconsistency", or "low-confidence transcript", are not accepted without a real localized review contract. Exact detection algorithms, ranking policies, and detailed evidence payloads remain detector-specific and evolve with implementation.
 
@@ -182,15 +186,24 @@ Detector output alone never constitutes an accepted edit.
 
 ### Out of Scope for This Contract Gate
 
-The following are intentionally not decided by this review-unit and detection lifecycle contract. Minimal v0.1 review-decision and reviewed-output semantics are governed by MD-002 and MD-003; durable persistence and future policy details remain deferred:
+Minimal v0.1 review-decision semantics are governed by MD-002. Minimal reviewed-output materialization semantics are governed by MD-003, which establishes the minimal v0.1 refusal semantics:
 
-- persisted correction-decision records;
-- non-minimal reviewed-output materialization formats;
-- overlap and conflict resolution;
-- stale-source handling;
-- historical decision applicability after reruns;
+- overlapping accepted edits refuse materialization;
+- transcript-revision mismatch refuses materialization;
+- invalid or incompatible materialization input fails closed.
+
+Same-revision materialization refusal is established. Cross-revision carryover and migration remain deferred.
+
+The following remain intentionally deferred by this review-unit and detection lifecycle contract:
+
+- durable persisted correction-decision records;
+- restore/session snapshot schema;
+- cross-revision migration;
+- historical decision applicability across reruns;
+- detector-version migration;
 - automatic application policies;
-- `AcceptedEditPayload` and `ResolvedEdit` details.
+- non-minimal reviewed-output materialization formats;
+- `AcceptedEditPayload` and `ResolvedEdit` as public contract types.
 
 ### Contract Boundary Summary
 
@@ -205,10 +218,10 @@ The following are intentionally not decided by this review-unit and detection li
 
 - Detectors produce `CandidateSpan` findings under an `AnalysisRun`; `ReviewCase` is the human-facing review unit, one-to-one with a `CandidateSpan` in v0.1.
 - Analyzer modules produce evidence.
-- Ranking synthesizes evidence into review priority.
+- Canonical v0.1 review ordering is deterministic and non-authoritative. Experimental retrieval/ranking remains sidecar tooling and cannot write accepted decisions or reviewed output.
 - Human review creates correction decisions.
 - Materialization derives reviewed output.
 - Source anchors and revision identity bind evidence and decisions to a specific immutable transcript revision.
-- UI owns only transient interaction state such as selection, filters, and playback position.
+- UI owns only transient interaction state such as selection and filters; playback position is a proposed future UI state, not current v0.1 behavior.
 
 Field-level schemas, persistence choices, and storage paths are intentionally unsettled until implementation work requires them.
