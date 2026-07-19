@@ -266,6 +266,7 @@
     "work_package_id": "persistence-package-2c-sqlite-targeted-evidence",
     "prior_metadata_commit": "11ae41e79e6b983a8114600e39dfe67dc0f98660",
     "metadata_commit": "47202cb84be00a4a1b668eb1036be1e7d6d4622b",
+    "final_closure_commit": "953bc786d0b77810261529e7c07f520d386223f9",
     "authoritative_evidence_run_id": "spike-v2-sqlite-20260719-210916",
     "authoritative_evidence_root": "evidence/persistence/spike-v2-sqlite-20260719-210916/",
     "evidence_producing_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
