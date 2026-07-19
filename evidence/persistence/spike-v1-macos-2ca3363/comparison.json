@@ -1,0 +1,24 @@
+{
+  "append_bundle": {
+    "candidate_id": "append-bundle-log-spike",
+    "eligibility": "EligibleForComparison",
+    "failed": 0,
+    "inconclusive": 0,
+    "negative_results": 1,
+    "not_run": 0,
+    "passed": 13,
+    "unsupported": 1
+  },
+  "eligibility_note": "EligibleForComparison is non-authoritative and does not select a mechanism",
+  "embedded_relational": {
+    "candidate_id": "embedded-relational-sqlite-spike",
+    "eligibility": "EligibleForComparison",
+    "failed": 0,
+    "inconclusive": 0,
+    "negative_results": 1,
+    "not_run": 0,
+    "passed": 13,
+    "unsupported": 1
+  },
+  "selection_status": "none"
+}

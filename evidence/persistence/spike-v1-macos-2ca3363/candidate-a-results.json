@@ -1,0 +1,530 @@
+{
+  "manifest": {
+    "evidence_protocol_version": "md-015-accepted-v1",
+    "repository_commit": "2ca33639b69bdc2a41919beb54869afbed4b8eea",
+    "candidate_id": "embedded-relational-sqlite-spike",
+    "candidate_version": "1",
+    "fixture_id": "voxproof-persistence-evidence-small",
+    "fixture_version": "2",
+    "harness_version": "2",
+    "oracle_version": "2",
+    "scenario_ids": [],
+    "operating_system": {
+      "Known": "macos"
+    },
+    "operating_system_version": {
+      "Unavailable": {
+        "reason": "host metadata collected separately"
+      }
+    },
+    "filesystem": {
+      "Unavailable": {
+        "reason": "not probed in spike runner"
+      }
+    },
+    "hardware_summary": {
+      "Unavailable": {
+        "reason": "not probed in spike runner"
+      }
+    },
+    "runtime_versions": {
+      "rustc": {
+        "Known": "unknown"
+      }
+    },
+    "configuration": {
+      "feature": "persistence-spike"
+    },
+    "start_timestamp": {
+      "Unavailable": {
+        "reason": "runner uses deterministic scenario execution"
+      }
+    },
+    "end_timestamp": {
+      "Unavailable": {
+        "reason": "runner uses deterministic scenario execution"
+      }
+    },
+    "known_limitations": [
+      "spike adapters only",
+      "macOS host execution unless CI overrides"
+    ]
+  },
+  "scenario_results": [
+    {
+      "scenario_identity": {
+        "scenario_id": "baseline-create-open-close",
+        "scenario_version": 1,
+        "category": "Baseline",
+        "description": "Create, open, read normalized state, and close",
+        "failure_model": "None",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+        "actual_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 5,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "append-correction-event",
+        "scenario_version": 1,
+        "category": "AuthoritativeCommand",
+        "description": "Append one representative correction event",
+        "failure_model": "None",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+        "actual_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 5,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "attach-analysis-result",
+        "scenario_version": 1,
+        "category": "AuthoritativeCommand",
+        "description": "Attach one immutable analysis result",
+        "failure_model": "None",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+        "actual_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 5,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "stale-review-ledger-command",
+        "scenario_version": 1,
+        "category": "Concurrency",
+        "description": "Reject a stale ReviewLedger command",
+        "failure_model": "ConcurrentAccess",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+        "actual_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 4,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "stale-active-analysis-selection",
+        "scenario_version": 1,
+        "category": "Concurrency",
+        "description": "Reject a stale active-analysis selection",
+        "failure_model": "ConcurrentAccess",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
+        "actual_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 4,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "stale-analysis-attachment",
+        "scenario_version": 1,
+        "category": "Concurrency",
+        "description": "Reject a stale analysis attachment",
+        "failure_model": "ConcurrentAccess",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:ca42e62474e247195a1ba659a166c33c410ac6a314abaffa471fa1c08089ea10",
+        "actual_fingerprint": "semantic:sha256-v1:ca42e62474e247195a1ba659a166c33c410ac6a314abaffa471fa1c08089ea10",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 4,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "concurrent-writer-attempt",
+        "scenario_version": 1,
+        "category": "Concurrency",
+        "description": "Permit at most one authoritative writer",
+        "failure_model": "ConcurrentAccess",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+        "actual_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 4,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "unknown-newer-format",
+        "scenario_version": 1,
+        "category": "FormatCompatibility",
+        "description": "Reject writable open for an unknown newer format",
+        "failure_model": "MalformedOrUnsupportedInput",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:bd41f79dd1e3c63110d9949bf87f8bcf5c97b0366ea15109d9ded1a2262f29d3",
+        "actual_fingerprint": "semantic:sha256-v1:bd41f79dd1e3c63110d9949bf87f8bcf5c97b0366ea15109d9ded1a2262f29d3",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 2,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "derived-state-corruption",
+        "scenario_version": 1,
+        "category": "Corruption",
+        "description": "Classify and rebuild derived-state corruption",
+        "failure_model": "LogicalFaultPoint",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+        "actual_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 3,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "canonical-reference-corruption",
+        "scenario_version": 1,
+        "category": "Corruption",
+        "description": "Detect a broken canonical reference",
+        "failure_model": "LogicalFaultPoint",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:5110c5e8ed40044a4159978638e99b270f85f879ffa34c340b7b4132546facd3",
+        "actual_fingerprint": "semantic:sha256-v1:5110c5e8ed40044a4159978638e99b270f85f879ffa34c340b7b4132546facd3",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 3,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "semantic-duplication",
+        "scenario_version": 1,
+        "category": "Duplication",
+        "description": "Create a new session identity with source lineage",
+        "failure_model": "None",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+        "actual_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 4,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "interrupted-authoritative-transition",
+        "scenario_version": 1,
+        "category": "Recovery",
+        "description": "Interrupt an authoritative transition around acknowledgement",
+        "failure_model": "ProcessInterruption",
+        "required_capabilities": [],
+        "requirement": "Required",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:c1c924f1de8ac5bba024c05325bce3ac71aeea7db516e812f8d931c5fa33ca3c",
+        "actual_fingerprint": "semantic:sha256-v1:c1c924f1de8ac5bba024c05325bce3ac71aeea7db516e812f8d931c5fa33ca3c",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 5,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "interrupted-compaction",
+        "scenario_version": 1,
+        "category": "Maintenance",
+        "description": "Interrupt candidate-supported compaction",
+        "failure_model": "ProcessInterruption",
+        "required_capabilities": [
+          "Compaction"
+        ],
+        "requirement": "CapabilityDependent",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Passed",
+      "oracle_result": {
+        "passed": true,
+        "violations": [],
+        "warnings": [],
+        "expected_fingerprint": "semantic:sha256-v1:277d400af03ef2b804f196a1b24dd1cea46623c40eff56cfbfc54c8d08430555",
+        "actual_fingerprint": "semantic:sha256-v1:277d400af03ef2b804f196a1b24dd1cea46623c40eff56cfbfc54c8d08430555",
+        "oracle_version": "2"
+      },
+      "measurements": {
+        "scenario_elapsed_ms": {
+          "Integer": {
+            "value": 2,
+            "unit": "ms"
+          }
+        }
+      },
+      "failure_classification": null,
+      "limitations": [],
+      "raw_artifact_references": []
+    },
+    {
+      "scenario_identity": {
+        "scenario_id": "interrupted-cleanup",
+        "scenario_version": 1,
+        "category": "Maintenance",
+        "description": "Interrupt candidate-supported destructive historical cleanup",
+        "failure_model": "ProcessInterruption",
+        "required_capabilities": [
+          "DestructiveHistoricalGc"
+        ],
+        "requirement": "CapabilityDependent",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Unsupported",
+      "oracle_result": null,
+      "measurements": {},
+      "failure_classification": null,
+      "limitations": [
+        "spike-only SQLite layout; not production schema",
+        "destructive historical GC not implemented"
+      ],
+      "raw_artifact_references": []
+    }
+  ],
+  "negative_results": [
+    {
+      "scenario_identity": {
+        "scenario_id": "interrupted-cleanup",
+        "scenario_version": 1,
+        "category": "Maintenance",
+        "description": "Interrupt candidate-supported destructive historical cleanup",
+        "failure_model": "ProcessInterruption",
+        "required_capabilities": [
+          "DestructiveHistoricalGc"
+        ],
+        "requirement": "CapabilityDependent",
+        "evidence_kind": "SemanticCorrectness"
+      },
+      "status": "Unsupported",
+      "oracle_result": null,
+      "measurements": {},
+      "failure_classification": null,
+      "limitations": [
+        "spike-only SQLite layout; not production schema",
+        "destructive historical GC not implemented"
+      ],
+      "raw_artifact_references": []
+    }
+  ],
+  "aggregation_issues": [],
+  "summary": {
+    "passed": 13,
+    "failed": 0,
+    "unsupported": 1,
+    "not_run": 0,
+    "inconclusive": 0
+  },
+  "eligibility": "EligibleForComparison"
+}

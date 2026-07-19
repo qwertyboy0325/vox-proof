@@ -19,25 +19,34 @@
       "duplication_behavior": "New session directory and database copied under new session identity with duplicated_from lineage metadata.",
       "compaction_gc_behavior": "Optional VACUUM-based compaction rewrites database file while preserving semantic oracle equivalence.",
       "backup_boundary": "Filesystem copy of session.db tested only as spike control; not a product backup feature.",
-      "platform_dependencies": ["SQLite bundled via rusqlite", "POSIX/Windows file locking semantics via SQLite"],
+      "platform_dependencies": [
+        "SQLite bundled via rusqlite",
+        "POSIX/Windows file locking semantics via SQLite"
+      ],
       "known_limitations": [
         "Spike uses simplified relational layout, not production schema",
         "No hardware power-loss injection",
         "Destructive historical GC not implemented in spike",
         "Fault injection is logical-layer only; not hardware power-loss equivalence"
       ]
+    },
+    {
+      "candidate_id": "append-bundle-log-spike",
       "candidate_version": "1",
       "mechanism_class": "Append-oriented event/log storage with versioned bundle directory",
       "authoritative_state_model": "Append-only JSONL canonical log plus generation manifest and optional checkpoint snapshots; derived index files stored separately.",
       "durable_acknowledgement_boundary": "Authoritative command returns Ok only after append record fsync and manifest generation bump via atomic rename.",
       "single_writer_strategy": "writer.lock token file with epoch counter; stale ownership requires explicit takeover with integrity reload.",
       "stale_write_strategy": "Same scoped semantic preconditions as embedded candidate; enforced before append record is written.",
-      "format_version_strategy": "manifest.format_version; unknown newer manifest rejects writable open.",
+      "format_version_strategy": "manifest.format_version; unknown newer versions reject writable open.",
       "corruption_behavior": "Log replay validates record chain; truncated or invalid canonical records fail closed.",
       "duplication_behavior": "New bundle directory with copied canonical log tail and independent writer.lock epoch.",
       "compaction_gc_behavior": "Optional generation rewrite compacts log into new checkpoint generation with atomic directory swap.",
       "backup_boundary": "Directory copy tested as mechanism-specific control only.",
-      "platform_dependencies": ["Atomic rename", "Directory fsync where available"],
+      "platform_dependencies": [
+        "Atomic rename",
+        "Directory fsync where available"
+      ],
       "known_limitations": [
         "No OS-level crash injection in spike",
         "Destructive historical GC not implemented in spike",

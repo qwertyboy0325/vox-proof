@@ -1,0 +1,6 @@
+{
+  "destructive_historical_gc": "unsupported in spike adapters",
+  "hardware_power_loss": "not tested",
+  "negative_results_retained": true,
+  "windows_status": "requires_ci"
+}
