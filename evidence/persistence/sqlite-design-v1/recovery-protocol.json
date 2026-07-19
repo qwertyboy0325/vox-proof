@@ -1,0 +1,832 @@
+{
+  "protocol_version": "1",
+  "work_package_id": "persistence-package-2a-sqlite-executable-design-contract",
+  "candidate_id": "embedded-relational-sqlite-spike",
+  "lifecycle_states": [
+    "Closed",
+    "Opening",
+    "ReadOnlyOpen",
+    "WriterOwnershipPending",
+    "WritableOpen",
+    "TransactionActive",
+    "CommitPending",
+    "CommittedNotAcknowledged",
+    "Acknowledged",
+    "Closing",
+    "RecoveryRequired",
+    "RecoveryBlocked"
+  ],
+  "transitions": [
+    {
+      "transition_id": "T-CREATE",
+      "from": "Closed",
+      "to": "Closed",
+      "trigger": "create",
+      "preconditions": [
+        "session directory does not exist",
+        "fixture normalized state valid"
+      ],
+      "physical_operation": "create_dir; open Connection; PRAGMA WAL+FULL+foreign_keys; BEGIN; initialize schema and canonical rows; COMMIT",
+      "authority_affected": "new SQLite database becomes canonical store",
+      "durability_assumption": "database created at COMMIT; API acknowledgement for commands occurs only after post-commit verify",
+      "success_result": "EvidenceSessionRef returned; session.db exists",
+      "failure_result": "AdapterError; partial directory may require cleanup",
+      "persisted_observation": "session.db with initialized canonical tables",
+      "recovery_requirement": "none on success; delete partial dir on failed create",
+      "allowed_evidence_claim": [
+        "InterfaceBehavior"
+      ],
+      "forbidden_evidence_claim": [
+        "ProcessCrashRecovery",
+        "FilesystemDurability"
+      ]
+    },
+    {
+      "transition_id": "T-OPEN-READONLY",
+      "from": "Closed",
+      "to": "ReadOnlyOpen",
+      "trigger": "open(ReadOnly)",
+      "preconditions": [
+        "session.db exists"
+      ],
+      "physical_operation": "open Connection; PRAGMA integrity_check; validate format_version; assemble canonical state from tables",
+      "authority_affected": "read-only; no writer ownership acquired",
+      "durability_assumption": "SQLite engine state",
+      "success_result": "EvidenceSessionHandle ReadOnly",
+      "failure_result": "integrity or format failure",
+      "persisted_observation": "canonical tables readable",
+      "recovery_requirement": "classify corruption vs unsupported version",
+      "allowed_evidence_claim": [
+        "InterfaceBehavior"
+      ],
+      "forbidden_evidence_claim": [
+        "writable open from read-only path"
+      ]
+    },
+    {
+      "transition_id": "T-OPEN-WRITABLE",
+      "from": "Closed",
+      "to": "WritableOpen",
+      "trigger": "open(Writable)",
+      "preconditions": [
+        "session.db exists",
+        "format_version <= CURRENT_FORMAT_VERSION",
+        "integrity_check ok"
+      ],
+      "physical_operation": "open Connection; integrity_check; WriterOwnershipPending acquisition; hold writer connection",
+      "authority_affected": "writer_ownership row claimed",
+      "durability_assumption": "ownership row committed in SQLite",
+      "success_result": "Writable handle with active lease",
+      "failure_result": "writer-already-open; unsupported-newer-format; integrity failure",
+      "persisted_observation": "writer_ownership token and lease persisted",
+      "recovery_requirement": "stale takeover if lease expired",
+      "allowed_evidence_claim": [
+        "InterfaceBehavior"
+      ],
+      "forbidden_evidence_claim": [
+        "ProcessCrashRecovery for orphan lock without takeover test"
+      ]
+    },
+    {
+      "transition_id": "T-COMMAND",
+      "from": "WritableOpen",
+      "to": "Acknowledged",
+      "trigger": "apply_authoritative_command",
+      "preconditions": [
+        "valid writer ownership",
+        "semantic preconditions satisfied"
+      ],
+      "physical_operation": "BEGIN; revalidate token and epoch inside tx; mutate authoritative tables; renew lease in same tx; COMMIT; post-commit verify; return Ok",
+      "authority_affected": "canonical tables updated atomically",
+      "durability_assumption": "LogicalStateTransition only after post-commit verify and Ok return",
+      "success_result": "Ok only after COMMIT and post-commit verify succeed",
+      "failure_result": "stale-precondition; commit failure; simulated fault",
+      "persisted_observation": "mutated rows visible to new connection",
+      "recovery_requirement": "rollback leaves prior committed state",
+      "allowed_evidence_claim": [
+        "LogicalStateTransition"
+      ],
+      "forbidden_evidence_claim": [
+        "FilesystemDurability",
+        "ProcessCrashRecovery without 2C crash"
+      ]
+    },
+    {
+      "transition_id": "T-CLOSE",
+      "from": "WritableOpen",
+      "to": "Closed",
+      "trigger": "close",
+      "preconditions": [
+        "no TransactionActive"
+      ],
+      "physical_operation": "release writer_ownership; close writer Connection",
+      "authority_affected": "writer token cleared",
+      "durability_assumption": "ownership release committed",
+      "success_result": "handle removed",
+      "failure_result": "not-open error",
+      "persisted_observation": "writer_ownership token NULL",
+      "recovery_requirement": "orphan token recoverable via stale takeover",
+      "allowed_evidence_claim": [
+        "InterfaceBehavior"
+      ],
+      "forbidden_evidence_claim": [
+        "traditional save-all flush model"
+      ]
+    },
+    {
+      "transition_id": "T-PROCESS-TERMINATION",
+      "from": "WritableOpen",
+      "to": "RecoveryRequired",
+      "trigger": "process_crash_or_kill",
+      "preconditions": [
+        "writer held"
+      ],
+      "physical_operation": "process ends without close",
+      "authority_affected": "SQLite last committed state preserved; ownership row may remain",
+      "durability_assumption": "SQLite WAL recovery on reopen",
+      "success_result": "n/a",
+      "failure_result": "orphan ownership blocks writable until stale",
+      "persisted_observation": "writer_ownership may show expired lease",
+      "recovery_requirement": "stale takeover after integrity_check",
+      "allowed_evidence_claim": [
+        "none until 2C executed"
+      ],
+      "forbidden_evidence_claim": [
+        "ProcessCrashRecovery in 2B unit tests via error injection only"
+      ]
+    },
+    {
+      "transition_id": "T-STALE-TAKEOVER",
+      "from": "RecoveryRequired",
+      "to": "WritableOpen",
+      "trigger": "stale_takeover",
+      "preconditions": [
+        "lease expired or explicit takeover authorized",
+        "integrity_check ok"
+      ],
+      "physical_operation": "transactional replace writer_ownership with new token and epoch bump",
+      "authority_affected": "writer ownership only",
+      "durability_assumption": "ownership row commit is LogicalStateTransition; stale takeover recovery evidence requires 2C multi-process observation",
+      "success_result": "new writable handle",
+      "failure_result": "takeover-rejected if lease still valid",
+      "persisted_observation": "epoch incremented; new token",
+      "recovery_requirement": "reload canonical state before accepting commands",
+      "allowed_evidence_claim": [
+        "InterfaceBehavior for 2B lease-API unit tests only"
+      ],
+      "forbidden_evidence_claim": [
+        "ProcessCrashRecovery from in-process lease clock simulation",
+        "PID-only stale proof"
+      ]
+    },
+    {
+      "transition_id": "T-REOPEN-AFTER-CRASH",
+      "from": "Closed",
+      "to": "ReadOnlyOpen",
+      "trigger": "reopen after interruption",
+      "preconditions": [
+        "session.db exists"
+      ],
+      "physical_operation": "new adapter instance; integrity_check; classify recovery; read canonical tables",
+      "authority_affected": "none until writer acquired",
+      "durability_assumption": "SQLite engine recovery",
+      "success_result": "last committed canonical state readable",
+      "failure_result": "RecoveryBlocked or Unrecoverable",
+      "persisted_observation": "oracle compared to independent expected",
+      "recovery_requirement": "explicit RecoveryClassification",
+      "allowed_evidence_claim": [
+        "ProcessCrashRecovery when 2C executes real crash"
+      ],
+      "forbidden_evidence_claim": [
+        "compare(adapter_memory, adapter_memory)"
+      ]
+    }
+  ],
+  "writer_ownership_protocol": {
+    "record_location": "writer_ownership table, id=1 singleton row",
+    "columns": {
+      "token": "UUID string; NULL when unowned",
+      "owner_epoch": "monotonic u64 incremented on each takeover",
+      "lease_duration_ms": "renewal interval used to compute next lease_expires_at_unix_ms",
+      "lease_expires_at_unix_ms": "persisted UTC millisecond expiry; stale when now_unix_ms >= lease_expires_at_unix_ms",
+      "process_instance_id": "UUID generated once per adapter process instance; diagnostic only",
+      "holder_pid": "optional diagnostic; not used for stale detection"
+    },
+    "acquisition_operation": "UPDATE writer_ownership SET ... WHERE id=1 AND (token IS NULL OR now_unix_ms >= lease_expires_at_unix_ms)",
+    "renewal_policy": "on each authoritative command set lease_expires_at_unix_ms = now_unix_ms + lease_duration_ms",
+    "normal_release": "UPDATE token=NULL WHERE token matches handle on close",
+    "stale_detection": [
+      "now_unix_ms >= lease_expires_at_unix_ms",
+      "explicit operator/API stale_takeover after integrity_check"
+    ],
+    "takeover_authority": "new process after stale proof; integrity_check; epoch bump; new token",
+    "race_handling": "SQLite transaction serializes ownership UPDATE; second acquirer gets writer-already-open",
+    "split_brain_prevention": "only one non-expired token; epoch mismatch rejects stale handle commands",
+    "recovery_after_process_crash": "lease expiry enables takeover; canonical state from SQLite only",
+    "recovery_after_machine_reboot": "lease_expires_at_unix_ms may elapse during downtime; stale detected at open via UTC comparison after integrity_check",
+    "lease_clock_policy": "persist lease_expires_at_unix_ms as UTC milliseconds; compare with SystemTime UTC at acquire/open; if wall clock jumps backward making expiry ambiguous, fail closed with lease-clock-ambiguous requiring ManualReviewRequired",
+    "filesystem_limitations": "NFS or network FS may weaken lock semantics; record in 2D limitations",
+    "prohibited": [
+      "PID absence alone as universal stale test",
+      "external lock file without SQLite transaction composition",
+      "permanently orphanable token without expiry"
+    ]
+  },
+  "duplication_protocol": {
+    "name": "wal_safe_online_backup_duplication",
+    "mechanism": "rusqlite backup::Backup::new / run_to_completion",
+    "steps": [
+      {
+        "step": 1,
+        "name": "source_writer_coordination",
+        "operation": "Require source writable handle open; hold source Connection for backup"
+      },
+      {
+        "step": 2,
+        "name": "optional_wal_checkpoint",
+        "operation": "PRAGMA wal_checkpoint(TRUNCATE) on source if policy requires quiesced WAL before backup"
+      },
+      {
+        "step": 3,
+        "name": "destination_creation",
+        "operation": "create_dir; open temp destination Connection at session.db.tmp"
+      },
+      {
+        "step": 4,
+        "name": "backup_copy",
+        "operation": "Backup API from source Connection to destination while source may remain writable"
+      },
+      {
+        "step": 5,
+        "name": "destination_integrity_check",
+        "operation": "PRAGMA integrity_check on destination temp database; fail closed if not ok"
+      },
+      {
+        "step": 6,
+        "name": "identity_transformation",
+        "operation": "BEGIN on destination; UPDATE session_meta SET value = ?1 WHERE key = 'session_id'; UPDATE session_meta SET value = ?2 WHERE key = 'duplicated_from'; clear writer_ownership; COMMIT"
+      },
+      {
+        "step": 7,
+        "name": "destination_semantic_validation",
+        "operation": "assemble canonical state from destination tables; semantic oracle against independent expected before publish"
+      },
+      {
+        "step": 8,
+        "name": "destination_finalize",
+        "operation": "PRAGMA wal_checkpoint(TRUNCATE) on destination; close destination Connection; assert no live session.db.tmp-wal or session.db.tmp-shm companions remain"
+      },
+      {
+        "step": 9,
+        "name": "atomic_publication",
+        "operation": "rename closed session.db.tmp to session.db only after WAL companions quiesced; publish closed files only"
+      },
+      {
+        "step": 10,
+        "name": "post_publish_verification",
+        "operation": "new adapter instance reopen published destination read-only; verify source unchanged via separate source reopen"
+      }
+    ],
+    "wal_and_shm_treatment": "Backup API produces consistent snapshot into temp main file; identity COMMIT may create WAL companions on temp db; semantic validation occurs before publish; TRUNCATE checkpoint and close Connection before rename; do not rename main file while -wal/-shm companions are live; do not manually assemble source db+wal+shm triple copy",
+    "identity_transformation": "in destination SQLite transaction after integrity_check and before semantic validation",
+    "lineage_metadata": "session_meta.duplicated_from = source session_id",
+    "failure_cleanup": "delete destination directory entirely; source never mutated",
+    "source_immutability": "source canonical tables unchanged; verify by source reopen oracle",
+    "destination_validation": "integrity_check plus independent semantic oracle on staged temp db before publish; post-publish reopen verification",
+    "interrupted_duplication_recovery": "unpublished .tmp or partial dir deleted; no destination session identity registered",
+    "acknowledgement_boundary": "duplicate_session returns Ok only after publish and post-publish verification complete",
+    "prohibited": [
+      "fs::copy session.db only",
+      "copy db+wal+shm as ad hoc protocol",
+      "JSON snapshot as duplication source",
+      "publish before integrity_check",
+      "publish before independent semantic validation",
+      "self-oracle on adapter-returned state without reopen"
+    ]
+  },
+  "schema_migration_boundary": {
+    "schema_version_authority": "session_meta.format_version",
+    "current_spike_version": 1,
+    "migration_transaction_boundary": "single BEGIN/COMMIT with backup before destructive migration when implemented",
+    "unknown_newer_version_behavior": "writable open rejected with unsupported-newer-format; read-only salvage only if separately designed and proven safe",
+    "failed_migration_recovery": "source database unchanged; ManualReviewRequired",
+    "read_only_unsupported_versions": "permitted only with explicit safe interpretation path; not in 2B scope",
+    "backup_before_destructive_migration": "duplication_protocol",
+    "migrations_in_2b_scope": false,
+    "2b_behavior": "fail closed on format_version < CURRENT with unsupported-older-format; no silent migration"
+  },
+  "recovery_matrix": [
+    {
+      "condition_id": "R-CLEAN-CLOSE",
+      "condition": "clean close after acknowledged commands",
+      "authoritative_source": "SQLite committed state",
+      "engine_behavior": "WAL checkpoint may run on close",
+      "application_checks": [
+        "writer released"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "baseline-create-open-close reopen subclaim in 2C"
+    },
+    {
+      "condition_id": "R-CRASH-NO-TX",
+      "condition": "process crash with no active transaction",
+      "authoritative_source": "SQLite last committed state",
+      "engine_behavior": "WAL replay on open",
+      "application_checks": [
+        "integrity_check",
+        "stale ownership takeover"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C orphan-writer recovery scenario"
+    },
+    {
+      "condition_id": "R-CRASH-MID-TX",
+      "condition": "process crash during SQLite transaction",
+      "authoritative_source": "SQLite rollback to last commit",
+      "engine_behavior": " incomplete transaction discarded",
+      "application_checks": [
+        "integrity_check",
+        "oracle matches pre-command state"
+      ],
+      "result_classification": "LastCommittedState",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C mid-transaction crash"
+    },
+    {
+      "condition_id": "R-CRASH-AFTER-COMMIT-BEFORE-ACK",
+      "condition": "crash after COMMIT before API returns Ok",
+      "authoritative_source": "SQLite committed mutation",
+      "engine_behavior": "committed state reopen-observable at LogicalStateTransition; not FilesystemDurability",
+      "application_checks": [
+        "reopen oracle shows mutation",
+        "caller must not double-apply"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C after_sqlite_commit_before_ack fault"
+    },
+    {
+      "condition_id": "R-STALE-WRITER",
+      "condition": "stale writer ownership row after crash",
+      "authoritative_source": "SQLite canonical tables unchanged",
+      "engine_behavior": "standard open",
+      "application_checks": [
+        "lease expired",
+        "takeover with integrity_check"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C concurrent-writer orphan recovery"
+    },
+    {
+      "condition_id": "R-INCOMPLETE-EXPORT",
+      "condition": "incomplete derived JSON export if enabled in future",
+      "authoritative_source": "SQLite only",
+      "engine_behavior": "n/a",
+      "application_checks": [
+        "ignore or delete partial export"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "optional 2C if export enabled"
+    },
+    {
+      "condition_id": "R-INTERRUPTED-DUP",
+      "condition": "interrupted duplication before publish",
+      "authoritative_source": "source SQLite unchanged",
+      "engine_behavior": "n/a",
+      "application_checks": [
+        "delete partial destination"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C during_backup_copy fault"
+    },
+    {
+      "condition_id": "R-CORRUPT-SQLITE",
+      "condition": "unreadable or corrupt SQLite canonical state",
+      "authoritative_source": "none reliable",
+      "engine_behavior": "integrity_check fails",
+      "application_checks": [
+        "fail closed writable"
+      ],
+      "result_classification": "Unrecoverable",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": false,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "canonical-reference-corruption severe corruption path"
+    },
+    {
+      "condition_id": "R-CORRUPT-SQLITE-SALVAGE",
+      "condition": "partially readable canonical corruption",
+      "authoritative_source": "bounded parse of salvageable tables",
+      "engine_behavior": "integrity_check partial failure",
+      "application_checks": [
+        "fail closed writable",
+        "bounded read-only export if safe"
+      ],
+      "result_classification": "ReadOnlySalvage",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "deferred read-only salvage scenario"
+    },
+    {
+      "condition_id": "R-UNKNOWN-NEWER",
+      "condition": "unknown newer schema version",
+      "authoritative_source": "session_meta.format_version",
+      "engine_behavior": "n/a",
+      "application_checks": [
+        "reject writable open"
+      ],
+      "result_classification": "ManualReviewRequired",
+      "lifecycle_state": "UnsupportedVersion",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": "separate claim only",
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "unknown-newer-format"
+    },
+    {
+      "condition_id": "R-MIGRATION-REQUIRED",
+      "condition": "older supported version requiring migration",
+      "authoritative_source": "original DB preserved",
+      "engine_behavior": "n/a",
+      "application_checks": [
+        "reject writable until migration implemented"
+      ],
+      "result_classification": "ManualReviewRequired",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": false,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "deferred beyond 2B"
+    },
+    {
+      "condition_id": "R-FAILED-MIGRATION",
+      "condition": "failed migration attempt",
+      "authoritative_source": "original DB unchanged",
+      "engine_behavior": "rollback",
+      "application_checks": [
+        "backup restore if needed"
+      ],
+      "result_classification": "ManualReviewRequired",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "deferred"
+    },
+    {
+      "condition_id": "R-FAILED-CHECKPOINT",
+      "condition": "failed checkpoint during maintenance",
+      "authoritative_source": "SQLite last good state",
+      "engine_behavior": "WAL remains",
+      "application_checks": [
+        "integrity_check"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C during_checkpoint fault"
+    },
+    {
+      "condition_id": "R-DISK-FULL",
+      "condition": "disk-full or I/O failure during write",
+      "authoritative_source": "last committed state",
+      "engine_behavior": "COMMIT may fail",
+      "application_checks": [
+        "block further writes",
+        "surface I/O error"
+      ],
+      "result_classification": "ManualReviewRequired",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "2D or injected 2B I/O simulation without durability claim"
+    },
+    {
+      "condition_id": "R-POST-COMMIT-VERIFY-FAIL",
+      "condition": "COMMIT succeeded but post-commit authoritative read verify failed",
+      "authoritative_source": "SQLite committed mutation",
+      "engine_behavior": "committed state present",
+      "application_checks": [
+        "return post-commit-verify-failed",
+        "block further writes until reopen"
+      ],
+      "result_classification": "LastCommittedState",
+      "writable_open_allowed": false,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": true,
+      "evidence_scenario_required": "2B error surfacing only; 2C crash between COMMIT and verify"
+    },
+    {
+      "condition_id": "R-DUP-PUBLISH-BEFORE-RETURN",
+      "condition": "crash after duplication publish before duplicate_session Ok",
+      "authoritative_source": "published destination session.db",
+      "engine_behavior": "destination exists on disk",
+      "application_checks": [
+        "destination reopen validates identity",
+        "source unchanged on independent reopen"
+      ],
+      "result_classification": "SafeAutomaticRecovery",
+      "writable_open_allowed": true,
+      "read_only_salvage_allowed": true,
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2C after_publish_before_return fault"
+    }
+  ],
+  "fault_points": [
+    {
+      "fault_id": "before_writer_ownership_acquire",
+      "physical_location": "open(Writable) before writer_ownership UPDATE",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "prior committed canonical state",
+      "expected_ownership_state": "previous token or NULL",
+      "expected_derived_artifact_state": "unchanged or absent",
+      "reopen_behavior": "no ownership acquired; canonical unchanged",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "ProcessCrashRecovery"
+      ],
+      "required_scenario": "concurrent-writer-attempt",
+      "package_ownership": "2B hook placement; 2C multi-process crash"
+    },
+    {
+      "fault_id": "after_writer_ownership_acquire",
+      "physical_location": "after writer_ownership committed, before first command",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "canonical unchanged",
+      "expected_ownership_state": "token set",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "orphan token until stale takeover",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "authoritative mutation occurred"
+      ],
+      "required_scenario": "2C orphan-writer recovery",
+      "package_ownership": "2C"
+    },
+    {
+      "fault_id": "before_transaction_begin",
+      "physical_location": "apply_authoritative_command before BEGIN",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "unchanged",
+      "expected_ownership_state": "valid lease",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "canonical unchanged",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "LogicalStateTransition"
+      ],
+      "required_scenario": "stale-* rejection scenarios",
+      "package_ownership": "2B"
+    },
+    {
+      "fault_id": "after_transaction_begin",
+      "physical_location": "after BEGIN, before first authoritative mutation",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "uncommitted empty transaction",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "rollback; prior commit visible",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "mutation committed"
+      ],
+      "required_scenario": "2C interrupted-authoritative-transition",
+      "package_ownership": "2C"
+    },
+    {
+      "fault_id": "after_first_authoritative_mutation",
+      "physical_location": "after UPDATE/INSERT in tx, before COMMIT",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "uncommitted mutations in tx",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "rollback to last commit",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "acknowledged command"
+      ],
+      "required_scenario": "2C mid-transaction crash",
+      "package_ownership": "2C"
+    },
+    {
+      "fault_id": "before_sqlite_commit",
+      "physical_location": "before COMMIT",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "uncommitted tx",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "rollback; stale-precondition or simulated failure",
+      "claim_supported": [
+        "InterfaceBehavior",
+        "pre_write_abort_no_authoritative_mutation"
+      ],
+      "claim_explicitly_unsupported": [
+        "LogicalStateTransition",
+        "ProcessCrashRecovery as recovery proof"
+      ],
+      "required_scenario": "interrupted-authoritative-transition current handler",
+      "package_ownership": "2B logical fault; 2C for crash"
+    },
+    {
+      "fault_id": "after_sqlite_commit_before_ack",
+      "physical_location": "after COMMIT success, before API Ok returned",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "committed mutation",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "reopen shows committed mutation; caller may not have received Ok",
+      "claim_supported": [
+        "LogicalStateTransition"
+      ],
+      "claim_explicitly_unsupported": [
+        "FilesystemDurability"
+      ],
+      "required_scenario": "2C durable acknowledgement test",
+      "package_ownership": "2C"
+    },
+    {
+      "fault_id": "after_ack_before_derived_export",
+      "physical_location": "after API Ok, before optional export write",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "committed",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "absent or stale",
+      "reopen_behavior": "canonical authoritative; export ignored",
+      "claim_supported": [
+        "LogicalStateTransition"
+      ],
+      "claim_explicitly_unsupported": [
+        "export required for authority"
+      ],
+      "required_scenario": "deferred if export enabled",
+      "package_ownership": "future"
+    },
+    {
+      "fault_id": "during_derived_export",
+      "physical_location": "during optional session.export.json write",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "committed",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "partial file",
+      "reopen_behavior": "delete partial export; canonical unchanged",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "canonical corruption"
+      ],
+      "required_scenario": "deferred",
+      "package_ownership": "future"
+    },
+    {
+      "fault_id": "before_writer_ownership_release",
+      "physical_location": "close before ownership clear",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "committed",
+      "expected_ownership_state": "token still set if crash",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "stale takeover required",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "permanent writer block"
+      ],
+      "required_scenario": "2C crash during close",
+      "package_ownership": "2C"
+    },
+    {
+      "fault_id": "during_backup_copy",
+      "physical_location": "Backup API step in progress",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "source unchanged",
+      "expected_ownership_state": "source held",
+      "expected_derived_artifact_state": "destination partial",
+      "reopen_behavior": "delete destination; source valid",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "duplication complete"
+      ],
+      "required_scenario": "semantic-duplication interrupt",
+      "package_ownership": "2B cleanup; 2C evidence"
+    },
+    {
+      "fault_id": "after_backup_before_destination_identity_change",
+      "physical_location": "validated backup file before identity tx",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "destination copy of source identity",
+      "expected_ownership_state": "copied from source",
+      "expected_derived_artifact_state": "n/a",
+      "reopen_behavior": "do not publish; delete temp",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "independent session identity"
+      ],
+      "required_scenario": "semantic-duplication",
+      "package_ownership": "2B"
+    },
+    {
+      "fault_id": "after_destination_identity_change_before_publish",
+      "physical_location": "identity tx committed on temp db before rename",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "destination has new session_id in temp file",
+      "expected_ownership_state": "cleared on destination",
+      "expected_derived_artifact_state": "n/a",
+      "reopen_behavior": "delete unpublished temp destination; do not resume publish without full protocol restart from backup",
+      "claim_supported": [
+        "LogicalStateTransition"
+      ],
+      "claim_explicitly_unsupported": [
+        "published duplicate session"
+      ],
+      "required_scenario": "semantic-duplication",
+      "package_ownership": "2B"
+    },
+    {
+      "fault_id": "after_publish_before_return",
+      "physical_location": "after rename, before duplicate_session Ok",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "published destination",
+      "expected_ownership_state": "cleared",
+      "expected_derived_artifact_state": "n/a",
+      "reopen_behavior": "destination exists; validate or operator cleanup",
+      "claim_supported": [
+        "LogicalStateTransition"
+      ],
+      "claim_explicitly_unsupported": [
+        "source unchanged without reopen proof"
+      ],
+      "required_scenario": "semantic-duplication",
+      "package_ownership": "2C persisted reopen oracle"
+    },
+    {
+      "fault_id": "before_compaction_mutation",
+      "physical_location": "VACUUM or compaction entry before file rewrite mutates canonical storage",
+      "before_or_after_authority_change": "before",
+      "expected_sqlite_state": "last committed canonical state unchanged",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "no compaction effect; canonical unchanged",
+      "claim_supported": [
+        "InterfaceBehavior",
+        "pre_write_abort_no_authoritative_mutation"
+      ],
+      "claim_explicitly_unsupported": [
+        "compaction completed",
+        "LogicalStateTransition from unchanged reopen alone"
+      ],
+      "required_scenario": "interrupted-compaction",
+      "package_ownership": "2B logical fault hook; 2C post-interrupt reopen"
+    },
+    {
+      "fault_id": "during_checkpoint",
+      "physical_location": "PRAGMA wal_checkpoint or passive checkpoint",
+      "before_or_after_authority_change": "after",
+      "expected_sqlite_state": "last commit preserved",
+      "expected_ownership_state": "valid",
+      "expected_derived_artifact_state": "unchanged",
+      "reopen_behavior": "integrity_check; continue",
+      "claim_supported": [
+        "InterfaceBehavior"
+      ],
+      "claim_explicitly_unsupported": [
+        "FilesystemDurability",
+        "compaction equivalence"
+      ],
+      "required_scenario": "2C during_checkpoint",
+      "package_ownership": "2C"
+    }
+  ]
+}

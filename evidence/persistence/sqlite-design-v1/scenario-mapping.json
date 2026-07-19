@@ -1,0 +1,296 @@
+{
+  "mapping_version": "1",
+  "work_package_id": "persistence-package-2a-sqlite-executable-design-contract",
+  "candidate_id": "embedded-relational-sqlite-spike",
+  "design_contract_reference": "authority-contract.json",
+  "recovery_protocol_reference": "recovery-protocol.json",
+  "scenarios": [
+    {
+      "scenario_id": "baseline-create-open-close",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Create, open, read, close in one process without close-to-reopen reload",
+      "future_sqlite_claim": "Create relational SQLite session; open writable; read canonical state from tables; close releases ownership; optional persisted reopen subclaim remains InterfaceBehavior",
+      "required_fault_point": "none",
+      "required_physical_operation": "create with schema tx; open; SELECT canonical tables; close clears writer_ownership",
+      "required_persisted_observation": "session.db with relational canonical rows; writer_ownership NULL after close",
+      "required_reopen_recovery_step": "2C: close handle, new adapter open read-only, oracle matches fixture",
+      "required_oracle": "independent expected from fixture, not adapter memory",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B implementation and unit test; 2C persisted reopen evidence",
+      "prohibited_shortcut": "compare(actual, actual); classify API flow as ProcessCrashRecovery"
+    },
+    {
+      "scenario_id": "append-correction-event",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Same-handle post-command read only",
+      "future_sqlite_claim": "ReviewLedger event persisted in review_ledger_events table across close and reopen",
+      "required_fault_point": "none",
+      "required_physical_operation": "BEGIN; INSERT ledger event; COMMIT; close; reopen; read tables",
+      "required_persisted_observation": "new row in review_ledger_events visible after reopen",
+      "required_reopen_recovery_step": "mandatory close and new adapter reopen before oracle",
+      "2c_optional_fault_points": [
+        "after_first_authoritative_mutation",
+        "after_sqlite_commit_before_ack"
+      ],
+      "required_oracle": "independent expected mutation, not shared apply_command blind spot",
+      "target_evidence_strength": [
+        "LogicalStateTransition"
+      ],
+      "package_ownership": "2B unit test with reopen; 2C post-commit crash",
+      "prohibited_shortcut": "adapter-return-only without reopen"
+    },
+    {
+      "scenario_id": "attach-analysis-result",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Same-handle post-command read only",
+      "future_sqlite_claim": "analysis_results row persisted across close and reopen",
+      "required_fault_point": "none",
+      "required_physical_operation": "BEGIN; INSERT analysis_results; COMMIT; close; reopen; read",
+      "required_persisted_observation": "analysis row persisted in SQLite",
+      "required_reopen_recovery_step": "mandatory persisted reopen",
+      "2c_optional_fault_points": [
+        "after_first_authoritative_mutation",
+        "after_sqlite_commit_before_ack"
+      ],
+      "required_oracle": "independent expected attach mutation",
+      "target_evidence_strength": [
+        "LogicalStateTransition"
+      ],
+      "package_ownership": "2B unit test; 2C crash variants",
+      "prohibited_shortcut": "same-handle read only"
+    },
+    {
+      "scenario_id": "stale-review-ledger-command",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Scoped precondition rejection via InterfaceBehavior",
+      "future_sqlite_claim": "Reject stale ReviewLedgerHead with stale-precondition; no SQLite mutation",
+      "required_fault_point": "before_transaction_begin",
+      "required_physical_operation": "validate preconditions before BEGIN; return Err without mutation",
+      "required_persisted_observation": "review_ledger_events unchanged after rejected command attempt",
+      "required_reopen_recovery_step": "optional reopen confirms unchanged canonical rows",
+      "required_oracle": "independent before-state comparison",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B",
+      "prohibited_shortcut": "compare(before, before) self-oracle without persisted observation"
+    },
+    {
+      "scenario_id": "stale-active-analysis-selection",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Scoped precondition rejection",
+      "future_sqlite_claim": "Reject stale active analysis selection; active_analysis_selection unchanged",
+      "required_fault_point": "before_transaction_begin",
+      "required_physical_operation": "precondition check before BEGIN",
+      "required_persisted_observation": "active_analysis_selection row unchanged",
+      "required_reopen_recovery_step": "optional persisted unchanged verification",
+      "required_oracle": "independent before-state",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B",
+      "prohibited_shortcut": "treat rejection as LogicalStateTransition"
+    },
+    {
+      "scenario_id": "stale-analysis-attachment",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Scoped precondition rejection",
+      "future_sqlite_claim": "Reject stale attachment set; analysis_results unchanged",
+      "required_fault_point": "before_transaction_begin",
+      "required_physical_operation": "precondition validation before mutation",
+      "required_persisted_observation": "analysis_results table unchanged",
+      "required_reopen_recovery_step": "optional persisted verification",
+      "required_oracle": "independent before-state",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B",
+      "prohibited_shortcut": "self-oracle"
+    },
+    {
+      "scenario_id": "concurrent-writer-attempt",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Second writable open rejected with writer-already-open",
+      "future_sqlite_claim": "At most one authoritative writer; second attempt fails; canonical rows unchanged with independent persisted observation",
+      "required_fault_point": "before_writer_ownership_acquire",
+      "required_physical_operation": "first writer holds lease; second open attempts ownership UPDATE and fails",
+      "required_persisted_observation": "canonical tables unchanged; independent reopen read",
+      "required_reopen_recovery_step": "2C: process kill while first writer held; second process stale_takeover after lease expiry with integrity_check",
+      "required_oracle": "independent expected unchanged state, not compare(before,before)",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B rejection test; 2C orphan recovery scenario",
+      "prohibited_shortcut": "compare(before, before); PID-only stale recovery"
+    },
+    {
+      "scenario_id": "unknown-newer-format",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Writable open rejected with unsupported-newer-format",
+      "future_sqlite_claim": "Fail closed writable when session_meta.format_version > CURRENT; exact error code",
+      "required_fault_point": "pre-open format mutation",
+      "required_physical_operation": "UPDATE session_meta.format_version; attempt open(Writable)",
+      "required_persisted_observation": "exact unsupported-newer-format error; no canonical mutation",
+      "required_reopen_recovery_step": "read-only salvage as separate future scenario if implemented",
+      "required_oracle": "error code assertion, not compare(fixture, fixture)",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B",
+      "prohibited_shortcut": "tautological fixture self-oracle"
+    },
+    {
+      "scenario_id": "derived-state-corruption",
+      "current_handler_status": "partially_demonstrated_per_subclaim",
+      "current_subclaim_status": {
+        "derived_corruption_detection": "not_demonstrated",
+        "derived_state_rebuild": "not_demonstrated",
+        "canonical_readability_after_derived_artifact_mutation": "partially_demonstrated"
+      },
+      "current_claim": "Canonical readable after derived artifact mutation; detection/rebuild not demonstrated",
+      "future_sqlite_claim": "Detect derived_cache corruption on open; rebuild derived; canonical tables unchanged",
+      "required_fault_point": "derived artifact corruption before open",
+      "required_physical_operation": "UPDATE derived_cache; open detects corruption; rebuild derived row from canonical tables",
+      "required_persisted_observation": "canonical tables oracle-valid; derived row rebuilt",
+      "required_reopen_recovery_step": "close and reopen shows rebuilt derived artifact",
+      "required_oracle": "fixture canonical oracle; separate derived artifact assertion",
+      "target_evidence_strength": {
+        "derived_corruption_detection": [
+          "InterfaceBehavior"
+        ],
+        "derived_state_rebuild": [
+          "LogicalStateTransition"
+        ],
+        "canonical_readability_after_derived_artifact_mutation": [
+          "InterfaceBehavior"
+        ]
+      },
+      "package_ownership": "2B detect/rebuild; 2C if corruption during write",
+      "prohibited_shortcut": "never consult derived artifact on open; treat canonical read alone as rebuild proof"
+    },
+    {
+      "scenario_id": "canonical-reference-corruption",
+      "current_handler_status": "partially_demonstrated",
+      "current_claim": "Writable open fails on malformed JSON payload in legacy blob path",
+      "future_sqlite_claim": "Fail closed on canonical table corruption or deserialization failure with specific error; relational FK violations as separate future injector",
+      "required_fault_point": "malformed canonical data before open",
+      "required_physical_operation": "inject corruption into canonical table row or invalid FK; open(Writable) fails with canonical-corruption code",
+      "required_persisted_observation": "exact error classification; no silent open",
+      "required_reopen_recovery_step": "read-only salvage separate claim",
+      "required_oracle": "specific error code, not Err(_)",
+      "target_evidence_strength": [
+        "InterfaceBehavior"
+      ],
+      "package_ownership": "2B malformed path; broken-reference deferred scenario",
+      "prohibited_shortcut": "accept any Err; compare(fixture, fixture)"
+    },
+    {
+      "scenario_id": "semantic-duplication",
+      "current_handler_status": "invalid_or_unsupported_as_recorded",
+      "current_claim": "Self-oracle on adapter-returned duplicate; fs::copy unsafe under WAL",
+      "future_sqlite_claim": "Online Backup duplication; new session_id; source unchanged after independent reopen; destination oracle-valid",
+      "required_fault_point": "none",
+      "required_physical_operation": "Backup API with source handle open; identity tx; destination finalize checkpoint; publish; reopen both sessions",
+      "required_persisted_observation": "destination session.db with distinct session_meta; source unchanged on reopen",
+      "required_reopen_recovery_step": "mandatory independent reopen of source and duplicate with new adapter instances",
+      "interrupt_subclaim": {
+        "fault_point": "during_backup_copy",
+        "package_ownership": "2C"
+      },
+      "required_oracle": "independent expected from source state, not compare(duplicate, duplicate)",
+      "target_evidence_strength": [
+        "LogicalStateTransition"
+      ],
+      "package_ownership": "2B backup protocol unit tests (non-catalog, non-readiness); catalog semantic-duplication evidence and persisted oracle in 2C",
+      "prohibited_shortcut": "fs::copy(session.db); self-oracle; skip source unchanged verification"
+    },
+    {
+      "scenario_id": "interrupted-authoritative-transition",
+      "current_handler_status": "insufficient_evidence",
+      "current_claim": "Logical pre-commit abort via simulated-durability-failure only",
+      "future_sqlite_claim": "Pre-commit abort leaves canonical unchanged; post-commit and post-ack faults in 2C",
+      "required_fault_point": "before_sqlite_commit",
+      "required_physical_operation": "BEGIN; mutate; fault before COMMIT; rollback",
+      "required_persisted_observation": "canonical tables match pre-command state after reopen",
+      "required_reopen_recovery_step": "mandatory reopen after fault",
+      "required_oracle": "independent pre-command expected state",
+      "target_evidence_strength": {
+        "2b_logical_pre_commit": [
+          "InterfaceBehavior"
+        ],
+        "2c_post_commit_crash": [
+          "ProcessCrashRecovery"
+        ]
+      },
+      "package_ownership": "2B before_sqlite_commit hook; 2C after_commit and after_ack faults",
+      "prohibited_shortcut": "name recovery test but fault only before mutation begins"
+    },
+    {
+      "scenario_id": "interrupted-compaction",
+      "current_handler_status": "insufficient_evidence",
+      "current_claim": "Pre-compaction logical interrupt only; no post-fault reopen",
+      "future_sqlite_claim": "VACUUM interrupt before mutation aborts; post-interrupt reopen shows last committed canonical state equivalent",
+      "required_fault_point": "before_compaction_mutation",
+      "required_physical_operation": "VACUUM or compaction entry; fault before rewrite completes",
+      "required_persisted_observation": "semantic oracle match pre-compaction after reopen",
+      "required_reopen_recovery_step": "2C mandatory post-interrupt reopen",
+      "required_oracle": "pre-compaction independent expected",
+      "target_evidence_strength": {
+        "2b_pre_mutation_abort": [
+          "InterfaceBehavior"
+        ],
+        "2c_post_interrupt_reopen": [
+          "InterfaceBehavior"
+        ]
+      },
+      "package_ownership": "2B hook placement; 2C reopen evidence",
+      "prohibited_shortcut": "compare(fixture, fixture) without compaction attempt observation"
+    },
+    {
+      "scenario_id": "interrupted-cleanup",
+      "current_handler_status": "deferred_not_actionable",
+      "current_claim": "Unsupported; destructive GC not implemented",
+      "future_sqlite_claim": "Not applicable until destructive GC capability exists",
+      "required_fault_point": "none",
+      "required_physical_operation": "none in spike",
+      "required_persisted_observation": "n/a",
+      "required_reopen_recovery_step": "n/a",
+      "required_oracle": "n/a",
+      "target_evidence_strength": [],
+      "package_ownership": "deferred beyond 2B/2C",
+      "prohibited_shortcut": "claim cleanup recovery without capability",
+      "applicability": "deferred"
+    }
+  ],
+  "append_specific_scenarios_not_applicable": [],
+  "sqlite_irrelevant_notes": [
+    "interrupted-cleanup deferred until destructive GC exists",
+    "broken-reference canonical corruption requires future separate fault injector beyond malformed payload"
+  ],
+  "package_separation": {
+    "2b_owns": [
+      "relational schema",
+      "writer ownership and takeover implementation",
+      "ack boundary and post-commit read verify unit tests",
+      "Online Backup duplication protocol",
+      "integrity_check on open",
+      "fault hook enum placement for later injection",
+      "focused unit/integration tests without crash impersonation"
+    ],
+    "2c_owns": [
+      "shared scenario handlers with persisted reopen",
+      "process crash and multi-process writer tests",
+      "post-commit and post-ack fault injection",
+      "independent semantic oracle after reopen",
+      "orphan writer recovery scenario"
+    ],
+    "2d_owns": [
+      "Windows execution",
+      "FilesystemDurability fault scenarios",
+      "cross-platform semantics documentation",
+      "HardwarePowerLoss if ever in scope"
+    ]
+  }
+}

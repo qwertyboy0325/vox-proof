@@ -1,0 +1,550 @@
+{
+  "contract_version": "1",
+  "work_package_id": "persistence-package-2a-sqlite-executable-design-contract",
+  "baseline_commit": "f6ff936c8088bb2876f124af7d791180650126b1",
+  "candidate_id": "embedded-relational-sqlite-spike",
+  "candidate_version": "1",
+  "authority_model": {
+    "name": "sqlite_sole_canonical_authority",
+    "summary": "The embedded SQLite database file is the sole canonical authoritative store. Canonical session entities are persisted in SQLite tables and committed only through explicit SQLite transactions. No external JSON file or derived export may serve as authority on open, reopen, or recovery.",
+    "canonical_store": {
+      "type": "embedded_sqlite_database",
+      "path_pattern": "{session_dir}/session.db",
+      "wal_companion_files": [
+        "session.db-wal",
+        "session.db-shm"
+      ],
+      "authoritative_tables": [
+        "session_meta",
+        "source_revisions",
+        "review_cases",
+        "review_case_raised_events",
+        "review_ledger_events",
+        "analysis_results",
+        "active_analysis_selection",
+        "knowledge_snapshot_references",
+        "lineage_conflicts",
+        "artifacts",
+        "retention_references",
+        "writer_ownership"
+      ],
+      "version_authority": "session_meta.format_version"
+    },
+    "derived_artifacts": {
+      "derived_cache_table": {
+        "role": "rebuildable_derived_index",
+        "authoritative": false,
+        "open_path_reads_for_authority": false,
+        "derivation_rule": "derive_queue_index_v1",
+        "derive_queue_index_v1": {
+          "cache_key": "queue-index-v1",
+          "schema_version": 1,
+          "input_tables": [
+            "review_cases",
+            "review_ledger_events"
+          ],
+          "algorithm": "For each review_cases row, find max sequence review_ledger_events row for matching case_id from payload_json; head_event_id is null when no events exist for case; build JSON array [{case_id, head_event_id|null}] sorted by case_id ascending",
+          "empty_case_rule": "cases with zero ledger events produce head_event_id null, not omitted rows",
+          "value_encoding": "serde_json canonical string of array",
+          "content_hash": "SHA-256 lowercase hex of value_encoding UTF-8 bytes",
+          "validation": "stored derived_cache.content_hash must equal recomputed hash or row is rebuilt before open completes"
+        }
+      },
+      "optional_json_export": {
+        "path_pattern": "{session_dir}/session.export.json",
+        "enabled_in_2b": false,
+        "role": "diagnostic_or_evidence_export_only",
+        "write_timing": "after_acknowledged_command_only",
+        "open_path_reads_for_authority": false,
+        "import_protocol": "none_in_spike; explicit separate protocol required before any restore use"
+      }
+    },
+    "prohibited_authorities": [
+      "session.export.json or any external JSON snapshot as canonical source",
+      "in-memory NormalizedSemanticState without SQLite commit",
+      "adapter-returned object without persisted reopen for evidence claims",
+      "filesystem copy of session.db without Online Backup API or equivalent consistent snapshot",
+      "WAL/SHM triple-copy as ad hoc duplication protocol",
+      "derived_cache rows as canonical history substitute"
+    ]
+  },
+  "authoritative_state_units": [
+    {
+      "unit_id": "session_identity",
+      "storage": "session_meta.session_id, session_meta.duplicated_from",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "source_revisions",
+      "storage": "source_revisions table",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "review_cases",
+      "storage": "review_cases table",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "review_ledger_events",
+      "storage": "review_ledger_events table ordered by sequence",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "analysis_results",
+      "storage": "analysis_results table",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "active_analysis_selection",
+      "storage": "active_analysis_selection table (0 or 1 row)",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "artifacts",
+      "storage": "artifacts table with retention_class",
+      "mutation_boundary": "sqlite_transaction"
+    },
+    {
+      "unit_id": "writer_ownership",
+      "storage": "writer_ownership table",
+      "mutation_boundary": "sqlite_transaction",
+      "note": "concurrency metadata; not domain canonical history"
+    }
+  ],
+  "identity_model": {
+    "session_id_authority": "session_meta row key=session_id",
+    "duplication_lineage_authority": "session_meta row key=duplicated_from",
+    "format_version_authority": "session_meta row key=format_version",
+    "interpretation_version": "session_meta row key=interpretation_version",
+    "distinct_from_product_version": true
+  },
+  "canonical_schema_ddl": {
+    "session_meta": "CREATE TABLE session_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+    "source_revisions": "CREATE TABLE source_revisions (revision_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "review_cases": "CREATE TABLE review_cases (case_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "review_ledger_events": "CREATE TABLE review_ledger_events (event_id TEXT PRIMARY KEY, sequence INTEGER NOT NULL UNIQUE, payload_json TEXT NOT NULL);",
+    "review_case_raised_events": "CREATE TABLE review_case_raised_events (event_id TEXT PRIMARY KEY, sequence INTEGER NOT NULL UNIQUE, payload_json TEXT NOT NULL);",
+    "analysis_results": "CREATE TABLE analysis_results (analysis_result_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "active_analysis_selection": "CREATE TABLE active_analysis_selection (id INTEGER PRIMARY KEY CHECK (id = 1), selection_json TEXT);",
+    "knowledge_snapshot_references": "CREATE TABLE knowledge_snapshot_references (knowledge_snapshot_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "lineage_conflicts": "CREATE TABLE lineage_conflicts (conflict_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "artifacts": "CREATE TABLE artifacts (artifact_id TEXT PRIMARY KEY, retention_class TEXT NOT NULL, payload_json TEXT NOT NULL);",
+    "retention_references": "CREATE TABLE retention_references (reference_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
+    "derived_cache": "CREATE TABLE derived_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, schema_version INTEGER NOT NULL, content_hash TEXT NOT NULL);",
+    "writer_ownership": "CREATE TABLE writer_ownership (id INTEGER PRIMARY KEY CHECK (id = 1), token TEXT, owner_epoch INTEGER NOT NULL DEFAULT 0, lease_duration_ms INTEGER NOT NULL DEFAULT 30000, lease_expires_at_unix_ms INTEGER NOT NULL DEFAULT 0, process_instance_id TEXT NOT NULL, holder_pid INTEGER);",
+    "foreign_keys": [
+      "SQLite PRAGMA foreign_keys=ON enabled per connection",
+      "Spike schema uses payload_json columns without inter-table FK constraints",
+      "Referential integrity for nested entity IDs is validated in application load/assemble only"
+    ],
+    "identity_update_on_duplication": "UPDATE session_meta SET value = ?1 WHERE key = 'session_id'; UPDATE session_meta SET value = ?2 WHERE key = 'duplicated_from';"
+  },
+  "transaction_boundary": {
+    "mode": "DEFERRED",
+    "scope": "one authoritative command per BEGIN/COMMIT",
+    "create_scope": "schema initialization and initial canonical rows in one transaction",
+    "duplication_identity_mutation_scope": "separate transaction on destination temp database after backup integrity_check and before semantic validation and publish",
+    "migration_scope": "future; single transaction with pre-migration backup required when implemented"
+  },
+  "acknowledgement_boundary": {
+    "layers": [
+      {
+        "layer_id": "sqlite_transaction_committed",
+        "meaning": "SQLite COMMIT returned success; authoritative rows visible to a new connection read",
+        "api_may_claim_after": false,
+        "max_evidence_strength": "none_until_post_commit_verify",
+        "note": "COMMIT alone is not the API acknowledgement point"
+      },
+      {
+        "layer_id": "sqlite_engine_returned_success",
+        "meaning": "Rust API Ok after commit and post-commit authoritative read verification",
+        "api_may_claim_after": true,
+        "max_evidence_strength": "LogicalStateTransition"
+      },
+      {
+        "layer_id": "process_acknowledged_command",
+        "meaning": "Caller received Ok; distinct from crash between commit and return",
+        "api_may_claim_after": true,
+        "max_evidence_strength": "LogicalStateTransition",
+        "process_crash_recovery_requires": "2C evidence"
+      },
+      {
+        "layer_id": "filesystem_sync_boundary",
+        "meaning": "OS/fsync durability of database pages",
+        "api_may_claim_after": false,
+        "evidence_requires": "2D FilesystemDurability scenarios"
+      },
+      {
+        "layer_id": "hardware_stable_persistence",
+        "meaning": "Survives power loss",
+        "api_may_claim_after": false,
+        "evidence_requires": "2D HardwarePowerLoss scenarios"
+      }
+    ],
+    "authoritative_command_success_requires": [
+      "writer ownership valid",
+      "semantic preconditions satisfied",
+      "authoritative mutations applied in SQLite transaction",
+      "COMMIT success",
+      "post-commit authoritative read matches expected mutation (2B test)"
+    ],
+    "derived_export_outside_ack": true
+  },
+  "read_path": {
+    "normalized_state_assembly": "SELECT from canonical tables; assemble NormalizedSemanticState in memory",
+    "does_not_read": [
+      "session.export.json",
+      "derived_cache for canonical fields"
+    ],
+    "integrity_check_on_writable_open": "PRAGMA integrity_check before writer ownership acquisition",
+    "integrity_check_on_read_only_open": "PRAGMA integrity_check; fail closed if canonical tables unreadable"
+  },
+  "write_path": {
+    "requires": [
+      "WritableOpen lifecycle state",
+      "valid writer ownership lease",
+      "handle token and owner_epoch match writer_ownership row",
+      "semantic precondition validation against loaded canonical state"
+    ],
+    "sequence": [
+      "BEGIN",
+      "revalidate writer token and owner_epoch inside transaction immediately before mutation",
+      "validate semantic preconditions",
+      "mutate authoritative tables",
+      "renew writer lease columns in same transaction",
+      "COMMIT",
+      "post-commit authoritative read verify on same or new read connection",
+      "return Ok only after verify succeeds"
+    ],
+    "verify_fail_after_commit": {
+      "return_ok": false,
+      "error_code": "post-commit-verify-failed",
+      "authority_state": "mutation committed in SQLite; caller must not treat as successful ack",
+      "recovery_classification": "LastCommittedState",
+      "further_writes_blocked_until": "reopen and revalidate writable state",
+      "evidence_owner": "2C for crash between COMMIT and verify; 2B surfaces error only"
+    },
+    "epoch_mismatch_error_code": "writer-epoch-mismatch",
+    "failure_blocks_further_writes_until": "validated writable state restored or session closed"
+  },
+  "reopen_path": {
+    "steps": [
+      "open Connection",
+      "PRAGMA integrity_check",
+      "validate format_version for requested mode",
+      "classify canonical vs derived state",
+      "acquire or reject writer ownership",
+      "assemble canonical state from tables"
+    ],
+    "does_not_trust": [
+      "JSON export",
+      "orphaned WAL copy without SQLite recovery"
+    ]
+  },
+  "recovery_path": {
+    "authoritative_source": "SQLite engine recovery of session.db (+ WAL replay)",
+    "application_checks": [
+      "integrity_check",
+      "format_version",
+      "writer ownership stale detection",
+      "explicit recovery classification"
+    ],
+    "detail_reference": "recovery-protocol.json"
+  },
+  "recovery_classification_surface": {
+    "2b_scope": "Surface recovery outcomes via existing AdapterError.code and OptionalOperationOutcome; no adapter trait change in 2B",
+    "error_code_mapping": {
+      "unsupported-newer-format": "ManualReviewRequired lifecycle with writable blocked",
+      "canonical-corruption": "Unrecoverable or ReadOnlySalvage depending on salvage path",
+      "integrity-check-failed": "Unrecoverable",
+      "unsupported-older-format": "ManualReviewRequired",
+      "writer-already-open": "SafeAutomaticRecovery rejection path",
+      "post-commit-verify-failed": "LastCommittedState"
+    },
+    "scenario_runner_maps_codes_to": "RecoveryClassification in 2C evidence results"
+  },
+  "duplication_semantics": {
+    "operation_type": "sqlite_online_backup_snapshot_then_identity_transaction_then_validated_publish",
+    "operation_order": "backup_snapshot -> integrity_check -> identity_transaction -> independent_semantic_validation -> wal_finalize_and_close -> atomic_publish -> post_publish_verification",
+    "creates_new_session_identity": true,
+    "preserves_copied_canonical_history": true,
+    "source_mutation": "forbidden",
+    "independent_writer_ownership": true,
+    "detail_reference": "recovery-protocol.json#duplication_protocol"
+  },
+  "writer_ownership_semantics": {
+    "record_location": "writer_ownership table in session.db",
+    "owner_identity": "UUID token + monotonic owner_epoch",
+    "process_identity": "process_instance_id UUID generated once per adapter process instance; optional pid diagnostic only",
+    "acquisition": "transactional claim when token IS NULL or lease expired",
+    "renewal": "on each authoritative command and explicit heartbeat interval",
+    "normal_release": "transactional clear on clean close",
+    "stale_detection": "lease_expires_at_unix_ms elapsed using system UTC milliseconds at open/acquire; never PID absence alone",
+    "takeover_authority": "explicit stale_takeover after integrity_check",
+    "split_brain_prevention": "second writer fails while valid lease active; epoch bump on takeover",
+    "detail_reference": "recovery-protocol.json#writer_ownership_protocol"
+  },
+  "sqlite_engine_configuration": {
+    "crate": "rusqlite",
+    "crate_version": "0.32",
+    "features": [
+      "bundled",
+      "backup"
+    ],
+    "features_note": "2B must add rusqlite backup feature to Cargo.toml persistence-spike dependency",
+    "settings": [
+      {
+        "name": "journal_mode",
+        "value": "WAL",
+        "required": true,
+        "semantic_purpose": "Allow readers during writer; standard spike concurrency model",
+        "does_not_prove": [
+          "FilesystemDurability",
+          "HardwarePowerLoss",
+          "CrossPlatform"
+        ],
+        "cross_platform_note": "WAL supported on Windows and macOS; verify behavior in 2D"
+      },
+      {
+        "name": "synchronous",
+        "value": "FULL",
+        "required": true,
+        "semantic_purpose": "Engine sync setting; does not define API acknowledgement point",
+        "does_not_prove": [
+          "HardwarePowerLoss",
+          "automatic backup correctness"
+        ],
+        "cross_platform_note": "FULL semantics may differ slightly by platform filesystem; 2D records differences"
+      },
+      {
+        "name": "foreign_keys",
+        "value": "ON",
+        "required": true,
+        "semantic_purpose": "Enforce FK constraints when present; spike tables use payload_json without inter-table FK DDL",
+        "does_not_prove": [
+          "semantic oracle pass",
+          "broken-reference detection for all corruption classes"
+        ],
+        "cross_platform_note": "Must be enabled per connection"
+      },
+      {
+        "name": "busy_timeout",
+        "value_ms": 5000,
+        "required": true,
+        "semantic_purpose": "Bounded wait on SQLITE_BUSY during contention",
+        "does_not_prove": [
+          "single-writer correctness alone"
+        ],
+        "cross_platform_note": "Required on all platforms"
+      },
+      {
+        "name": "locking_strategy",
+        "value": "sqlite_db_file_lock_plus_writer_ownership_row",
+        "required": true,
+        "semantic_purpose": "Engine file lock composes with application writer lease",
+        "does_not_prove": [
+          "distributed or cross-host locking"
+        ],
+        "cross_platform_note": "Windows sharing flags may differ; 2D required"
+      },
+      {
+        "name": "checkpoint_policy",
+        "value": "passive_on_writable_close; optional TRUNCATE before backup when policy requires",
+        "required": false,
+        "semantic_purpose": "Control WAL size; support consistent backup snapshot",
+        "does_not_prove": [
+          "durability",
+          "duplication correctness without backup API"
+        ],
+        "cross_platform_note": "Checkpoint behavior is engine-managed"
+      },
+      {
+        "name": "connection_lifecycle",
+        "value": "one writer Connection held for writable handle lifetime",
+        "required": true,
+        "semantic_purpose": "Stable transaction boundary and backup source handle",
+        "does_not_prove": [
+          "ProcessCrashRecovery"
+        ],
+        "cross_platform_note": "2B implementation change from per-operation open"
+      },
+      {
+        "name": "transaction_mode",
+        "value": "DEFERRED explicit BEGIN/COMMIT per authoritative command",
+        "required": true,
+        "semantic_purpose": "Transaction groups authoritative mutation; API acknowledgement occurs only after post-commit verify",
+        "does_not_prove": [
+          "FilesystemDurability"
+        ],
+        "cross_platform_note": "Standard SQLite behavior"
+      }
+    ]
+  },
+  "unsupported_claims": [
+    {
+      "claim": "ProcessCrashRecovery",
+      "status": "unsupported_until_2c",
+      "reason": "Requires crash/reopen evidence scenarios"
+    },
+    {
+      "claim": "FilesystemDurability",
+      "status": "unsupported_until_2d",
+      "reason": "Requires explicit filesystem-level fault evidence"
+    },
+    {
+      "claim": "HardwarePowerLoss",
+      "status": "unsupported_until_2d",
+      "reason": "Not claimed by 2A or 2B; pragma alone insufficient"
+    },
+    {
+      "claim": "CrossPlatform",
+      "status": "unsupported_until_2d",
+      "reason": "macOS-only spike evidence insufficient per MD-015"
+    },
+    {
+      "claim": "performance_suitability",
+      "status": "unsupported",
+      "reason": "Comparative measurements not executed"
+    },
+    {
+      "claim": "mechanism_eligibility",
+      "status": "unsupported",
+      "reason": "mechanism_comparison_readiness remains not_ready"
+    },
+    {
+      "claim": "mechanism_superiority",
+      "status": "unsupported",
+      "reason": "No selection decision authorized"
+    },
+    {
+      "claim": "mechanism_selection",
+      "status": "unsupported",
+      "reason": "selection_status remains none"
+    }
+  ],
+  "implementation_invariants": [
+    {
+      "invariant_id": "SQL-AUTH-001",
+      "statement": "SQLite is the sole canonical authority.",
+      "2b_enforcement": "Remove canonical_state.state_json blob authority; all canonical reads from SQLite tables"
+    },
+    {
+      "invariant_id": "SQL-AUTH-002",
+      "statement": "No JSON-derived artifact can restore or override authority.",
+      "2b_enforcement": "Disable session.export.json in 2B; open path never reads external JSON"
+    },
+    {
+      "invariant_id": "SQL-ACK-001",
+      "statement": "Every acknowledged authoritative command corresponds to a committed SQLite transaction.",
+      "2b_enforcement": "Return Ok only after COMMIT and post-commit read verify succeed"
+    },
+    {
+      "invariant_id": "SQL-ACK-002",
+      "statement": "Transaction commit is not automatically classified as filesystem or hardware durability.",
+      "2b_enforcement": "Document ack cap at LogicalStateTransition in adapter errors/results"
+    },
+    {
+      "invariant_id": "SQL-DUP-001",
+      "statement": "Duplication uses a consistent SQLite snapshot protocol.",
+      "2b_enforcement": "Replace fs::copy with rusqlite backup::Backup API"
+    },
+    {
+      "invariant_id": "SQL-DUP-002",
+      "statement": "Source and destination identities are distinct and validated.",
+      "2b_enforcement": "Identity mutation in destination tx; reopen validation test"
+    },
+    {
+      "invariant_id": "SQL-WRITER-001",
+      "statement": "A crashed writer cannot permanently block future writers.",
+      "2b_enforcement": "Lease expiry and explicit stale_takeover path"
+    },
+    {
+      "invariant_id": "SQL-WRITER-002",
+      "statement": "Stale takeover cannot create two simultaneous authoritative writers.",
+      "2b_enforcement": "Epoch-guarded transactional ownership replace; second writer fails"
+    },
+    {
+      "invariant_id": "SQL-RECOVERY-001",
+      "statement": "Recovery outcomes are explicitly classified.",
+      "2b_enforcement": "Map open/recovery failures to AdapterError.code per recovery_classification_surface; scenario_runner maps to RecoveryClassification in 2C"
+    },
+    {
+      "invariant_id": "SQL-SCHEMA-001",
+      "statement": "Unknown future schema versions fail closed.",
+      "2b_enforcement": "Reject writable open when format_version > CURRENT_FORMAT_VERSION"
+    },
+    {
+      "invariant_id": "SQL-FAULT-001",
+      "statement": "Fault points identify whether authority changed before failure.",
+      "2b_enforcement": "Extend FaultPoint enum with before/after authority metadata"
+    },
+    {
+      "invariant_id": "SQL-EVIDENCE-001",
+      "statement": "Scenario evidence cannot exceed the physical operation and observation executed.",
+      "2b_enforcement": "2B tests do not impersonate 2C/2D claims"
+    }
+  ],
+  "alternatives_analysis": [
+    {
+      "alternative_id": "A",
+      "name": "SQLite sole authority; JSON derived or removed",
+      "decision": "accepted",
+      "authority_clarity": "high",
+      "transaction_semantics": "engine-managed COMMIT boundary",
+      "crash_recovery": "delegated to SQLite WAL + application ownership protocol",
+      "duplication": "Online Backup API",
+      "implementation_complexity": "moderate",
+      "evidence_testability": "high with 2B/2C/2D separation",
+      "cross_platform_behavior": "testable via rusqlite bundled",
+      "split_brain_risk": "low with single DB authority",
+      "md_014_md_015_fit": "full fit",
+      "material_distinctness_vs_append": "engine-managed relational/transactional authority"
+    },
+    {
+      "alternative_id": "B",
+      "name": "JSON sole authority; SQLite derived index",
+      "decision": "rejected",
+      "authority_clarity": "low",
+      "transaction_semantics": "application-managed file rewrite",
+      "crash_recovery": "ambiguous partial writes",
+      "duplication": "file copy hazards",
+      "implementation_complexity": "moderate",
+      "evidence_testability": "low",
+      "cross_platform_behavior": "fsync/rename variance",
+      "split_brain_risk": "high",
+      "md_014_md_015_fit": "violates canonical-not-from-cache",
+      "material_distinctness_vs_append": "collapses toward append/bundle model",
+      "rejection_rationale": "Violates MD-014 canonical state rules; duplicates append candidate without benefit"
+    },
+    {
+      "alternative_id": "C",
+      "name": "Hybrid dual-artifact authority",
+      "decision": "rejected",
+      "authority_clarity": "low",
+      "transaction_semantics": "two commit surfaces",
+      "crash_recovery": "ordering ambiguity",
+      "duplication": "two sources to synchronize",
+      "implementation_complexity": "high",
+      "evidence_testability": "low",
+      "cross_platform_behavior": "compound failure modes",
+      "split_brain_risk": "high",
+      "md_014_md_015_fit": "violates single authority and ack rules",
+      "material_distinctness_vs_append": "not distinct; adds hybrid hazard",
+      "rejection_rationale": "No unambiguous commit authority; no product need; current blob+rewrite path already shows recovery hazard"
+    }
+  ],
+  "material_distinctness": {
+    "current_state": "not_demonstrated",
+    "intended_after_2b": "demonstrable",
+    "sqlite_mechanism": "engine-managed relational/transactional canonical authority with WAL and Online Backup API",
+    "append_mechanism": "application-managed append/replay/checkpoint authority",
+    "distinctness_basis": "authority model and recovery semantics not file format alone",
+    "blocker_if_2b_fails": "If 2B retains monolithic JSON blob as effective authority without relational decomposition, record blocker for mechanism distinctness reassessment"
+  },
+  "readiness_and_selection": {
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "selection_status": "none",
+    "note": "2A design contract does not change readiness; evidence execution required in 2C/2D"
+  }
+}
