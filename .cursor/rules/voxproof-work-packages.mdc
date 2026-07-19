@@ -19,6 +19,14 @@ The product owner intervenes only for:
 - commit, push, merge, or release authorization unless already granted in a bounded work package
 - explicit exception handling
 
+Owner gates should be:
+
+- few
+- high-value
+- placed after major semantic risk formation
+
+For first-time high-risk mechanisms, a gate should normally occur after golden-path implementation and specialist review, before broad evidence execution or remote publication.
+
 ## Agent responsibility
 
 Within an **authorized** work package, agents may autonomously perform:
@@ -31,9 +39,99 @@ Stop at the declared **stop_gate**. Do not self-approve governance acceptance.
 
 Every substantial work package must identify:
 
-`work_package_id`, `objective`, `risk_tier`, `authorized_scope`, `forbidden_scope`, `authority_dependencies`, `allowed_actions`, `forbidden_actions`, `required_checks`, `escalation_conditions`, `stop_gate`, `model_budget_policy`
+`work_package_id`, `objective`, `risk_tier`, `file_scope`, `semantic_scope`, `claim_scope`, `risk_domain`, `authorized_scope`, `forbidden_scope`, `authority_dependencies`, `allowed_actions`, `forbidden_actions`, `required_checks`, `escalation_conditions`, `stop_gate`, `model_budget_policy`
 
 If any required field is missing, remain in `PROPOSED` and request owner authorization.
+
+## Cognitive scope
+
+Every substantial work package must declare cognitive scope explicitly through:
+
+`file_scope`, `semantic_scope`, `claim_scope`, `risk_domain`
+
+Bounded file scope does **not** imply bounded reasoning scope.
+
+A work package must be split when it combines multiple independent high-risk semantic questions that cannot be deeply audited together.
+
+## High-risk mechanism phase gates
+
+For the first implementation of persistence, concurrency, migration, security, recovery, cryptography, distributed coordination, or destructive cleanup mechanisms, require strategic phase gates:
+
+`DESIGN_GATE`, `GOLDEN_PATH_IMPLEMENTATION_GATE`, `FAILURE_MODEL_GATE`, `EVIDENCE_EXECUTION_GATE`, `SELECTION_GATE`
+
+Do not require every gate for trivial or mature changes.
+
+The first new mechanism implementation must not normally receive one-shot authorization from design through evidence publication.
+
+## Specialist reviewer declaration
+
+High-risk work packages must identify applicable reviewer roles:
+
+`governance_auditor`, `domain_code_reviewer`, `evidence_methodology_reviewer`, `security_reviewer`
+
+One reviewer role does not implicitly cover the others.
+
+Use:
+
+- `.cursor/agents/voxproof-governance-auditor.md` for governance audit
+- `.cursor/agents/voxproof-storage-systems-reviewer.md` for storage, persistence, transaction, and recovery code-depth review
+- `.cursor/agents/voxproof-evidence-methodology-reviewer.md` for scenario epistemic strength and evidence claim review
+
+## First-implementation code-depth review
+
+The first implementation of a new high-risk mechanism requires a fresh-context code-depth review.
+
+The review must trace:
+
+`claim` → `contract` → `implementation` → `physical operation` → `fault point` → `recovery path` → `scenario assertion` → `oracle/evidence result`
+
+A summary-only or evidence-packet-only review is insufficient.
+
+## Evidence claim contract
+
+Every evidence scenario must declare:
+
+`claim`, `pre_state`, `operation`, `fault_point`, `persisted_observation`, `reopen_or_recovery_step`, `expected_result`, `required_error_classification`, `forbidden_shortcuts`, `evidence_strength`
+
+The following shortcuts are **not** sufficient evidence on their own:
+
+- `compare(actual, actual)`
+- `compare(fixture, fixture)`
+- accepting any error instead of a required classification
+- returning before all writes while claiming recovery behavior
+- checking only an adapter-returned object without reopening persisted state
+- using a strong scenario name with weak assertions
+
+These patterns may exist in test scaffolding only when clearly classified as scaffold-level evidence.
+
+## Evidence-strength taxonomy
+
+Evidence must declare one or more demonstrated levels:
+
+`InterfaceBehavior`, `LogicalStateTransition`, `ProcessCrashRecovery`, `FilesystemDurability`, `HardwarePowerLoss`, `CrossPlatform`
+
+A lower evidence level must not support a higher-level claim without additional evidence.
+
+## Candidate-class conformance
+
+Each candidate mechanism must demonstrate its declared authoritative and recovery model, not only the shared adapter contract.
+
+Examples:
+
+- a transactional relational candidate must demonstrate real transactional authority, safe backup/duplication behavior, and relevant engine semantics
+- an append-oriented candidate must demonstrate authoritative replay, checkpoint/log consistency, and recovery ordering
+
+A different physical container around the same full-state snapshot does not automatically establish material mechanism distinctness.
+
+## Claim downgrade rule
+
+If a review discovers that evidence is weaker than its recorded claim:
+
+- preserve the original evidence
+- create an explicit correction or reclassification
+- downgrade eligibility or readiness conclusions
+- do not silently overwrite history
+- do not preserve the stronger claim merely by adding a limitation note
 
 ## Workflow states
 
@@ -107,7 +205,7 @@ Preferred routing:
 
 **Composer 2.5 Fast** — preflight, repository inspection, bounded implementation, tests, formatting, Git operations, remote verification, mechanical evidence collection
 
-**Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`)
+**Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`); specialist storage and evidence methodology review when declared by the work package
 
 **API-backed high-reasoning model** — agent self-escalation only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection
 
