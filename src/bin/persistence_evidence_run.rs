@@ -31,6 +31,7 @@ fn main() {
         })
         .unwrap_or_else(|| "unknown".to_string());
 
+    let host_platform = std::env::consts::OS;
     let fixture = EvidenceFixture::small();
     let mut embedded = EmbeddedRelationalAdapter::new(fresh_storage_root("embedded-run"));
     let mut append = AppendBundleAdapter::new(fresh_storage_root("append-run"));
@@ -57,7 +58,7 @@ fn main() {
             "repository_commit": repository_commit,
             "targets_path": "evidence/persistence/spike-v1/targets.json",
             "candidate_classes_path": "evidence/persistence/spike-v1/candidate-classes.json",
-            "platform": std::env::consts::OS,
+            "platform": host_platform,
             "harness_version": HARNESS_VERSION,
             "oracle_version": ORACLE_VERSION,
             "scenario_catalog_version": SCENARIO_CATALOG_VERSION,
@@ -71,18 +72,31 @@ fn main() {
         &output_root.join("candidate-b-results.json"),
         &append_result,
     );
-    let windows_status = if cfg!(windows) {
+    let windows_status = if host_platform == "windows" {
+        "executed_on_host"
+    } else {
+        "NotRun"
+    };
+    let macos_status = if host_platform == "macos" {
         "executed_on_host"
     } else {
         "NotRun"
     };
     write_json(
         &output_root.join("comparison.json"),
-        &comparison_summary(&embedded_result, &append_result, windows_status),
+        &comparison_summary(
+            &embedded_result,
+            &append_result,
+            host_platform,
+            macos_status,
+            windows_status,
+        ),
     );
     write_json(
         &output_root.join("limitations.json"),
         &serde_json::json!({
+            "host_platform": host_platform,
+            "macos_status": macos_status,
             "windows_status": windows_status,
             "cross_platform_claims": "Inconclusive",
             "comparative_measurements_status": "not_executed",
@@ -155,23 +169,27 @@ fn base_manifest(
 fn comparison_summary(
     embedded: &EvidenceRunResult,
     append: &EvidenceRunResult,
+    host_platform: &str,
+    macos_status: &str,
     windows_status: &str,
 ) -> serde_json::Value {
     serde_json::json!({
-        "embedded_relational": summary_row(embedded, "macos"),
-        "append_bundle": summary_row(append, "macos"),
-        "cross_platform_claims": "Inconclusive",
+        "host_platform": host_platform,
+        "embedded_relational": summary_row(embedded, host_platform),
+        "append_bundle": summary_row(append, host_platform),
+        "macos_status": macos_status,
         "windows_status": windows_status,
+        "cross_platform_claims": "Inconclusive",
         "selection_status": "none",
-        "eligibility_note": "macOS correctness eligibility only; EligibleForComparison is non-authoritative and does not select a mechanism"
+        "eligibility_note": "Host-platform correctness eligibility only; EligibleForComparison is non-authoritative and does not select a mechanism"
     })
 }
 
-fn summary_row(result: &EvidenceRunResult, platform_scope: &str) -> serde_json::Value {
+fn summary_row(result: &EvidenceRunResult, host_platform: &str) -> serde_json::Value {
     serde_json::json!({
         "candidate_id": result.manifest.candidate_id,
-        "platform_scope": platform_scope,
-        "macos_correctness_eligibility": format!("{:?}", result.eligibility),
+        "platform_scope": host_platform,
+        "host_correctness_eligibility": format!("{:?}", result.eligibility),
         "passed": result.summary.passed,
         "failed": result.summary.failed,
         "unsupported": result.summary.unsupported,
