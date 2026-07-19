@@ -174,6 +174,17 @@ pub enum PlatformEquivalenceResult {
     NotCompared,
 }
 
+pub fn filesystem_safe_path_segment(segment: &str) -> String {
+    segment
+        .chars()
+        .map(|character| match character {
+            ':' | '<' | '>' | '"' | '|' | '?' | '*' | '/' | '\\' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect()
+}
+
 pub fn normalize_platform_label(os: &str, env: &str) -> String {
     if env.contains("github") {
         format!("{os}-github-actions")

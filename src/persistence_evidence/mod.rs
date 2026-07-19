@@ -88,9 +88,9 @@ pub use durability::{
 };
 #[cfg(feature = "persistence-spike")]
 pub use platform::{
-    normalize_platform_label, DirectorySyncCapability, PlatformEquivalenceResult,
-    PlatformProfile, PlatformScenarioRow, SqlitePragmaSnapshot, V3_HARNESS_VERSION,
-    CROSS_PLATFORM_SCENARIO_IDS, PACKAGE_2C_EVIDENCE_RUN, PACKAGE_2C_HEAD,
+    filesystem_safe_path_segment, normalize_platform_label, DirectorySyncCapability,
+    PlatformEquivalenceResult, PlatformProfile, PlatformScenarioRow, SqlitePragmaSnapshot,
+    V3_HARNESS_VERSION, CROSS_PLATFORM_SCENARIO_IDS, PACKAGE_2C_EVIDENCE_RUN, PACKAGE_2C_HEAD,
 };
 #[cfg(feature = "persistence-spike")]
 pub use sqlite_scenario_runner::{

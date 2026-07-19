@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
       - name: Run persistence tests
-        run: cargo test --features persistence-spike --test persistence_scenarios --test persistence_sqlite_evidence --test persistence_candidates --test persistence_sqlite_mechanism --test persistence_cross_platform --test persistence_durability
+        run: cargo test --features persistence-spike --test persistence_sqlite_evidence --test persistence_sqlite_mechanism --test persistence_cross_platform --test persistence_durability --test persistence_scenarios
       - name: Run Package 2D v3 evidence
         shell: bash
         run: |

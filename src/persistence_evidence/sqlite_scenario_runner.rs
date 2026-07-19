@@ -31,7 +31,7 @@ use super::scenario_runner::{catalog_command_id, fresh_storage_root, isolated_fi
 
 pub const SQLITE_EVIDENCE_HARNESS_VERSION: &str = "sqlite-evidence-v1";
 
-pub use super::platform::CROSS_PLATFORM_SCENARIO_IDS;
+use super::platform::{filesystem_safe_path_segment, CROSS_PLATFORM_SCENARIO_IDS};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FaultExecutionRecord {
@@ -763,7 +763,10 @@ impl SqliteScenarioRunner {
                 format!("takeover failed: {}", takeover.stdout),
             );
         }
-        let locator = root.join(&session_id).to_string_lossy().to_string();
+        let locator = root
+            .join(filesystem_safe_path_segment(&session_id))
+            .to_string_lossy()
+            .to_string();
         match self.observe(
             &locator,
             "orphan-recovery",
@@ -1063,7 +1066,10 @@ impl SqliteScenarioRunner {
             );
 
             let session_id = fixture.normalized_state().session.session_id.clone();
-            let locator = sub_root.join(&session_id).to_string_lossy().to_string();
+            let locator = sub_root
+                .join(filesystem_safe_path_segment(&session_id))
+                .to_string_lossy()
+                .to_string();
             let mut expected = fixture.normalized_state();
             if !expect_unchanged {
                 let event = sample_append_event(&expected);

@@ -4,6 +4,7 @@ use std::io::{self, BufRead, Write};
 
 use vox_proof::persistence_evidence::candidates::fault::{FaultExecutionMode, FaultPoint};
 use vox_proof::persistence_evidence::candidates::semantic_ops::sample_append_event;
+use vox_proof::persistence_evidence::filesystem_safe_path_segment;
 use vox_proof::persistence_evidence::{
     AuthoritativeCommand, EmbeddedRelationalAdapter, PersistenceCandidateAdapter,
     SemanticOpenMode, SemanticPrecondition,
@@ -68,7 +69,7 @@ fn attempt_writer() -> Result<(), String> {
     let root = storage_root()?;
     let session_id = std::env::var("VOXPROOF_SESSION_ID")
         .map_err(|_| "VOXPROOF_SESSION_ID required".to_string())?;
-    let locator = root.join(&session_id);
+    let locator = root.join(filesystem_safe_path_segment(&session_id));
     let mut adapter = EmbeddedRelationalAdapter::new(root);
     let session = vox_proof::persistence_evidence::EvidenceSessionRef::new(
         session_id,

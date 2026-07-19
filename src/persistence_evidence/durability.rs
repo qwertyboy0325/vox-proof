@@ -14,6 +14,7 @@ use super::fixture::EvidenceFixture;
 use super::independent_oracle::IndependentSqliteOracle;
 use super::model::NormalizedSemanticState;
 use super::process_harness::{ProcessExitClassification, ProcessHarness};
+use super::platform::filesystem_safe_path_segment;
 use super::scenario_runner::{catalog_command_id, fresh_storage_root};
 use super::EmbeddedRelationalAdapter;
 
@@ -246,7 +247,10 @@ impl DurabilityTrialRunner {
         }
         let expect_unchanged = spec.fault_point == FaultPoint::BeforeSqliteCommit;
         let session_id = fixture.normalized_state().session.session_id.clone();
-        let locator = trial_root.join(&session_id).to_string_lossy().to_string();
+        let locator = trial_root
+            .join(filesystem_safe_path_segment(&session_id))
+            .to_string_lossy()
+            .to_string();
         let mut expected = fixture.normalized_state();
         if !expect_unchanged {
             let event = sample_append_event(&expected);
@@ -438,11 +442,18 @@ impl DurabilityTrialRunner {
             );
         }
         let dest_id = format!("dup-{trial_index}");
-        let dest_locator = trial_root.join(&dest_id).to_string_lossy().to_string();
+        let dest_locator = trial_root
+            .join(filesystem_safe_path_segment(&dest_id))
+            .to_string_lossy()
+            .to_string();
+        let mut expected_dest = fixture.normalized_state().clone();
+        expected_dest.session.session_id = dest_id.clone();
+        expected_dest.session.duplicated_from_session_id =
+            Some(fixture.normalized_state().session.session_id.clone());
         let oracle_passed = IndependentSqliteOracle::observe(
             &dest_locator,
             &trial_id,
-            Some(&fixture.normalized_state().normalize()),
+            Some(&expected_dest.normalize()),
             &[],
         )
         .ok()
