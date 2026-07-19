@@ -26,7 +26,8 @@
         "lineage_conflicts",
         "artifacts",
         "retention_references",
-        "writer_ownership"
+        "writer_ownership",
+        "applied_authoritative_commands"
       ],
       "version_authority": "session_meta.format_version"
     },
@@ -132,6 +133,7 @@
     "retention_references": "CREATE TABLE retention_references (reference_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL);",
     "derived_cache": "CREATE TABLE derived_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, schema_version INTEGER NOT NULL, content_hash TEXT NOT NULL);",
     "writer_ownership": "CREATE TABLE writer_ownership (id INTEGER PRIMARY KEY CHECK (id = 1), token TEXT, owner_epoch INTEGER NOT NULL DEFAULT 0, lease_duration_ms INTEGER NOT NULL DEFAULT 30000, lease_expires_at_unix_ms INTEGER NOT NULL DEFAULT 0, process_instance_id TEXT NOT NULL, holder_pid INTEGER);",
+    "applied_authoritative_commands": "CREATE TABLE applied_authoritative_commands (command_operation_id TEXT PRIMARY KEY, command_kind TEXT NOT NULL, outcome_status TEXT NOT NULL CHECK (outcome_status IN ('committed', 'acknowledged')), outcome_fingerprint TEXT NOT NULL, applied_at_unix_ms INTEGER NOT NULL);",
     "foreign_keys": [
       "SQLite PRAGMA foreign_keys=ON enabled per connection",
       "Spike schema uses payload_json columns without inter-table FK constraints",
@@ -183,10 +185,13 @@
     ],
     "authoritative_command_success_requires": [
       "writer ownership valid",
+      "caller-supplied command_operation_id present and unique per session attempt scope",
       "semantic preconditions satisfied",
       "authoritative mutations applied in SQLite transaction",
+      "applied_authoritative_commands row inserted with outcome_status committed in same transaction",
       "COMMIT success",
-      "post-commit authoritative read matches expected mutation (2B test)"
+      "post-commit authoritative read matches expected mutation (2B test)",
+      "applied_authoritative_commands row updated to outcome_status acknowledged before Ok"
     ],
     "derived_export_outside_ack": true
   },
@@ -207,22 +212,28 @@
       "semantic precondition validation against loaded canonical state"
     ],
     "sequence": [
+      "require command_operation_id from caller",
+      "if command_operation_id already acknowledged return Ok without mutation",
+      "if command_operation_id committed-only run reconciliation verify and acknowledge without mutation",
       "BEGIN",
       "revalidate writer token and owner_epoch inside transaction immediately before mutation",
       "validate semantic preconditions",
       "mutate authoritative tables",
+      "INSERT applied_authoritative_commands outcome_status=committed with outcome_fingerprint",
       "renew writer lease columns in same transaction",
       "COMMIT",
       "post-commit authoritative read verify on same or new read connection",
-      "return Ok only after verify succeeds"
+      "UPDATE applied_authoritative_commands outcome_status=acknowledged",
+      "return Ok only after verify and acknowledge succeed"
     ],
     "verify_fail_after_commit": {
       "return_ok": false,
       "error_code": "post-commit-verify-failed",
-      "authority_state": "mutation committed in SQLite; caller must not treat as successful ack",
-      "recovery_classification": "LastCommittedState",
-      "further_writes_blocked_until": "reopen and revalidate writable state",
-      "evidence_owner": "2C for crash between COMMIT and verify; 2B surfaces error only"
+      "authority_state": "mutation committed; applied_authoritative_commands row remains outcome_status=committed",
+      "retry_reconciliation": "retry with same command_operation_id and matching command_kind/outcome_fingerprint performs verify-only path; on success update to acknowledged and return Ok without re-mutation",
+      "recovery_classification": "LastCommittedState on first verify failure; SafeAutomaticRecovery after successful retry reconciliation on same handle or after reopen",
+      "further_writes_blocked_until": "none when same writable handle retries; reopen required only if handle invalidated",
+      "evidence_owner": "2C for crash between COMMIT and verify; 2B implements reconciliation API"
     },
     "epoch_mismatch_error_code": "writer-epoch-mismatch",
     "failure_blocks_further_writes_until": "validated writable state restored or session closed"
@@ -251,6 +262,31 @@
     ],
     "detail_reference": "recovery-protocol.json"
   },
+  "format_version_validation": {
+    "writable_open_requires": "format_version == CURRENT_FORMAT_VERSION",
+    "newer_than_current": "unsupported-newer-format; writable blocked",
+    "older_than_current": "unsupported-older-format; writable blocked; migrations_in_2b_scope false",
+    "read_only_open": "may proceed for supported versions per separate salvage claims only"
+  },
+  "command_attempt_identity_protocol": {
+    "command_operation_id": "caller-supplied stable UUID per authoritative command attempt",
+    "outcome_fingerprint": "deterministic hash of canonical mutation outcome for idempotent replay detection",
+    "applied_record_table": "applied_authoritative_commands",
+    "outcome_status_values": [
+      "committed",
+      "acknowledged"
+    ],
+    "first_attempt_sequence": "insert committed in authoritative transaction; after verify update to acknowledged",
+    "retry_with_same_id_acknowledged": "return Ok immediately without mutation when command_kind and outcome_fingerprint match retry request",
+    "retry_with_same_id_committed_only": "verify command_kind and outcome_fingerprint match stored row; verify-only reconciliation then acknowledge and return Ok",
+    "retry_with_same_id_mismatch": "return command-operation-id-mismatch when command_kind or outcome_fingerprint differs from stored applied record",
+    "retry_with_different_id_same_mutation": "rejected by semantic preconditions or stale checks",
+    "crash_after_commit_before_ack": "record remains committed; retry reconciles via verify-only path",
+    "prohibited": [
+      "implicit double-apply without command_operation_id",
+      "caller guessing success without reconciliation lookup"
+    ]
+  },
   "recovery_classification_surface": {
     "2b_scope": "Surface recovery outcomes via existing AdapterError.code and OptionalOperationOutcome; no adapter trait change in 2B",
     "error_code_mapping": {
@@ -259,7 +295,8 @@
       "integrity-check-failed": "Unrecoverable",
       "unsupported-older-format": "ManualReviewRequired",
       "writer-already-open": "SafeAutomaticRecovery rejection path",
-      "post-commit-verify-failed": "LastCommittedState"
+      "post-commit-verify-failed": "LastCommittedState until retry reconciles",
+      "command-operation-id-mismatch": "ManualReviewRequired"
     },
     "scenario_runner_maps_codes_to": "RecoveryClassification in 2C evidence results"
   },
@@ -471,7 +508,12 @@
     {
       "invariant_id": "SQL-SCHEMA-001",
       "statement": "Unknown future schema versions fail closed.",
-      "2b_enforcement": "Reject writable open when format_version > CURRENT_FORMAT_VERSION"
+      "2b_enforcement": "Reject writable open when format_version != CURRENT_FORMAT_VERSION"
+    },
+    {
+      "invariant_id": "SQL-ACK-003",
+      "statement": "Every authoritative command attempt has a stable command_operation_id with committed/acknowledged applied record enabling safe retry reconciliation.",
+      "2b_enforcement": "applied_authoritative_commands table; retry verify-only path for committed-only records"
     },
     {
       "invariant_id": "SQL-FAULT-001",

@@ -70,14 +70,19 @@
       "trigger": "open(Writable)",
       "preconditions": [
         "session.db exists",
-        "format_version <= CURRENT_FORMAT_VERSION",
+        "format_version == CURRENT_FORMAT_VERSION",
         "integrity_check ok"
       ],
-      "physical_operation": "open Connection; integrity_check; WriterOwnershipPending acquisition; hold writer connection",
+      "version_routing_before_ownership": {
+        "format_version > CURRENT_FORMAT_VERSION": "reject writable with unsupported-newer-format",
+        "format_version < CURRENT_FORMAT_VERSION": "reject writable with unsupported-older-format",
+        "format_version == CURRENT_FORMAT_VERSION": "proceed to writer ownership acquisition"
+      },
+      "physical_operation": "open Connection; integrity_check; validate format_version exact match; WriterOwnershipPending acquisition; hold writer connection",
       "authority_affected": "writer_ownership row claimed",
       "durability_assumption": "ownership row committed in SQLite",
       "success_result": "Writable handle with active lease",
-      "failure_result": "writer-already-open; unsupported-newer-format; integrity failure",
+      "failure_result": "writer-already-open; unsupported-newer-format; unsupported-older-format; integrity failure",
       "persisted_observation": "writer_ownership token and lease persisted",
       "recovery_requirement": "stale takeover if lease expired",
       "allowed_evidence_claim": [
@@ -96,7 +101,7 @@
         "valid writer ownership",
         "semantic preconditions satisfied"
       ],
-      "physical_operation": "BEGIN; revalidate token and epoch inside tx; mutate authoritative tables; renew lease in same tx; COMMIT; post-commit verify; return Ok",
+      "physical_operation": "BEGIN; revalidate token and epoch inside tx; check command_operation_id dedup; mutate authoritative tables; insert applied_authoritative_commands committed; renew lease; COMMIT; verify; update applied_authoritative_commands acknowledged; return Ok",
       "authority_affected": "canonical tables updated atomically",
       "durability_assumption": "LogicalStateTransition only after post-commit verify and Ok return",
       "success_result": "Ok only after COMMIT and post-commit verify succeed",
@@ -304,6 +309,7 @@
       "self-oracle on adapter-returned state without reopen"
     ]
   },
+  "command_attempt_identity_protocol_reference": "authority-contract.json#command_attempt_identity_protocol",
   "schema_migration_boundary": {
     "schema_version_authority": "session_meta.format_version",
     "current_spike_version": 1,
@@ -313,7 +319,7 @@
     "read_only_unsupported_versions": "permitted only with explicit safe interpretation path; not in 2B scope",
     "backup_before_destructive_migration": "duplication_protocol",
     "migrations_in_2b_scope": false,
-    "2b_behavior": "fail closed on format_version < CURRENT with unsupported-older-format; no silent migration"
+    "2b_behavior": "fail closed on format_version != CURRENT with unsupported-newer-format or unsupported-older-format; no silent migration"
   },
   "recovery_matrix": [
     {
@@ -366,10 +372,12 @@
       "authoritative_source": "SQLite committed mutation",
       "engine_behavior": "committed state reopen-observable at LogicalStateTransition; not FilesystemDurability",
       "application_checks": [
-        "reopen oracle shows mutation",
-        "caller must not double-apply"
+        "lookup command_operation_id in applied_authoritative_commands",
+        "if outcome_status committed run verify-only reconciliation and acknowledge",
+        "reopen oracle shows mutation"
       ],
       "result_classification": "SafeAutomaticRecovery",
+      "retry_reconciliation": "same command_operation_id verify-only path returns Ok without re-mutation",
       "writable_open_allowed": true,
       "read_only_salvage_allowed": true,
       "operator_intervention_required": false,
@@ -525,14 +533,16 @@
       "authoritative_source": "SQLite committed mutation",
       "engine_behavior": "committed state present",
       "application_checks": [
-        "return post-commit-verify-failed",
-        "block further writes until reopen"
+        "applied_authoritative_commands row remains outcome_status committed",
+        "return post-commit-verify-failed with command_operation_id",
+        "retry with same command_operation_id runs verify-only reconciliation"
       ],
       "result_classification": "LastCommittedState",
-      "writable_open_allowed": false,
+      "retry_reconciliation": "verify-only then acknowledge; SafeAutomaticRecovery on successful retry",
+      "writable_open_allowed": true,
       "read_only_salvage_allowed": true,
-      "operator_intervention_required": true,
-      "evidence_scenario_required": "2B error surfacing only; 2C crash between COMMIT and verify"
+      "operator_intervention_required": false,
+      "evidence_scenario_required": "2B BT-002a retry reconciliation; 2C crash between COMMIT and verify"
     },
     {
       "condition_id": "R-DUP-PUBLISH-BEFORE-RETURN",

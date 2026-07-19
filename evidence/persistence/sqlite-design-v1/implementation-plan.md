@@ -46,13 +46,35 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 2. Writer connection lifecycle (SQL-ACK-001)
+### 2. Command attempt identity and reconciliation (SQL-ACK-003)
+
+**Invariants:** SQL-ACK-001, SQL-ACK-003
+
+**Files:** `embedded_relational.rs`, `src/persistence_evidence/adapter.rs` (add command_operation_id to AuthoritativeCommand)
+
+**Dependencies:** task 1
+
+**Work:**
+- Add `applied_authoritative_commands` table
+- Require caller `command_operation_id` on every authoritative command
+- Insert `outcome_status=committed` in same transaction as mutation
+- After verify, update to `acknowledged` before Ok
+- Retry with same id: acknowledged → Ok no-op when command_kind/fingerprint match; committed-only → verify fingerprint/kind then reconcile
+- Mismatch on reused command_operation_id with different command_kind or fingerprint → command-operation-id-mismatch
+
+**Acceptance test:** crash-simulated committed-only record retried with same id returns Ok without double mutation
+
+**Forbidden shortcuts:** "caller must not double-apply" without reconciliation lookup
+
+---
+
+### 3. Writer connection lifecycle (SQL-ACK-001)
 
 **Invariants:** SQL-ACK-001
 
 **Files:** `embedded_relational.rs`
 
-**Dependencies:** task 1
+**Dependencies:** tasks 1, 2
 
 **Work:**
 - Hold one `Connection` per writable handle for handle lifetime
@@ -65,13 +87,13 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 3. Writer ownership with lease and takeover (SQL-WRITER-001, SQL-WRITER-002)
+### 4. Writer ownership with lease and takeover (SQL-WRITER-001, SQL-WRITER-002)
 
 **Invariants:** SQL-WRITER-001, SQL-WRITER-002
 
 **Files:** `embedded_relational.rs`
 
-**Dependencies:** task 2
+**Dependencies:** task 3
 
 **Work:**
 - Replace `writer_lock` with `writer_ownership` table per recovery-protocol.json
@@ -84,33 +106,33 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 4. Open and recovery classification (SQL-RECOVERY-001, SQL-SCHEMA-001)
+### 5. Open and recovery classification (SQL-RECOVERY-001, SQL-SCHEMA-001)
 
 **Invariants:** SQL-RECOVERY-001, SQL-SCHEMA-001
 
 **Files:** `embedded_relational.rs`
 
-**Dependencies:** tasks 1, 3
+**Dependencies:** tasks 1, 4
 
 **Work:**
 - PRAGMA integrity_check on every open
 - Return explicit recovery outcomes via AdapterError.code mapping per authority-contract recovery_classification_surface
-- Retain unsupported-newer-format writable rejection
-- Fail closed on older format without migration
+- Reject writable open when format_version != CURRENT_FORMAT_VERSION (exact match only)
+- Reject older and newer versions before writer ownership acquisition; assert writer_ownership unchanged on rejection
 
-**Acceptance test:** unknown newer format writable rejected with exact code; integrity failure blocks writable open
+**Acceptance test:** unknown newer and unsupported older format both reject writable open with exact codes; writer_ownership row unchanged after rejection; integrity failure blocks writable open
 
 **Forbidden shortcuts:** open writable without integrity_check; silent migration
 
 ---
 
-### 5. WAL-safe duplication (SQL-DUP-001, SQL-DUP-002)
+### 6. WAL-safe duplication (SQL-DUP-001, SQL-DUP-002)
 
 **Invariants:** SQL-DUP-001, SQL-DUP-002
 
 **Files:** `embedded_relational.rs`
 
-**Dependencies:** tasks 2, 3
+**Dependencies:** tasks 3, 4
 
 **Work:**
 - Replace `fs::copy` with `rusqlite::backup::Backup`
@@ -119,11 +141,11 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 **Acceptance test:** duplicate while source writable handle open; destination distinct session_id; semantic oracle on staged temp db before publish; source reopen oracle unchanged. **Mechanism tests are non-catalog and do not credit readiness; catalog semantic-duplication evidence remains 2C.**
 
-**Forbidden shortcuts:** fs::copy(session.db); publish before integrity_check; publish before independent semantic validation; WAL finalize/close; self-oracle without reopen; treat BT-005/006 as catalog evidence
+**Forbidden shortcuts:** fs::copy(session.db); publish before integrity_check; publish before independent semantic validation; omit WAL finalization or destination connection close before publication; self-oracle without reopen; treat BT-005/006 as catalog evidence
 
 ---
 
-### 6. Derived cache detect and rebuild
+### 7. Derived cache detect and rebuild
 
 **Invariants:** SQL-AUTH-001 (derived non-authoritative)
 
@@ -142,7 +164,7 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 7. Canonical corruption error classification
+### 8. Canonical corruption error classification
 
 **Invariants:** SQL-RECOVERY-001
 
@@ -160,13 +182,13 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 8. Fault hook extension for 2C (SQL-FAULT-001)
+### 9. Fault hook extension for 2C (SQL-FAULT-001)
 
 **Invariants:** SQL-FAULT-001
 
 **Files:** `src/persistence_evidence/candidates/fault.rs`, `embedded_relational.rs`
 
-**Dependencies:** tasks 2, 5
+**Dependencies:** tasks 2, 6
 
 **Work:**
 - Extend `FaultPoint` enum with design fault_ids and before/after authority metadata
@@ -179,13 +201,13 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 ---
 
-### 9. Mechanism-specific tests (2B only)
+### 10. Mechanism-specific tests (2B only)
 
 **Invariants:** SQL-EVIDENCE-001
 
 **Files:** `tests/persistence_candidates.rs` or new `tests/persistence_sqlite_mechanism.rs`
 
-**Dependencies:** tasks 1–8
+**Dependencies:** tasks 1–9
 
 **Work:**
 - backup round-trip with source handle open
@@ -205,12 +227,13 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 | Test ID | Validates | Evidence strength cap |
 |---|---|---|
 | BT-001 | Relational reload after reopen | InterfaceBehavior |
-| BT-002 | Command ack after COMMIT + verify | LogicalStateTransition |
+| BT-002a | Committed-only retry reconciliation without double mutation | InterfaceBehavior |
+| BT-002 | Command ack after COMMIT + verify + acknowledge | LogicalStateTransition |
 | BT-003 | Second writer rejected | InterfaceBehavior |
 | BT-004 | Stale takeover after lease expiry (lease-API unit test only) | InterfaceBehavior |
 | BT-005 | Backup duplication with distinct identity (non-catalog mechanism test) | InterfaceBehavior |
 | BT-006 | Source unchanged after duplication reopen (non-catalog mechanism test) | InterfaceBehavior |
-| BT-007 | Unknown newer writable reject | InterfaceBehavior |
+| BT-007 | Unknown newer and unsupported older writable reject; ownership unchanged | InterfaceBehavior |
 | BT-008 | Derived rebuild after corruption | InterfaceBehavior / LogicalStateTransition subclaims |
 | BT-009 | Pre-commit fault leaves state unchanged | InterfaceBehavior |
 
@@ -239,6 +262,7 @@ Readiness: `mechanism_comparison_readiness = not_ready`, `selection_status = non
 
 **In scope:**
 - `Cargo.toml` (enable `rusqlite` `backup` feature for persistence-spike)
+- `src/persistence_evidence/adapter.rs` (command_operation_id on AuthoritativeCommand only)
 - `src/persistence_evidence/candidates/embedded_relational.rs`
 - `src/persistence_evidence/candidates/fault.rs` (hook enum extension only)
 - `tests/persistence_candidates.rs` or `tests/persistence_sqlite_mechanism.rs`
