@@ -1,6 +1,7 @@
 {
-  "reclassification_version": "1",
-  "work_package_id": "reclassify-existing-persistence-evidence",
+  "reclassification_version": "2",
+  "work_package_id": "correct-persistence-reclassification-record-precision",
+  "prior_reclassification_version": "1",
   "does_not_delete_or_overwrite_original_evidence": true,
   "original_run_id": "spike-v1-macos-6460148",
   "original_harness_commit": "646014865d6da0407208b3cd599936e89877d904",
@@ -11,12 +12,27 @@
     "evidence/persistence/spike-v1-macos-6460148/comparison.json",
     "evidence/persistence/spike-v1-macos-6460148/limitations.json"
   ],
-  "review_commit_or_baseline": "c4887e32867e0c6d610ba128ef60d2fdd527084d",
+  "review_commit_or_baseline": "288529d149b8a89a9f520419d88804cc57dc1ff3",
   "reviewed_at": "2026-07-19",
   "reviewer_verdicts": {
-    "storage_systems": "STORAGE REVIEW: CLAIM DOWNGRADE REQUIRED",
-    "evidence_methodology": "EVIDENCE REVIEW: CLAIM DOWNGRADE REQUIRED",
+    "storage_systems": "STORAGE REVIEW: PASS",
+    "evidence_methodology": "EVIDENCE REVIEW: PASS",
     "governance_auditor": "AUDIT: PASS"
+  },
+  "fail_closed_readiness_invariant": {
+    "statement": "Until all blocking mechanism and scenario corrections have passed the declared specialist reviews and corrected evidence has been re-executed, aggregation must remain fail-closed: mechanism_comparison_readiness = not_ready, mechanism_selection_readiness = not_ready, selection_status = none",
+    "applies_to": [
+      "metadata cleanup",
+      "schema changes",
+      "corrected scenario names",
+      "existing 13/13 catalog Passed results",
+      "Package 1 metadata-only corrections"
+    ],
+    "does_not_restore": [
+      "EligibleForComparison",
+      "Eligible* aggregation states",
+      "mechanism selection readiness"
+    ]
   },
   "original_recorded_eligibility": {
     "embedded_relational": {
@@ -50,34 +66,42 @@
     "selection_status": "none",
     "host_catalog_pass_interpretation": "Thirteen scenarios recorded Passed on macOS at commit 6460148; several passes are tautological or logical-only and do not support comparison or selection claims"
   },
+  "material_distinctness": {
+    "declared_authority_model_distinctness": "not_demonstrated",
+    "all_mechanism_level_distinctness": "not_assessed_or_not_disproven",
+    "precise_conclusion": "The originally declared authority-model distinction — relational canonical entity authority versus append-authoritative replay — is not demonstrated by the current implementations. Both implementations currently persist full normalized-state JSON snapshots as their effective canonical representation. They still differ in physical container, transaction engine, journaling, and file-operation behavior; this review does not conclude that they are identical in every mechanism-level property.",
+    "does_not_restore_comparison_readiness": true
+  },
   "candidate_specific": {
     "embedded-relational-sqlite-spike": {
       "transaction_behavior": {
-        "original_claim": "SQLite BEGIN/COMMIT transactional authority with synchronous=FULL",
+        "declared_original_claim": "Authoritative command returns Ok only after SQLite transaction COMMIT succeeds (candidate-classes.json durable_acknowledgement_boundary)",
         "revised_classification": "partially_demonstrated",
         "demonstrated_strength": ["LogicalStateTransition"],
         "note": "COMMIT boundary exists; proves in-process transaction completion not filesystem durability"
       },
-      "wal_safe_duplication": {
-        "original_claim": "Filesystem copy of session.db as duplication",
+      "duplication": {
+        "declared_original_claim": "New session directory and database copied under new session identity with duplicated_from lineage metadata (candidate-classes.json duplication_behavior)",
+        "declared_assumption_or_dependency": "Filesystem copy of session.db tested only as spike control; not a product backup feature (backup_boundary)",
+        "reviewer_finding": "The implemented session.db-only copy is not WAL-safe under enabled journal_mode=WAL",
         "revised_classification": "not_demonstrated_unsafe_under_wal",
-        "demonstrated_strength": [],
+        "demonstrated_strength": ["LogicalStateTransition"],
         "note": "WAL enabled; copy omits -wal/-shm; duplicate content salvaged via in-memory rewrite"
       },
       "writer_crash_recovery": {
-        "original_claim": "Single writer via writer_lock table",
+        "declared_original_claim": "Dedicated writer_lock table row plus open writable handle enforcement (candidate-classes.json single_writer_strategy)",
         "revised_classification": "insufficiently_demonstrated",
         "demonstrated_strength": ["InterfaceBehavior"],
         "note": "Token survives crash indefinitely; no takeover path"
       },
       "relational_model_conformance": {
-        "original_claim": "Canonical entities stored relationally",
+        "declared_original_claim": "Canonical entities stored relationally (candidate-classes.json authoritative_state_model)",
         "revised_classification": "not_demonstrated",
         "demonstrated_strength": ["InterfaceBehavior"],
         "note": "Authority is single state_json blob; reclassify as SQLite-hosted JSON snapshot"
       },
       "durability_claim_strength": {
-        "original_claim": "Durable acknowledgement after COMMIT",
+        "declared_original_claim": "Authoritative command returns Ok only after SQLite transaction COMMIT succeeds",
         "revised_classification": "logical_transition_only",
         "demonstrated_strength": ["LogicalStateTransition"],
         "note": "No ProcessCrashRecovery or FilesystemDurability evidence"
@@ -85,40 +109,42 @@
     },
     "append-bundle-log-spike": {
       "append_authority": {
-        "original_claim": "Append-only JSONL canonical log as authority",
+        "declared_original_claim": "Append-only JSONL canonical log plus generation manifest and optional checkpoint snapshots (candidate-classes.json authoritative_state_model)",
         "revised_classification": "not_demonstrated",
         "demonstrated_strength": [],
         "note": "Checkpoint is authority; log records lack command payload"
       },
       "replay_behavior": {
-        "original_claim": "Log replay validates record chain and reconstructs state",
+        "declared_original_claim": "Log replay validates record chain; truncated or invalid canonical records fail closed (candidate-classes.json corruption_behavior)",
         "revised_classification": "not_demonstrated",
         "demonstrated_strength": [],
         "note": "replay_log validates seq only; returns checkpoint unchanged"
       },
-      "checkpoint_manifest_ordering": {
-        "original_claim": "Atomic rename with directory fsync",
+      "durable_acknowledgement": {
+        "declared_ack_boundary": "Authoritative command returns Ok only after append record fsync and manifest generation bump via atomic rename (candidate-classes.json durable_acknowledgement_boundary)",
+        "declared_platform_dependency": "Directory fsync where available (candidate-classes.json platform_dependencies)",
+        "observed_implementation": "Append log path calls sync_all; checkpoint and manifest use temp write + rename without file or directory fsync",
         "revised_classification": "insufficiently_demonstrated",
         "demonstrated_strength": ["LogicalStateTransition"],
-        "note": "Log fsynced; checkpoint/manifest rename without durable sync"
+        "note": "Directory fsync is a declared dependency, not demonstrated implementation"
       },
       "writer_crash_recovery": {
-        "original_claim": "writer.lock token with explicit takeover",
+        "declared_original_claim": "writer.lock token file with epoch counter; stale ownership requires explicit takeover with integrity reload (candidate-classes.json single_writer_strategy)",
         "revised_classification": "not_demonstrated",
         "demonstrated_strength": ["InterfaceBehavior"],
-        "note": "Token in manifest.json; no takeover implementation"
+        "note": "Token in manifest.json; takeover declared but not implemented"
       },
       "compaction_recovery": {
-        "original_claim": "Generation rewrite with atomic directory swap",
+        "declared_original_claim": "Optional generation rewrite compacts log into new checkpoint generation with atomic directory swap (candidate-classes.json compaction_gc_behavior)",
         "revised_classification": "blocking_defect",
         "demonstrated_strength": [],
-        "note": "Post-compaction seq/log inconsistency can break recovery"
+        "note": "Post-compaction seq/log inconsistency can break recovery; interrupted-compaction fault is pre-mutation only"
       },
       "mechanism_class_conformance": {
-        "original_claim": "Append-oriented event/log storage materially distinct from relational candidate",
-        "revised_classification": "not_demonstrated",
+        "declared_original_claim": "Append-oriented event/log storage with versioned bundle directory (candidate-classes.json mechanism_class)",
+        "revised_classification": "authority_model_not_demonstrated",
         "demonstrated_strength": ["InterfaceBehavior"],
-        "note": "Both candidates are full-state JSON snapshot persistence with different containers"
+        "note": "Effective canonical representation is checkpoint JSON snapshot; append log is metadata stub"
       }
     }
   },
@@ -135,27 +161,29 @@
       "concurrent-writer-attempt",
       "unknown-newer-format",
       "canonical-reference-corruption",
-      "interrupted-authoritative-transition"
+      "interrupted-authoritative-transition",
+      "interrupted-compaction"
     ],
     "invalid_or_unsupported_as_recorded": [
       "derived-state-corruption",
-      "semantic-duplication",
-      "interrupted-compaction"
+      "semantic-duplication"
     ],
-    "not_run": [
+    "deferred_not_actionable": [
       "interrupted-cleanup"
     ]
   },
   "supersedes_claims": [
     "EligibleForComparison as mechanism comparison readiness",
-    "Material distinctness between embedded-relational and append-bundle as declared in candidate-classes.json",
+    "Declared authority-model distinctness as demonstrated merely because two candidates exist",
     "Append-oriented authoritative log recovery for append-bundle candidate",
     "Relational entity authority for embedded-relational candidate",
-    "ProcessInterruption and ProcessCrashRecovery classification for interrupted-* scenarios",
-    "Derived corruption rebuild claim for derived-state-corruption scenario",
-    "Duplication independence claim for semantic-duplication scenario",
+    "ProcessInterruption and ProcessCrashRecovery classification for current interrupted-* handlers",
+    "Derived corruption rebuild claim for derived-state-corruption scenario as recorded",
+    "Duplication independence claim for semantic-duplication scenario as recorded",
+    "Interrupted-compaction recovery claim for current pre-mutation fault handler",
     "FilesystemDurability and HardwarePowerLoss for spike-v1 macOS run",
-    "Cross-platform eligibility beyond macOS host execution"
+    "Cross-platform eligibility beyond macOS host execution",
+    "Directory fsync as implemented append-bundle behavior"
   ],
   "preserved_original_evidence": {
     "policy": "Original spike-v1-macos-6460148 artifacts retained unchanged; this reclassification adds explicit downgrade without deletion",

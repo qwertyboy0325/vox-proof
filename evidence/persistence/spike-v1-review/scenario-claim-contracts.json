@@ -1,7 +1,8 @@
 {
-  "contract_version": "1",
-  "work_package_id": "reclassify-existing-persistence-evidence",
-  "review_commit_or_baseline": "c4887e32867e0c6d610ba128ef60d2fdd527084d",
+  "contract_version": "2",
+  "work_package_id": "correct-persistence-reclassification-record-precision",
+  "prior_contract_version": "1",
+  "review_commit_or_baseline": "288529d149b8a89a9f520419d88804cc57dc1ff3",
   "scenario_catalog_version": "1",
   "contracts": [
     {
@@ -16,10 +17,15 @@
       "reopen_or_recovery_step": "Not performed in current handler",
       "expected_result": "Read state matches fixture normalized oracle",
       "required_error_classification": "none",
-      "forbidden_shortcuts": ["compare(actual, actual)", "skip persisted reopen for durability claims"],
+      "forbidden_shortcuts": ["compare(actual, actual)", "classify close/reopen as authoritative logical state transition"],
       "current_assertion_summary": "passed_oracle(fixture.normalized_state(), actual) after create/open/read/close in same process",
+      "demonstrated_observation_kind": "create_open_read_close_api_flow",
       "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "LogicalStateTransition via close-reopen persisted initialization observation (separate scenario extension)",
+        "ProcessCrashRecovery via explicit crash/interruption scenario"
+      ],
       "current_gap": "No close-to-reopen cycle; proves API flow not persisted reload",
       "correction_required": true
     },
@@ -37,8 +43,13 @@
       "required_error_classification": "none",
       "forbidden_shortcuts": ["adapter-return-only without reopen", "expected built with same apply path as adapter"],
       "current_assertion_summary": "passed_oracle(expected.normalize(), actual) after apply and same-handle read",
+      "demonstrated_observation_kind": "same_handle_post_command_read",
       "current_evidence_strength": ["LogicalStateTransition"],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ProcessCrashRecovery via explicit crash/interruption during or after commit",
+        "FilesystemDurability via physical/filesystem fault scenario"
+      ],
       "current_gap": "No close-to-reopen; expected/actual share semantic_ops blind spot",
       "correction_required": true
     },
@@ -56,8 +67,13 @@
       "required_error_classification": "none",
       "forbidden_shortcuts": ["adapter-return-only without reopen"],
       "current_assertion_summary": "passed_oracle(expected_state, actual) after apply; sorted analysis_results",
+      "demonstrated_observation_kind": "same_handle_post_command_read",
       "current_evidence_strength": ["LogicalStateTransition"],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ProcessCrashRecovery via explicit crash/interruption during or after commit",
+        "FilesystemDurability via physical/filesystem fault scenario"
+      ],
       "current_gap": "No close-to-reopen; shared apply_command for expected",
       "correction_required": true
     },
@@ -75,8 +91,12 @@
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
+      "demonstrated_observation_kind": "scoped_precondition_rejection",
       "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ConcurrentAccess multi-actor workload scenario"
+      ],
       "current_gap": "FailureModel::ConcurrentAccess overstates single-handle scoped precondition test",
       "correction_required": true
     },
@@ -94,8 +114,12 @@
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
+      "demonstrated_observation_kind": "scoped_precondition_rejection",
       "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ConcurrentAccess multi-actor workload scenario"
+      ],
       "current_gap": "FailureModel::ConcurrentAccess overstates scope",
       "correction_required": true
     },
@@ -113,8 +137,12 @@
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
+      "demonstrated_observation_kind": "scoped_precondition_rejection",
       "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ConcurrentAccess multi-actor workload scenario"
+      ],
       "current_gap": "FailureModel::ConcurrentAccess overstates scope",
       "correction_required": true
     },
@@ -132,8 +160,13 @@
       "required_error_classification": "writer-already-open",
       "forbidden_shortcuts": ["compare(before, before)", "omit orphan-lock recovery"],
       "current_assertion_summary": "Err(writer-already-open) then passed_oracle(before, before) self-compare",
+      "demonstrated_observation_kind": "in_process_second_open_rejection",
       "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "LogicalStateTransition with independent before/after observation",
+        "ProcessCrashRecovery for abandoned writer and orphan-lock recovery"
+      ],
       "current_gap": "Self-oracle; no abandoned writer or crash-held lock recovery",
       "correction_required": true
     },
@@ -151,8 +184,13 @@
       "required_error_classification": "unsupported-newer-format",
       "forbidden_shortcuts": ["compare(fixture, fixture) as oracle pass"],
       "current_assertion_summary": "Err(unsupported-newer-format) then passed_oracle(fixture, fixture)",
+      "demonstrated_observation_kind": "writable_open_rejection_error_code",
       "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "Read-only salvage path as separate claim and scenario",
+        "CrossPlatform via execution on multiple platforms"
+      ],
       "current_gap": "Tautological oracle; no read-only salvage path tested",
       "correction_required": true
     },
@@ -170,9 +208,14 @@
       "required_error_classification": "none for read-only open success path",
       "forbidden_shortcuts": ["no-op fault on read path", "never read or rebuild derived"],
       "current_assertion_summary": "passed_oracle(fixture.normalized_state(), actual) without derived observation",
-      "current_evidence_strength": [],
-      "target_evidence_strength": ["LogicalStateTransition"],
-      "current_gap": "Scenario name and description exceed assertions; invalid for rebuild claim",
+      "demonstrated_observation_kind": "canonical_readable_despite_derived_corruption_unverified",
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "Derived rebuild or classification observation as explicit assertion",
+        "ProcessCrashRecovery if corruption occurs during write"
+      ],
+      "current_gap": "Scenario name and description exceed assertions; invalid for rebuild claim as recorded",
       "correction_required": true
     },
     {
@@ -189,8 +232,13 @@
       "required_error_classification": "canonical-corruption or equivalent specific code",
       "forbidden_shortcuts": ["Err(_) any error", "compare(fixture, fixture)"],
       "current_assertion_summary": "Any Err on writable open then passed_oracle(fixture, fixture)",
+      "demonstrated_observation_kind": "writable_open_fail_closed_any_error",
       "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength": ["LogicalStateTransition"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "LogicalStateTransition with exact error classification",
+        "Read-only salvage path as separate claim"
+      ],
       "current_gap": "Weak error classification; tautological oracle",
       "correction_required": true
     },
@@ -208,8 +256,14 @@
       "required_error_classification": "none",
       "forbidden_shortcuts": ["compare(duplicate, duplicate)", "skip source unchanged verification"],
       "current_assertion_summary": "Checks duplicate_id and duplicated_from; passed_oracle(duplicate, duplicate)",
+      "demonstrated_observation_kind": "adapter_return_metadata_and_self_oracle",
       "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
+      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "Source and duplicate persisted reopen with independent expected values",
+        "Source unchanged verification and divergent mutation test",
+        "ProcessCrashRecovery during duplication"
+      ],
       "current_gap": "Self-oracle; no persisted reopen; source mutation not tested",
       "correction_required": true
     },
@@ -227,8 +281,13 @@
       "required_error_classification": "simulated-durability-failure",
       "forbidden_shortcuts": ["pre-write abort labeled ProcessInterruption", "no mid-write fault"],
       "current_assertion_summary": "Err(simulated-durability-failure) then passed_oracle(before, after) after reopen",
-      "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength": ["ProcessCrashRecovery", "FilesystemDurability"],
+      "demonstrated_observation_kind": "logical_pre_commit_abort",
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "ProcessCrashRecovery via mid-write and post-ack fault points",
+        "FilesystemDurability via physical/filesystem fault scenario"
+      ],
       "current_gap": "Fault fires before mutation; proves logical abort not crash recovery",
       "correction_required": true
     },
@@ -238,17 +297,22 @@
       "claim": "Interrupted compaction does not expose mixed or invalid canonical state",
       "pre_state": "Created session; compaction capability supported; fault armed FailCompaction",
       "operation": "cleanup_or_compact_if_supported(Compact) under armed interrupt",
-      "fault_point": "during compaction before completion",
+      "fault_point": "before_compaction_mutation",
       "fault_layer": "logical",
-      "persisted_observation": "Error code simulated-compaction-interrupt only",
+      "persisted_observation": "no post-fault persisted-state observation",
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Compaction aborts safely; reopen shows valid committed state matching pre-compaction oracle",
       "required_error_classification": "simulated-compaction-interrupt",
-      "forbidden_shortcuts": ["compare(fixture, fixture)", "no reopen after interrupt"],
-      "current_assertion_summary": "Err(simulated-compaction-interrupt) then passed_oracle(fixture, fixture)",
-      "current_evidence_strength": [],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
-      "current_gap": "Invalid recovery evidence; no post-fault state validation",
+      "forbidden_shortcuts": ["compare(fixture, fixture)", "no reopen after interrupt", "imply compaction write occurred"],
+      "current_assertion_summary": "Err(simulated-compaction-interrupt) then passed_oracle(fixture, fixture); no compaction mutation observed",
+      "demonstrated_observation_kind": "pre_compaction_interrupt_error_path_only",
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "LogicalStateTransition with post-interrupt reopen and state validation",
+        "ProcessCrashRecovery during in-progress compaction mutation"
+      ],
+      "current_gap": "Invalid or insufficient for compaction recovery; no compaction write occurred; no post-fault state validation",
       "correction_required": true
     },
     {
@@ -257,18 +321,28 @@
       "claim": "Interrupt destructive historical cleanup without silent canonical corruption",
       "pre_state": "Session with destructive GC capability required",
       "operation": "cleanup_or_compact_if_supported(DestructiveHistoricalGc) under interrupt",
-      "fault_point": "during cleanup execution",
-      "fault_layer": "logical",
+      "fault_point": "not_applicable_capability_missing",
+      "fault_layer": "none",
       "persisted_observation": "Not executed",
       "reopen_or_recovery_step": "Not executed",
       "expected_result": "Cleanup interrupt recoverable; canonical state valid after reopen",
       "required_error_classification": "scenario-specific interrupt code",
       "forbidden_shortcuts": ["mark Unsupported as pass"],
       "current_assertion_summary": "ScenarioOutcome::unsupported(cleanup not implemented in spike)",
+      "current_status": "Unsupported",
       "current_evidence_strength": [],
-      "target_evidence_strength": ["LogicalStateTransition", "ProcessCrashRecovery"],
+      "target_evidence_strength_for_this_scenario": [],
+      "related_higher_level_claims_requiring_separate_scenarios": [
+        "Deferred: cleanup interruption recovery after DestructiveHistoricalGc capability exists and is separately authorized"
+      ],
+      "deferred_requirements_after_capability": [
+        "Implement destructive historical GC capability in candidate adapters",
+        "Add interrupt fault during cleanup execution",
+        "Reopen and validate canonical state after interrupt"
+      ],
       "current_gap": "Capability not implemented; correctly Unsupported not executed",
-      "correction_required": true
+      "correction_required": false,
+      "deferred_until_capability_exists": true
     }
   ]
 }
