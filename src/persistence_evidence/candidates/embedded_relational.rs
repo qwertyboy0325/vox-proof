@@ -123,7 +123,7 @@ impl EmbeddedRelationalAdapter {
             && now < last
         {
             return Err(AdapterError::new(
-                    "lease-clock-ambiguous",
+                "lease-clock-ambiguous",
                 "backward wall-clock jump is ambiguous; fail closed",
             ));
         }
