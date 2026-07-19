@@ -80,6 +80,8 @@ Proposed v0.2 analysis-execution decision (not accepted): `decisions/MD-013-prop
 
 Proposed v0.2 session-durability decision (not accepted): `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` — durable session authority, canonical versus derived state, crash consistency, single-writer ownership, lifecycle and recovery, retention and GC, compaction constraints, and privacy requirements.
 
+Proposed v0.2 persistence-evidence decision (not accepted): `decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md` — bounded comparative spike protocol, shared semantic fixture and oracle, fault-injection experiments, platform coverage, evidence artifacts, and pass/fail gates before mechanism selection.
+
 ## Decision record shape
 
 Each Material Decision should include:
