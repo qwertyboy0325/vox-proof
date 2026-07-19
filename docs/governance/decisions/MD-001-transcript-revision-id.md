@@ -136,3 +136,9 @@ The following designs are rejected:
 * including parser version in transcript content identity
 * including validation issues in transcript content identity
 * using source file path as transcript identity
+
+## Related proposed decisions
+
+MD-001 remains authoritative for established transcript revision identity.
+
+If accepted, `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` would add v0.2 re-import, external-change detection, and reconciliation semantics. Historical revision identities would not be reinterpreted.

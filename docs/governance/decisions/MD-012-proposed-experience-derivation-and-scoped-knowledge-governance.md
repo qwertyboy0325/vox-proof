@@ -447,3 +447,9 @@ This proposed decision does not authorize persistence implementation, automatic 
 * MD-003 remains authoritative for established v0.1 materialization.
 * MD-004 remains authoritative for established v0.1 effective analysis identity.
 * If accepted, MD-012 extends the correction-to-knowledge boundary without rewriting historical semantics recorded in those decisions.
+
+## Related proposed decisions
+
+MD-012 would remain authoritative for immutable knowledge snapshots and reproduction intent.
+
+If accepted, `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` would own analysis job execution, attachment, source-revision lifecycle, reanalysis, and reconciliation semantics. Neither proposed decision would rewrite historical identities recorded in the other.

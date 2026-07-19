@@ -165,3 +165,5 @@ This decision does not authorize implementation of phonetic matching itself.
 MD-004 remains authoritative for established v0.1 effective analysis identity.
 
 If accepted, `decisions/MD-012-proposed-experience-derivation-and-scoped-knowledge-governance.md` would add immutable knowledge snapshot identity and ranking-policy identity as explicit v0.2 analysis inputs where applicable. MD-012 would not reinterpret historical v0.1 analysis artifacts recorded here.
+
+If accepted, `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` would add bounded analysis job execution, immutable attached-result semantics, source re-import, reanalysis, and reconciliation. Knowledge snapshot and ranking-policy input rules would remain owned by MD-012. Historical v0.1 analysis artifacts would not be reinterpreted.

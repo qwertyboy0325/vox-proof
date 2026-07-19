@@ -76,6 +76,8 @@ Proposed v0.2 correction-history decision (not accepted): `decisions/MD-011-prop
 
 Proposed v0.2 knowledge-governance decision (not accepted): `decisions/MD-012-proposed-experience-derivation-and-scoped-knowledge-governance.md` — correction facts, extraction runs, experience proposals, scoped accepted knowledge, promotion/revocation/conflict semantics, immutable knowledge snapshots, and analysis reproducibility inputs.
 
+Proposed v0.2 analysis-execution decision (not accepted): `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` — bounded analysis jobs, immutable attached analysis snapshots, stale-result rejection, source re-import, reanalysis history, case reconciliation, and human-raised case preservation.
+
 ## Decision record shape
 
 Each Material Decision should include:
