@@ -39,7 +39,7 @@ Stop at the declared **stop_gate**. Do not self-approve governance acceptance.
 
 Every substantial work package must identify:
 
-`work_package_id`, `objective`, `risk_tier`, `file_scope`, `semantic_scope`, `claim_scope`, `risk_domain`, `authorized_scope`, `forbidden_scope`, `authority_dependencies`, `allowed_actions`, `forbidden_actions`, `required_checks`, `escalation_conditions`, `stop_gate`, `model_budget_policy`
+`work_package_id`, `objective`, `risk_tier`, `file_scope`, `semantic_scope`, `claim_scope`, `risk_domain`, `authorized_scope`, `forbidden_scope`, `authority_dependencies`, `allowed_actions`, `forbidden_actions`, `required_checks`, `escalation_conditions`, `stop_gate`, `model_budget_policy`, `strong_final_conflict_review`
 
 If any required field is missing, remain in `PROPOSED` and request owner authorization.
 
@@ -76,6 +76,139 @@ Use:
 - `.cursor/agents/voxproof-governance-auditor.md` for governance audit
 - `.cursor/agents/voxproof-storage-systems-reviewer.md` for storage, persistence, transaction, and recovery code-depth review
 - `.cursor/agents/voxproof-evidence-methodology-reviewer.md` for scenario epistemic strength and evidence claim review
+- `.cursor/agents/voxproof-final-conflict-reviewer.md` for mandatory GPT-5.6 Sol High final cross-artifact conflict review on qualifying high-risk work
+
+## Strong final conflict review
+
+Qualifying high-risk work cannot close solely on specialist reviewer PASS verdicts or governance `AUDIT: PASS`.
+
+For qualifying work, the required sequence before the final owner gate is:
+
+```text
+implementation
+→ self-check
+→ applicable domain specialist reviews
+→ evidence-methodology review where applicable
+→ bounded correction
+→ governance audit
+→ GPT-5.6 Sol High final conflict review
+→ bounded conflict correction if required
+→ GPT-5.6 Sol High targeted conflict verification
+→ READY_FOR_OWNER_GATE
+```
+
+Use agent: `.cursor/agents/voxproof-final-conflict-reviewer.md`
+
+### Work-package declaration
+
+Every substantial work package must declare:
+
+```text
+strong_final_conflict_review:
+  status: required | not_required_with_reason | owner_requested
+  required_model: GPT-5.6 Sol High
+```
+
+For qualifying conditions below, `not_required_with_reason` is not permitted unless the owner explicitly grants an exception.
+
+### Qualifying conditions
+
+Require GPT-5.6 Sol High final conflict review when **any** condition applies:
+
+- first implementation of a new high-risk mechanism
+- persistence, storage, concurrency, locking, recovery, migration, security, privacy, cryptography, distributed coordination, destructive cleanup, or external protocol guarantees
+- evidence or benchmark results will support a product or architecture decision
+- a Material Decision is proposed or materially revised
+- an artifact will become repository-authoritative input to later automation
+- one or more reviewer correction rounds occurred
+- specialist reviewers previously missed a material defect in the same workstream
+- the owner explicitly expresses doubt or requests stronger verification
+- multiple artifacts encode the same technical claim at different layers
+- generated owner-packet wording affects an acceptance decision
+- `risk_tier` is `high` or `critical`
+
+The product owner may require GPT-5.6 Sol High final conflict review for any work package regardless of risk tier. Owner phrases such as “use GPT-5.6 Sol High for final conflict review”, “I still doubt this”, “run the strong final review”, or “do not decide before Sol High reviews it” constitute explicit authorization only for the scoped review requested. They do not authorize implementation, scope expansion, file modification, commit, push, mechanism selection, or Material Decision acceptance.
+
+### Exact model requirement
+
+The final conflict reviewer model is exactly:
+
+```text
+GPT-5.6 Sol High
+```
+
+Platform identifier: `gpt-5.6-sol-high`
+
+The workflow must explicitly prohibit substitution by:
+
+- Composer
+- cursor-grok-4.5-high-fast
+- another Grok variant
+- another GPT model
+- another API-backed model
+- automatic fallback routing
+- unspecified “strong model”
+- unspecified “high-reasoning model”
+
+A review performed by any other model does not satisfy `STRONG_FINAL_CONFLICT_REVIEW`.
+
+Required recorded fields:
+
+```text
+required_model: GPT-5.6 Sol High
+actual_model
+model_requirement_satisfied
+api_quota_used
+owner_authorization_reference
+```
+
+`model_requirement_satisfied` may be true only when `actual_model` is GPT-5.6 Sol High.
+
+### No fallback rule
+
+There is **no model fallback** for `STRONG_FINAL_CONFLICT_REVIEW`.
+
+If GPT-5.6 Sol High cannot be invoked, return `BLOCKED_STRONG_FINAL_REVIEW_UNAVAILABLE`.
+
+If owner authorization for its API usage is missing, return `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED`.
+
+If the actual model identity cannot be verified, return `BLOCKED_STRONG_FINAL_REVIEW_MODEL_UNVERIFIED`.
+
+In all three states:
+
+- do not claim final conflict review PASS
+- do not enter `READY_FOR_OWNER_GATE`
+- do not commit, push, merge, release, or publish evidence unless separately and explicitly authorized by the owner
+- do not silently substitute another model
+
+Every final conflict review must report:
+
+```text
+api_escalation_reason: mandatory GPT-5.6 Sol High final conflict review
+```
+
+Do not describe this as optional escalation when the workflow condition requires it.
+
+### Specialist PASS is insufficient
+
+For qualifying work, specialist PASS verdicts and governance `AUDIT: PASS` do not authorize `READY_FOR_OWNER_GATE`.
+
+GPT-5.6 Sol High must independently complete the final cross-artifact conflict review.
+
+Do not allow transition to `READY_FOR_OWNER_GATE` from a qualifying work package unless:
+
+```text
+final_conflict_required = true
+required_model = GPT-5.6 Sol High
+actual_model = GPT-5.6 Sol High
+model_requirement_satisfied = true
+final_conflict_verdict = PASS
+all_blocking_conflicts_resolved = true
+```
+
+### Correction loop
+
+When the verdict is `FINAL CONFLICT REVIEW: CORRECTIONS REQUIRED`, the workflow may perform one bounded correction round limited to the listed conflict IDs. After correction, GPT-5.6 Sol High must perform targeted verification of each prior blocking conflict, the exact correction diff, and regressions directly caused by those corrections. Targeted verification must not automatically reopen the entire workstream. If targeted verification finds a new critical or high-severity contradiction directly caused by the correction, allow one additional bounded correction round. After two failed correction rounds, stop with `BLOCKED_REPEATED_FINAL_CONFLICT`.
 
 ## First-implementation code-depth review
 
@@ -135,7 +268,9 @@ If a review discovers that evidence is weaker than its recorded claim:
 
 ## Workflow states
 
-`PROPOSED` → `AUTHORIZED` → `PREFLIGHT` → `EXECUTING` → `SELF_CHECKED` → `AUDITING` → `CORRECTING` → `READY_FOR_OWNER_GATE` → `APPROVED` → `COMMITTED` → `REMOTE_VERIFIED`
+`PROPOSED` → `AUTHORIZED` → `PREFLIGHT` → `EXECUTING` → `SELF_CHECKED` → `AUDITING` → `CORRECTING` → `STRONG_FINAL_CONFLICT_REVIEW` → `FINAL_CONFLICT_CORRECTING` → `FINAL_CONFLICT_VERIFYING` → `READY_FOR_OWNER_GATE` → `APPROVED` → `COMMITTED` → `REMOTE_VERIFIED`
+
+For qualifying high-risk work, `STRONG_FINAL_CONFLICT_REVIEW` through `FINAL_CONFLICT_VERIFYING` are mandatory before `READY_FOR_OWNER_GATE`.
 
 Terminal or blocking states: `BLOCKED`
 
@@ -145,7 +280,7 @@ Do not skip states. `READY_FOR_OWNER_GATE` is not owner approval.
 
 Escalate only for:
 
-`BLOCKED_GOVERNANCE`, `BLOCKED_SCOPE`, `BLOCKED_SEMANTIC_CONFLICT`, `BLOCKED_SECURITY`, `BLOCKED_REPO_STATE`, `BLOCKED_REMOTE_DIVERGENCE`, `BLOCKED_TEST_FAILURE`, `BLOCKED_UNEXPECTED_DRIFT`, `BLOCKED_MODEL_DISAGREEMENT`
+`BLOCKED_GOVERNANCE`, `BLOCKED_SCOPE`, `BLOCKED_SEMANTIC_CONFLICT`, `BLOCKED_SECURITY`, `BLOCKED_REPO_STATE`, `BLOCKED_REMOTE_DIVERGENCE`, `BLOCKED_TEST_FAILURE`, `BLOCKED_UNEXPECTED_DRIFT`, `BLOCKED_MODEL_DISAGREEMENT`, `BLOCKED_STRONG_FINAL_REVIEW_UNAVAILABLE`, `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED`, `BLOCKED_STRONG_FINAL_REVIEW_MODEL_UNVERIFIED`, `BLOCKED_REPEATED_FINAL_CONFLICT`
 
 Scope expansion always requires escalation. Do not silently broaden authorized scope.
 
@@ -207,7 +342,9 @@ Preferred routing:
 
 **Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`); specialist storage and evidence methodology review when declared by the work package
 
-**API-backed high-reasoning model** — agent self-escalation only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection
+**GPT-5.6 Sol High (`gpt-5.6-sol-high`)** — mandatory final cross-artifact conflict review for qualifying high-risk work via `.cursor/agents/voxproof-final-conflict-reviewer.md`; owner-requested scoped review at any gate; no model fallback
+
+**API-backed high-reasoning model** — agent self-escalation only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection (excluding mandatory final conflict review, which is workflow-required not optional escalation)
 
 ### Owner override for API high-reasoning review
 

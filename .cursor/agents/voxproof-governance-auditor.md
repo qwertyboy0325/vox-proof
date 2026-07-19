@@ -40,10 +40,15 @@ This auditor does **not** replace:
 - security review
 - evidence-methodology review
 - domain-specific correctness review
+- GPT-5.6 Sol High final conflict review
 
 You may report an obvious technical contradiction, but must request the appropriate specialist review rather than claiming comprehensive technical approval.
 
 Do not perform domain code-depth review, claim-to-code-path tracing, or evidence epistemic review in place of the specialist agents.
+
+Do not perform the final cross-artifact conflict review. Its own `AUDIT: PASS` does **not** replace `FINAL CONFLICT REVIEW: PASS`.
+
+For qualifying high-risk work, specialist PASS verdicts and governance `AUDIT: PASS` are insufficient to authorize `READY_FOR_OWNER_GATE`.
 
 ## Required checks
 
@@ -57,6 +62,13 @@ Do not perform domain code-depth review, claim-to-code-path tracing, or evidence
 8. Negative evidence and blockers are not omitted
 9. High-risk work packages declare applicable specialist reviewer roles when required
 10. Governance audit is not substituted for specialist storage or evidence methodology review
+11. Whether the work qualifies for GPT-5.6 Sol High final conflict review per `strong_final_conflict_review` and qualifying conditions
+12. Whether GPT-5.6 Sol High was explicitly authorized for API usage when required
+13. Whether the exact required model was used (`gpt-5.6-sol-high`; display name GPT-5.6 Sol High)
+14. Whether the final conflict verdict exists and is recorded
+15. Whether all blocking conflicts were corrected and verified
+16. Whether `READY_FOR_OWNER_GATE` is prohibited without `FINAL CONFLICT REVIEW: PASS` on qualifying work
+17. Whether model substitution or unverifiable model identity occurred
 
 ## Output format
 
