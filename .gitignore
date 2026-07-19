@@ -18,6 +18,10 @@
 /artifacts/
 /.voxproof/
 
+# Persistence spike generated evidence (summaries may be committed separately)
+/evidence/persistence/*/raw/
+/target/persistence-evidence/
+
 # Test coverage and transient logs
 /coverage/
 *.log

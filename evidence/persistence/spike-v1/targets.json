@@ -1,0 +1,56 @@
+{
+  "targets_version": "1",
+  "declared_at": "2026-07-19",
+  "declared_before_measurement": true,
+  "fixture": {
+    "fixture_id": "voxproof-persistence-evidence-small",
+    "fixture_version": "2",
+    "scale": "Small"
+  },
+  "harness_versions": {
+    "harness_version": "2",
+    "oracle_version": "2",
+    "scenario_catalog_version": "1"
+  },
+  "correctness_gates": {
+    "source": "MD-014 and MD-015 required scenarios",
+    "pass_requires": [
+      "semantic oracle pass for semantic correctness scenarios",
+      "stale commands rejected without mutation",
+      "at most one authoritative writer",
+      "unknown newer format writable rejection",
+      "derived corruption rebuildable without canonical loss",
+      "canonical corruption detected fail-closed",
+      "duplication creates independent session identity",
+      "interrupted transition does not expose partial authoritative state as valid",
+      "durable acknowledgement only after commit boundary"
+    ],
+    "unsupported_handling": "Optional capability scenarios may be Unsupported with documented limitation; required scenarios must not be Unsupported."
+  },
+  "comparative_measurements": {
+    "methodology": "Same scenario runner and fixture; median of 5 samples after 1 warmup discard; wall-clock Instant on local machine.",
+    "sample_count": 5,
+    "warmup_policy": "One untimed iteration discarded before measurement samples.",
+    "cache_treatment": {
+      "cold": "New adapter instance and fresh session directory before first sample",
+      "warm": "Reuse open writable handle within same session for command latency"
+    },
+    "metrics": [
+      "create_open_ms",
+      "append_correction_ms_warm",
+      "attach_analysis_ms_warm",
+      "reopen_recovery_ms",
+      "duplication_ms",
+      "compaction_ms",
+      "steady_state_bytes",
+      "peak_memory_bytes"
+    ],
+    "noise_handling": "Report min/median/max; do not treat <5% variance as meaningful ranking.",
+    "unsupported_measurement_handling": "Record metric as unavailable with reason; do not infer pass.",
+    "selection_threshold": "None declared; performance does not override failed correctness gates."
+  },
+  "platform_plan": {
+    "macos": "Execute full matrix on current developer host and record environment metadata.",
+    "windows": "Execute equivalent matrix via CI workflow; if unavailable at commit time, mark Windows scenarios NotRun and eligibility Inconclusive for cross-platform claims."
+  }
+}
