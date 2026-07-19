@@ -99,6 +99,11 @@ impl EmbeddedRelationalAdapter {
             .arm_point(point, FaultExecutionMode::ProcessAbort);
     }
 
+    pub fn arm_fault_return_error(&self, point: FaultPoint) {
+        self.faults
+            .arm_point(point, FaultExecutionMode::ReturnError);
+    }
+
     pub fn set_fault_execution_mode(&self, mode: FaultExecutionMode) {
         self.faults.set_execution_mode(mode);
     }

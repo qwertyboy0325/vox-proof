@@ -31,6 +31,8 @@ use super::scenario_runner::{catalog_command_id, fresh_storage_root, isolated_fi
 
 pub const SQLITE_EVIDENCE_HARNESS_VERSION: &str = "sqlite-evidence-v1";
 
+pub use super::platform::CROSS_PLATFORM_SCENARIO_IDS;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FaultExecutionRecord {
     pub fault_id: String,
@@ -146,6 +148,58 @@ impl SqliteScenarioRunner {
             let started = Instant::now();
             let _ = self.run_supplemental(fixture, supplemental, started);
         }
+        let artifacts = self.artifacts;
+        (run, artifacts)
+    }
+
+    pub fn run_cross_platform_subset(
+        mut self,
+        fixture: &EvidenceFixture,
+        manifest: EvidenceManifest,
+    ) -> (EvidenceRunResult, SqliteEvidenceArtifacts) {
+        let mut results = Vec::new();
+        let mut manifest = manifest;
+        let catalog = scenario_catalog();
+        manifest.scenario_ids = CROSS_PLATFORM_SCENARIO_IDS
+            .iter()
+            .map(|id| format!("{id}@1"))
+            .collect();
+        for scenario in catalog
+            .iter()
+            .filter(|s| CROSS_PLATFORM_SCENARIO_IDS.contains(&s.scenario_id.as_str()))
+        {
+            let fixture = isolated_fixture(fixture, scenario);
+            let started = Instant::now();
+            let result = match scenario.scenario_id.as_str() {
+                "baseline-create-open-close" => self.run_baseline(&fixture, scenario, started),
+                "append-correction-event" => self.run_append(&fixture, scenario, started),
+                "attach-analysis-result" => self.run_attach(&fixture, scenario, started),
+                "stale-review-ledger-command" => self.run_stale_rejection(
+                    &fixture,
+                    scenario,
+                    started,
+                    "stale-review-ledger-command",
+                ),
+                "concurrent-writer-attempt" => {
+                    self.run_concurrent_writer(&fixture, scenario, started)
+                }
+                "unknown-newer-format" => self.run_unknown_format(&fixture, scenario, started),
+                "derived-state-corruption" => {
+                    self.run_derived_corruption(&fixture, scenario, started)
+                }
+                "canonical-reference-corruption" => {
+                    self.run_canonical_corruption(&fixture, scenario, started)
+                }
+                "semantic-duplication" => self.run_duplication(&fixture, scenario, started),
+                "interrupted-authoritative-transition" => {
+                    self.run_interrupted_transition(&fixture, scenario, started)
+                }
+                other => self.failed(scenario, started, format!("unknown scenario: {other}")),
+            };
+            results.push(result);
+        }
+        let mut run = EvidenceHarness::aggregate(manifest, results);
+        run.eligibility = super::model::EvidenceRunEligibility::Inconclusive;
         let artifacts = self.artifacts;
         (run, artifacts)
     }

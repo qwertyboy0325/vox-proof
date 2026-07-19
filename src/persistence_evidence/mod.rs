@@ -8,6 +8,12 @@ mod aggregation;
 pub mod candidates;
 #[cfg(feature = "persistence-spike")]
 mod canonical_sql_reader;
+#[cfg(feature = "persistence-spike")]
+mod cross_platform;
+#[cfg(feature = "persistence-spike")]
+mod durability;
+#[cfg(feature = "persistence-spike")]
+mod platform;
 mod fixture;
 #[cfg(feature = "persistence-spike")]
 mod independent_oracle;
@@ -73,6 +79,19 @@ pub use scenario::{
 };
 #[cfg(feature = "persistence-spike")]
 pub use scenario_runner::{ScenarioRunner, fresh_storage_root};
+#[cfg(feature = "persistence-spike")]
+pub use cross_platform::{build_platform_matrix, compare_scenario, PlatformMatrixDocument};
+#[cfg(feature = "persistence-spike")]
+pub use durability::{
+    durability_experiments, DurabilityExperimentSpec, DurabilityTrialResult, DurabilityTrialRunner,
+    MIN_TRIALS_PER_POINT, TrialOutcome,
+};
+#[cfg(feature = "persistence-spike")]
+pub use platform::{
+    normalize_platform_label, DirectorySyncCapability, PlatformEquivalenceResult,
+    PlatformProfile, PlatformScenarioRow, SqlitePragmaSnapshot, V3_HARNESS_VERSION,
+    CROSS_PLATFORM_SCENARIO_IDS, PACKAGE_2C_EVIDENCE_RUN, PACKAGE_2C_HEAD,
+};
 #[cfg(feature = "persistence-spike")]
 pub use sqlite_scenario_runner::{
     FaultExecutionRecord, SQLITE_EVIDENCE_HARNESS_VERSION, SqliteEvidenceArtifacts,

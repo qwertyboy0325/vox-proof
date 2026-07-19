@@ -34,6 +34,11 @@ name = "persistence_evidence_sqlite_run"
 path = "src/bin/persistence_evidence_sqlite_run.rs"
 required-features = ["persistence-spike"]
 
+[[bin]]
+name = "persistence_evidence_v3_run"
+path = "src/bin/persistence_evidence_v3_run.rs"
+required-features = ["persistence-spike"]
+
 [[test]]
 name = "persistence_scenarios"
 path = "tests/persistence_scenarios.rs"
@@ -52,4 +57,19 @@ required-features = ["persistence-spike"]
 [[test]]
 name = "persistence_sqlite_mechanism"
 path = "tests/persistence_sqlite_mechanism.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_v3_merge"
+path = "src/bin/persistence_evidence_v3_merge.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_cross_platform"
+path = "tests/persistence_cross_platform.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_durability"
+path = "tests/persistence_durability.rs"
 required-features = ["persistence-spike"]

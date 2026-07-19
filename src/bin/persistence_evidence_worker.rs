@@ -5,8 +5,8 @@ use std::io::{self, BufRead, Write};
 use vox_proof::persistence_evidence::candidates::fault::{FaultExecutionMode, FaultPoint};
 use vox_proof::persistence_evidence::candidates::semantic_ops::sample_append_event;
 use vox_proof::persistence_evidence::{
-    AuthoritativeCommand, EmbeddedRelationalAdapter, PersistenceCandidateAdapter, SemanticOpenMode,
-    SemanticPrecondition,
+    AuthoritativeCommand, EmbeddedRelationalAdapter, PersistenceCandidateAdapter,
+    SemanticOpenMode, SemanticPrecondition,
 };
 
 fn main() {
@@ -22,6 +22,7 @@ fn run() -> Result<(), String> {
         "hold-writer" => hold_writer(),
         "attempt-writer" => attempt_writer(),
         "apply-command-crash" => apply_command_crash(),
+        "duplicate-and-crash" => duplicate_and_crash(),
         "create-only" => create_only(),
         other => Err(format!("unknown worker command: {other}")),
     }
@@ -134,6 +135,32 @@ fn create_only() -> Result<(), String> {
     let mut adapter = EmbeddedRelationalAdapter::new(root);
     let _session = adapter.create(&fixture).map_err(|e| e.to_string())?;
     println!("VOXPROOF_READY");
+    Ok(())
+}
+
+fn duplicate_and_crash() -> Result<(), String> {
+    let root = storage_root()?;
+    let fixture = fixture_from_env()?;
+    let fault = fault_point_from_env()?;
+    let dest_id = std::env::var("VOXPROOF_DUP_DEST_ID")
+        .map_err(|_| "VOXPROOF_DUP_DEST_ID required".to_string())?;
+    let mut adapter = EmbeddedRelationalAdapter::new(root);
+    adapter.set_fault_execution_mode(FaultExecutionMode::ProcessAbort);
+    adapter.arm_fault_abort(fault);
+    let session = adapter.create(&fixture).map_err(|e| e.to_string())?;
+    let handle = adapter
+        .open(&session, SemanticOpenMode::Writable)
+        .map_err(|e| e.to_string())?;
+    println!("VOXPROOF_READY");
+    io::stdout().flush().map_err(|e| e.to_string())?;
+    let mut line = String::new();
+    io::stdin()
+        .lock()
+        .read_line(&mut line)
+        .map_err(|e| e.to_string())?;
+    adapter
+        .duplicate_session(&handle, &dest_id)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
