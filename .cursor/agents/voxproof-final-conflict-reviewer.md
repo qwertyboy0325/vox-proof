@@ -63,6 +63,8 @@ Inspect the actual relevant inputs where applicable:
 - governance audit
 - draft final owner packet
 
+For qualifying work, governance audit occurs in two phases: `PRE_FINAL_GOVERNANCE_AUDIT` before this review and `FINAL_GATE_GOVERNANCE_CHECK` after targeted verification.
+
 For uncommitted work, inspect the exact staged diff or exact proposed diff before commit.
 
 For a candidate commit already created under explicit authorization, inspect the exact commit range before push.

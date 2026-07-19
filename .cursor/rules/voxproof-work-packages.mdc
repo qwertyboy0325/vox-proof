@@ -90,14 +90,22 @@ implementation
 → applicable domain specialist reviews
 → evidence-methodology review where applicable
 → bounded correction
-→ governance audit
+→ PRE_FINAL_GOVERNANCE_AUDIT
 → GPT-5.6 Sol High final conflict review
 → bounded conflict correction if required
 → GPT-5.6 Sol High targeted conflict verification
+→ FINAL_GATE_GOVERNANCE_CHECK
 → READY_FOR_OWNER_GATE
 ```
 
 Use agent: `.cursor/agents/voxproof-final-conflict-reviewer.md`
+
+Use `.cursor/agents/voxproof-governance-auditor.md` twice with different phases:
+
+- **PRE_FINAL_GOVERNANCE_AUDIT** — before Sol review; does not require Sol verdict
+- **FINAL_GATE_GOVERNANCE_CHECK** — after Sol review and verification; requires Sol PASS
+
+Do not use one undifferentiated governance audit that mixes pre-final and post-Sol checks.
 
 ### Work-package declaration
 
@@ -138,6 +146,33 @@ GPT-5.6 Sol High
 ```
 
 Platform identifier: `gpt-5.6-sol-high`
+
+### Model identifier verification provenance
+
+Record and preserve identifier provenance whenever the final conflict reviewer agent is configured or revised:
+
+```text
+identifier_verification:
+  repository_recorded_identifier: gpt-5.6-sol-high
+  observed_display_name: GPT-5.6 Sol High
+  source: Cursor agent model slug allowlist / successful agent resolution
+  verified_at: <date of verification>
+  independent_public_documentation: unavailable unless separately recorded
+  requires_runtime_dry_run_before_first_qualifying_use: true
+```
+
+Repository record as of **2026-07-19**:
+
+```text
+repository_recorded_identifier: gpt-5.6-sol-high
+observed_display_name: GPT-5.6 Sol High
+source: Cursor Task subagent model slug allowlist (platform-supported agent invocation)
+verified_at: 2026-07-19
+independent_public_documentation: unavailable
+requires_runtime_dry_run_before_first_qualifying_use: true
+```
+
+A repository-recorded identifier alone is not runtime proof. Before the first qualifying `STRONG_FINAL_CONFLICT_REVIEW`, perform one dry-run agent resolution and record the observed `actual_model` in the work-package evidence.
 
 The workflow must explicitly prohibit substitution by:
 
@@ -189,9 +224,31 @@ api_escalation_reason: mandatory GPT-5.6 Sol High final conflict review
 
 Do not describe this as optional escalation when the workflow condition requires it.
 
+### Bounded standing API authorization (policy template)
+
+Standing authorization is **not** a blanket grant for all future API usage.
+
+When the owner grants standing authorization, it applies only under these bounds through **2026-08-11** (model-budget review date):
+
+```text
+Owner authorizes GPT-5.6 Sol High API usage only for STRONG_FINAL_CONFLICT_REVIEW
+in work packages that meet the repository-defined qualifying conditions.
+
+The authorization:
+- does not permit implementation or scope expansion;
+- does not permit repeated full reviews;
+- permits one initial review and the bounded targeted verification rounds defined by policy;
+- must record work_package_id and owner_authorization_reference;
+- expires or is reassessed on 2026-08-11.
+```
+
+Until standing authorization is explicitly granted by the owner, each qualifying work package must record its own `owner_authorization_reference` for Sol API usage or stop with `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED`.
+
+Standing authorization does not authorize commit, push, Package 1, mechanism selection, or Material Decision acceptance.
+
 ### Specialist PASS is insufficient
 
-For qualifying work, specialist PASS verdicts and governance `AUDIT: PASS` do not authorize `READY_FOR_OWNER_GATE`.
+For qualifying work, specialist PASS verdicts and `PRE_FINAL_GOVERNANCE_AUDIT: PASS` do not authorize `READY_FOR_OWNER_GATE`.
 
 GPT-5.6 Sol High must independently complete the final cross-artifact conflict review.
 
@@ -202,7 +259,9 @@ final_conflict_required = true
 required_model = GPT-5.6 Sol High
 actual_model = GPT-5.6 Sol High
 model_requirement_satisfied = true
+pre_final_governance_verdict = PASS
 final_conflict_verdict = PASS
+final_gate_governance_verdict = PASS
 all_blocking_conflicts_resolved = true
 ```
 
@@ -268,13 +327,17 @@ If a review discovers that evidence is weaker than its recorded claim:
 
 ## Workflow states
 
-`PROPOSED` → `AUTHORIZED` → `PREFLIGHT` → `EXECUTING` → `SELF_CHECKED` → `AUDITING` → `CORRECTING` → `STRONG_FINAL_CONFLICT_REVIEW` → `FINAL_CONFLICT_CORRECTING` → `FINAL_CONFLICT_VERIFYING` → `READY_FOR_OWNER_GATE` → `APPROVED` → `COMMITTED` → `REMOTE_VERIFIED`
+`PROPOSED` → `AUTHORIZED` → `PREFLIGHT` → `EXECUTING` → `SELF_CHECKED` → `PRE_FINAL_GOVERNANCE_AUDIT` → `CORRECTING` → `STRONG_FINAL_CONFLICT_REVIEW` → `FINAL_CONFLICT_CORRECTING` → `FINAL_CONFLICT_VERIFYING` → `FINAL_GATE_GOVERNANCE_CHECK` → `READY_FOR_OWNER_GATE` → `APPROVED` → `COMMITTED` → `REMOTE_VERIFIED`
 
-For qualifying high-risk work, `STRONG_FINAL_CONFLICT_REVIEW` through `FINAL_CONFLICT_VERIFYING` are mandatory before `READY_FOR_OWNER_GATE`.
+For qualifying high-risk work:
 
-Terminal or blocking states: `BLOCKED`
+- `PRE_FINAL_GOVERNANCE_AUDIT` occurs before `STRONG_FINAL_CONFLICT_REVIEW`
+- `FINAL_GATE_GOVERNANCE_CHECK` occurs after `FINAL_CONFLICT_VERIFYING` and before `READY_FOR_OWNER_GATE`
+- `AUDITING` remains an alias for pre-final governance audit when a work package does not distinguish phases in prose
 
 Do not skip states. `READY_FOR_OWNER_GATE` is not owner approval.
+
+Terminal or blocking states: `BLOCKED`
 
 ## Escalation conditions
 
