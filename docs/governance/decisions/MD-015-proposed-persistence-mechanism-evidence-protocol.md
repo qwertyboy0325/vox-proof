@@ -1,12 +1,14 @@
 # MD-015: Persistence Mechanism Evidence Protocol
 
-Status: proposed
+Status: accepted
 
 Date: 2026-07-19
 
+Accepted: 2026-07-19 per explicit owner authorization
+
 Decision authority: Ezra
 
-Classification: pre-selection persistence mechanism evidence protocol and pass/fail gates (not accepted)
+Classification: pre-selection persistence mechanism evidence protocol and pass/fail gates
 
 ## Context
 
@@ -18,7 +20,7 @@ The data contract and v0.2 C4 draft recognize a future versioned local session s
 
 v0.2 planning requires comparable, reproducible evidence before a later Material Decision may select a session persistence mechanism.
 
-This proposed Material Decision records the evidence protocol only. It does not authorize production persistence implementation, does not select a backend, and does not claim that spike evidence already exists.
+This Material Decision records the evidence protocol only. It does not authorize production persistence implementation, does not select a backend, and does not claim that spike evidence already exists.
 
 ## Relationship to MD-014
 
@@ -659,7 +661,7 @@ The following remain deferred and are not owned by this decision:
 
 ## Consequences
 
-If accepted:
+Acceptance authorizes the bounded spike only. It does not authorize production persistence implementation or backend selection.
 
 * a bounded prototype and harness must be created;
 * candidate adapters must share a common semantic test surface;
@@ -671,8 +673,6 @@ If accepted:
 * persistence implementation remains unselected;
 * a later mechanism-selection Material Decision is required;
 * data-contract changes remain deferred until mechanism and domain impacts are reviewed.
-
-This proposed decision does not authorize production persistence implementation or backend selection.
 
 ## Compatibility with existing decisions
 
@@ -705,14 +705,14 @@ This proposed decision does not authorize production persistence implementation 
 * MD-001 through MD-004 remain authoritative for their established v0.1 semantics.
 * Proposed MD-011, MD-012, and MD-013 remain authoritative for their respective domains.
 * Proposed MD-014 remains authoritative for durability, recovery, and retention requirements.
-* If accepted, MD-015 defines how candidate mechanisms must be tested before a later decision may select one.
+* MD-015 defines how candidate mechanisms must be tested before a later decision may select one.
 
-## Related proposed decisions
+## Related decisions
 
-If accepted, this decision would own the pre-selection evidence protocol for v0.2 session persistence.
+MD-015 owns the pre-selection evidence protocol for v0.2 session persistence.
 
-Proposed MD-014 would remain authoritative for durability, integrity, recovery, lifecycle, and retention requirements.
+Proposed MD-014 remains authoritative for durability, integrity, recovery, lifecycle, and retention requirements.
 
-This proposed decision does not select a persistence backend and does not weaken MD-014.
+MD-015 does not select a persistence backend and does not weaken MD-014.
 
-A later Material Decision is required to select or reject mechanisms based on completed evidence.
+A later mechanism-selection Material Decision is required to select or reject mechanisms based on completed evidence.

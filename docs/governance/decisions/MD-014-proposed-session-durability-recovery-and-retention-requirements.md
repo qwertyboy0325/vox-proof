@@ -599,4 +599,4 @@ Proposed MD-013 would remain authoritative for analysis execution, attachment, r
 
 Neither proposed decision selects persistence technology.
 
-If accepted, `decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md` would define the evidence protocol required before any persistence mechanism may be selected. MD-015 would not select a backend or weaken MD-014 requirements.
+Accepted `decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md` defines the evidence protocol required before any persistence mechanism may be selected. MD-015 does not select a backend or weaken MD-014 requirements.
