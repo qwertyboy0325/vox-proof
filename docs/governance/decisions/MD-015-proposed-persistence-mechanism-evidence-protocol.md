@@ -12,7 +12,7 @@ Classification: pre-selection persistence mechanism evidence protocol and pass/f
 
 ## Context
 
-Proposed MD-014 records the durability, integrity, recovery, lifecycle, and retention requirements that any v0.2 session persistence mechanism must satisfy.
+Accepted MD-014 records the durability, integrity, recovery, lifecycle, and retention requirements that any v0.2 session persistence mechanism must satisfy.
 
 MD-014 requires a bounded security and performance spike before selecting a persistence backend, but it does not define the evidence protocol, shared workload, fault-injection matrix, measurement requirements, artifact structure, or pass/fail gates for that spike.
 
@@ -704,14 +704,14 @@ Acceptance authorizes the bounded spike only. It does not authorize production p
 
 * MD-001 through MD-004 remain authoritative for their established v0.1 semantics.
 * Proposed MD-011, MD-012, and MD-013 remain authoritative for their respective domains.
-* Proposed MD-014 remains authoritative for durability, recovery, and retention requirements.
+* MD-014 remains authoritative for durability, recovery, and retention requirements.
 * MD-015 defines how candidate mechanisms must be tested before a later decision may select one.
 
 ## Related decisions
 
 MD-015 owns the pre-selection evidence protocol for v0.2 session persistence.
 
-Proposed MD-014 remains authoritative for durability, integrity, recovery, lifecycle, and retention requirements.
+MD-014 remains authoritative for durability, integrity, recovery, lifecycle, and retention requirements.
 
 MD-015 does not select a persistence backend and does not weaken MD-014.
 

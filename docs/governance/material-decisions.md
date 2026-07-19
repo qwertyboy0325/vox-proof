@@ -78,7 +78,7 @@ Proposed v0.2 knowledge-governance decision (not accepted): `decisions/MD-012-pr
 
 Proposed v0.2 analysis-execution decision (not accepted): `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` — bounded analysis jobs, immutable attached analysis snapshots, stale-result rejection, source re-import, reanalysis history, case reconciliation, and human-raised case preservation.
 
-Proposed v0.2 session-durability decision (not accepted): `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` — durable session authority, canonical versus derived state, crash consistency, single-writer ownership, lifecycle and recovery, retention and GC, compaction constraints, and privacy requirements.
+Accepted v0.2 session-durability decision: `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` — durable session authority, canonical versus derived state, crash consistency, single-writer ownership, lifecycle and recovery, retention and GC, compaction constraints, and privacy requirements. Acceptance records requirements only; it does not authorize persistence implementation or mechanism selection; a later mechanism-selection Material Decision remains mandatory.
 
 Accepted v0.2 persistence-evidence decision: `decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md` — bounded comparative spike protocol, shared semantic fixture and oracle, fault-injection experiments, platform coverage, evidence artifacts, and pass/fail gates before mechanism selection. Acceptance authorizes the bounded spike only; a later mechanism-selection Material Decision remains mandatory.
 

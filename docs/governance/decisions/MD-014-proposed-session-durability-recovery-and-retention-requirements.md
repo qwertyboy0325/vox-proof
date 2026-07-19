@@ -1,12 +1,14 @@
 # MD-014: Session Durability, Recovery, and Retention Requirements
 
-Status: proposed
+Status: accepted
 
 Date: 2026-07-19
 
+Accepted: 2026-07-19 per explicit owner authorization
+
 Decision authority: Ezra
 
-Classification: durable session authority, recovery, lifecycle, retention, and compaction requirements (not accepted)
+Classification: durable session authority, recovery, lifecycle, retention, and compaction requirements
 
 ## Context
 
@@ -22,7 +24,7 @@ The data contract and v0.2 C4 draft recognize a future versioned local session s
 
 v0.2 planning requires durable authoritative session state without selecting a persistence backend, file structure, database, log format, locking primitive, integrity algorithm, encryption mechanism, or checkpoint strategy.
 
-This proposed Material Decision records required semantics and safety properties. It does not authorize implementation and does not claim benchmark, threat-model, or recovery-test evidence already exists.
+This Material Decision records required semantics and safety properties. It does not authorize implementation and does not claim benchmark, threat-model, or recovery-test evidence already exists.
 
 ## Requirement versus mechanism
 
@@ -538,7 +540,7 @@ The following remain deferred and are not owned by this decision:
 
 ## Consequences
 
-If accepted:
+Acceptance records durable session authority requirements. It does not authorize persistence implementation, encryption deployment, or mechanism selection.
 
 * a separate persistence-mechanism decision is required before backend selection;
 * the application layer needs explicit lifecycle states;
@@ -551,8 +553,6 @@ If accepted:
 * security and performance testing becomes release-blocking before persistence selection;
 * UI must expose recovery and read-only conditions without becoming authority;
 * storage implementation remains open.
-
-This proposed decision does not authorize persistence implementation, encryption deployment, or mechanism selection.
 
 ## Compatibility with existing decisions
 
@@ -587,11 +587,11 @@ This proposed decision does not authorize persistence implementation, encryption
 
 * MD-001 through MD-004 remain authoritative for their established v0.1 semantics.
 * Proposed MD-011, MD-012, and MD-013 remain authoritative for their respective domains.
-* If accepted, MD-014 extends durability, recovery, and retention requirements without rewriting domain semantics recorded in those decisions.
+* MD-014 extends durability, recovery, and retention requirements without rewriting domain semantics recorded in those decisions.
 
-## Related proposed decisions
+## Related decisions
 
-If accepted, this decision would own durable session authority, lifecycle, recovery, locking, retention, and compaction requirements for v0.2.
+MD-014 owns durable session authority, lifecycle, recovery, locking, retention, and compaction requirements for v0.2.
 
 Proposed MD-011 would remain authoritative for correction-history semantics.
 
