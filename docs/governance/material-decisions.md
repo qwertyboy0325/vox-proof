@@ -72,6 +72,8 @@ Accepted v0.1 establishment decision: `decisions/MD-008-v0.1-core-mechanism-esta
 
 Proposed licensing decision (not accepted): `decisions/MD-009-proposed-dual-licensing.md`. Readiness audit: `licensing-readiness.md`.
 
+Proposed v0.2 correction-history decision (not accepted): `decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` — human-raised review cases, `ManualReplacement`, append-only withdrawal/supersession/reapplication semantics, and the v0.2 active-decision fold rule.
+
 ## Decision record shape
 
 Each Material Decision should include:

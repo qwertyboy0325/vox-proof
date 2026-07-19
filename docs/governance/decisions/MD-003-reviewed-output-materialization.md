@@ -182,3 +182,9 @@ It must preserve source transcript immutability.
 It must refuse output on revision mismatch, overlap, invalid alternative index, or anchor resolution failure.
 
 This decision does not authorize persistence, decision-log file output, CLI review flow, HumanRaised materialization, timing edits, or format-preserving SRT output.
+
+## Related proposed decisions
+
+MD-003 remains authoritative for established v0.1 materialization of applicable `AcceptAlternative` decisions.
+
+If accepted, `decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` would add `ManualReplacement` as an explicit materializing decision for v0.2. Unresolved, withdrawn, and superseded decisions would remain non-materializing. MD-011 would not reinterpret established v0.1 materialization artifacts or historical semantics recorded here.

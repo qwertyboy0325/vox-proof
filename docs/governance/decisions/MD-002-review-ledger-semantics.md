@@ -354,3 +354,9 @@ It is not acceptable to temporarily key decisions directly to `CandidateKey`.
 The explicit `ReviewCaseOrigin` enum may wait until human-raised cases are implemented, but the ledger design must not assume detector-raised cases are the only possible origin.
 
 This decision does not authorize persistence, custom replacement, reviewed-output materialization, audio support, speaker support, GUI work, or product CLI work.
+
+## Related proposed decisions
+
+MD-002 remains authoritative for the established v0.1 `ReviewCase` and `ReviewLedger` model.
+
+If accepted, `decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` would extend the deferred human-raised, manual-replacement, withdrawal, supersession, and v0.2 history-fold slice for v0.2. `CustomReplacement` was a deferred working term in this decision; MD-011 standardizes the v0.2 term as `ManualReplacement`. MD-011 would not rewrite the historical semantics established here.
