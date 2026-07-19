@@ -1,14 +1,50 @@
 {
-  "contract_version": "2",
-  "work_package_id": "correct-persistence-reclassification-record-precision",
-  "prior_contract_version": "1",
-  "review_commit_or_baseline": "288529d149b8a89a9f520419d88804cc57dc1ff3",
+  "contract_version": "3",
+  "work_package_id": "finalize-persistence-scenario-claim-contract-precision",
+  "prior_contract_version": "2",
+  "review_commit_or_baseline": "48928b30b87c62a8edcac4ebab402cfea39ac279",
   "scenario_catalog_version": "1",
+  "aggregation_rules": {
+    "readiness_aggregation_must_use": [
+      "current_demonstrated_claim",
+      "current_evidence_strength"
+    ],
+    "readiness_aggregation_must_not_use": [
+      "intended_claim",
+      "intended_claims"
+    ],
+    "note": "Future aggregators must never treat intended claim text as demonstrated evidence"
+  },
+  "evidence_strength_taxonomy_invariant": {
+    "statement": "Evidence-strength levels must be assigned from the semantic claim actually demonstrated, not from the presence of a particular test operation.",
+    "operations_do_not_automatically_upgrade_strength": [
+      "close and reopen",
+      "reading from disk",
+      "exact error classification",
+      "persisted before/after comparison",
+      "use of a transaction",
+      "use of fsync",
+      "running on another process or platform"
+    ],
+    "each_level_requires_claim_specific_justification": true,
+    "not_a_universal_linear_ladder": "InterfaceBehavior, LogicalStateTransition, ProcessCrashRecovery, FilesystemDurability, HardwarePowerLoss, and CrossPlatform are not a universal linear maturity ladder for every scenario. A scenario may be fully correct at InterfaceBehavior without needing to target a higher level."
+  },
+  "no_transition_invariant_rule": {
+    "statement": "A scenario that verifies no mutation occurred is not automatically a LogicalStateTransition.",
+    "required_metadata": [
+      "rejected_operation",
+      "exact_error_or_policy_result",
+      "independent_persisted_observation",
+      "no_transition_invariant_tested"
+    ],
+    "evidence_strength_assignment": "Assign strength based on the specific semantic claim demonstrated, not merely because before equals after."
+  },
   "contracts": [
     {
       "scenario_id": "baseline-create-open-close",
       "scenario_version": 1,
-      "claim": "Create, open, read normalized canonical state, and close without mutation",
+      "intended_claim": "Create, open, read normalized canonical state, and close without mutation; optionally verify persisted initialization reload through close and reopen.",
+      "current_demonstrated_claim": "Create, open, read normalized canonical state, and close in one process without observing a close-to-reopen reload.",
       "pre_state": "Empty storage root; fixture normalized state as create input",
       "operation": "create -> open(Writable) -> read_normalized_state -> close",
       "fault_point": "none",
@@ -23,8 +59,9 @@
       "current_evidence_strength": ["InterfaceBehavior"],
       "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
-        "LogicalStateTransition via close-reopen persisted initialization observation (separate scenario extension)",
-        "ProcessCrashRecovery via explicit crash/interruption scenario"
+        "Persisted initialization reload through close and reopen, remaining InterfaceBehavior under the current evidence taxonomy",
+        "ProcessCrashRecovery via explicit crash/interruption scenario",
+        "LogicalStateTransition requires a separate explicit authoritative mutation scenario"
       ],
       "current_gap": "No close-to-reopen cycle; proves API flow not persisted reload",
       "correction_required": true
@@ -32,7 +69,8 @@
     {
       "scenario_id": "append-correction-event",
       "scenario_version": 1,
-      "claim": "Append one representative ReviewLedger correction event durably",
+      "intended_claim": "Persist one representative ReviewLedger correction event across close and reopen.",
+      "current_demonstrated_claim": "Apply one ReviewLedger correction command and observe the resulting normalized state through the same open handle.",
       "pre_state": "Created session with fixture canonical state loaded",
       "operation": "apply_authoritative_command(AppendCorrectionEvent) with ReviewLedgerHead precondition",
       "fault_point": "none",
@@ -56,7 +94,8 @@
     {
       "scenario_id": "attach-analysis-result",
       "scenario_version": 1,
-      "claim": "Attach one immutable analysis result durably",
+      "intended_claim": "Persist one immutable analysis result across close and reopen.",
+      "current_demonstrated_claim": "Apply one analysis attachment command and observe the resulting normalized state through the same open handle.",
       "pre_state": "Created session with fixture canonical state including existing analysis results",
       "operation": "apply_authoritative_command(AttachAnalysisResult) with AnalysisAttachmentSet precondition",
       "fault_point": "none",
@@ -80,7 +119,8 @@
     {
       "scenario_id": "stale-review-ledger-command",
       "scenario_version": 1,
-      "claim": "Reject stale ReviewLedger command without mutating canonical state",
+      "intended_claim": "Reject a stale ReviewLedger command without mutating canonical state, with independent persisted before/after observation.",
+      "current_demonstrated_claim": "Reject a stale ReviewLedger command with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command with incorrect ReviewLedgerHead expected_event_id",
       "fault_point": "none",
@@ -89,12 +129,19 @@
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
-      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
+      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload", "treat no-mutation check as automatic LogicalStateTransition"],
+      "no_transition_invariant": {
+        "rejected_operation": "AppendCorrectionEvent with incorrect ReviewLedgerHead",
+        "exact_error_or_policy_result": "stale-precondition",
+        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "no_transition_invariant_tested": "canonical state unchanged after rejected command"
+      },
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
       "demonstrated_observation_kind": "scoped_precondition_rejection",
-      "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
+        "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
       "current_gap": "FailureModel::ConcurrentAccess overstates single-handle scoped precondition test",
@@ -103,7 +150,8 @@
     {
       "scenario_id": "stale-active-analysis-selection",
       "scenario_version": 1,
-      "claim": "Reject stale active-analysis selection without mutation",
+      "intended_claim": "Reject a stale active-analysis selection without mutating canonical state, with independent persisted before/after observation.",
+      "current_demonstrated_claim": "Reject a stale active-analysis selection with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command(SelectActiveAnalysis) with wrong ActiveAnalysisSelection precondition",
       "fault_point": "none",
@@ -112,12 +160,19 @@
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
-      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
+      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload", "treat no-mutation check as automatic LogicalStateTransition"],
+      "no_transition_invariant": {
+        "rejected_operation": "SelectActiveAnalysis with incorrect ActiveAnalysisSelection precondition",
+        "exact_error_or_policy_result": "stale-precondition",
+        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "no_transition_invariant_tested": "canonical state unchanged after rejected command"
+      },
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
       "demonstrated_observation_kind": "scoped_precondition_rejection",
-      "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
+        "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
       "current_gap": "FailureModel::ConcurrentAccess overstates scope",
@@ -126,7 +181,8 @@
     {
       "scenario_id": "stale-analysis-attachment",
       "scenario_version": 1,
-      "claim": "Reject stale analysis attachment without mutation",
+      "intended_claim": "Reject a stale analysis attachment without mutating canonical state, with independent persisted before/after observation.",
+      "current_demonstrated_claim": "Reject a stale analysis attachment with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command(AttachAnalysisResult) with wrong AnalysisAttachmentSet precondition",
       "fault_point": "none",
@@ -135,12 +191,19 @@
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
-      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload"],
+      "forbidden_shortcuts": ["claim ConcurrentAccess without multi-actor workload", "treat no-mutation check as automatic LogicalStateTransition"],
+      "no_transition_invariant": {
+        "rejected_operation": "AttachAnalysisResult with incorrect AnalysisAttachmentSet precondition",
+        "exact_error_or_policy_result": "stale-precondition",
+        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "no_transition_invariant_tested": "canonical state unchanged after rejected command"
+      },
       "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
       "demonstrated_observation_kind": "scoped_precondition_rejection",
-      "current_evidence_strength": ["InterfaceBehavior", "LogicalStateTransition"],
-      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "current_evidence_strength": ["InterfaceBehavior"],
+      "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
+        "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
       "current_gap": "FailureModel::ConcurrentAccess overstates scope",
@@ -149,7 +212,8 @@
     {
       "scenario_id": "concurrent-writer-attempt",
       "scenario_version": 1,
-      "claim": "Permit at most one authoritative writer; second attempt rejected safely",
+      "intended_claim": "Permit at most one authoritative writer; second attempt rejected safely with independent persisted observation that canonical state is unchanged.",
+      "current_demonstrated_claim": "Reject a second writable open with writer-already-open while the first handle is held; canonical state is not independently verified unchanged.",
       "pre_state": "Created session; first writable handle open",
       "operation": "attempt second open(Writable) while first handle held",
       "fault_point": "none",
@@ -158,13 +222,19 @@
       "reopen_or_recovery_step": "Not performed; no crash recovery test",
       "expected_result": "Second open returns writer-already-open; canonical state unchanged",
       "required_error_classification": "writer-already-open",
-      "forbidden_shortcuts": ["compare(before, before)", "omit orphan-lock recovery"],
+      "forbidden_shortcuts": ["compare(before, before)", "omit orphan-lock recovery", "treat rejection alone as no-transition LogicalStateTransition proof"],
+      "no_transition_invariant": {
+        "rejected_operation": "second open(Writable)",
+        "exact_error_or_policy_result": "writer-already-open",
+        "independent_persisted_observation": "self-compare before/before only; not independent persisted observation",
+        "no_transition_invariant_tested": "intended but not validly demonstrated due to self-oracle"
+      },
       "current_assertion_summary": "Err(writer-already-open) then passed_oracle(before, before) self-compare",
       "demonstrated_observation_kind": "in_process_second_open_rejection",
       "current_evidence_strength": ["InterfaceBehavior"],
       "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
-        "LogicalStateTransition with independent before/after observation",
+        "Independent persisted before/after observation that canonical state remains unchanged",
         "ProcessCrashRecovery for abandoned writer and orphan-lock recovery"
       ],
       "current_gap": "Self-oracle; no abandoned writer or crash-held lock recovery",
@@ -173,7 +243,8 @@
     {
       "scenario_id": "unknown-newer-format",
       "scenario_version": 1,
-      "claim": "Reject writable open for unknown newer session format",
+      "intended_claim": "Reject writable open for unknown newer session format with exact error classification; optionally support read-only salvage as a separate claim.",
+      "current_demonstrated_claim": "Writable open fails with unsupported-newer-format after pre-open format mutation; no read-only salvage path tested.",
       "pre_state": "Created session; format_version bumped to newer unsupported value",
       "operation": "corrupt_or_fault_inject(UnknownNewerFormat) then open(Writable)",
       "fault_point": "pre-open format mutation",
@@ -183,6 +254,12 @@
       "expected_result": "Writable open fails with unsupported-newer-format",
       "required_error_classification": "unsupported-newer-format",
       "forbidden_shortcuts": ["compare(fixture, fixture) as oracle pass"],
+      "no_transition_invariant": {
+        "rejected_operation": "open(Writable) on unknown newer format",
+        "exact_error_or_policy_result": "unsupported-newer-format",
+        "independent_persisted_observation": "error code only; no persisted state comparison",
+        "no_transition_invariant_tested": "writable open rejected; no mutation attempted"
+      },
       "current_assertion_summary": "Err(unsupported-newer-format) then passed_oracle(fixture, fixture)",
       "demonstrated_observation_kind": "writable_open_rejection_error_code",
       "current_evidence_strength": ["InterfaceBehavior"],
@@ -197,31 +274,45 @@
     {
       "scenario_id": "derived-state-corruption",
       "scenario_version": 1,
-      "claim": "Classify derived-state corruption as rebuildable without canonical loss",
+      "intended_claims": [
+        {
+          "id": "derived_corruption_detection",
+          "claim": "Detect or classify derived-state corruption while preserving access to canonical state.",
+          "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"]
+        },
+        {
+          "id": "derived_state_rebuild",
+          "claim": "Rebuild derived state and verify the rebuilt artifact after close and reopen.",
+          "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"]
+        }
+      ],
+      "current_demonstrated_claim": "Canonical state remains readable after modifying an artifact designated as derived, but the handler does not observe, classify, or rebuild that derived artifact.",
       "pre_state": "Created session with canonical and derived artifacts on disk",
       "operation": "corrupt derived artifact then open(ReadOnly) and read normalized state",
       "fault_point": "derived artifact corruption before open",
       "fault_layer": "logical",
       "persisted_observation": "Canonical state readable; derived corruption not consulted",
       "reopen_or_recovery_step": "Open read-only only; no derived rebuild asserted",
-      "expected_result": "Canonical oracle matches fixture; derived rebuilt or classified rebuildable",
+      "expected_result": "Canonical oracle matches fixture; derived detection/rebuild as separate subclaims",
       "required_error_classification": "none for read-only open success path",
-      "forbidden_shortcuts": ["no-op fault on read path", "never read or rebuild derived"],
+      "forbidden_shortcuts": ["no-op fault on read path", "never read or rebuild derived", "treat canonical readability alone as rebuildability evidence"],
       "current_assertion_summary": "passed_oracle(fixture.normalized_state(), actual) without derived observation",
       "demonstrated_observation_kind": "canonical_readable_despite_derived_corruption_unverified",
-      "current_evidence_strength": ["InterfaceBehavior"],
-      "target_evidence_strength_for_this_scenario": ["LogicalStateTransition"],
+      "current_evidence_strength": [],
+      "target_evidence_strength_for_this_scenario": [],
       "related_higher_level_claims_requiring_separate_scenarios": [
-        "Derived rebuild or classification observation as explicit assertion",
+        "derived_corruption_detection subclaim",
+        "derived_state_rebuild subclaim",
         "ProcessCrashRecovery if corruption occurs during write"
       ],
-      "current_gap": "Scenario name and description exceed assertions; invalid for rebuild claim as recorded",
+      "current_gap": "Current handler supports neither full intended subclaim; canonical readability alone is not rebuildability evidence",
       "correction_required": true
     },
     {
       "scenario_id": "canonical-reference-corruption",
       "scenario_version": 1,
-      "claim": "Detect broken canonical reference and fail closed on writable open",
+      "intended_claim": "Detect broken canonical reference and fail closed on writable open with exact error classification; verify canonical state unchanged via independent persisted observation.",
+      "current_demonstrated_claim": "Writable open fails on corrupted canonical reference; any error accepted; no independent persisted before/after observation.",
       "pre_state": "Created session; canonical reference corrupted in persisted state",
       "operation": "corrupt_or_fault_inject(CanonicalReferenceCorruption) then open(Writable)",
       "fault_point": "canonical payload corruption before open",
@@ -230,22 +321,30 @@
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Writable open fails with specific canonical-corruption classification",
       "required_error_classification": "canonical-corruption or equivalent specific code",
-      "forbidden_shortcuts": ["Err(_) any error", "compare(fixture, fixture)"],
+      "forbidden_shortcuts": ["Err(_) any error", "compare(fixture, fixture)", "upgrade exact error classification to LogicalStateTransition mechanically"],
+      "no_transition_invariant": {
+        "rejected_operation": "open(Writable) on corrupted canonical reference",
+        "exact_error_or_policy_result": "any Err accepted in current handler; intended specific canonical-corruption code",
+        "independent_persisted_observation": "not performed",
+        "no_transition_invariant_tested": "intended writable-open rejection without mutation; not validly demonstrated"
+      },
       "current_assertion_summary": "Any Err on writable open then passed_oracle(fixture, fixture)",
       "demonstrated_observation_kind": "writable_open_fail_closed_any_error",
       "current_evidence_strength": ["InterfaceBehavior"],
       "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
-        "LogicalStateTransition with exact error classification",
+        "Exact canonical-corruption error classification: InterfaceBehavior",
+        "Canonical state remains unchanged after rejected writable open: requires independent persisted before/after observation; do not assign a higher evidence level mechanically",
         "Read-only salvage path as separate claim"
       ],
-      "current_gap": "Weak error classification; tautological oracle",
+      "current_gap": "Weak error classification; tautological oracle; no independent persisted observation",
       "correction_required": true
     },
     {
       "scenario_id": "semantic-duplication",
       "scenario_version": 1,
-      "claim": "Create new session identity with source lineage; copied canonical history oracle-valid",
+      "intended_claim": "Create new session identity with source lineage; copied canonical history oracle-valid against independent expected values after persisted reopen of both sessions.",
+      "current_demonstrated_claim": "Duplicate session returns new session id and lineage metadata; oracle self-compares duplicate.normalized_state; neither source nor duplicate reopened from persisted storage.",
       "pre_state": "Source session created and opened writable",
       "operation": "duplicate_session while source handle open",
       "fault_point": "none",
@@ -270,7 +369,8 @@
     {
       "scenario_id": "interrupted-authoritative-transition",
       "scenario_version": 1,
-      "claim": "Interrupt authoritative transition around durable acknowledgement; no partial state exposed",
+      "intended_claim": "Interrupt authoritative transition around durable acknowledgement; no partial state exposed; verify last committed state after recovery.",
+      "current_demonstrated_claim": "Logical pre-commit abort before any write; command fails with simulated-durability-failure; post-reopen read-only state equals pre-command state.",
       "pre_state": "Created session; fault armed FailBeforeDurabilityCommit",
       "operation": "apply_authoritative_command(AppendCorrectionEvent) under armed fault",
       "fault_point": "before any write or transaction begin",
@@ -279,7 +379,13 @@
       "reopen_or_recovery_step": "close -> reopen(Writable) -> apply under fault -> close -> reopen(ReadOnly)",
       "expected_result": "Command fails; post-reopen state equals last committed state",
       "required_error_classification": "simulated-durability-failure",
-      "forbidden_shortcuts": ["pre-write abort labeled ProcessInterruption", "no mid-write fault"],
+      "forbidden_shortcuts": ["pre-write abort labeled ProcessInterruption", "no mid-write fault", "treat unchanged state after pre-write abort as ProcessCrashRecovery"],
+      "no_transition_invariant": {
+        "rejected_operation": "AppendCorrectionEvent under FailBeforeDurabilityCommit",
+        "exact_error_or_policy_result": "simulated-durability-failure",
+        "independent_persisted_observation": "reopen read-only after abort; before equals after",
+        "no_transition_invariant_tested": "no authoritative transition committed; state unchanged after logical pre-commit abort"
+      },
       "current_assertion_summary": "Err(simulated-durability-failure) then passed_oracle(before, after) after reopen",
       "demonstrated_observation_kind": "logical_pre_commit_abort",
       "current_evidence_strength": ["InterfaceBehavior"],
@@ -294,7 +400,8 @@
     {
       "scenario_id": "interrupted-compaction",
       "scenario_version": 1,
-      "claim": "Interrupted compaction does not expose mixed or invalid canonical state",
+      "intended_claim": "Interrupted compaction does not expose mixed or invalid canonical state; verify valid committed state after recovery.",
+      "current_demonstrated_claim": "Pre-compaction interrupt returns simulated-compaction-interrupt before any compaction mutation; no post-fault persisted-state observation.",
       "pre_state": "Created session; compaction capability supported; fault armed FailCompaction",
       "operation": "cleanup_or_compact_if_supported(Compact) under armed interrupt",
       "fault_point": "before_compaction_mutation",
@@ -304,12 +411,18 @@
       "expected_result": "Compaction aborts safely; reopen shows valid committed state matching pre-compaction oracle",
       "required_error_classification": "simulated-compaction-interrupt",
       "forbidden_shortcuts": ["compare(fixture, fixture)", "no reopen after interrupt", "imply compaction write occurred"],
+      "no_transition_invariant": {
+        "rejected_operation": "cleanup_or_compact_if_supported(Compact) under FailCompaction",
+        "exact_error_or_policy_result": "simulated-compaction-interrupt",
+        "independent_persisted_observation": "none; no post-fault observation",
+        "no_transition_invariant_tested": "compaction aborted before mutation; no state change expected or observed"
+      },
       "current_assertion_summary": "Err(simulated-compaction-interrupt) then passed_oracle(fixture, fixture); no compaction mutation observed",
       "demonstrated_observation_kind": "pre_compaction_interrupt_error_path_only",
       "current_evidence_strength": ["InterfaceBehavior"],
       "target_evidence_strength_for_this_scenario": ["InterfaceBehavior"],
       "related_higher_level_claims_requiring_separate_scenarios": [
-        "LogicalStateTransition with post-interrupt reopen and state validation",
+        "Post-interrupt reopen and state validation after in-progress compaction mutation",
         "ProcessCrashRecovery during in-progress compaction mutation"
       ],
       "current_gap": "Invalid or insufficient for compaction recovery; no compaction write occurred; no post-fault state validation",
@@ -318,7 +431,8 @@
     {
       "scenario_id": "interrupted-cleanup",
       "scenario_version": 1,
-      "claim": "Interrupt destructive historical cleanup without silent canonical corruption",
+      "intended_claim": "Interrupt destructive historical cleanup without silent canonical corruption; verify canonical state valid after recovery.",
+      "current_demonstrated_claim": "Scenario not executed; destructive historical GC capability not implemented in spike adapters.",
       "pre_state": "Session with destructive GC capability required",
       "operation": "cleanup_or_compact_if_supported(DestructiveHistoricalGc) under interrupt",
       "fault_point": "not_applicable_capability_missing",

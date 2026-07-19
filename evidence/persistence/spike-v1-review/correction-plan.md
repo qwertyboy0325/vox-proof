@@ -1,7 +1,7 @@
 # Persistence Spike v1 — Bounded Correction Plan
 
-Work package: `correct-persistence-reclassification-record-precision`
-Review baseline: `288529d149b8a89a9f520419d88804cc57dc1ff3`
+Work package: `finalize-persistence-scenario-claim-contract-precision`
+Review baseline: `48928b30b87c62a8edcac4ebab402cfea39ac279`
 Status: **plan only — no implementation authorized by this document**
 
 This plan follows specialist storage-systems and evidence-methodology review. Original evidence at `evidence/persistence/spike-v1-macos-6460148/` is preserved unchanged.
@@ -21,6 +21,39 @@ selection_status = none
 Metadata cleanup, schema changes, corrected names, or existing 13/13 catalog Passed results must **not** automatically restore any `Eligible*` state.
 
 Package 1 must preserve this invariant.
+
+---
+
+## Evidence-strength taxonomy rules (automation-safe)
+
+Evidence-strength levels must be assigned from the **semantic claim actually demonstrated**, not from the presence of a particular test operation.
+
+The following do **not** automatically upgrade evidence strength:
+
+- close and reopen
+- reading from disk
+- exact error classification
+- persisted before/after comparison
+- use of a transaction
+- use of fsync
+- running on another process or platform
+
+Each level requires claim-specific justification.
+
+`InterfaceBehavior`, `LogicalStateTransition`, `ProcessCrashRecovery`, `FilesystemDurability`, `HardwarePowerLoss`, and `CrossPlatform` are **not** a universal linear maturity ladder for every scenario. A scenario may be fully correct at `InterfaceBehavior` without needing to target a higher level.
+
+### No-transition invariant rule
+
+A scenario that verifies **no mutation occurred** is not automatically a `LogicalStateTransition`.
+
+Rejection and corruption scenarios must record:
+
+- the rejected operation
+- the exact error or policy result
+- the independent persisted observation
+- the no-transition invariant being tested
+
+Evidence strength must then be assigned based on the specific semantic claim demonstrated.
 
 ---
 
@@ -147,7 +180,7 @@ Required sequence. Each package must declare its own work-package fields, review
 
 | # | Package | Scope | Owns official scenario semantics? | Stop gate |
 |---|---|---|---|---|
-| 1 | Scenario contract metadata, classification, fail-closed aggregation, and result schema only | Harness metadata, scenario descriptions, failure models, evidence-strength encoding, eligibility wording, fail-closed invariant | No — metadata only | Specialist evidence review + owner gate |
+| 1 | Scenario contract metadata, classification, fail-closed aggregation, and result schema only | Harness metadata, scenario descriptions, failure models, evidence-strength encoding, eligibility wording, fail-closed invariant, intended/current claim separation | No — metadata only | Specialist evidence review + owner gate |
 | 2 | SQLite mechanism correction only | `embedded_relational.rs`; backup/duplication protocol; writer recovery; SQLite integrity and authority-model alignment; mechanism-specific unit/conformance tests | **No** | Storage systems review |
 | 3 | Append-bundle mechanism correction only | `append_bundle.rs`; authority model; log payload/replay; ordering/fsync; compaction sequence; writer recovery; mechanism-specific unit/conformance tests | **No** | Storage systems review |
 | 4 | Shared fault model and official scenario assertion correction | `fault.rs`, `scenario_runner.rs`; reopen assertions; exact error classification; cross-candidate shared evidence scenarios | **Yes** | Evidence methodology review; depends on Packages 2–3 where scenario behavior requires mechanism fixes |
@@ -157,6 +190,19 @@ Required sequence. Each package must declare its own work-package fields, review
 | 8 | Mechanism-selection readiness review | Compare eligible candidates; prepare selection MD draft | — | Owner Material Decision gate |
 
 **Boundary rule:** Packages 2 and 3 must not own official shared evidence-scenario semantics. Package 4 depends on relevant mechanism corrections being complete where scenario behavior requires them.
+
+### Package 1 explicit requirements (not authorized by this plan)
+
+Package 1 remains **metadata, classification, fail-closed aggregation, and result schema only**. It is **not authorized** by this document.
+
+When separately authorized, Package 1 must:
+
+- aggregate readiness using `current_demonstrated_claim` and `current_evidence_strength`, never `intended_claim` or `intended_claims`
+- not infer evidence level solely from operation type (close/reopen, fsync, transaction, etc.)
+- support multiple independently identified subclaims per scenario contract
+- exclude unsupported and deferred claims from readiness aggregation
+- require explicit no-transition invariant metadata for rejection and corruption scenarios
+- remain fail-closed and **cannot restore** any `Eligible*` state
 
 ---
 
@@ -174,5 +220,5 @@ Required sequence. Each package must declare its own work-package fields, review
 ## Related artifacts
 
 - `findings.json` — consolidated finding matrix with attribution discipline
-- `scenario-claim-contracts.json` — per-scenario claim contracts (v2)
+- `scenario-claim-contracts.json` — per-scenario claim contracts (v3)
 - `reclassification.json` — formal downgrade record (v2)
