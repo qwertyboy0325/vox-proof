@@ -1,0 +1,39 @@
+{
+  "scenario_identity": {
+    "scenario_id": "append-correction-event",
+    "scenario_version": 1,
+    "category": "AuthoritativeCommand",
+    "description": "Append one representative correction event",
+    "failure_model": "None",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+    "actual_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 188,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": null,
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/append-correction-event.json"
+  ],
+  "achieved_evidence_strength": [
+    "LogicalStateTransition"
+  ],
+  "process_interruption_performed": false,
+  "reopen_performed": true
+}

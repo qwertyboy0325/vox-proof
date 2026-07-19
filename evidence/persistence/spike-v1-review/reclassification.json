@@ -60,7 +60,7 @@
     "recovery_correctness": "insufficiently_demonstrated",
     "filesystem_durability": "not_demonstrated",
     "hardware_power_loss_resilience": "not_demonstrated",
-    "cross_platform_eligibility": "inconclusive",
+    "cross_platform_eligibility": "partial_macos_and_windows_github_actions_10_scenario_subset",
     "mechanism_comparison_readiness": "not_ready",
     "mechanism_selection_readiness": "not_ready",
     "selection_status": "none",
@@ -280,7 +280,7 @@
     "mechanism_comparison_readiness": "not_ready",
     "mechanism_selection_readiness": "not_ready",
     "selection_status": "none",
-    "package_2d_executed": false,
+    "package_2d_executed": true,
     "review_chain": {
       "evidence_methodology": "EVIDENCE REVIEW: PASS",
       "pre_final_governance_audit": "PRE_FINAL_GOVERNANCE_AUDIT: PASS",
@@ -300,5 +300,32 @@
     "current_status": "ready_for_owner_gate",
     "acceptance_effect": "none",
     "note": "Prior packet is superseded because its readiness conclusion is no longer current; it is not invalidated in all respects"
+  },
+  "package_2d_authoritative_binding": {
+    "work_package_id": "persistence-package-2d-cross-platform-durability",
+    "package_2c_head": "8cc0b8209282065db0521d612b07b1559e4f1183",
+    "macos_evidence_run_id": "spike-v3-sqlite-macos-20260719-final",
+    "windows_evidence_run_id": "spike-v3-sqlite-windows-29690831265",
+    "durability_evidence_run_id": "spike-v3-sqlite-macos-20260719-final",
+    "evidence_producing_commit": "dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+    "authoritative_evidence_root": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/",
+    "windows_evidence_root": "evidence/persistence/spike-v3-sqlite-windows-29690831265/",
+    "package_2d_executed": true,
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "selection_status": "none",
+    "cross_platform_eligibility": "partial_macos_and_windows_github_actions_10_scenario_subset",
+    "filesystem_durability": "not_demonstrated",
+    "hardware_power_loss_resilience": "not_demonstrated",
+    "durability_trials_per_experiment": 5,
+    "durability_claim_credit": [
+      "ProcessCrashRecovery",
+      "InterfaceBehavior"
+    ],
+    "durability_claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "platform_matrix_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platform-matrix.json"
   }
 }

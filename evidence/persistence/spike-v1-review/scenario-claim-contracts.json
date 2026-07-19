@@ -93,7 +93,8 @@
       "current_assertion_summary": "direct-sql-v1 oracle: fixture.normalized_state vs persisted after reopen",
       "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
-        "InterfaceBehavior"
+        "InterfaceBehavior",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "InterfaceBehavior"
@@ -110,9 +111,24 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/baseline-create-open-close.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/baseline-create-open-close.json",
       "process_topology": "parent in-process",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "append-correction-event",
@@ -136,7 +152,8 @@
       "current_assertion_summary": "direct-sql-v1 oracle after reopen + idempotent retry",
       "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
-        "LogicalStateTransition"
+        "LogicalStateTransition",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "LogicalStateTransition"
@@ -152,9 +169,24 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/append-correction-event.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/append-correction-event.json",
       "process_topology": "parent in-process",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "LogicalStateTransition",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "attach-analysis-result",
@@ -177,7 +209,8 @@
       "current_assertion_summary": "direct-sql-v1 oracle after reopen",
       "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
-        "LogicalStateTransition"
+        "LogicalStateTransition",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "LogicalStateTransition"
@@ -193,9 +226,24 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/attach-analysis-result.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/attach-analysis-result.json",
       "process_topology": "parent in-process",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "LogicalStateTransition",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "stale-review-ledger-command",
@@ -219,7 +267,8 @@
       "current_assertion_summary": "Err(stale-precondition) then direct-sql-v1 oracle unchanged",
       "demonstrated_observation_kind": "scoped_precondition_rejection_with_independent_reopen",
       "current_evidence_strength": [
-        "InterfaceBehavior"
+        "InterfaceBehavior",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "InterfaceBehavior"
@@ -240,9 +289,24 @@
         "independent_persisted_observation": "direct-sql-v1 fixture oracle after reopen",
         "boundary_observed": "canonical state unchanged after rejected command"
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/stale-review-ledger-command.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/stale-review-ledger-command.json",
       "process_topology": "parent in-process",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "stale-active-analysis-selection",
@@ -360,7 +424,8 @@
       "current_assertion_summary": "multi-process reject + SIGKILL + lease-expiry takeover + independent oracle",
       "demonstrated_observation_kind": "multi_process_writer_rejection_and_lease_expiry_takeover",
       "current_evidence_strength": [
-        "InterfaceBehavior"
+        "InterfaceBehavior",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "InterfaceBehavior"
@@ -381,9 +446,25 @@
         "independent_persisted_observation": "direct-sql fixture oracle after takeover",
         "boundary_observed": "rejection plus lease-expiry takeover without canonical mutation"
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/concurrent-writer-attempt.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/concurrent-writer-attempt.json",
       "process_topology": "multi-process: hold-writer child + attempt-writer child + parent oracle",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host",
+        "ProcessCrashRecovery not credited for lease-timeout takeover path"
+      ]
     },
     {
       "scenario_id": "unknown-newer-format",
@@ -406,7 +487,8 @@
       "current_assertion_summary": "Err(unsupported-newer-format); writer token unset via observe_writer_ownership",
       "demonstrated_observation_kind": "writable_open_rejection_error_code",
       "current_evidence_strength": [
-        "InterfaceBehavior"
+        "InterfaceBehavior",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "InterfaceBehavior"
@@ -427,8 +509,23 @@
         "independent_persisted_observation": "error code only; no persisted state comparison",
         "boundary_observed": "writable open rejected; no mutation attempted"
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/unknown-newer-format.json",
-      "process_topology": "parent in-process"
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/unknown-newer-format.json",
+      "process_topology": "parent in-process",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "derived-state-corruption",
@@ -465,7 +562,8 @@
           "current_status": "partially_demonstrated",
           "current_demonstrated_claim": "Canonical normalized state remains readable via direct-sql-v1 reopen after derived_cache corruption (Package 2C).",
           "current_evidence_strength": [
-            "InterfaceBehavior"
+            "InterfaceBehavior",
+            "CrossPlatform"
           ],
           "target_evidence_strength_for_this_subclaim": [
             "InterfaceBehavior"
@@ -509,9 +607,21 @@
           "LogicalStateTransition"
         ]
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/derived-state-corruption.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/derived-state-corruption.json",
       "process_topology": "parent in-process",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "canonical-reference-corruption",
@@ -536,7 +646,8 @@
       "current_assertion_summary": "Err on writable open; no independent persisted oracle",
       "demonstrated_observation_kind": "writable_open_fail_closed_any_error",
       "current_evidence_strength": [
-        "InterfaceBehavior"
+        "InterfaceBehavior",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "InterfaceBehavior"
@@ -568,8 +679,23 @@
           "semantic canonical corruption"
         ]
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/canonical-reference-corruption.json",
-      "process_topology": "parent in-process"
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/canonical-reference-corruption.json",
+      "process_topology": "parent in-process",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "semantic-duplication",
@@ -593,7 +719,8 @@
       "current_assertion_summary": "source unchanged + destination semantic match via direct-sql-v1",
       "demonstrated_observation_kind": "independent_source_destination_reopen",
       "current_evidence_strength": [
-        "LogicalStateTransition"
+        "LogicalStateTransition",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "LogicalStateTransition"
@@ -610,9 +737,24 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/semantic-duplication.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/semantic-duplication.json",
       "process_topology": "parent in-process (duplication in-process)",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "LogicalStateTransition",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "interrupted-authoritative-transition",
@@ -638,7 +780,8 @@
       "current_evidence_strength": [
         "InterfaceBehavior",
         "ProcessCrashRecovery",
-        "LogicalStateTransition"
+        "LogicalStateTransition",
+        "CrossPlatform"
       ],
       "target_evidence_strength_for_this_scenario": [
         "ProcessCrashRecovery",
@@ -654,9 +797,26 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/interrupted-authoritative-transition.json",
+      "evidence_artifact_reference": "evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native/scenario-results/interrupted-authoritative-transition.json",
       "process_topology": "child apply-command-crash worker + parent direct-sql oracle and retry",
-      "oracle_type": "direct-sql-v1"
+      "oracle_type": "direct-sql-v1",
+      "platforms_executed": [
+        "macos-native",
+        "windows-github-actions"
+      ],
+      "platform_equivalence_result": "equivalent",
+      "achieved_evidence_strength": [
+        "InterfaceBehavior",
+        "ProcessCrashRecovery",
+        "LogicalStateTransition",
+        "CrossPlatform"
+      ],
+      "remaining_limitations": [
+        "CrossPlatform credit limited to macos-native and windows-github-actions at commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+        "FilesystemDurability not demonstrated",
+        "HardwarePowerLoss not demonstrated",
+        "windows-github-actions is GHA NTFS runner; not owner native Windows host"
+      ]
     },
     {
       "scenario_id": "interrupted-compaction",
@@ -768,5 +928,8 @@
     "pre_write_abort_no_authoritative_mutation": "Fault fires before authoritative write or compaction mutation; no committed state change expected.",
     "unsupported_capability_not_executed": "Scenario not executed due to missing capability; excluded from readiness aggregation.",
     "not_applicable": "No rejection, corruption-observation, pre-write abort, or unsupported-capability invariant applies."
-  }
+  },
+  "package_2d_evidence_run_id": "spike-v3-sqlite-macos-20260719-final",
+  "package_2d_evidence_producing_commit": "dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+  "package_2d_windows_run_id": "spike-v3-sqlite-windows-29690831265"
 }

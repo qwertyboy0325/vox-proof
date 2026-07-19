@@ -1,0 +1,280 @@
+[
+  {
+    "observation_id": "baseline-reopen",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-baseline/session_evidence_001_baseline-create-open-close",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:baseline-create-open-close",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471222726
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+      "actual_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "append-reopen",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-append/session_evidence_001_append-correction-event",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:append-correction-event",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471222739
+    },
+    "applied_commands": [
+      {
+        "command_operation_id": "00000000-0000-4000-8000-f6a73ccafe48",
+        "command_kind": "append-correction",
+        "outcome_status": "acknowledged"
+      }
+    ],
+    "counts": {
+      "review_ledger_event_count": 4,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+      "actual_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "attach-reopen",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-attach/session_evidence_001_attach-analysis-result",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:attach-analysis-result",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471222754
+    },
+    "applied_commands": [
+      {
+        "command_operation_id": "00000000-0000-4000-8000-5b64f0753192",
+        "command_kind": "attach-analysis",
+        "outcome_status": "acknowledged"
+      }
+    ],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 3,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+      "actual_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "stale-review-ledger-command-unchanged",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-stale-review-ledger-command/session_evidence_001_stale-review-ledger-command",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:stale-review-ledger-command",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471222764
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+      "actual_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "orphan-recovery",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-concurrent/session_evidence_001_concurrent-writer-attempt",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:concurrent-writer-attempt",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 1,
+      "lease_expires_at_unix_ms": 1784471196902
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+      "actual_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "derived-canonical-readability",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-derived/session_evidence_001_derived-state-corruption",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:derived-state-corruption",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 0
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+      "actual_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "dup-source",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-dup/session_evidence_001_semantic-duplication",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:semantic-duplication",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471224949
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:58d7ee61134a5ea6fb9ec2d7379e6dcf8126952b08171471fa942b46e421abd1",
+      "actual_fingerprint": "semantic:sha256-v1:58d7ee61134a5ea6fb9ec2d7379e6dcf8126952b08171471fa942b46e421abd1",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "dup-dest",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-dup/session_evidence_001_semantic-duplication_duplicate",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:semantic-duplication:duplicate",
+    "writer_ownership": {
+      "token": null,
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 0
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+      "actual_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "crash-before_sqlite_commit",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-interrupted-tx/before_sqlite_commit/session_evidence_001_interrupted-authoritative-transition",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:interrupted-authoritative-transition",
+    "writer_ownership": {
+      "token": "93ac0e9d-4691-44b4-ab50-433d08debbf1",
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471196974
+    },
+    "applied_commands": [],
+    "counts": {
+      "review_ledger_event_count": 3,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:c1c924f1de8ac5bba024c05325bce3ac71aeea7db516e812f8d931c5fa33ca3c",
+      "actual_fingerprint": "semantic:sha256-v1:c1c924f1de8ac5bba024c05325bce3ac71aeea7db516e812f8d931c5fa33ca3c",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  },
+  {
+    "observation_id": "crash-after_sqlite_commit_before_ack",
+    "locator": "/var/folders/0h/201tg_8512b702wgckbl_pch0000gn/T/voxproof-persistence-spike-2c-interrupted-tx/after_sqlite_commit_before_ack/session_evidence_001_interrupted-authoritative-transition",
+    "oracle_type": "direct-sql-v1",
+    "session_id": "session:evidence:001:interrupted-authoritative-transition",
+    "writer_ownership": {
+      "token": "746a7c49-b977-4170-93c8-bc0869c0df12",
+      "owner_epoch": 0,
+      "lease_expires_at_unix_ms": 1784471197013
+    },
+    "applied_commands": [
+      {
+        "command_operation_id": "00000000-0000-4000-8000-7674deea7eaa",
+        "command_kind": "append-correction",
+        "outcome_status": "committed"
+      }
+    ],
+    "counts": {
+      "review_ledger_event_count": 4,
+      "analysis_result_count": 2,
+      "review_case_count": 2
+    },
+    "semantic_oracle": {
+      "passed": true,
+      "violations": [],
+      "warnings": [],
+      "expected_fingerprint": "semantic:sha256-v1:bd94397b41bd1fedd86eb83b8471a519498e4f4c6f99fd214875437a3b8eaeac",
+      "actual_fingerprint": "semantic:sha256-v1:bd94397b41bd1fedd86eb83b8471a519498e4f4c6f99fd214875437a3b8eaeac",
+      "oracle_version": "2"
+    },
+    "reopen_performed": true
+  }
+]

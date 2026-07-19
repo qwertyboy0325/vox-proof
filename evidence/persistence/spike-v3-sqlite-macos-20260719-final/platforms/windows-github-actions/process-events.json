@@ -1,0 +1,77 @@
+[
+  {
+    "event_id": "evt-1",
+    "role": "attempt-writer-reject",
+    "pid": 2016,
+    "command": [
+      "attempt-writer"
+    ],
+    "exit_classification": "Success",
+    "exit_code": 0,
+    "signal": null,
+    "stdout_excerpt": "VOXPROOF_RESULT:{\"code\":\"writer-already-open\",\"message\":\"embedded relational store permits one authoritative writer\",\"ok\":false}\n",
+    "stderr_excerpt": "",
+    "started_at_ms": 19,
+    "ended_at_ms": 19
+  },
+  {
+    "event_id": "evt-2",
+    "role": "hold-writer",
+    "pid": 7520,
+    "command": [
+      "hold-writer"
+    ],
+    "exit_classification": "Signaled",
+    "exit_code": 1,
+    "signal": null,
+    "stdout_excerpt": "VOXPROOF_READY\n",
+    "stderr_excerpt": "",
+    "started_at_ms": 116,
+    "ended_at_ms": 116
+  },
+  {
+    "event_id": "evt-3",
+    "role": "attempt-writer-takeover",
+    "pid": 8920,
+    "command": [
+      "attempt-writer"
+    ],
+    "exit_classification": "Success",
+    "exit_code": 0,
+    "signal": null,
+    "stdout_excerpt": "VOXPROOF_RESULT:{\"ok\":true}\n",
+    "stderr_excerpt": "",
+    "started_at_ms": 43,
+    "ended_at_ms": 43
+  },
+  {
+    "event_id": "evt-4",
+    "role": "apply-command-crash",
+    "pid": 5812,
+    "command": [
+      "apply-command-crash"
+    ],
+    "exit_classification": "AbnormalTermination",
+    "exit_code": -1073740791,
+    "signal": null,
+    "stdout_excerpt": "VOXPROOF_READY\n",
+    "stderr_excerpt": "",
+    "started_at_ms": 170,
+    "ended_at_ms": 170
+  },
+  {
+    "event_id": "evt-5",
+    "role": "apply-command-crash",
+    "pid": 2424,
+    "command": [
+      "apply-command-crash"
+    ],
+    "exit_classification": "AbnormalTermination",
+    "exit_code": -1073740791,
+    "signal": null,
+    "stdout_excerpt": "VOXPROOF_READY\n",
+    "stderr_excerpt": "",
+    "started_at_ms": 188,
+    "ended_at_ms": 188
+  }
+]

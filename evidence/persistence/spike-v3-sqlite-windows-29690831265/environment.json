@@ -1,0 +1,37 @@
+{
+  "authorized_file_scope_audit": {
+    "note": "Package 2D cross-platform durability harness",
+    "scope_threshold_exceeded": true,
+    "work_package_id": "persistence-package-2d-cross-platform-durability"
+  },
+  "design_contract_version": "sqlite-design-v1",
+  "harness_version": "sqlite-evidence-v3",
+  "package_2c_evidence_run": "spike-v2-sqlite-20260719-210916",
+  "package_2c_head": "8cc0b8209282065db0521d612b07b1559e4f1183",
+  "platform_profile": {
+    "architecture": "x86_64",
+    "child_termination_mechanism": "std::process::abort for crash faults; child.kill() uses TerminateProcess on Windows",
+    "directory_sync_capability": {
+      "note": "publication uses fs::rename without parent directory fsync",
+      "parent_directory_fsync": false
+    },
+    "execution_environment": "github-actions-windows-latest",
+    "filesystem": "ntfs-github-actions-runner",
+    "hypervisor": null,
+    "operating_system": "windows",
+    "operating_system_version": "Microsoft Windows [Version 10.0.26100.32995]",
+    "package_2c_evidence_run": "spike-v2-sqlite-20260719-210916",
+    "package_2c_head": "8cc0b8209282065db0521d612b07b1559e4f1183",
+    "platform_label": "windows-github-actions",
+    "repository_commit": "dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+    "rusqlite_version": "0.32",
+    "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "sqlite_version": "bundled-with-rusqlite-0.32",
+    "storage_cache_model": null
+  },
+  "repository_commit": "dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
+  "run_id": "spike-v3-sqlite-windows-29690831265",
+  "scenario_contract_version": "4",
+  "trials_per_experiment": 5,
+  "work_package_id": "persistence-package-2d-cross-platform-durability"
+}

@@ -1,0 +1,4 @@
+[
+  "RUSTC_VERSION=rustc 1.96.0 (ac68faa20 2026-05-25) VOXPROOF_EVIDENCE_RUN_ID=spike-v3-sqlite-macos-20260719-final cargo run --features persistence-spike --bin persistence_evidence_v3_run",
+  "cargo run --features persistence-spike --bin persistence_evidence_v3_merge -- spike-v3-sqlite-macos-20260719-final evidence/persistence/spike-v3-sqlite-macos-20260719-final/platforms/macos-native evidence/persistence/spike-v3-sqlite-windows-29690831265/platforms/windows-github-actions spike-v3-sqlite-windows-29690831265"
+]

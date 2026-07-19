@@ -1,0 +1,134 @@
+{
+  "matrix_version": "1",
+  "macos_run_id": "spike-v3-sqlite-macos-20260719-final",
+  "windows_run_id": "spike-v3-sqlite-windows-29690831265",
+  "scenarios": [
+    {
+      "scenario_id": "baseline-create-open-close",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "append-correction-event",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "attach-analysis-result",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:bf93c62c3f979b0b61c1d2991335f1f1a5675660a23a64968f555800a26ee5d3",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "stale-review-ledger-command",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "concurrent-writer-attempt",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "unknown-newer-format",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "",
+      "windows_oracle_fingerprint": "",
+      "macos_error_code": "unsupported-newer-format",
+      "windows_error_code": "unsupported-newer-format",
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "derived-state-corruption",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "canonical-reference-corruption",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "",
+      "windows_oracle_fingerprint": "",
+      "macos_error_code": "canonical-corruption",
+      "windows_error_code": "canonical-corruption",
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "semantic-duplication",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    },
+    {
+      "scenario_id": "interrupted-authoritative-transition",
+      "macos_status": "Passed",
+      "windows_status": "Passed",
+      "macos_oracle_fingerprint": "semantic:sha256-v1:bd94397b41bd1fedd86eb83b8471a519498e4f4c6f99fd214875437a3b8eaeac",
+      "windows_oracle_fingerprint": "semantic:sha256-v1:bd94397b41bd1fedd86eb83b8471a519498e4f4c6f99fd214875437a3b8eaeac",
+      "macos_error_code": null,
+      "windows_error_code": null,
+      "equivalence_result": "equivalent",
+      "cross_platform_credited": true,
+      "differences": []
+    }
+  ],
+  "hardware_power_loss_status": "not_demonstrated",
+  "filesystem_durability_status": "not_demonstrated",
+  "cross_platform_summary": {
+    "different": 0,
+    "equivalent": 10,
+    "missing_platform": 0
+  }
+}
