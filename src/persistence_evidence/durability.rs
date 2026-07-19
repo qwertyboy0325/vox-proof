@@ -176,7 +176,7 @@ fn intentional_process_abort(outcome: &ProcessRunOutcome) -> bool {
         #[cfg(windows)]
         {
             if let Some(code) = status.code() {
-                if code == 3 || code as u32 == 0xC0000409 {
+                if code as u32 == 0xC0000409 {
                     return true;
                 }
             }
