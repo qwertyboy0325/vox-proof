@@ -32,6 +32,7 @@ fn passed_scenario(id: &str, fingerprint: &str) -> ScenarioResult {
         achieved_evidence_strength: vec!["InterfaceBehavior".to_string()],
         process_interruption_performed: None,
         reopen_performed: Some(true),
+        observed_error_code: None,
     }
 }
 

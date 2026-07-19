@@ -61,6 +61,7 @@ impl EvidenceHarness {
                     achieved_evidence_strength: Vec::new(),
                     process_interruption_performed: None,
                     reopen_performed: None,
+                    observed_error_code: None,
                 }
             }
             Err(error) => {
@@ -76,6 +77,7 @@ impl EvidenceHarness {
                     achieved_evidence_strength: Vec::new(),
                     process_interruption_performed: None,
                     reopen_performed: None,
+                    observed_error_code: None,
                 }
             }
         };

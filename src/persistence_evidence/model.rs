@@ -305,6 +305,8 @@ pub struct ScenarioResult {
     pub process_interruption_performed: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reopen_performed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_error_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

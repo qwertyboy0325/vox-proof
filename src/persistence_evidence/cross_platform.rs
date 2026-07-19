@@ -102,7 +102,15 @@ pub fn compare_scenario(
             }
             let both_pass = m.status == super::model::ScenarioStatus::Passed
                 && w.status == super::model::ScenarioStatus::Passed;
-            let equivalent = both_pass && (fp_match || scenario_allows_fingerprint_drift(scenario_id));
+            let error_match = error_codes_equivalent(scenario_id, m, w);
+            if !error_match {
+                diffs.push(format!(
+                    "observed error code macos={:?} windows={:?}",
+                    macos.and_then(|r| r.observed_error_code.clone()),
+                    windows.and_then(|r| r.observed_error_code.clone()),
+                ));
+            }
+            let equivalent = both_pass && error_match && (fp_match || scenario_allows_fingerprint_drift(scenario_id));
             if equivalent && !fp_match {
                 diffs.push("semantic equivalence accepted without byte-identical fingerprint".to_string());
             }
@@ -124,8 +132,8 @@ pub fn compare_scenario(
         windows_status,
         macos_oracle_fingerprint: macos_fp,
         windows_oracle_fingerprint: windows_fp,
-        macos_error_code: None,
-        windows_error_code: None,
+        macos_error_code: macos.and_then(|r| r.observed_error_code.clone()),
+        windows_error_code: windows.and_then(|r| r.observed_error_code.clone()),
         equivalence_result,
         cross_platform_credited,
         differences,
@@ -135,6 +143,29 @@ pub fn compare_scenario(
 fn scenario_allows_fingerprint_drift(scenario_id: &str) -> bool {
     matches!(
         scenario_id,
-        "concurrent-writer-attempt" | "unknown-newer-format" | "canonical-reference-corruption"
+        "concurrent-writer-attempt" | "interrupted-authoritative-transition"
     )
+}
+
+fn error_codes_equivalent(
+    scenario_id: &str,
+    macos: &ScenarioResult,
+    windows: &ScenarioResult,
+) -> bool {
+    match (
+        macos.observed_error_code.as_deref(),
+        windows.observed_error_code.as_deref(),
+    ) {
+        (None, None) => !matches!(
+            scenario_id,
+            "unknown-newer-format" | "canonical-reference-corruption"
+        ),
+        (Some(a), Some(b)) if scenario_id == "canonical-reference-corruption" => {
+            a == b
+                || (matches!(a, "canonical-corruption" | "sqlite-open-failed")
+                    && matches!(b, "canonical-corruption" | "sqlite-open-failed"))
+        }
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
 }

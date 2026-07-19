@@ -307,6 +307,7 @@ impl SqliteScenarioRunner {
             achieved_evidence_strength: strengths.into_iter().map(str::to_string).collect(),
             process_interruption_performed: Some(process_crash),
             reopen_performed: Some(reopen),
+            observed_error_code: None,
         }
     }
 
@@ -327,6 +328,7 @@ impl SqliteScenarioRunner {
             achieved_evidence_strength: Vec::new(),
             process_interruption_performed: None,
             reopen_performed: None,
+            observed_error_code: None,
         }
     }
 
@@ -347,6 +349,7 @@ impl SqliteScenarioRunner {
             achieved_evidence_strength: Vec::new(),
             process_interruption_performed: None,
             reopen_performed: None,
+            observed_error_code: None,
         }
     }
 
@@ -823,7 +826,8 @@ impl SqliteScenarioRunner {
             Err(e) if e.code == "unsupported-newer-format" => {
                 match EmbeddedRelationalAdapter::observe_writer_ownership(session.adapter_locator())
                 {
-                    Ok((token, _, _)) if token.is_none() => Self::passed(
+                    Ok((token, _, _)) if token.is_none() => {
+                        let mut result = Self::passed(
                         scenario,
                         started,
                         OracleResult {
@@ -839,7 +843,10 @@ impl SqliteScenarioRunner {
                         false,
                         false,
                         "scenario-results/unknown-newer-format.json",
-                    ),
+                    );
+                        result.observed_error_code = Some(e.code.clone());
+                        result
+                    }
                     Ok((token, _, _)) => self.failed(
                         scenario,
                         started,
@@ -913,7 +920,7 @@ impl SqliteScenarioRunner {
         }
         match adapter.open(&session, SemanticOpenMode::Writable) {
             Err(e) if e.code == "canonical-corruption" || e.code == "sqlite-open-failed" => {
-                Self::passed(
+                let mut result = Self::passed(
                     scenario,
                     started,
                     OracleResult {
@@ -929,7 +936,9 @@ impl SqliteScenarioRunner {
                     false,
                     false,
                     "scenario-results/canonical-reference-corruption.json",
-                )
+                );
+                result.observed_error_code = Some(e.code.clone());
+                result
             }
             Ok(_) => self.failed(scenario, started, "corrupted session opened".into()),
             Err(e) => self.failed(scenario, started, format!("unexpected: {}", e.code)),
@@ -1305,6 +1314,7 @@ impl SqliteScenarioRunner {
                 achieved_evidence_strength: vec!["InterfaceBehavior".to_string()],
                 process_interruption_performed: Some(false),
                 reopen_performed: Some(false),
+                observed_error_code: None,
             },
         }
     }

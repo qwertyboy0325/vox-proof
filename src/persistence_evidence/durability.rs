@@ -13,7 +13,7 @@ use super::candidates::semantic_ops::{apply_command, sample_append_event};
 use super::fixture::EvidenceFixture;
 use super::independent_oracle::IndependentSqliteOracle;
 use super::model::NormalizedSemanticState;
-use super::process_harness::{ProcessExitClassification, ProcessHarness};
+use super::process_harness::{ProcessExitClassification, ProcessHarness, ProcessRunOutcome};
 use super::platform::filesystem_safe_path_segment;
 use super::scenario_runner::{catalog_command_id, fresh_storage_root};
 use super::EmbeddedRelationalAdapter;
@@ -61,6 +61,10 @@ pub struct DurabilityTrialResult {
     pub claim_denied: Vec<String>,
     pub failure_reason: Option<String>,
     pub elapsed_ms: u128,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_exit_classification: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_exit_code: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,6 +162,13 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
     ]
 }
 
+fn intentional_process_abort(classification: &ProcessExitClassification) -> bool {
+    matches!(
+        classification,
+        ProcessExitClassification::AbnormalTermination | ProcessExitClassification::Signaled
+    )
+}
+
 pub struct DurabilityTrialRunner {
     harness: ProcessHarness,
     platform_label: String,
@@ -230,6 +241,7 @@ impl DurabilityTrialRunner {
                     Some(error),
                     started,
                     &self.platform_label,
+                    None,
                 );
             }
         };
@@ -243,6 +255,25 @@ impl DurabilityTrialRunner {
                 Some("crash worker exited successfully".to_string()),
                 started,
                 &self.platform_label,
+                Some(&outcome),
+            );
+        }
+        if spec.interruption_model == InterruptionModel::ClassAProcessKill
+            && !intentional_process_abort(&outcome.classification)
+        {
+            return trial_result(
+                trial_id,
+                spec,
+                trial_index,
+                TrialOutcome::Failed,
+                None,
+                Some(format!(
+                    "expected intentional process abort, got {:?}",
+                    outcome.classification
+                )),
+                started,
+                &self.platform_label,
+                Some(&outcome),
             );
         }
         let expect_unchanged = spec.fault_point == FaultPoint::BeforeSqliteCommit;
@@ -286,6 +317,7 @@ impl DurabilityTrialRunner {
                     Some(error.to_string()),
                     started,
                     &self.platform_label,
+                    Some(&outcome),
                 );
             }
         };
@@ -307,6 +339,7 @@ impl DurabilityTrialRunner {
             },
             started,
             &self.platform_label,
+            Some(&outcome),
         )
     }
 
@@ -335,6 +368,7 @@ impl DurabilityTrialRunner {
                     Some(error.to_string()),
                     started,
                     &self.platform_label,
+                    None,
                 );
             }
         };
@@ -350,6 +384,7 @@ impl DurabilityTrialRunner {
                     Some(error.to_string()),
                     started,
                     &self.platform_label,
+                    None,
                 );
             }
         };
@@ -390,6 +425,7 @@ impl DurabilityTrialRunner {
             },
             started,
             &self.platform_label,
+            None,
         )
     }
 
@@ -426,6 +462,7 @@ impl DurabilityTrialRunner {
                     Some(error),
                     started,
                     &self.platform_label,
+                    None,
                 );
             }
         };
@@ -439,6 +476,23 @@ impl DurabilityTrialRunner {
                 Some("duplicate crash worker exited successfully".to_string()),
                 started,
                 &self.platform_label,
+                Some(&outcome),
+            );
+        }
+        if !intentional_process_abort(&outcome.classification) {
+            return trial_result(
+                trial_id,
+                spec,
+                trial_index,
+                TrialOutcome::Failed,
+                None,
+                Some(format!(
+                    "expected intentional process abort, got {:?}",
+                    outcome.classification
+                )),
+                started,
+                &self.platform_label,
+                Some(&outcome),
             );
         }
         let dest_id = format!("dup-{trial_index}");
@@ -476,6 +530,7 @@ impl DurabilityTrialRunner {
             },
             started,
             &self.platform_label,
+            Some(&outcome),
         )
     }
 }
@@ -489,6 +544,7 @@ fn trial_result(
     failure_reason: Option<String>,
     started: Instant,
     platform_label: &str,
+    process_outcome: Option<&ProcessRunOutcome>,
 ) -> DurabilityTrialResult {
     let claim_credited = if outcome == TrialOutcome::Passed {
         spec.credited.iter().map(|s| (*s).to_string()).collect()
@@ -509,5 +565,7 @@ fn trial_result(
         claim_denied: spec.denied.iter().map(|s| (*s).to_string()).collect(),
         failure_reason,
         elapsed_ms: started.elapsed().as_millis(),
+        process_exit_classification: process_outcome.map(|o| format!("{:?}", o.classification)),
+        process_exit_code: process_outcome.and_then(|o| o.exit_status.and_then(|s| s.code())),
     }
 }

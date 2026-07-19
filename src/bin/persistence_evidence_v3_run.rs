@@ -39,7 +39,9 @@ fn main() {
     let manifest = build_manifest(&repository_commit, &execution_command, &profile);
 
     let runner = SqliteScenarioRunner::new();
-    let (scenario_result, mut artifacts) = runner.run_cross_platform_subset(&fixture, manifest);
+    let (mut scenario_result, mut artifacts) = runner.run_cross_platform_subset(&fixture, manifest);
+    scenario_result.manifest.end_timestamp =
+        KnownOrUnavailable::Known(timestamp_iso());
     artifacts.commands.push(execution_command.clone());
 
     let durability_runner = DurabilityTrialRunner::new(profile.platform_label.clone());
@@ -326,18 +328,29 @@ fn timestamp_iso() -> String {
 
 fn checksum_dir(root: &Path) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
-    if let Ok(entries) = fs::read_dir(root) {
+    fn walk(base: &Path, root: &Path, out: &mut BTreeMap<String, String>) {
+        let Ok(entries) = fs::read_dir(base) else {
+            return;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
+                if path.file_name().is_some_and(|name| name == "checksums.json") {
+                    continue;
+                }
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .to_string();
                 let data = fs::read(&path).expect("read for checksum");
                 let hash = Sha256::digest(&data);
-                out.insert(
-                    path.file_name().unwrap().to_string_lossy().to_string(),
-                    format!("sha256:{hash:x}"),
-                );
+                out.insert(rel, format!("sha256:{hash:x}"));
+            } else if path.is_dir() {
+                walk(&path, root, out);
             }
         }
     }
+    walk(root, root, &mut out);
     out
 }
