@@ -10,7 +10,7 @@ persistence-spike = ["dep:rusqlite"]
 [dependencies]
 pinyin = "0.11.0"
 rphonetic = "=3.0.6"
-rusqlite = { version = "0.32", optional = true, features = ["bundled"] }
+rusqlite = { version = "0.32", optional = true, features = ["bundled", "backup"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -25,4 +25,9 @@ required-features = ["persistence-spike"]
 [[test]]
 name = "persistence_candidates"
 path = "tests/persistence_candidates.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_sqlite_mechanism"
+path = "tests/persistence_sqlite_mechanism.rs"
 required-features = ["persistence-spike"]

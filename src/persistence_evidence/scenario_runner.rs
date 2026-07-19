@@ -181,6 +181,10 @@ fn baseline_flow(
     Ok(actual)
 }
 
+fn catalog_command_id(scenario: &str, kind: &str) -> String {
+    format!("catalog:{scenario}:{kind}:001")
+}
+
 fn run_append_correction(
     adapter: &mut impl PersistenceCandidateAdapter,
     fixture: &EvidenceFixture,
@@ -206,6 +210,7 @@ fn run_append_correction(
     if apply_command(
         &mut expected,
         &AuthoritativeCommand::AppendCorrectionEvent {
+            command_operation_id: catalog_command_id("append-correction-event", "expected"),
             event: event.clone(),
             preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
                 expected_event_id: expected_head,
@@ -219,6 +224,7 @@ fn run_append_correction(
     if let Err(error) = adapter.apply_authoritative_command(
         &handle,
         &AuthoritativeCommand::AppendCorrectionEvent {
+            command_operation_id: catalog_command_id("append-correction-event", "apply"),
             event,
             preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
                 expected_event_id: state
@@ -259,6 +265,7 @@ fn run_attach_analysis(
     let _ = apply_command(
         &mut expected,
         &AuthoritativeCommand::AttachAnalysisResult {
+            command_operation_id: catalog_command_id("attach-analysis-result", "expected"),
             analysis_result: analysis.clone(),
             preconditions: vec![SemanticPrecondition::AnalysisAttachmentSet {
                 expected_analysis_result_ids: state
@@ -272,6 +279,7 @@ fn run_attach_analysis(
     if let Err(error) = adapter.apply_authoritative_command(
         &handle,
         &AuthoritativeCommand::AttachAnalysisResult {
+            command_operation_id: catalog_command_id("attach-analysis-result", "apply"),
             analysis_result: analysis,
             preconditions: vec![SemanticPrecondition::AnalysisAttachmentSet {
                 expected_analysis_result_ids: state
@@ -302,6 +310,7 @@ fn run_stale_ledger(
 ) -> ScenarioOutcome {
     stale_command_scenario(adapter, fixture, |state| {
         AuthoritativeCommand::AppendCorrectionEvent {
+            command_operation_id: catalog_command_id("stale-review-ledger-command", "apply"),
             event: sample_append_event(state),
             preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
                 expected_event_id: Some("ledger-event:missing".to_string()),
@@ -316,6 +325,7 @@ fn run_stale_active_analysis(
 ) -> ScenarioOutcome {
     stale_command_scenario(adapter, fixture, |state| {
         AuthoritativeCommand::SelectActiveAnalysis {
+            command_operation_id: catalog_command_id("stale-active-analysis-selection", "apply"),
             selection: sample_active_analysis_selection(
                 &state
                     .analysis_results
@@ -336,6 +346,7 @@ fn run_stale_attachment(
 ) -> ScenarioOutcome {
     stale_command_scenario(adapter, fixture, |state| {
         AuthoritativeCommand::AttachAnalysisResult {
+            command_operation_id: catalog_command_id("stale-analysis-attachment", "apply"),
             analysis_result: sample_attach_analysis(state),
             preconditions: vec![SemanticPrecondition::AnalysisAttachmentSet {
                 expected_analysis_result_ids: vec!["analysis-result:missing".to_string()],
@@ -525,6 +536,7 @@ fn run_interrupted_transition(
     };
     let event = sample_append_event(&before);
     let command = AuthoritativeCommand::AppendCorrectionEvent {
+        command_operation_id: catalog_command_id("interrupted-authoritative-transition", "apply"),
         event,
         preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
             expected_event_id: before

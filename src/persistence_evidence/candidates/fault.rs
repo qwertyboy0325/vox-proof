@@ -12,6 +12,10 @@ pub enum FaultLayer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FaultPoint {
     FailBeforeDurabilityCommit,
+    BeforeSqliteCommit,
+    AfterSqliteCommitBeforeAck,
+    DuringBackupCopy,
+    DuringCheckpoint,
     CorruptDerivedArtifact,
     CorruptCanonicalPayload,
     SetUnknownNewerFormat,
@@ -19,11 +23,28 @@ pub enum FaultPoint {
     InterruptCleanup,
 }
 
+impl FaultPoint {
+    pub fn authority_changed_before_fault(self) -> bool {
+        match self {
+            Self::FailBeforeDurabilityCommit
+            | Self::BeforeSqliteCommit
+            | Self::DuringBackupCopy
+            | Self::CorruptDerivedArtifact
+            | Self::CorruptCanonicalPayload
+            | Self::SetUnknownNewerFormat
+            | Self::InterruptCompaction
+            | Self::InterruptCleanup => false,
+            Self::AfterSqliteCommitBeforeAck | Self::DuringCheckpoint => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PendingFault {
     pub scenario_id: String,
     pub point: FaultPoint,
     pub layer: FaultLayer,
+    pub authority_changed_before_fault: bool,
 }
 
 #[derive(Default)]
@@ -46,6 +67,7 @@ impl FaultRegistry {
             scenario_id: scenario.scenario_id.clone(),
             point,
             layer,
+            authority_changed_before_fault: point.authority_changed_before_fault(),
         });
     }
 
@@ -61,5 +83,14 @@ impl FaultRegistry {
     pub fn clear(&self) {
         self.pending.borrow_mut().clear();
         self.armed.borrow_mut().take();
+    }
+
+    pub fn arm_for_test(&self, point: FaultPoint) {
+        self.armed.borrow_mut().replace(PendingFault {
+            scenario_id: "mechanism-test".to_string(),
+            point,
+            layer: FaultLayer::Logical,
+            authority_changed_before_fault: point.authority_changed_before_fault(),
+        });
     }
 }
