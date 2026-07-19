@@ -36,6 +36,14 @@ Engineering completion and evidence collection may proceed in parallel. A versio
 - A version may never make a claim that belongs to a later version.
 - Falsified criteria are a result, not an embarrassment: they redirect the version's scope before more is built on it.
 
+## Capability versus establishment
+
+A capability may appear in a version without being the evidence required to establish that version.
+
+For v0.2, supporting capabilities may exist to make a credible external pilot possible — for example desktop delivery, local media review, durable sessions, human-raised cases, manual replacements, bounded Session knowledge, or bounded Project or Domain Collection knowledge. Their presence does not make reusable knowledge the primary v0.2 establishment claim, and none of them need to be accepted or implemented before the Lead A establishment criterion is satisfied.
+
+For v0.3, reusable correction and domain knowledge assets themselves become a principal establishment target.
+
 ## The pre-1.0 ladder
 
 Versions are ordered by validation dependency, not by calendar. Skipping or reordering a rung requires an explicit note here. Re-scoping a version happens in this document plus the affected scope document; durable boundary changes still require Material Decisions.
@@ -54,23 +62,31 @@ Forbidden claims: adoption, workflow value, time savings, Domain Collection, Lan
 
 ### v0.2 — External testability
 
-Question: can a target-adjacent human understand and complete a bounded test session?
+Identity: v0.2 is the first externally testable, local-first review application.
 
-Established when: one consolidated facilitated session with a real target-cohort person (Lead A) completes, with the session metrics defined in `v0.1-execution-order.md` recorded. The conditional thin GUI and third-party readiness work belong to this version's establishment, not to v0.1.
+Question: can a target-adjacent human understand and complete a credible Lead A review workflow?
+
+Established when: one consolidated facilitated session with a real target-cohort person (Lead A) completes the complete review workflow, with the session metrics defined in `v0.1-execution-order.md` recorded. Establishment remains centered on proving that this workflow is externally usable and trustworthy. Third-party test readiness and any supporting pilot capabilities belong to this version's work, not to v0.1.
+
+Supporting capabilities may appear in v0.2 when needed for a credible pilot, including desktop application delivery, local audio/video review, durable review sessions, human-raised review cases, manual replacements, bounded Session knowledge, and bounded Project or Domain Collection knowledge. None of these are the primary establishment criterion by themselves, and this document does not assert that any of them are already accepted or implemented.
 
 Allowed claim: "a real target user completed the review flow and its outputs were legible to them."
 
-Forbidden claims: value or time-saving claims, adoption beyond the observed session.
+Forbidden claims: value or time-saving claims; adoption beyond the observed session; mature cross-project knowledge portability; broad user-wide or global reusable knowledge; that reusable knowledge assets are the primary v0.2 product claim; automatic knowledge promotion or automatic correction.
 
 ### v0.3 — Reuse / correction-memory signal
 
-Question: do prior decisions or observed error forms improve future candidate quality?
+Identity: v0.3 is the stage where reusable correction and domain knowledge assets become a first-class, measurable product capability.
 
-Established when: measured across at least two related real materials. Any machine-readable correction-profile re-import or reusable correction/domain asset is decided here at the earliest, not in v0.1 or v0.2. Its eventual Domain Collection, Language Pack, Knowledge Pack, or other format remains unresolved.
+Question: do prior decisions, governed knowledge, or observed error forms measurably improve future review on related material?
 
-Allowed claim: "recorded corrections measurably improve later review on related material."
+Established when: measured across at least two related real materials, with evidence that reusable correction or domain knowledge materially affects later review quality or burden. Machine-readable correction-profile re-import, reusable correction or domain asset import or export, and broader knowledge portability are principal establishment targets here, not in v0.2. Final Domain Collection, Language Pack, Knowledge Pack, or other formats remain unresolved until separately decided.
 
-Forbidden claims: general reusable-asset or pack product value.
+Scope may include measurable reuse across sessions; more mature promotion and conflict governance; knowledge portability; broader user-level scope; reusable-asset evaluation; import or export of governed knowledge; and stronger cross-project or cross-domain boundaries. These directions do not by themselves assert accepted implementation detail.
+
+Allowed claim: "recorded corrections and governed reusable knowledge measurably improve later review on related material."
+
+Forbidden claims: general reusable-asset or pack product value beyond the measured signal; global knowledge scope; automatic correction authority.
 
 ### v0.4 — Workflow value signal
 
@@ -99,8 +115,8 @@ Not a validation milestone; a product commitment. A stable local-first, human-in
 ## What belongs to v0.1 versus later
 
 - v0.1: diff study, deterministic detector ladder rungs as justified, CLI/operator review flow, Track 2 mechanism validation.
-- v0.2: conditional thin GUI, third-party test readiness, the Lead A session.
-- v0.3+: correction-profile re-import, reusable correction/domain assets, and reuse measurement; final pack format remains deferred.
+- v0.2: local-first external testability; Lead A session; third-party test readiness; supporting pilot capabilities such as desktop delivery, local media review, durable sessions, human-raised cases, manual replacements, and bounded Session or Project/Domain Collection knowledge when needed for a credible workflow.
+- v0.3+: measurable reuse of correction and domain knowledge assets across related material; correction-profile re-import; more mature promotion, conflict governance, portability, user-level scope, and governed import or export; final pack format remains deferred.
 - Not version-bound: a local non-LLM evidence model (ladder rung 3) is gated by residual-class evidence plus an accepted Material Decision, whenever that evidence appears.
 
 Anything not assigned to a version by its scope document does not silently belong to v0.1.
