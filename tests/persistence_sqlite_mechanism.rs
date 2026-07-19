@@ -11,7 +11,10 @@ use vox_proof::persistence_evidence::{
 };
 
 fn op_id(label: &str) -> String {
-    format!("bt-op:{label}")
+    let n = label.bytes().fold(0u64, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(u64::from(byte))
+    });
+    format!("00000000-0000-4000-8000-{:012x}", n & 0x0000_FFFF_FFFF_FFFF)
 }
 
 fn db_path(locator: &str) -> String {
@@ -481,5 +484,55 @@ fn bt_016_post_commit_verify_failure_reconciles_without_remutation() {
     assert_eq!(
         count_ledger_events(session.adapter_locator()),
         before.review_ledger_events.len() + 1
+    );
+}
+
+#[test]
+fn bt_invalid_command_operation_id_rejected() {
+    let fixture = EvidenceFixture::small();
+    let mut adapter = EmbeddedRelationalAdapter::new(fresh_storage_root("bt-invalid-op-id"));
+    let session = adapter.create(&fixture).expect("create");
+    let handle = adapter
+        .open(&session, SemanticOpenMode::Writable)
+        .expect("open");
+    let before = adapter.read_normalized_state(&handle).expect("state");
+    let base = append_command(&before, &op_id("invalid"));
+    let command = match base {
+        AuthoritativeCommand::AppendCorrectionEvent {
+            event,
+            preconditions,
+            ..
+        } => AuthoritativeCommand::AppendCorrectionEvent {
+            command_operation_id: "not-a-uuid".to_string(),
+            event,
+            preconditions,
+        },
+        _ => unreachable!(),
+    };
+    let error = adapter
+        .apply_authoritative_command(&handle, &command)
+        .expect_err("invalid id");
+    assert_eq!(error.code, "invalid-command-operation-id");
+}
+
+#[test]
+fn bt_expired_lease_rejects_command_without_takeover() {
+    let fixture = EvidenceFixture::small();
+    let mut adapter = EmbeddedRelationalAdapter::new(fresh_storage_root("bt-expired-lease"));
+    adapter.set_test_clock_ms(Some(1_000));
+    let session = adapter.create(&fixture).expect("create");
+    let handle = adapter
+        .open(&session, SemanticOpenMode::Writable)
+        .expect("open");
+    adapter.set_test_clock_ms(Some(60_000));
+    let before = adapter.read_normalized_state(&handle).expect("state");
+    let command = append_command(&before, &op_id("expired-lease"));
+    let error = adapter
+        .apply_authoritative_command(&handle, &command)
+        .expect_err("expired lease");
+    assert_eq!(error.code, "writer-lease-expired");
+    assert_eq!(
+        count_ledger_events(session.adapter_locator()),
+        before.review_ledger_events.len()
     );
 }

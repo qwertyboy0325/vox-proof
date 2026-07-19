@@ -8,12 +8,12 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, TransactionBehavior, params};
 use serde_json::{self, Value};
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use super::super::adapter::{
     AdapterError, AuthoritativeCommand, CandidateCapabilities, DuplicatedSession,
@@ -32,8 +32,6 @@ const DERIVED_INDEX_KEY: &str = "queue-index-v1";
 const DERIVED_SCHEMA_VERSION: i64 = 1;
 const DEFAULT_LEASE_DURATION_MS: i64 = 30_000;
 const OUTCOME_FINGERPRINT_VERSION: u32 = 1;
-
-static TOKEN_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
 struct WritableHandleState {
@@ -117,10 +115,20 @@ impl EmbeddedRelationalAdapter {
             *self.last_clock_ms.borrow_mut() = Some(clock);
             return Ok(clock);
         }
-        SystemTime::now()
+        let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_millis() as i64)
-            .map_err(|error| AdapterError::new("clock-read-failed", error.to_string()))
+            .map_err(|error| AdapterError::new("clock-read-failed", error.to_string()))?;
+        if let Some(last) = *self.last_clock_ms.borrow()
+            && now < last
+        {
+            return Err(AdapterError::new(
+                "clock-ambiguity",
+                "backward wall-clock jump is ambiguous; fail closed",
+            ));
+        }
+        *self.last_clock_ms.borrow_mut() = Some(now);
+        Ok(now)
     }
 
     fn open_connection(locator: &str) -> Result<Connection, AdapterError> {
@@ -895,18 +903,25 @@ impl EmbeddedRelationalAdapter {
         connection: &Connection,
         token: &str,
         owner_epoch: i64,
+        now_ms: i64,
     ) -> Result<(), AdapterError> {
-        let (stored_token, stored_epoch): (Option<String>, i64) = connection
+        let (stored_token, stored_epoch, lease_expires): (Option<String>, i64, i64) = connection
             .query_row(
-                "SELECT token, owner_epoch FROM writer_ownership WHERE id = 1",
+                "SELECT token, owner_epoch, lease_expires_at_unix_ms FROM writer_ownership WHERE id = 1",
                 [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .map_err(map_sqlite_error("writer-epoch-mismatch"))?;
         if stored_token.as_deref() != Some(token) || stored_epoch != owner_epoch {
             return Err(AdapterError::new(
                 "writer-epoch-mismatch",
                 "writer token or epoch no longer valid",
+            ));
+        }
+        if lease_expires <= now_ms {
+            return Err(AdapterError::new(
+                "writer-lease-expired",
+                "writer lease expired before authoritative command",
             ));
         }
         Ok(())
@@ -919,8 +934,9 @@ impl EmbeddedRelationalAdapter {
         stored_fingerprint: &str,
         token: &str,
         owner_epoch: i64,
+        now_ms: i64,
     ) -> Result<(), AdapterError> {
-        Self::revalidate_writer_on_connection(connection, token, owner_epoch)?;
+        Self::revalidate_writer_on_connection(connection, token, owner_epoch, now_ms)?;
         let command_kind = Self::command_kind_label(command);
         if stored_kind != command_kind {
             return Err(AdapterError::new(
@@ -942,18 +958,25 @@ impl EmbeddedRelationalAdapter {
         tx: &rusqlite::Transaction<'_>,
         token: &str,
         owner_epoch: i64,
+        now_ms: i64,
     ) -> Result<(), AdapterError> {
-        let (stored_token, stored_epoch): (Option<String>, i64) = tx
+        let (stored_token, stored_epoch, lease_expires): (Option<String>, i64, i64) = tx
             .query_row(
-                "SELECT token, owner_epoch FROM writer_ownership WHERE id = 1",
+                "SELECT token, owner_epoch, lease_expires_at_unix_ms FROM writer_ownership WHERE id = 1",
                 [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .map_err(map_sqlite_error("writer-epoch-mismatch"))?;
         if stored_token.as_deref() != Some(token) || stored_epoch != owner_epoch {
             return Err(AdapterError::new(
                 "writer-epoch-mismatch",
                 "writer token or epoch no longer valid",
+            ));
+        }
+        if lease_expires <= now_ms {
+            return Err(AdapterError::new(
+                "writer-lease-expired",
+                "writer lease expired before authoritative command",
             ));
         }
         Ok(())
@@ -965,7 +988,7 @@ impl EmbeddedRelationalAdapter {
         owner_epoch: i64,
         now_ms: i64,
     ) -> Result<(), AdapterError> {
-        Self::revalidate_writer_in_tx(tx, token, owner_epoch)?;
+        Self::revalidate_writer_in_tx(tx, token, owner_epoch, now_ms)?;
         tx.execute(
             "UPDATE writer_ownership SET lease_expires_at_unix_ms = ?1 WHERE id = 1 AND token = ?2 AND owner_epoch = ?3",
             params![now_ms + DEFAULT_LEASE_DURATION_MS, token, owner_epoch],
@@ -1131,11 +1154,12 @@ impl EmbeddedRelationalAdapter {
         command_operation_id: &str,
         token: &str,
         owner_epoch: i64,
+        now_ms: i64,
     ) -> Result<(), AdapterError> {
         let tx = connection
             .unchecked_transaction()
             .map_err(map_sqlite_error("sqlite-command-ack"))?;
-        Self::revalidate_writer_in_tx(&tx, token, owner_epoch)?;
+        Self::revalidate_writer_in_tx(&tx, token, owner_epoch, now_ms)?;
         tx.execute(
             "UPDATE applied_authoritative_commands SET outcome_status = 'acknowledged' WHERE command_operation_id = ?1 AND outcome_status = 'committed'",
             [command_operation_id],
@@ -1332,6 +1356,12 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                 "command_operation_id is required",
             ));
         }
+        if Uuid::parse_str(&command_operation_id).is_err() {
+            return Err(AdapterError::new(
+                "invalid-command-operation-id",
+                "command_operation_id must be a UUID",
+            ));
+        }
 
         let mut handles = self.handles.borrow_mut();
         let writable = match handles.get_mut(handle.adapter_handle()) {
@@ -1357,6 +1387,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                 &stored_fingerprint,
                 &token,
                 owner_epoch,
+                now_ms,
             )?;
             match outcome_status.as_str() {
                 "acknowledged" => return Ok(()),
@@ -1371,6 +1402,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                         &command_operation_id,
                         &token,
                         owner_epoch,
+                        now_ms,
                     )?;
                     return Ok(());
                 }
@@ -1396,7 +1428,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
         let tx = connection
             .transaction_with_behavior(TransactionBehavior::Deferred)
             .map_err(|e| Self::map_busy_error(map_sqlite_error("sqlite-tx-begin")(e)))?;
-        Self::revalidate_writer_in_tx(&tx, &token, owner_epoch)?;
+        Self::revalidate_writer_in_tx(&tx, &token, owner_epoch, now_ms)?;
         let mut state = pre_state.clone();
         apply_command(&mut state, command)?;
         Self::persist_canonical_tables(&tx, &state)?;
@@ -1430,7 +1462,13 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
         }
 
         Self::verify_committed_command_reconciliation(connection, command, &fingerprint)?;
-        Self::acknowledge_applied_command(connection, &command_operation_id, &token, owner_epoch)?;
+        Self::acknowledge_applied_command(
+            connection,
+            &command_operation_id,
+            &token,
+            owner_epoch,
+            now_ms,
+        )?;
         Ok(())
     }
 
@@ -1495,6 +1533,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
 
         let temp_db = dest_dir.join("session.db.tmp");
         let published_db = Self::db_path(dest_dir.to_str().expect("utf8 path"));
+        let now_ms = self.now_unix_ms()?;
 
         {
             let handles = self.handles.borrow();
@@ -1505,6 +1544,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                 &writable.connection,
                 &writable.token,
                 writable.owner_epoch,
+                now_ms,
             )?;
             (|| -> Result<(), AdapterError> {
                 let mut dest_connection =
@@ -1883,18 +1923,11 @@ fn map_sqlite_error(code: &'static str) -> impl Fn(rusqlite::Error) -> AdapterEr
 }
 
 fn new_process_instance_id() -> String {
-    format!(
-        "proc-{:016x}",
-        TOKEN_COUNTER.fetch_add(1, Ordering::Relaxed)
-    )
+    Uuid::new_v4().to_string()
 }
 
 fn new_writer_token() -> String {
-    format!(
-        "writer-{:016x}-{:04x}",
-        TOKEN_COUNTER.fetch_add(1, Ordering::Relaxed),
-        std::process::id()
-    )
+    Uuid::new_v4().to_string()
 }
 
 trait OptionalRow<T> {

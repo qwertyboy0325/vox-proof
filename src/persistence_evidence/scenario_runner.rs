@@ -182,7 +182,11 @@ fn baseline_flow(
 }
 
 fn catalog_command_id(scenario: &str, kind: &str) -> String {
-    format!("catalog:{scenario}:{kind}:001")
+    let seed = format!("catalog:{scenario}:{kind}:001");
+    let n = seed.bytes().fold(0u64, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(u64::from(byte))
+    });
+    format!("00000000-0000-4000-8000-{:012x}", n & 0x0000_FFFF_FFFF_FFFF)
 }
 
 fn run_append_correction(
