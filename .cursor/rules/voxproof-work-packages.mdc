@@ -109,7 +109,19 @@ Preferred routing:
 
 **Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`)
 
-**API-backed high-reasoning model** — only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection
+**API-backed high-reasoning model** — agent self-escalation only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection
+
+### Owner override for API high-reasoning review
+
+At any owner gate, the product owner may explicitly require an API-backed high-reasoning review, including GPT-5.6 Sol, without needing to satisfy another escalation condition.
+
+This is an owner override, not an agent self-escalation path. Agents must not invoke API-backed models under this clause unless the product owner explicitly requests it.
+
+Owner-requested API review should be scoped to the specific unresolved decision, diff, authority question, or risk under review rather than repeating the entire workflow by default. The owner may request a broader review explicitly when warranted.
+
+Agents may not: invoke GPT-5.6 Sol merely because they prefer it; reinterpret owner discomfort as implicit authorization; invoke an API model without an explicit owner instruction; broaden a scoped owner review into a complete workflow replay; or use the override to bypass scope, governance, or Git authorization rules.
+
+The override does not itself authorize file edits, staging, commit, push, Material Decision acceptance, scope expansion, destructive action, or production deployment.
 
 Every report must state: `models_used`, `api_quota_used`, `api_escalation_reason`
 
