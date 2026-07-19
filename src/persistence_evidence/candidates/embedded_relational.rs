@@ -24,7 +24,7 @@ use super::super::fixture::EvidenceFixture;
 use super::super::model::NormalizedSemanticState;
 use super::super::oracle::SemanticOracle;
 use super::super::scenario::ScenarioIdentity;
-use super::fault::{FaultPoint, FaultRegistry};
+use super::fault::{FaultExecutionMode, FaultPoint, FaultRegistry, handle_fault};
 use super::semantic_ops::apply_command;
 
 pub const CURRENT_FORMAT_VERSION: u32 = 1;
@@ -92,6 +92,57 @@ impl EmbeddedRelationalAdapter {
 
     pub fn arm_test_fault(&self, point: super::fault::FaultPoint) {
         self.faults.arm_for_test(point);
+    }
+
+    pub fn arm_fault_abort(&self, point: FaultPoint) {
+        self.faults
+            .arm_point(point, FaultExecutionMode::ProcessAbort);
+    }
+
+    pub fn set_fault_execution_mode(&self, mode: FaultExecutionMode) {
+        self.faults.set_execution_mode(mode);
+    }
+
+    pub fn storage_root(&self) -> &Path {
+        &self.storage_root
+    }
+
+    /// Load canonical state from persisted session.db via a fresh connection (independent reopen path).
+    pub fn load_persisted_state(locator: &str) -> Result<NormalizedSemanticState, AdapterError> {
+        let connection = Self::open_connection(locator)?;
+        Self::integrity_check(&connection)?;
+        Self::validate_format_for_read_only(&connection)?;
+        let state = Self::load_canonical_state(&connection)?;
+        Self::validate_or_rebuild_derived_cache(&connection)?;
+        Ok(state)
+    }
+
+    pub fn observe_writer_ownership(
+        locator: &str,
+    ) -> Result<(Option<String>, i64, i64), AdapterError> {
+        let connection = Self::open_connection(locator)?;
+        connection
+            .query_row(
+                "SELECT token, owner_epoch, lease_expires_at_unix_ms FROM writer_ownership WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(map_sqlite_error("writer-ownership-observe"))
+    }
+
+    pub fn observe_applied_command(
+        locator: &str,
+        command_operation_id: &str,
+    ) -> Result<Option<(String, String)>, AdapterError> {
+        let connection = Self::open_connection(locator)?;
+        connection
+            .query_row(
+                "SELECT command_kind, outcome_status FROM applied_authoritative_commands WHERE command_operation_id = ?1",
+                [command_operation_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(map_sqlite_error("command-observe"))
     }
 
     fn session_dir(&self, session_id: &str) -> PathBuf {
@@ -411,326 +462,7 @@ impl EmbeddedRelationalAdapter {
     fn load_canonical_state(
         connection: &Connection,
     ) -> Result<NormalizedSemanticState, AdapterError> {
-        if Self::has_legacy_blob_schema(connection) {
-            return Err(AdapterError::new(
-                "unsupported-older-format",
-                "legacy blob schema cannot be loaded as relational authority",
-            ));
-        }
-
-        let session_id = Self::read_meta(connection, "session_id")?
-            .ok_or_else(|| AdapterError::new("canonical-corruption", "missing session_id"))?;
-        let duplicated_from = Self::read_meta(connection, "duplicated_from")?;
-        let session_format_version = Self::read_meta(connection, "session_format_version")?
-            .ok_or_else(|| {
-                AdapterError::new("canonical-corruption", "missing session_format_version")
-            })?;
-        let interpretation_version = Self::read_meta(connection, "interpretation_version")?
-            .ok_or_else(|| {
-                AdapterError::new("canonical-corruption", "missing interpretation_version")
-            })?;
-
-        let mut source_revisions = Vec::new();
-        let mut revision_rows = connection
-            .prepare(
-                "SELECT revision_id, payload_json FROM source_revisions ORDER BY revision_id ASC",
-            )
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in revision_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_revision_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let revision: super::super::model::NormalizedSourceRevision =
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if revision.revision_id != row_revision_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "source_revisions key does not match payload revision_id",
-                ));
-            }
-            source_revisions.push(revision);
-        }
-
-        let mut review_cases = Vec::new();
-        let mut case_rows = connection
-            .prepare("SELECT case_id, payload_json FROM review_cases ORDER BY case_id ASC")
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in case_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_case_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let review_case: super::super::model::NormalizedReviewCase =
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if review_case.case_id != row_case_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "review_cases key does not match payload case_id",
-                ));
-            }
-            review_cases.push(review_case);
-        }
-
-        let mut review_case_raised_events = Vec::new();
-        let mut raised_rows = connection
-            .prepare(
-                "SELECT event_id, sequence, payload_json FROM review_case_raised_events ORDER BY sequence ASC",
-            )
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in raised_rows
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_event_id, row_sequence, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let event: super::super::model::ReviewCaseRaisedEventState =
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if event.event_id != row_event_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "review_case_raised_events key does not match payload event_id",
-                ));
-            }
-            if event.sequence != row_sequence as u64 {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "review_case_raised_events sequence does not match payload sequence",
-                ));
-            }
-            review_case_raised_events.push(event);
-        }
-
-        let mut review_ledger_events = Vec::new();
-        let mut ledger_rows = connection
-            .prepare(
-                "SELECT event_id, sequence, payload_json FROM review_ledger_events ORDER BY sequence ASC",
-            )
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in ledger_rows
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_event_id, row_sequence, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let event: super::super::model::ReviewLedgerEventState = serde_json::from_str(&json)
-                .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if event.event_id != row_event_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "review_ledger_events key does not match payload event_id",
-                ));
-            }
-            if event.sequence != row_sequence as u64 {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "review_ledger_events sequence does not match payload sequence",
-                ));
-            }
-            review_ledger_events.push(event);
-        }
-
-        let mut analysis_results = Vec::new();
-        let mut analysis_rows = connection
-            .prepare(
-                "SELECT analysis_result_id, payload_json FROM analysis_results ORDER BY analysis_result_id ASC",
-            )
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in analysis_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_analysis_result_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let analysis_result: super::super::model::AnalysisResultState =
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if analysis_result.analysis_result_id != row_analysis_result_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "analysis_results key does not match payload analysis_result_id",
-                ));
-            }
-            analysis_results.push(analysis_result);
-        }
-
-        let active_analysis_selection = connection
-            .query_row(
-                "SELECT selection_json FROM active_analysis_selection WHERE id = 1",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-            .map(|json| {
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))
-            })
-            .transpose()?;
-
-        let mut knowledge_snapshot_references = Vec::new();
-        let mut ks_rows = connection
-            .prepare("SELECT knowledge_snapshot_id, payload_json FROM knowledge_snapshot_references ORDER BY knowledge_snapshot_id ASC")
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in ks_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_knowledge_snapshot_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let reference: super::super::model::KnowledgeSnapshotReference =
-                serde_json::from_str(&json)
-                    .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if reference.knowledge_snapshot_id != row_knowledge_snapshot_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "knowledge_snapshot_references key does not match payload knowledge_snapshot_id",
-                ));
-            }
-            knowledge_snapshot_references.push(reference);
-        }
-
-        let mut lineage_conflicts = Vec::new();
-        let mut conflict_rows = connection
-            .prepare(
-                "SELECT conflict_id, payload_json FROM lineage_conflicts ORDER BY conflict_id ASC",
-            )
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in conflict_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_conflict_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let conflict: super::super::model::LineageConflict = serde_json::from_str(&json)
-                .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if conflict.conflict_id != row_conflict_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "lineage_conflicts key does not match payload conflict_id",
-                ));
-            }
-            lineage_conflicts.push(conflict);
-        }
-
-        let mut artifacts = Vec::new();
-        let mut artifact_rows = connection
-            .prepare("SELECT artifact_id, retention_class, payload_json FROM artifacts ORDER BY artifact_id ASC")
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in artifact_rows
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                ))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_artifact_id, row_retention_class, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let artifact: super::super::model::ArtifactState = serde_json::from_str(&json)
-                .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            if artifact.artifact_id != row_artifact_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "artifacts key does not match payload artifact_id",
-                ));
-            }
-            if format!("{:?}", artifact.class) != row_retention_class {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "artifacts retention_class does not match payload class",
-                ));
-            }
-            artifacts.push(artifact);
-        }
-
-        let mut retention_references = Vec::new();
-        let mut retention_rows = connection
-            .prepare("SELECT reference_id, payload_json FROM retention_references ORDER BY reference_id ASC")
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-        for row in retention_rows
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?
-        {
-            let (row_reference_id, json) =
-                row.map_err(|e| AdapterError::new("sqlite-load-state", e.to_string()))?;
-            let reference: super::super::model::RetentionReference = serde_json::from_str(&json)
-                .map_err(|e| AdapterError::new("canonical-corruption", e.to_string()))?;
-            let expected_reference_id = format!(
-                "{}:{}:{:?}",
-                reference.root_id, reference.artifact_id, reference.relation
-            );
-            if row_reference_id != expected_reference_id {
-                return Err(AdapterError::new(
-                    "canonical-corruption",
-                    "retention_references key does not match payload identity",
-                ));
-            }
-            retention_references.push(reference);
-        }
-
-        Ok({
-            let normalized = NormalizedSemanticState {
-                session: super::super::model::SessionIdentityState {
-                    session_id,
-                    duplicated_from_session_id: duplicated_from.filter(|value| !value.is_empty()),
-                },
-                session_format_version,
-                interpretation_version,
-                source_revisions,
-                review_cases,
-                review_case_raised_events,
-                review_ledger_events,
-                analysis_results,
-                active_analysis_selection,
-                knowledge_snapshot_references,
-                lineage_conflicts,
-                artifacts,
-                retention_references,
-            }
-            .normalize();
-            let validation = SemanticOracle::validate(&normalized);
-            if !validation.passed {
-                let detail = validation
-                    .violations
-                    .first()
-                    .map(|violation| violation.message.clone())
-                    .unwrap_or_else(|| "canonical semantic validation failed".to_string());
-                return Err(AdapterError::new("canonical-corruption", detail));
-            }
-            normalized
-        })
+        super::super::canonical_sql_reader::load_from_connection(connection)
     }
 
     fn initialize_session(
@@ -873,14 +605,15 @@ impl EmbeddedRelationalAdapter {
         } else {
             owner_epoch.max(0)
         };
-        let lease_expires_at = now_ms + DEFAULT_LEASE_DURATION_MS;
+        let lease_duration_ms = lease_duration_ms_from_env();
+        let lease_expires_at = now_ms + lease_duration_ms;
         let updated = tx
             .execute(
                 "UPDATE writer_ownership SET token = ?1, owner_epoch = ?2, lease_duration_ms = ?3, lease_expires_at_unix_ms = ?4, process_instance_id = ?5, holder_pid = ?6 WHERE id = 1 AND (token IS NULL OR lease_expires_at_unix_ms <= ?7)",
                 params![
                     new_token.as_str(),
                     new_epoch,
-                    DEFAULT_LEASE_DURATION_MS,
+                    lease_duration_ms,
                     lease_expires_at,
                     process_instance_id,
                     std::process::id() as i64,
@@ -991,7 +724,11 @@ impl EmbeddedRelationalAdapter {
         Self::revalidate_writer_in_tx(tx, token, owner_epoch, now_ms)?;
         tx.execute(
             "UPDATE writer_ownership SET lease_expires_at_unix_ms = ?1 WHERE id = 1 AND token = ?2 AND owner_epoch = ?3",
-            params![now_ms + DEFAULT_LEASE_DURATION_MS, token, owner_epoch],
+            params![
+                now_ms + lease_duration_ms_from_env(),
+                token,
+                owner_epoch
+            ],
         )
         .map_err(map_sqlite_error("sqlite-writer-lock"))?;
         Ok(())
@@ -1182,23 +919,32 @@ impl EmbeddedRelationalAdapter {
     }
 
     fn take_sqlite_fault(faults: &FaultRegistry, point: FaultPoint) -> Result<(), AdapterError> {
-        if faults.take_if_armed(point).is_some() {
-            return Err(AdapterError::new(
-                "simulated-durability-failure",
-                format!("logical fault injected at {point:?}"),
-            ));
+        if let Some(fault) = faults.take_if_armed(point) {
+            return Self::dispatch_fault(fault);
         }
         if point == FaultPoint::BeforeSqliteCommit
-            && faults
-                .take_if_armed(FaultPoint::FailBeforeDurabilityCommit)
-                .is_some()
+            && let Some(fault) = faults.take_if_armed(FaultPoint::FailBeforeDurabilityCommit)
         {
-            return Err(AdapterError::new(
-                "simulated-durability-failure",
-                "logical fault injected before durability commit",
-            ));
+            return Self::dispatch_fault(fault);
         }
         Ok(())
+    }
+
+    fn take_duplicate_fault(faults: &FaultRegistry, point: FaultPoint) -> Result<(), AdapterError> {
+        if let Some(fault) = faults.take_if_armed(point) {
+            return Self::dispatch_fault(fault);
+        }
+        Ok(())
+    }
+
+    fn dispatch_fault(fault: super::fault::PendingFault) -> Result<(), AdapterError> {
+        match fault.execution_mode {
+            FaultExecutionMode::ProcessAbort => handle_fault(fault),
+            FaultExecutionMode::ReturnError => Err(AdapterError::new(
+                "simulated-durability-failure",
+                format!("logical fault injected at {:?}", fault.point),
+            )),
+        }
     }
 
     fn wal_checkpoint_truncate(connection: &Connection) -> Result<(), AdapterError> {
@@ -1443,15 +1189,11 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
         tx.commit()
             .map_err(|e| Self::map_busy_error(map_sqlite_error("sqlite-commit-failed")(e)))?;
 
-        if self
+        if let Some(fault) = self
             .faults
             .take_if_armed(FaultPoint::AfterSqliteCommitBeforeAck)
-            .is_some()
         {
-            return Err(AdapterError::new(
-                "simulated-durability-failure",
-                "logical fault injected after commit before ack",
-            ));
+            return Self::dispatch_fault(fault);
         }
 
         if *self.force_post_commit_verify_failure.borrow() {
@@ -1554,20 +1296,18 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                     let backup =
                         rusqlite::backup::Backup::new(&writable.connection, &mut dest_connection)
                             .map_err(map_sqlite_error("sqlite-backup-failed"))?;
-                    if self
-                        .faults
-                        .take_if_armed(FaultPoint::DuringBackupCopy)
-                        .is_some()
-                    {
-                        return Err(AdapterError::new(
-                            "simulated-backup-interrupt",
-                            "logical fault injected during backup copy",
-                        ));
+                    if let Some(fault) = self.faults.take_if_armed(FaultPoint::DuringBackupCopy) {
+                        return Self::dispatch_fault(fault);
                     }
                     backup
                         .run_to_completion(100, std::time::Duration::from_millis(10), None)
                         .map_err(map_sqlite_error("sqlite-backup-failed"))?;
                 }
+
+                Self::take_duplicate_fault(
+                    &self.faults,
+                    FaultPoint::AfterBackupBeforeDestinationIdentityChange,
+                )?;
 
                 Self::integrity_check(&dest_connection)?;
                 let identity_tx = dest_connection
@@ -1598,6 +1338,11 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                     .commit()
                     .map_err(map_sqlite_error("sqlite-commit-failed"))?;
 
+                Self::take_duplicate_fault(
+                    &self.faults,
+                    FaultPoint::AfterDestinationIdentityChangeBeforePublish,
+                )?;
+
                 let mut expected_duplicate = source_state.clone();
                 expected_duplicate.session.duplicated_from_session_id =
                     Some(source_state.session.session_id.clone());
@@ -1614,15 +1359,8 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                     ));
                 }
 
-                if self
-                    .faults
-                    .take_if_armed(FaultPoint::DuringCheckpoint)
-                    .is_some()
-                {
-                    return Err(AdapterError::new(
-                        "simulated-checkpoint-interrupt",
-                        "logical fault injected during checkpoint",
-                    ));
+                if let Some(fault) = self.faults.take_if_armed(FaultPoint::DuringCheckpoint) {
+                    return Self::dispatch_fault(fault);
                 }
                 Self::wal_checkpoint_truncate(&dest_connection)?;
                 drop(dest_connection);
@@ -1634,6 +1372,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
 
         fs::rename(&temp_db, &published_db)
             .map_err(|error| AdapterError::new("duplicate-publish-failed", error.to_string()))?;
+        Self::take_duplicate_fault(&self.faults, FaultPoint::AfterPublishBeforeReturn)?;
         Self::assert_no_wal_companions(&published_db)?;
 
         let verify_locator = dest_dir.to_string_lossy().to_string();
@@ -1920,6 +1659,13 @@ fn map_sqlite_error(code: &'static str) -> impl Fn(rusqlite::Error) -> AdapterEr
             AdapterError::new(code, message)
         }
     }
+}
+
+fn lease_duration_ms_from_env() -> i64 {
+    std::env::var("VOXPROOF_LEASE_DURATION_MS")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(DEFAULT_LEASE_DURATION_MS)
 }
 
 fn new_process_instance_id() -> String {

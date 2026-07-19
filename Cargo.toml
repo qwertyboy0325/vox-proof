@@ -24,6 +24,26 @@ name = "persistence_evidence_run"
 path = "src/bin/persistence_evidence_run.rs"
 required-features = ["persistence-spike"]
 
+[[bin]]
+name = "persistence_evidence_worker"
+path = "src/bin/persistence_evidence_worker.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_sqlite_run"
+path = "src/bin/persistence_evidence_sqlite_run.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_scenarios"
+path = "tests/persistence_scenarios.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_sqlite_evidence"
+path = "tests/persistence_sqlite_evidence.rs"
+required-features = ["persistence-spike"]
+
 [[test]]
 name = "persistence_candidates"
 path = "tests/persistence_candidates.rs"

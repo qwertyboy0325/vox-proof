@@ -299,6 +299,12 @@ pub struct ScenarioResult {
     pub failure_classification: Option<RecoveryClassification>,
     pub limitations: Vec<String>,
     pub raw_artifact_references: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub achieved_evidence_strength: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_interruption_performed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reopen_performed: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

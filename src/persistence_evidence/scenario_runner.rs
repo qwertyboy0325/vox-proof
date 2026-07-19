@@ -47,6 +47,9 @@ impl ScenarioRunner {
                     failure_classification: None,
                     limitations: adapter.capabilities().limitations.clone(),
                     raw_artifact_references: Vec::new(),
+                    achieved_evidence_strength: Vec::new(),
+                    process_interruption_performed: None,
+                    reopen_performed: None,
                 });
                 continue;
             }
@@ -86,7 +89,7 @@ fn run_single(
     outcome.into_result(scenario, elapsed_ms)
 }
 
-fn isolated_fixture(base: &EvidenceFixture, scenario: &ScenarioIdentity) -> EvidenceFixture {
+pub fn isolated_fixture(base: &EvidenceFixture, scenario: &ScenarioIdentity) -> EvidenceFixture {
     let mut fixture = base.clone();
     fixture.expected_state.session.session_id = format!(
         "{}:{}",
@@ -156,6 +159,9 @@ impl ScenarioOutcome {
             failure_classification: None,
             limitations: self.limitations,
             raw_artifact_references: Vec::new(),
+            achieved_evidence_strength: Vec::new(),
+            process_interruption_performed: None,
+            reopen_performed: None,
         }
     }
 }
@@ -181,7 +187,7 @@ fn baseline_flow(
     Ok(actual)
 }
 
-fn catalog_command_id(scenario: &str, kind: &str) -> String {
+pub fn catalog_command_id(scenario: &str, kind: &str) -> String {
     let seed = format!("catalog:{scenario}:{kind}:001");
     let n = seed.bytes().fold(0u64, |acc, byte| {
         acc.wrapping_mul(31).wrapping_add(u64::from(byte))

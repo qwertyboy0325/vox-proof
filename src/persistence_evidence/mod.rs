@@ -6,15 +6,23 @@ mod adapter;
 mod aggregation;
 #[cfg(feature = "persistence-spike")]
 pub mod candidates;
+#[cfg(feature = "persistence-spike")]
+mod canonical_sql_reader;
 mod fixture;
+#[cfg(feature = "persistence-spike")]
+mod independent_oracle;
 mod metadata;
 mod model;
 mod oracle;
+#[cfg(feature = "persistence-spike")]
+mod process_harness;
 mod readiness_result;
 mod runner;
 mod scenario;
 #[cfg(feature = "persistence-spike")]
 mod scenario_runner;
+#[cfg(feature = "persistence-spike")]
+mod sqlite_scenario_runner;
 
 pub use aggregation::{
     aggregate_readiness_from_json, aggregate_validated_metadata_internal_error_test,
@@ -39,6 +47,10 @@ pub use adapter::{
 #[cfg(feature = "persistence-spike")]
 pub use candidates::{AppendBundleAdapter, EmbeddedRelationalAdapter};
 pub use fixture::{EvidenceFixture, FixtureScale, SMALL_FIXTURE_ID, SMALL_FIXTURE_VERSION};
+#[cfg(feature = "persistence-spike")]
+pub use independent_oracle::{
+    INDEPENDENT_ORACLE_VERSION, IndependentSqliteOracle, OracleObservationRecord,
+};
 pub use model::{
     ActiveAnalysisSelection, AnalysisResultState, ArtifactClass, ArtifactState,
     CanonicalEventProvenance, EvidenceAggregationIssue, EvidenceAggregationIssueCode,
@@ -52,6 +64,8 @@ pub use model::{
 pub use oracle::{
     ORACLE_VERSION, OracleDiagnostic, OracleResult, OracleViolationCode, SemanticOracle,
 };
+#[cfg(feature = "persistence-spike")]
+pub use process_harness::{ProcessEventRecord, ProcessExitClassification, ProcessHarness};
 pub use runner::{EvidenceHarness, HARNESS_VERSION};
 pub use scenario::{
     FailureModel, REQUIRED_SCENARIO_IDS, SCENARIO_CATALOG_VERSION, ScenarioCategory,
@@ -59,3 +73,8 @@ pub use scenario::{
 };
 #[cfg(feature = "persistence-spike")]
 pub use scenario_runner::{ScenarioRunner, fresh_storage_root};
+#[cfg(feature = "persistence-spike")]
+pub use sqlite_scenario_runner::{
+    FaultExecutionRecord, SQLITE_EVIDENCE_HARNESS_VERSION, SqliteEvidenceArtifacts,
+    SqliteScenarioRunner,
+};

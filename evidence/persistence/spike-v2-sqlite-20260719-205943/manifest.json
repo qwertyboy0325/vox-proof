@@ -1,0 +1,11 @@
+{
+  "architecture": "aarch64",
+  "candidate_id": "embedded-relational-sqlite-spike",
+  "design_contract_reference": "evidence/persistence/sqlite-design-v1/authority-contract.json",
+  "harness_version": "sqlite-evidence-v1",
+  "oracle_version": "2",
+  "platform": "macos",
+  "repository_commit": "c550154f267997640716a9e3131600e0ec5fd511",
+  "run_id": "spike-v2-sqlite-20260719-205943",
+  "scenario_catalog_version": "1"
+}

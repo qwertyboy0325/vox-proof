@@ -69,7 +69,7 @@
   "material_distinctness": {
     "declared_authority_model_distinctness": "not_demonstrated",
     "all_mechanism_level_distinctness": "not_assessed_or_not_disproven",
-    "precise_conclusion": "The originally declared authority-model distinction — relational canonical entity authority versus append-authoritative replay — is not demonstrated by the current implementations. Both implementations currently persist full normalized-state JSON snapshots as their effective canonical representation. They still differ in physical container, transaction engine, journaling, and file-operation behavior; this review does not conclude that they are identical in every mechanism-level property.",
+    "precise_conclusion": "The originally declared authority-model distinction \u2014 relational canonical entity authority versus append-authoritative replay \u2014 is not demonstrated by the current implementations. Both implementations currently persist full normalized-state JSON snapshots as their effective canonical representation. They still differ in physical container, transaction engine, journaling, and file-operation behavior; this review does not conclude that they are identical in every mechanism-level property.",
     "does_not_restore_comparison_readiness": true
   },
   "candidate_specific": {
@@ -77,7 +77,9 @@
       "transaction_behavior": {
         "declared_original_claim": "Authoritative command returns Ok only after SQLite transaction COMMIT succeeds (candidate-classes.json durable_acknowledgement_boundary)",
         "revised_classification": "partially_demonstrated",
-        "demonstrated_strength": ["LogicalStateTransition"],
+        "demonstrated_strength": [
+          "LogicalStateTransition"
+        ],
         "note": "COMMIT boundary exists; proves in-process transaction completion not filesystem durability"
       },
       "duplication": {
@@ -85,26 +87,34 @@
         "declared_assumption_or_dependency": "Filesystem copy of session.db tested only as spike control; not a product backup feature (backup_boundary)",
         "reviewer_finding": "The implemented session.db-only copy is not WAL-safe under enabled journal_mode=WAL",
         "revised_classification": "not_demonstrated_unsafe_under_wal",
-        "demonstrated_strength": ["LogicalStateTransition"],
-        "note": "WAL enabled; copy omits -wal/-shm; duplicate content salvaged via in-memory rewrite"
+        "demonstrated_strength": [
+          "LogicalStateTransition"
+        ],
+        "note": "Package 2C evidence run spike-v2-sqlite-20260719-205943 uses rusqlite online backup with independent reopen"
       },
       "writer_crash_recovery": {
         "declared_original_claim": "Dedicated writer_lock table row plus open writable handle enforcement (candidate-classes.json single_writer_strategy)",
         "revised_classification": "insufficiently_demonstrated",
-        "demonstrated_strength": ["InterfaceBehavior"],
-        "note": "Token survives crash indefinitely; no takeover path"
+        "demonstrated_strength": [
+          "InterfaceBehavior"
+        ],
+        "note": "Package 2C run spike-v2-sqlite-20260719-205943: lease-expiry takeover (IB) for concurrent-writer; PCR credited only on interrupted-authoritative-transition child abort scenario"
       },
       "relational_model_conformance": {
         "declared_original_claim": "Canonical entities stored relationally (candidate-classes.json authoritative_state_model)",
         "revised_classification": "not_demonstrated",
-        "demonstrated_strength": ["InterfaceBehavior"],
+        "demonstrated_strength": [
+          "InterfaceBehavior"
+        ],
         "note": "Authority is single state_json blob; reclassify as SQLite-hosted JSON snapshot"
       },
       "durability_claim_strength": {
         "declared_original_claim": "Authoritative command returns Ok only after SQLite transaction COMMIT succeeds",
         "revised_classification": "logical_transition_only",
-        "demonstrated_strength": ["LogicalStateTransition"],
-        "note": "No ProcessCrashRecovery or FilesystemDurability evidence"
+        "demonstrated_strength": [
+          "LogicalStateTransition"
+        ],
+        "note": "ProcessCrashRecovery demonstrated for interrupted-authoritative-transition child abort only; no FilesystemDurability evidence"
       }
     },
     "append-bundle-log-spike": {
@@ -125,13 +135,17 @@
         "declared_platform_dependency": "Directory fsync where available (candidate-classes.json platform_dependencies)",
         "observed_implementation": "Append log path calls sync_all; checkpoint and manifest use temp write + rename without file or directory fsync",
         "revised_classification": "insufficiently_demonstrated",
-        "demonstrated_strength": ["LogicalStateTransition"],
+        "demonstrated_strength": [
+          "LogicalStateTransition"
+        ],
         "note": "Directory fsync is a declared dependency, not demonstrated implementation"
       },
       "writer_crash_recovery": {
         "declared_original_claim": "writer.lock token file with epoch counter; stale ownership requires explicit takeover with integrity reload (candidate-classes.json single_writer_strategy)",
         "revised_classification": "not_demonstrated",
-        "demonstrated_strength": ["InterfaceBehavior"],
+        "demonstrated_strength": [
+          "InterfaceBehavior"
+        ],
         "note": "Token in manifest.json; takeover declared but not implemented"
       },
       "compaction_recovery": {
@@ -143,7 +157,9 @@
       "mechanism_class_conformance": {
         "declared_original_claim": "Append-oriented event/log storage with versioned bundle directory (candidate-classes.json mechanism_class)",
         "revised_classification": "authority_model_not_demonstrated",
-        "demonstrated_strength": ["InterfaceBehavior"],
+        "demonstrated_strength": [
+          "InterfaceBehavior"
+        ],
         "note": "Effective canonical representation is checkpoint JSON snapshot; append log is metadata stub"
       }
     }
@@ -155,18 +171,18 @@
       "attach-analysis-result",
       "stale-review-ledger-command",
       "stale-active-analysis-selection",
-      "stale-analysis-attachment"
-    ],
-    "insufficient_evidence": [
+      "stale-analysis-attachment",
       "concurrent-writer-attempt",
-      "unknown-newer-format",
-      "canonical-reference-corruption",
+      "semantic-duplication",
       "interrupted-authoritative-transition",
       "interrupted-compaction"
     ],
+    "insufficient_evidence": [
+      "unknown-newer-format",
+      "canonical-reference-corruption"
+    ],
     "invalid_or_unsupported_as_recorded": [
-      "derived-state-corruption",
-      "semantic-duplication"
+      "derived-state-corruption"
     ],
     "deferred_not_actionable": [
       "interrupted-cleanup"
@@ -177,7 +193,7 @@
     "Declared authority-model distinctness as demonstrated merely because two candidates exist",
     "Append-oriented authoritative log recovery for append-bundle candidate",
     "Relational entity authority for embedded-relational candidate",
-    "ProcessInterruption and ProcessCrashRecovery classification for current interrupted-* handlers",
+    "ProcessInterruption catalog naming for interrupted-compaction (ReturnError path; IB only)",
     "Derived corruption rebuild claim for derived-state-corruption scenario as recorded",
     "Duplication independence claim for semantic-duplication scenario as recorded",
     "Interrupted-compaction recovery claim for current pre-mutation fault handler",
@@ -200,7 +216,9 @@
         "scenario_id": "baseline-create-open-close",
         "superseded_classification": "LogicalStateTransition attribution for baseline close/reopen or persisted initialization reload",
         "replacement": {
-          "current_evidence_strength": ["InterfaceBehavior"],
+          "current_evidence_strength": [
+            "InterfaceBehavior"
+          ],
           "note": "Persisted initialization reload through close and reopen remains InterfaceBehavior under current taxonomy; unchanged-state invariant does not mechanically establish LogicalStateTransition"
         }
       },
@@ -213,7 +231,9 @@
         ],
         "superseded_classification": "LogicalStateTransition attribution for stale-* rejection scenarios",
         "replacement": {
-          "current_evidence_strength": ["InterfaceBehavior"],
+          "current_evidence_strength": [
+            "InterfaceBehavior"
+          ],
           "note": "Scoped precondition rejection with same-handle before/after observation is InterfaceBehavior; unchanged-state invariant does not mechanically establish LogicalStateTransition"
         }
       },
@@ -224,7 +244,9 @@
         "superseded_classification": "Blanket InterfaceBehavior attribution for entire derived-corruption scenario",
         "replacement": {
           "canonical_readability_after_derived_artifact_mutation": {
-            "current_evidence_strength": ["InterfaceBehavior"],
+            "current_evidence_strength": [
+              "InterfaceBehavior"
+            ],
             "current_status": "partially_demonstrated"
           },
           "derived_corruption_detection": {
@@ -241,7 +263,7 @@
     ]
   },
   "owner_packet_supersession": {
-    "superseded_packet_title": "Owner Packet — Finalize Scenario Claim Contracts",
+    "superseded_packet_title": "Owner Packet \u2014 Finalize Scenario Claim Contracts",
     "superseded_target_commit": "f9c746e2f09eb589e5a767d236432b90865d8779",
     "reason": "GPT-5.6 Sol High final conflict review identified V3-C001 through V3-C006",
     "prior_ready_for_owner_gate_status": "superseded",

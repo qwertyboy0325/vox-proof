@@ -1,0 +1,39 @@
+{
+  "scenario_identity": {
+    "scenario_id": "baseline-create-open-close",
+    "scenario_version": 1,
+    "category": "Baseline",
+    "description": "Create, open, read normalized state, and close",
+    "failure_model": "None",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+    "actual_fingerprint": "semantic:sha256-v1:076d21d7ef3338ea8693fde7630bcd6470803cae3e4f772d6b20c63f8cdeb31f",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 12,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": "SafeAutomaticRecovery",
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/baseline-create-open-close.json"
+  ],
+  "achieved_evidence_strength": [
+    "InterfaceBehavior"
+  ],
+  "process_interruption_performed": false,
+  "reopen_performed": true
+}

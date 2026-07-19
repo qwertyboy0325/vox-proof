@@ -1,0 +1,39 @@
+{
+  "scenario_identity": {
+    "scenario_id": "concurrent-writer-attempt",
+    "scenario_version": 1,
+    "category": "Concurrency",
+    "description": "Permit at most one authoritative writer",
+    "failure_model": "ConcurrentAccess",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+    "actual_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 2459,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": "SafeAutomaticRecovery",
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/concurrent-writer-attempt.json"
+  ],
+  "achieved_evidence_strength": [
+    "InterfaceBehavior"
+  ],
+  "process_interruption_performed": true,
+  "reopen_performed": true
+}

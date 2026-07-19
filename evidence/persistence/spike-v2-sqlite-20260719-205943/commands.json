@@ -1,0 +1,3 @@
+[
+  "RUSTC_VERSION=rustc 1.96.0 (ac68faa20 2026-05-25) VOXPROOF_EVIDENCE_RUN_ID=spike-v2-sqlite-20260719-205943 cargo run --features persistence-spike --bin persistence_evidence_sqlite_run"
+]
