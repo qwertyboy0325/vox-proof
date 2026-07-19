@@ -2,7 +2,7 @@
   "contract_version": "4",
   "work_package_id": "persistence-v3-final-conflict-correction",
   "prior_contract_version": "3",
-  "review_commit_or_baseline": "e8ddb597df851b7cf7effc113a9ed827a6e248fb",
+  "review_commit_or_baseline": "47202cb84be00a4a1b668eb1036be1e7d6d4622b",
   "package_2c_evidence_run_id": "spike-v2-sqlite-20260719-210916",
   "package_2c_evidence_producing_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
   "scenario_catalog_version": "1",
