@@ -2,7 +2,9 @@
   "contract_version": "4",
   "work_package_id": "persistence-v3-final-conflict-correction",
   "prior_contract_version": "3",
-  "review_commit_or_baseline": "bf6885dbf38fe9eb98a77ded606b2ededdfcfd6e",
+  "review_commit_or_baseline": "e8ddb597df851b7cf7effc113a9ed827a6e248fb",
+  "package_2c_evidence_run_id": "spike-v2-sqlite-20260719-210916",
+  "package_2c_evidence_producing_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
   "scenario_catalog_version": "1",
   "aggregation_rules": {
     "readiness_aggregation_must_use": [
@@ -80,15 +82,15 @@
       "operation": "create -> open(Writable) -> read_normalized_state -> close",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "Session artifacts exist on disk after create; state readable while handle open",
-      "reopen_or_recovery_step": "close; fresh adapter read-only open; independent SQL oracle",
+      "persisted_observation": "Independent direct-sql-v1 reopen after close; fixture fingerprint match",
+      "reopen_or_recovery_step": "close; IndependentSqliteOracle direct-sql-v1 reopen",
       "expected_result": "Read state matches fixture normalized oracle",
       "required_error_classification": "none",
       "forbidden_shortcuts": [
         "compare(actual, actual)",
         "classify close/reopen as authoritative logical state transition"
       ],
-      "current_assertion_summary": "passed_oracle(fixture.normalized_state(), actual) after create/open/read/close in same process",
+      "current_assertion_summary": "direct-sql-v1 oracle: fixture.normalized_state vs persisted after reopen",
       "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
         "InterfaceBehavior"
@@ -101,14 +103,16 @@
         "ProcessCrashRecovery via explicit crash/interruption scenario",
         "LogicalStateTransition requires a separate explicit authoritative mutation scenario"
       ],
-      "current_gap": "ProcessCrashRecovery remains separate scenario",
+      "current_gap": "LogicalStateTransition requires explicit mutation scenario (append-correction-event)",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/baseline-create-open-close.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/baseline-create-open-close.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "append-correction-event",
@@ -116,20 +120,20 @@
       "intended_claim": {
         "claim": "Persist one representative ReviewLedger correction event across close and reopen."
       },
-      "current_demonstrated_claim": "ReviewLedger append persisted across close/reopen with idempotent retry (Package 2C).",
+      "current_demonstrated_claim": "Append persisted across close with independent direct-sql reopen and idempotent retry (Package 2C).",
       "pre_state": "Created session with fixture canonical state loaded",
       "operation": "apply_authoritative_command(AppendCorrectionEvent) with ReviewLedgerHead precondition",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "State after command via same-handle read_normalized_state",
-      "reopen_or_recovery_step": "close; independent reopen; same command_operation_id retry",
-      "expected_result": "Post-command state matches expected mutation built via shared apply_command",
+      "persisted_observation": "Independent direct-sql-v1 reopen after close; applied_commands row observed",
+      "reopen_or_recovery_step": "close; direct-sql-v1 reopen; same command_operation_id retry",
+      "expected_result": "Post-command state matches independent expected append mutation",
       "required_error_classification": "none",
       "forbidden_shortcuts": [
         "adapter-return-only without reopen",
-        "expected built with same apply path as adapter"
+        "expected built via same adapter apply path"
       ],
-      "current_assertion_summary": "passed_oracle(expected.normalize(), actual) after apply and same-handle read",
+      "current_assertion_summary": "direct-sql-v1 oracle after reopen + idempotent retry",
       "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
         "LogicalStateTransition"
@@ -141,14 +145,16 @@
         "ProcessCrashRecovery via explicit crash/interruption during or after commit",
         "FilesystemDurability via physical/filesystem fault scenario"
       ],
-      "current_gap": "Post-commit crash arms covered by interrupted-authoritative-transition",
+      "current_gap": "ProcessCrashRecovery via interrupted-authoritative-transition; no FSD/HL/XP",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/append-correction-event.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/append-correction-event.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "attach-analysis-result",
@@ -156,20 +162,20 @@
       "intended_claim": {
         "claim": "Persist one immutable analysis result across close and reopen."
       },
-      "current_demonstrated_claim": "Apply one analysis attachment command and observe the resulting normalized state through the same open handle.",
+      "current_demonstrated_claim": "Attach persisted across close with independent direct-sql reopen (Package 2C).",
       "pre_state": "Created session with fixture canonical state including existing analysis results",
       "operation": "apply_authoritative_command(AttachAnalysisResult) with AnalysisAttachmentSet precondition",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "State after command via same-handle read",
-      "reopen_or_recovery_step": "Not performed",
-      "expected_result": "Analysis result present with preserved identities and ordering",
+      "persisted_observation": "Independent direct-sql-v1 reopen after close",
+      "reopen_or_recovery_step": "close; direct-sql-v1 reopen",
+      "expected_result": "Analysis result present after independent expected attach mutation",
       "required_error_classification": "none",
       "forbidden_shortcuts": [
         "adapter-return-only without reopen"
       ],
-      "current_assertion_summary": "passed_oracle(expected_state, actual) after apply; sorted analysis_results",
-      "demonstrated_observation_kind": "same_handle_post_command_read",
+      "current_assertion_summary": "direct-sql-v1 oracle after reopen",
+      "demonstrated_observation_kind": "independent_persisted_reopen",
       "current_evidence_strength": [
         "LogicalStateTransition"
       ],
@@ -180,13 +186,16 @@
         "ProcessCrashRecovery via explicit crash/interruption during or after commit",
         "FilesystemDurability via physical/filesystem fault scenario"
       ],
-      "current_gap": "No close-to-reopen; shared apply_command for expected",
+      "current_gap": "ProcessCrashRecovery via interrupted-authoritative-transition; no FSD/HL/XP",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
-      "invariant_metadata": {}
+      "invariant_metadata": {},
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/attach-analysis-result.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "stale-review-ledger-command",
@@ -194,21 +203,21 @@
       "intended_claim": {
         "claim": "Reject a stale ReviewLedger command without mutating canonical state, with independent persisted before/after observation."
       },
-      "current_demonstrated_claim": "Reject a stale ReviewLedger command with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
+      "current_demonstrated_claim": "Reject stale ReviewLedger command; independent direct-sql reopen shows unchanged canonical state (Package 2C).",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command with incorrect ReviewLedgerHead expected_event_id",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "before and after state via same handle",
-      "reopen_or_recovery_step": "Not performed",
+      "persisted_observation": "direct-sql-v1 reopen vs fixture after rejection",
+      "reopen_or_recovery_step": "reject command; close; direct-sql-v1 reopen",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": [
         "claim ConcurrentAccess without multi-actor workload",
         "treat no-mutation check as automatic LogicalStateTransition"
       ],
-      "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
-      "demonstrated_observation_kind": "scoped_precondition_rejection",
+      "current_assertion_summary": "Err(stale-precondition) then direct-sql-v1 oracle unchanged",
+      "demonstrated_observation_kind": "scoped_precondition_rejection_with_independent_reopen",
       "current_evidence_strength": [
         "InterfaceBehavior"
       ],
@@ -219,7 +228,7 @@
         "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
-      "current_gap": "FailureModel::ConcurrentAccess overstates single-handle scoped precondition test",
+      "current_gap": "Catalog FailureModel::ConcurrentAccess overstates single-handle rejection scope",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
@@ -228,9 +237,12 @@
       "invariant_metadata": {
         "rejected_operation": "AppendCorrectionEvent with incorrect ReviewLedgerHead",
         "exact_error_or_policy_result": "stale-precondition",
-        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "independent_persisted_observation": "direct-sql-v1 fixture oracle after reopen",
         "boundary_observed": "canonical state unchanged after rejected command"
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/stale-review-ledger-command.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "stale-active-analysis-selection",
@@ -238,21 +250,21 @@
       "intended_claim": {
         "claim": "Reject a stale active-analysis selection without mutating canonical state, with independent persisted before/after observation."
       },
-      "current_demonstrated_claim": "Reject a stale active-analysis selection with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
+      "current_demonstrated_claim": "Reject stale active-analysis selection; independent direct-sql reopen unchanged (Package 2C).",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command(SelectActiveAnalysis) with wrong ActiveAnalysisSelection precondition",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "before and after state via same handle",
-      "reopen_or_recovery_step": "Not performed",
+      "persisted_observation": "direct-sql-v1 reopen vs fixture after rejection",
+      "reopen_or_recovery_step": "reject command; close; direct-sql-v1 reopen",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": [
         "claim ConcurrentAccess without multi-actor workload",
         "treat no-mutation check as automatic LogicalStateTransition"
       ],
-      "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
-      "demonstrated_observation_kind": "scoped_precondition_rejection",
+      "current_assertion_summary": "Err(stale-precondition) then direct-sql-v1 oracle unchanged",
+      "demonstrated_observation_kind": "scoped_precondition_rejection_with_independent_reopen",
       "current_evidence_strength": [
         "InterfaceBehavior"
       ],
@@ -263,7 +275,7 @@
         "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
-      "current_gap": "FailureModel::ConcurrentAccess overstates scope",
+      "current_gap": "Catalog FailureModel::ConcurrentAccess overstates scope",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
@@ -272,9 +284,12 @@
       "invariant_metadata": {
         "rejected_operation": "SelectActiveAnalysis with incorrect ActiveAnalysisSelection precondition",
         "exact_error_or_policy_result": "stale-precondition",
-        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "independent_persisted_observation": "direct-sql-v1 fixture oracle after reopen",
         "boundary_observed": "canonical state unchanged after rejected command"
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/stale-active-analysis-selection.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "stale-analysis-attachment",
@@ -282,21 +297,21 @@
       "intended_claim": {
         "claim": "Reject a stale analysis attachment without mutating canonical state, with independent persisted before/after observation."
       },
-      "current_demonstrated_claim": "Reject a stale analysis attachment with stale-precondition and observe unchanged normalized state through the same open handle before and after the rejected command.",
+      "current_demonstrated_claim": "Reject stale analysis attachment; independent direct-sql reopen unchanged (Package 2C).",
       "pre_state": "Writable session with loaded canonical state",
       "operation": "apply_authoritative_command(AttachAnalysisResult) with wrong AnalysisAttachmentSet precondition",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "before and after state via same handle",
-      "reopen_or_recovery_step": "Not performed",
+      "persisted_observation": "direct-sql-v1 reopen vs fixture after rejection",
+      "reopen_or_recovery_step": "reject command; close; direct-sql-v1 reopen",
       "expected_result": "Error code stale-precondition; before equals after",
       "required_error_classification": "stale-precondition",
       "forbidden_shortcuts": [
         "claim ConcurrentAccess without multi-actor workload",
         "treat no-mutation check as automatic LogicalStateTransition"
       ],
-      "current_assertion_summary": "Err(stale-precondition) then passed_oracle(before, after)",
-      "demonstrated_observation_kind": "scoped_precondition_rejection",
+      "current_assertion_summary": "Err(stale-precondition) then direct-sql-v1 oracle unchanged",
+      "demonstrated_observation_kind": "scoped_precondition_rejection_with_independent_reopen",
       "current_evidence_strength": [
         "InterfaceBehavior"
       ],
@@ -307,7 +322,7 @@
         "Independent persisted before/after observation via close and reopen",
         "ConcurrentAccess multi-actor workload scenario"
       ],
-      "current_gap": "FailureModel::ConcurrentAccess overstates scope",
+      "current_gap": "Catalog FailureModel::ConcurrentAccess overstates scope",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
@@ -316,9 +331,12 @@
       "invariant_metadata": {
         "rejected_operation": "AttachAnalysisResult with incorrect AnalysisAttachmentSet precondition",
         "exact_error_or_policy_result": "stale-precondition",
-        "independent_persisted_observation": "same-handle before/after read only; not independent persisted reopen",
+        "independent_persisted_observation": "direct-sql-v1 fixture oracle after reopen",
         "boundary_observed": "canonical state unchanged after rejected command"
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/stale-analysis-attachment.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "concurrent-writer-attempt",
@@ -363,7 +381,9 @@
         "independent_persisted_observation": "direct-sql fixture oracle after takeover",
         "boundary_observed": "rejection plus lease-expiry takeover without canonical mutation"
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/concurrent-writer-attempt.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/concurrent-writer-attempt.json",
+      "process_topology": "multi-process: hold-writer child + attempt-writer child + parent oracle",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "unknown-newer-format",
@@ -376,14 +396,14 @@
       "operation": "corrupt_or_fault_inject(UnknownNewerFormat) then open(Writable)",
       "fault_point": "pre-open format mutation",
       "fault_layer": "logical",
-      "persisted_observation": "Open error code only",
-      "reopen_or_recovery_step": "Not performed after rejection",
+      "persisted_observation": "writer_ownership observe only; writable open rejection",
+      "reopen_or_recovery_step": "not performed",
       "expected_result": "Writable open fails with unsupported-newer-format",
       "required_error_classification": "unsupported-newer-format",
       "forbidden_shortcuts": [
         "compare(fixture, fixture) as oracle pass"
       ],
-      "current_assertion_summary": "Err(unsupported-newer-format) then passed_oracle(fixture, fixture)",
+      "current_assertion_summary": "Err(unsupported-newer-format); writer token unset via observe_writer_ownership",
       "demonstrated_observation_kind": "writable_open_rejection_error_code",
       "current_evidence_strength": [
         "InterfaceBehavior"
@@ -395,7 +415,7 @@
         "Read-only salvage path as separate claim and scenario",
         "CrossPlatform via execution on multiple platforms"
       ],
-      "current_gap": "Tautological oracle; no read-only salvage path tested",
+      "current_gap": "No read-only salvage; no persisted semantic oracle",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
@@ -406,7 +426,9 @@
         "exact_error_or_policy_result": "unsupported-newer-format",
         "independent_persisted_observation": "error code only; no persisted state comparison",
         "boundary_observed": "writable open rejected; no mutation attempted"
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/unknown-newer-format.json",
+      "process_topology": "parent in-process"
     },
     {
       "scenario_id": "derived-state-corruption",
@@ -441,14 +463,14 @@
           "subclaim_id": "canonical_readability_after_derived_artifact_mutation",
           "intended_claim": "Canonical normalized state remains readable after an artifact designated as derived is modified.",
           "current_status": "partially_demonstrated",
-          "current_demonstrated_claim": "The current handler observes that canonical normalized state remains readable after an artifact designated as derived is modified. It does not establish that the derived artifact was consulted, detected as corrupt, classified, or rebuilt.",
+          "current_demonstrated_claim": "Canonical normalized state remains readable via direct-sql-v1 reopen after derived_cache corruption (Package 2C).",
           "current_evidence_strength": [
             "InterfaceBehavior"
           ],
           "target_evidence_strength_for_this_subclaim": [
             "InterfaceBehavior"
           ],
-          "current_gap": "Canonical readability alone is not detection or rebuild evidence"
+          "current_gap": "Does not establish detection, classification, or rebuild of derived artifact"
         }
       ],
       "current_demonstrated_claim": null,
@@ -457,7 +479,7 @@
       "fault_point": "derived artifact corruption before open",
       "fault_layer": "logical",
       "persisted_observation": "Canonical state readable; derived corruption not consulted",
-      "reopen_or_recovery_step": "Open read-only only; no derived rebuild asserted",
+      "reopen_or_recovery_step": "corrupt derived_cache; independent direct-sql-v1 reopen",
       "expected_result": "Canonical oracle matches fixture; derived detection/rebuild as separate subclaims",
       "required_error_classification": "none for read-only open success path",
       "forbidden_shortcuts": [
@@ -465,8 +487,8 @@
         "never read or rebuild derived",
         "treat canonical readability alone as rebuildability evidence"
       ],
-      "current_assertion_summary": "passed_oracle(fixture.normalized_state(), actual) without derived observation",
-      "demonstrated_observation_kind": "canonical_readable_despite_derived_corruption_unverified",
+      "current_assertion_summary": "direct-sql-v1 fixture oracle; scenario-level strength empty; detection/rebuild not demonstrated",
+      "demonstrated_observation_kind": "direct_sql_canonical_readability_only",
       "current_evidence_strength": [],
       "target_evidence_strength_for_this_scenario": [],
       "related_higher_level_claims_requiring_separate_scenarios": [
@@ -486,7 +508,10 @@
           "derived rebuild",
           "LogicalStateTransition"
         ]
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/derived-state-corruption.json",
+      "process_topology": "parent in-process",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "canonical-reference-corruption",
@@ -499,7 +524,7 @@
       "operation": "corrupt_or_fault_inject(CanonicalReferenceCorruption) then open(Writable)",
       "fault_point": "malformed canonical JSON payload before open",
       "fault_layer": "logical",
-      "persisted_observation": "Any open error accepted",
+      "persisted_observation": "Writable open fails after malformed payload injection",
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Writable open fails with specific canonical-corruption classification",
       "required_error_classification": "canonical-corruption or equivalent specific code",
@@ -508,7 +533,7 @@
         "compare(fixture, fixture)",
         "upgrade exact error classification to LogicalStateTransition mechanically"
       ],
-      "current_assertion_summary": "Any Err on writable open then passed_oracle(fixture, fixture)",
+      "current_assertion_summary": "Err on writable open; no independent persisted oracle",
       "demonstrated_observation_kind": "writable_open_fail_closed_any_error",
       "current_evidence_strength": [
         "InterfaceBehavior"
@@ -542,7 +567,9 @@
           "referential-integrity failure",
           "semantic canonical corruption"
         ]
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/canonical-reference-corruption.json",
+      "process_topology": "parent in-process"
     },
     {
       "scenario_id": "semantic-duplication",
@@ -555,15 +582,15 @@
       "operation": "duplicate_session while source handle open",
       "fault_point": "none",
       "fault_layer": "none",
-      "persisted_observation": "Adapter-returned duplicate.normalized_state only",
-      "reopen_or_recovery_step": "Neither source nor duplicate reopened from persisted storage",
+      "persisted_observation": "Independent direct-sql-v1 reopen source (dup-source) and destination (dup-dest)",
+      "reopen_or_recovery_step": "online backup duplication; direct-sql-v1 reopen both sessions",
       "expected_result": "Independent session ids; lineage metadata; both sessions oracle-valid against independent expected",
       "required_error_classification": "none",
       "forbidden_shortcuts": [
         "compare(duplicate, duplicate)",
         "skip source unchanged verification"
       ],
-      "current_assertion_summary": "Checks duplicate_id and duplicated_from; passed_oracle(duplicate, duplicate)",
+      "current_assertion_summary": "source unchanged + destination semantic match via direct-sql-v1",
       "demonstrated_observation_kind": "independent_source_destination_reopen",
       "current_evidence_strength": [
         "LogicalStateTransition"
@@ -576,14 +603,16 @@
         "Source unchanged verification and divergent mutation test",
         "ProcessCrashRecovery during duplication"
       ],
-      "current_gap": "All duplication interrupt fault points not executed in catalog pass",
+      "current_gap": "Duplication interrupt fault arms executed in supplemental scenarios only",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/semantic-duplication.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/semantic-duplication.json",
+      "process_topology": "parent in-process (duplication in-process)",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "interrupted-authoritative-transition",
@@ -625,7 +654,9 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/interrupted-authoritative-transition.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/interrupted-authoritative-transition.json",
+      "process_topology": "child apply-command-crash worker + parent direct-sql oracle and retry",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "interrupted-compaction",
@@ -633,7 +664,7 @@
       "intended_claim": {
         "claim": "Interrupted compaction does not expose mixed or invalid canonical state; verify valid committed state after recovery."
       },
-      "current_demonstrated_claim": "Pre-compaction ReturnError interrupt then close and independent direct-sql reopen (Package 2C).",
+      "current_demonstrated_claim": "Pre-mutation compaction ReturnError (simulated-compaction-interrupt) then close and independent direct-sql reopen (Package 2C). Catalog v1 identity labels ProcessInterruption but no process interruption was executed.",
       "pre_state": "Created session; fault armed interrupt_compaction",
       "operation": "cleanup_or_compact_if_supported(Compact) under armed interrupt",
       "fault_point": "before_compaction_mutation",
@@ -647,7 +678,7 @@
         "credit ProcessCrashRecovery for ReturnError path"
       ],
       "current_assertion_summary": "ReturnError interrupt + compaction-reopen independent oracle",
-      "demonstrated_observation_kind": "pre_compaction_interrupt_with_reopen",
+      "demonstrated_observation_kind": "pre_compaction_return_error_with_direct_sql_reopen",
       "current_evidence_strength": [
         "InterfaceBehavior"
       ],
@@ -657,7 +688,7 @@
       "related_higher_level_claims_requiring_separate_scenarios": [
         "ProcessCrashRecovery during in-progress compaction mutation"
       ],
-      "current_gap": "No in-progress compaction mutation interrupt",
+      "current_gap": "Catalog scenario_identity.failure_model=ProcessInterruption overstates executed LogicalFaultPoint ReturnError workload; no in-progress compaction mutation interrupt",
       "correction_required": true,
       "claim_structure": "single",
       "intended_claims": [],
@@ -669,7 +700,10 @@
         "fault_point": "before_compaction_mutation",
         "observation_boundary": "compaction aborted before mutation; independent reopen unchanged",
         "independent_persisted_observation": "direct-sql fixture oracle after reopen"
-      }
+      },
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/interrupted-compaction.json",
+      "process_topology": "parent in-process ReturnError fault only",
+      "oracle_type": "direct-sql-v1"
     },
     {
       "scenario_id": "interrupted-cleanup",
@@ -713,7 +747,8 @@
         "aggregation_exclusion": "Unsupported scenario contributes no positive evidence and no readiness credit",
         "deferred_until_capability_exists": true
       },
-      "correction_required_false_note": "No immediate correction authorized under current capability boundary; does not confer demonstrated, passed, complete, ready, eligible, or readiness credit"
+      "correction_required_false_note": "No immediate correction authorized under current capability boundary; does not confer demonstrated, passed, complete, ready, eligible, or readiness credit",
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210916/scenario-results/interrupted-cleanup.json"
     }
   ],
   "final_conflict_correction": {
