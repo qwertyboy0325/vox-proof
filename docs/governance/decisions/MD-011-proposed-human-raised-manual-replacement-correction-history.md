@@ -294,3 +294,9 @@ This proposed decision does not authorize persistence implementation, desktop UI
 * MD-002 remains authoritative for the established v0.1 ReviewCase and ReviewLedger model.
 * MD-003 remains authoritative for established v0.1 materialization of applicable `AcceptAlternative` decisions.
 * If accepted, MD-011 extends the deferred human-raised, manual-replacement, withdrawal, supersession, and v0.2 fold slice without rewriting MD-002 or MD-003 historical semantics.
+
+## Related proposed decisions
+
+MD-011 remains authoritative for correction-history semantics.
+
+If accepted, `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` would require durable acknowledgement, stale-write rejection, and preservation through recovery and compaction. MD-014 would not redefine correction actions.

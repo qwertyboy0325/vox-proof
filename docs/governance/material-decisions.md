@@ -78,6 +78,8 @@ Proposed v0.2 knowledge-governance decision (not accepted): `decisions/MD-012-pr
 
 Proposed v0.2 analysis-execution decision (not accepted): `decisions/MD-013-proposed-analysis-jobs-source-revisions-and-reconciliation.md` — bounded analysis jobs, immutable attached analysis snapshots, stale-result rejection, source re-import, reanalysis history, case reconciliation, and human-raised case preservation.
 
+Proposed v0.2 session-durability decision (not accepted): `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` — durable session authority, canonical versus derived state, crash consistency, single-writer ownership, lifecycle and recovery, retention and GC, compaction constraints, and privacy requirements.
+
 ## Decision record shape
 
 Each Material Decision should include:

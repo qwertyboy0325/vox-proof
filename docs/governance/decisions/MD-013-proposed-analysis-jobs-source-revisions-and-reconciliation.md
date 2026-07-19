@@ -480,3 +480,5 @@ This proposed decision does not authorize persistence implementation, UI design,
 If accepted, this decision would own bounded analysis job execution, immutable attached-result semantics, source re-import, reanalysis, and reconciliation for v0.2.
 
 Proposed MD-012 would remain authoritative for immutable knowledge snapshots and reproduction intent. Neither proposed decision would rewrite historical identities recorded in the other.
+
+If accepted, `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` would own durability, lifecycle, locking, recovery, and retention requirements. MD-013 would remain authoritative for analysis execution, attachment, reanalysis, and reconciliation semantics. Neither proposed decision selects persistence technology.
