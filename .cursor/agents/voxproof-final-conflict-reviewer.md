@@ -45,7 +45,7 @@ This reviewer does **not** replace:
 
 It reviews **conflicts across** their outputs and the actual implementation or artifacts.
 
-For qualifying work, specialist PASS verdicts and governance `AUDIT: PASS` are **insufficient** to authorize `READY_FOR_OWNER_GATE`.
+For qualifying work, specialist PASS verdicts and `PRE_FINAL_GOVERNANCE_AUDIT: PASS` are **insufficient** to authorize `READY_FOR_OWNER_GATE`.
 
 ## Required inspection inputs
 
