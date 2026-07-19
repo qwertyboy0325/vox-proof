@@ -1378,6 +1378,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
 
         fs::rename(&temp_db, &published_db)
             .map_err(|error| AdapterError::new("duplicate-publish-failed", error.to_string()))?;
+        dest_guard.disarm();
         Self::take_duplicate_fault(&self.faults, FaultPoint::AfterPublishBeforeReturn)?;
         Self::assert_no_wal_companions(&published_db)?;
 

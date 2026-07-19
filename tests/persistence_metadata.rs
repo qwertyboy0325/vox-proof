@@ -334,7 +334,10 @@ fn valid_input_target_strength_inflation_does_not_create_credit() {
     assert_eq!(baseline_entry.subclaim_id, None);
     assert_eq!(
         baseline_entry.evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec![
+            "InterfaceBehavior".to_string(),
+            "CrossPlatform".to_string()
+        ]
     );
     assert!(
         !inflated
@@ -342,9 +345,13 @@ fn valid_input_target_strength_inflation_does_not_create_credit() {
             .contains_key("HardwarePowerLoss")
     );
     assert!(
-        !inflated
+        inflated
             .evidence_strength_counts
-            .contains_key("CrossPlatform")
+            .get("CrossPlatform")
+            .copied()
+            .unwrap_or(0)
+            >= 1,
+        "CrossPlatform credit must come from demonstrated Package 2D fields, not target inflation alone"
     );
 }
 
@@ -421,7 +428,10 @@ fn golden_positive_evidence_credits_only_readability_subclaim() {
     );
     assert_eq!(
         derived_entries[0].evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec![
+            "InterfaceBehavior".to_string(),
+            "CrossPlatform".to_string()
+        ]
     );
 }
 
@@ -499,7 +509,10 @@ fn sibling_subclaim_evidence_does_not_transfer() {
     assert!(detection.current_evidence_strength.is_empty());
     assert_eq!(
         readability.current_evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec![
+            "InterfaceBehavior".to_string(),
+            "CrossPlatform".to_string()
+        ]
     );
 }
 

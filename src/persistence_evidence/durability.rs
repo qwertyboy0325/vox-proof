@@ -112,8 +112,8 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
             fault_point: FaultPoint::DuringCheckpoint,
             interruption_model: InterruptionModel::LogicalReturnError,
             sync_boundary: SyncBoundaryRecord {
-                boundary_id: "during_wal_checkpoint_truncate".to_string(),
-                description: "Checkpoint hook armed; logical ReturnError".to_string(),
+                boundary_id: "before_wal_checkpoint_truncate".to_string(),
+                description: "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError".to_string(),
                 commit_returned: None,
                 ack_returned: None,
                 checkpoint_completed: Some(false),
@@ -128,8 +128,8 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
             fault_point: FaultPoint::DuringBackupCopy,
             interruption_model: InterruptionModel::LogicalReturnError,
             sync_boundary: SyncBoundaryRecord {
-                boundary_id: "during_online_backup_copy".to_string(),
-                description: "Backup in progress; pre-rename temp state".to_string(),
+                boundary_id: "before_online_backup_copy".to_string(),
+                description: "Fault armed before backup.run_to_completion; pre-rename temp state".to_string(),
                 commit_returned: None,
                 ack_returned: None,
                 checkpoint_completed: None,
@@ -490,6 +490,11 @@ fn trial_result(
     started: Instant,
     platform_label: &str,
 ) -> DurabilityTrialResult {
+    let claim_credited = if outcome == TrialOutcome::Passed {
+        spec.credited.iter().map(|s| (*s).to_string()).collect()
+    } else {
+        Vec::new()
+    };
     DurabilityTrialResult {
         trial_id,
         experiment_id: spec.experiment_id.clone(),
@@ -500,7 +505,7 @@ fn trial_result(
         fault_point: spec.fault_point.fault_id().to_string(),
         outcome,
         oracle_passed,
-        claim_credited: spec.credited.iter().map(|s| (*s).to_string()).collect(),
+        claim_credited,
         claim_denied: spec.denied.iter().map(|s| (*s).to_string()).collect(),
         failure_reason,
         elapsed_ms: started.elapsed().as_millis(),

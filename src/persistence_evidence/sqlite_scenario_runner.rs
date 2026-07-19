@@ -1015,6 +1015,7 @@ impl SqliteScenarioRunner {
         let root = fresh_storage_root("2c-interrupted-tx");
         let fixture_json = Self::fixture_env(fixture);
         let cmd_id = catalog_command_id("interrupted-authoritative-transition", "apply");
+        let mut post_commit_oracle: Option<OracleResult> = None;
 
         for (fault, expect_unchanged) in [
             (FaultPoint::BeforeSqliteCommit, true),
@@ -1115,6 +1116,9 @@ impl SqliteScenarioRunner {
                         );
                     }
                     if !expect_unchanged {
+                        post_commit_oracle = obs.semantic_oracle.clone();
+                    }
+                    if !expect_unchanged {
                         if EmbeddedRelationalAdapter::observe_applied_command(&locator, &cmd_id)
                             .ok()
                             .flatten()
@@ -1192,17 +1196,18 @@ impl SqliteScenarioRunner {
             }
         }
 
+        let matrix_oracle = post_commit_oracle.unwrap_or(OracleResult {
+            passed: true,
+            violations: Vec::new(),
+            warnings: Vec::new(),
+            expected_fingerprint: None,
+            actual_fingerprint: String::new(),
+            oracle_version: super::oracle::ORACLE_VERSION.to_string(),
+        });
         Self::passed(
             scenario,
             started,
-            OracleResult {
-                passed: true,
-                violations: Vec::new(),
-                warnings: Vec::new(),
-                expected_fingerprint: None,
-                actual_fingerprint: String::new(),
-                oracle_version: super::oracle::ORACLE_VERSION.to_string(),
-            },
+            matrix_oracle,
             vec![
                 "InterfaceBehavior",
                 "ProcessCrashRecovery",
