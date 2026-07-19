@@ -17,8 +17,9 @@ use super::candidates::semantic_ops::{
 use super::fixture::EvidenceFixture;
 use super::independent_oracle::{IndependentSqliteOracle, OracleObservationRecord};
 use super::model::{
-    EvidenceManifest, EvidenceRunResult, NormalizedSemanticState, RecoveryClassification,
-    ScenarioMeasurement, ScenarioResult, ScenarioStatus,
+    AnalysisResultState, EvidenceManifest, EvidenceRunResult, NormalizedSemanticState,
+    RecoveryClassification, ReviewLedgerEventState, ScenarioMeasurement, ScenarioResult,
+    ScenarioStatus,
 };
 use super::oracle::OracleResult;
 use super::process_harness::{
@@ -295,6 +296,24 @@ impl SqliteScenarioRunner {
         }
     }
 
+    fn expected_after_append(
+        state: &NormalizedSemanticState,
+        event: &ReviewLedgerEventState,
+    ) -> NormalizedSemanticState {
+        let mut next = state.clone();
+        next.review_ledger_events.push(event.clone());
+        next.normalize()
+    }
+
+    fn expected_after_attach(
+        state: &NormalizedSemanticState,
+        analysis: &AnalysisResultState,
+    ) -> NormalizedSemanticState {
+        let mut next = state.clone();
+        next.analysis_results.push(analysis.clone());
+        next.normalize()
+    }
+
     fn run_baseline(
         &mut self,
         fixture: &EvidenceFixture,
@@ -333,7 +352,7 @@ impl SqliteScenarioRunner {
                     started,
                     oracle,
                     vec!["InterfaceBehavior"],
-                    Some(RecoveryClassification::SafeAutomaticRecovery),
+                    None,
                     true,
                     false,
                     "scenario-results/baseline-create-open-close.json",
@@ -376,15 +395,7 @@ impl SqliteScenarioRunner {
             event: event.clone(),
             preconditions: preconditions.clone(),
         };
-        let mut expected = state.clone();
-        let _ = apply_command(
-            &mut expected,
-            &AuthoritativeCommand::AppendCorrectionEvent {
-                command_operation_id: catalog_command_id("append-correction-event", "expected"),
-                event: event.clone(),
-                preconditions: preconditions.clone(),
-            },
-        );
+        let expected = Self::expected_after_append(&state, &event);
         if let Err(e) = adapter.apply_authoritative_command(&handle, &append_command) {
             return self.failed(scenario, started, e.to_string());
         }
@@ -416,7 +427,7 @@ impl SqliteScenarioRunner {
                     started,
                     oracle,
                     vec!["LogicalStateTransition"],
-                    Some(RecoveryClassification::SafeAutomaticRecovery),
+                    None,
                     true,
                     false,
                     "scenario-results/append-correction-event.json",
@@ -448,21 +459,7 @@ impl SqliteScenarioRunner {
         };
         let analysis = sample_attach_analysis(&state);
         let cmd_id = catalog_command_id("attach-analysis-result", "apply");
-        let mut expected = state.clone();
-        let _ = apply_command(
-            &mut expected,
-            &AuthoritativeCommand::AttachAnalysisResult {
-                command_operation_id: catalog_command_id("attach-analysis-result", "expected"),
-                analysis_result: analysis.clone(),
-                preconditions: vec![SemanticPrecondition::AnalysisAttachmentSet {
-                    expected_analysis_result_ids: state
-                        .analysis_results
-                        .iter()
-                        .map(|a| a.analysis_result_id.clone())
-                        .collect(),
-                }],
-            },
-        );
+        let expected = Self::expected_after_attach(&state, &analysis);
         if let Err(e) = adapter.apply_authoritative_command(
             &handle,
             &AuthoritativeCommand::AttachAnalysisResult {
@@ -493,7 +490,7 @@ impl SqliteScenarioRunner {
                     started,
                     oracle,
                     vec!["LogicalStateTransition"],
-                    Some(RecoveryClassification::SafeAutomaticRecovery),
+                    None,
                     true,
                     false,
                     "scenario-results/attach-analysis-result.json",
@@ -740,7 +737,7 @@ impl SqliteScenarioRunner {
                     started,
                     oracle,
                     vec!["InterfaceBehavior"],
-                    Some(RecoveryClassification::SafeAutomaticRecovery),
+                    None,
                     true,
                     true,
                     "scenario-results/concurrent-writer-attempt.json",
@@ -822,16 +819,21 @@ impl SqliteScenarioRunner {
         ) {
             Ok(obs) => {
                 let oracle = obs.semantic_oracle.clone().unwrap();
-                Self::passed(
+                let mut result = Self::passed(
                     scenario,
                     started,
                     oracle,
-                    vec!["InterfaceBehavior"],
+                    Vec::new(),
                     None,
                     true,
                     false,
                     "scenario-results/derived-state-corruption.json",
-                )
+                );
+                result.limitations = vec![
+                    "canonical readability subclaim only; detection and rebuild subclaims not demonstrated"
+                        .to_string(),
+                ];
+                result
             }
             Err(e) => self.failed(scenario, started, e.to_string()),
         }
@@ -937,7 +939,7 @@ impl SqliteScenarioRunner {
                     started,
                     dst_oracle,
                     vec!["LogicalStateTransition"],
-                    Some(RecoveryClassification::SafeAutomaticRecovery),
+                    None,
                     true,
                     false,
                     "scenario-results/semantic-duplication.json",
@@ -1184,7 +1186,7 @@ impl SqliteScenarioRunner {
                         started,
                         obs.semantic_oracle.clone().unwrap(),
                         vec!["InterfaceBehavior"],
-                        Some(RecoveryClassification::SafeAutomaticRecovery),
+                        None,
                         true,
                         false,
                         "scenario-results/interrupted-compaction.json",
