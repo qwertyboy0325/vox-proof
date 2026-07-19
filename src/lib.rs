@@ -5,6 +5,7 @@ pub mod calibration_join;
 pub mod candidate;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
+pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
 pub mod review;
