@@ -1,8 +1,8 @@
 {
   "manifest": {
     "evidence_protocol_version": "md-015-accepted-v1",
-    "repository_commit": "eacbf5ccfb556bf318ab662067d39eb91fde0350",
-    "candidate_id": "append-bundle-log-spike",
+    "repository_commit": "646014865d6da0407208b3cd599936e89877d904",
+    "candidate_id": "embedded-relational-sqlite-spike",
     "candidate_version": "1",
     "fixture_id": "voxproof-persistence-evidence-small",
     "fixture_version": "2",
@@ -89,7 +89,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 7,
             "unit": "ms"
           }
         }
@@ -121,7 +121,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 7,
+            "value": 6,
             "unit": "ms"
           }
         }
@@ -153,7 +153,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 8,
+            "value": 7,
             "unit": "ms"
           }
         }
@@ -185,7 +185,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 5,
             "unit": "ms"
           }
         }
@@ -217,7 +217,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 5,
             "unit": "ms"
           }
         }
@@ -249,7 +249,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 4,
             "unit": "ms"
           }
         }
@@ -281,7 +281,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 4,
             "unit": "ms"
           }
         }
@@ -313,7 +313,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 1,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -345,7 +345,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 1,
+            "value": 3,
             "unit": "ms"
           }
         }
@@ -377,7 +377,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 1,
+            "value": 3,
             "unit": "ms"
           }
         }
@@ -409,7 +409,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 3,
+            "value": 4,
             "unit": "ms"
           }
         }
@@ -441,7 +441,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 3,
+            "value": 6,
             "unit": "ms"
           }
         }
@@ -475,7 +475,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 3,
             "unit": "ms"
           }
         }
@@ -502,7 +502,7 @@
       "measurements": {},
       "failure_classification": null,
       "limitations": [
-        "spike-only append bundle; not production layout",
+        "spike-only SQLite layout; not production schema",
         "destructive historical GC not implemented"
       ],
       "raw_artifact_references": []
@@ -527,7 +527,7 @@
       "measurements": {},
       "failure_classification": null,
       "limitations": [
-        "spike-only append bundle; not production layout",
+        "spike-only SQLite layout; not production schema",
         "destructive historical GC not implemented"
       ],
       "raw_artifact_references": []

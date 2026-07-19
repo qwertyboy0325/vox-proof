@@ -2,8 +2,8 @@
   "append_bundle": {
     "candidate_id": "append-bundle-log-spike",
     "failed": 0,
+    "host_correctness_eligibility": "EligibleForComparison",
     "inconclusive": 0,
-    "macos_correctness_eligibility": "EligibleForComparison",
     "negative_results": 1,
     "not_run": 0,
     "passed": 13,
@@ -11,18 +11,20 @@
     "unsupported": 1
   },
   "cross_platform_claims": "Inconclusive",
-  "eligibility_note": "macOS correctness eligibility only; EligibleForComparison is non-authoritative and does not select a mechanism",
+  "eligibility_note": "Host-platform correctness eligibility only; EligibleForComparison is non-authoritative and does not select a mechanism",
   "embedded_relational": {
     "candidate_id": "embedded-relational-sqlite-spike",
     "failed": 0,
+    "host_correctness_eligibility": "EligibleForComparison",
     "inconclusive": 0,
-    "macos_correctness_eligibility": "EligibleForComparison",
     "negative_results": 1,
     "not_run": 0,
     "passed": 13,
     "platform_scope": "macos",
     "unsupported": 1
   },
+  "host_platform": "macos",
+  "macos_status": "executed_on_host",
   "selection_status": "none",
   "windows_status": "NotRun"
 }

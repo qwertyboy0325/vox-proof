@@ -7,6 +7,8 @@
     "logical"
   ],
   "hardware_power_loss": "not tested",
+  "host_platform": "macos",
+  "macos_status": "executed_on_host",
   "negative_results_retained": true,
   "windows_status": "NotRun"
 }
