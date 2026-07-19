@@ -693,6 +693,7 @@
         "mark Unsupported as pass"
       ],
       "current_assertion_summary": "ScenarioOutcome::unsupported(cleanup not implemented in spike)",
+      "demonstrated_observation_kind": null,
       "current_status": "Unsupported",
       "current_evidence_strength": [],
       "target_evidence_strength_for_this_scenario": [],

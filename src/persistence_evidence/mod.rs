@@ -3,15 +3,33 @@
 //! Spike-only module. Not production persistence.
 
 mod adapter;
+mod aggregation;
 #[cfg(feature = "persistence-spike")]
 pub mod candidates;
 mod fixture;
+mod metadata;
 mod model;
 mod oracle;
+mod readiness_result;
 mod runner;
 mod scenario;
 #[cfg(feature = "persistence-spike")]
 mod scenario_runner;
+
+pub use aggregation::{
+    aggregate_readiness_from_json, aggregate_validated_metadata_internal_error_test,
+    evaluate_persistence_readiness, serialize_readiness_result,
+};
+pub use metadata::{
+    MetadataValidationError, SUPPORTED_CONTRACT_VERSION, SUPPORTED_SCENARIO_CATALOG_VERSION,
+    ValidatedClaimContractDocument, contract_json_with_mutation, parse_and_validate_contract,
+    parse_and_validate_metadata_bundle, parse_and_validate_reclassification,
+};
+pub use readiness_result::{
+    MetadataValidationFailure, PositiveEvidenceEntry, READINESS_RESULT_VERSION,
+    ReadinessAggregationOutput, ReadinessBlocker, ReadinessBlockerCode, ReadinessOutcome,
+    ReadinessResultKind,
+};
 
 pub use adapter::{
     AdapterError, AuthoritativeCommand, CandidateCapabilities, DuplicatedSession,
