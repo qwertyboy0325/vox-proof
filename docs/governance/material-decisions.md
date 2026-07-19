@@ -74,6 +74,8 @@ Proposed licensing decision (not accepted): `decisions/MD-009-proposed-dual-lice
 
 Proposed v0.2 correction-history decision (not accepted): `decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` — human-raised review cases, `ManualReplacement`, append-only withdrawal/supersession/reapplication semantics, and the v0.2 active-decision fold rule.
 
+Proposed v0.2 knowledge-governance decision (not accepted): `decisions/MD-012-proposed-experience-derivation-and-scoped-knowledge-governance.md` — correction facts, extraction runs, experience proposals, scoped accepted knowledge, promotion/revocation/conflict semantics, immutable knowledge snapshots, and analysis reproducibility inputs.
+
 ## Decision record shape
 
 Each Material Decision should include:

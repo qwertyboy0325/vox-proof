@@ -159,3 +159,9 @@ detector configuration, and algorithm version. The exact canonical pipeline
 must construct and validate those identities.
 
 This decision does not authorize implementation of phonetic matching itself.
+
+## Related proposed decisions
+
+MD-004 remains authoritative for established v0.1 effective analysis identity.
+
+If accepted, `decisions/MD-012-proposed-experience-derivation-and-scoped-knowledge-governance.md` would add immutable knowledge snapshot identity and ranking-policy identity as explicit v0.2 analysis inputs where applicable. MD-012 would not reinterpret historical v0.1 analysis artifacts recorded here.
