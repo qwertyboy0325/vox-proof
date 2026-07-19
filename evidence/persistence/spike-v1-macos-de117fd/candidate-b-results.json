@@ -1,14 +1,29 @@
 {
   "manifest": {
     "evidence_protocol_version": "md-015-accepted-v1",
-    "repository_commit": "2ca33639b69bdc2a41919beb54869afbed4b8eea",
-    "candidate_id": "embedded-relational-sqlite-spike",
+    "repository_commit": "de117fd0358f1cbc65756b7d4473729c1accfcc4",
+    "candidate_id": "append-bundle-log-spike",
     "candidate_version": "1",
     "fixture_id": "voxproof-persistence-evidence-small",
     "fixture_version": "2",
     "harness_version": "2",
     "oracle_version": "2",
-    "scenario_ids": [],
+    "scenario_ids": [
+      "baseline-create-open-close@1",
+      "append-correction-event@1",
+      "attach-analysis-result@1",
+      "stale-review-ledger-command@1",
+      "stale-active-analysis-selection@1",
+      "stale-analysis-attachment@1",
+      "concurrent-writer-attempt@1",
+      "unknown-newer-format@1",
+      "derived-state-corruption@1",
+      "canonical-reference-corruption@1",
+      "semantic-duplication@1",
+      "interrupted-authoritative-transition@1",
+      "interrupted-compaction@1",
+      "interrupted-cleanup@1"
+    ],
     "operating_system": {
       "Known": "macos"
     },
@@ -74,7 +89,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 5,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -106,7 +121,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 5,
+            "value": 7,
             "unit": "ms"
           }
         }
@@ -138,7 +153,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 5,
+            "value": 7,
             "unit": "ms"
           }
         }
@@ -170,7 +185,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -202,7 +217,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -234,7 +249,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -266,7 +281,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 2,
             "unit": "ms"
           }
         }
@@ -298,7 +313,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 1,
             "unit": "ms"
           }
         }
@@ -330,7 +345,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 3,
+            "value": 1,
             "unit": "ms"
           }
         }
@@ -362,7 +377,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 3,
+            "value": 1,
             "unit": "ms"
           }
         }
@@ -394,7 +409,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 3,
             "unit": "ms"
           }
         }
@@ -426,7 +441,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 5,
+            "value": 3,
             "unit": "ms"
           }
         }
@@ -460,7 +475,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2,
+            "value": 1,
             "unit": "ms"
           }
         }
@@ -487,7 +502,7 @@
       "measurements": {},
       "failure_classification": null,
       "limitations": [
-        "spike-only SQLite layout; not production schema",
+        "spike-only append bundle; not production layout",
         "destructive historical GC not implemented"
       ],
       "raw_artifact_references": []
@@ -512,7 +527,7 @@
       "measurements": {},
       "failure_classification": null,
       "limitations": [
-        "spike-only SQLite layout; not production schema",
+        "spike-only append bundle; not production layout",
         "destructive historical GC not implemented"
       ],
       "raw_artifact_references": []

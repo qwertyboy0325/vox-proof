@@ -28,6 +28,9 @@
     "unsupported_handling": "Optional capability scenarios may be Unsupported with documented limitation; required scenarios must not be Unsupported."
   },
   "comparative_measurements": {
+    "execution_status": "not_executed_in_spike_v1",
+    "execution_note": "Spike v1 runner records per-scenario scenario_elapsed_ms only. Declared cold/warm multi-sample metrics below are specification targets for a future measurement pass and must not be read as collected evidence.",
+    "recorded_metrics_in_spike_v1": ["scenario_elapsed_ms"],
     "methodology": "Same scenario runner and fixture; median of 5 samples after 1 warmup discard; wall-clock Instant on local machine.",
     "sample_count": 5,
     "warmup_policy": "One untimed iteration discarded before measurement samples.",

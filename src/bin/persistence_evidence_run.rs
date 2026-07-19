@@ -71,16 +71,25 @@ fn main() {
         &output_root.join("candidate-b-results.json"),
         &append_result,
     );
+    let windows_status = if cfg!(windows) {
+        "executed_on_host"
+    } else {
+        "NotRun"
+    };
     write_json(
         &output_root.join("comparison.json"),
-        &comparison_summary(&embedded_result, &append_result),
+        &comparison_summary(&embedded_result, &append_result, windows_status),
     );
     write_json(
         &output_root.join("limitations.json"),
         &serde_json::json!({
-            "windows_status": if cfg!(windows) { "executed_on_host" } else { "requires_ci" },
+            "windows_status": windows_status,
+            "cross_platform_claims": "Inconclusive",
+            "comparative_measurements_status": "not_executed",
+            "comparative_measurements_note": "Spike v1 records per-scenario scenario_elapsed_ms only; declared cold/warm multi-sample metrics in targets.json are deferred.",
             "hardware_power_loss": "not tested",
             "destructive_historical_gc": "unsupported in spike adapters",
+            "fault_injection_layers": ["logical"],
             "negative_results_retained": true
         }),
     );
@@ -146,19 +155,23 @@ fn base_manifest(
 fn comparison_summary(
     embedded: &EvidenceRunResult,
     append: &EvidenceRunResult,
+    windows_status: &str,
 ) -> serde_json::Value {
     serde_json::json!({
-        "embedded_relational": summary_row(embedded),
-        "append_bundle": summary_row(append),
+        "embedded_relational": summary_row(embedded, "macos"),
+        "append_bundle": summary_row(append, "macos"),
+        "cross_platform_claims": "Inconclusive",
+        "windows_status": windows_status,
         "selection_status": "none",
-        "eligibility_note": "EligibleForComparison is non-authoritative and does not select a mechanism"
+        "eligibility_note": "macOS correctness eligibility only; EligibleForComparison is non-authoritative and does not select a mechanism"
     })
 }
 
-fn summary_row(result: &EvidenceRunResult) -> serde_json::Value {
+fn summary_row(result: &EvidenceRunResult, platform_scope: &str) -> serde_json::Value {
     serde_json::json!({
         "candidate_id": result.manifest.candidate_id,
-        "eligibility": format!("{:?}", result.eligibility),
+        "platform_scope": platform_scope,
+        "macos_correctness_eligibility": format!("{:?}", result.eligibility),
         "passed": result.summary.passed,
         "failed": result.summary.failed,
         "unsupported": result.summary.unsupported,

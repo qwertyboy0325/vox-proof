@@ -3,8 +3,8 @@
   "harness_version": "2",
   "oracle_version": "2",
   "platform": "macos",
-  "repository_commit": "2ca33639b69bdc2a41919beb54869afbed4b8eea",
-  "run_id": "spike-v1-macos-2ca3363",
+  "repository_commit": "de117fd0358f1cbc65756b7d4473729c1accfcc4",
+  "run_id": "spike-v1-macos-de117fd",
   "scenario_catalog_version": "1",
   "targets_path": "evidence/persistence/spike-v1/targets.json"
 }

@@ -55,5 +55,23 @@
       ]
     }
   ],
-  "material_distinctness_summary": "Candidate A delegates durability/recovery partly to embedded transactional engine with relational constraints. Candidate B uses append-dominant authoritative log, explicit manifest generations, and replay/checkpoint recovery without a database engine."
+  "material_distinctness_summary": "Candidate A delegates durability/recovery partly to embedded transactional engine with relational constraints. Candidate B uses append-dominant authoritative log, explicit manifest generations, and replay/checkpoint recovery without a database engine.",
+  "md015_pre_screen": {
+    "recorded_at": "2026-07-19",
+    "evaluated_classes": [
+      "embedded-relational-sqlite-spike",
+      "append-bundle-log-spike"
+    ],
+    "excluded_classes": [
+      {
+        "class": "Versioned session bundle or directory package",
+        "rationale": "Append-bundle candidate already exercises versioned bundle directory, manifest generations, checkpoint swap, and atomic rename without adding a materially distinct storage model beyond Candidate B."
+      },
+      {
+        "class": "Hybrid canonical-log plus derived-index design",
+        "rationale": "Both evaluated candidates already separate canonical authoritative state from rebuildable derived artifacts; a hybrid prototype would duplicate the derived-rebuild and canonical-corruption scenarios without a distinct durability boundary for MD-015 comparison."
+      }
+    ],
+    "note": "Pre-screen narrows implementation scope; it does not exclude classes from later mechanism selection without new evidence."
+  }
 }

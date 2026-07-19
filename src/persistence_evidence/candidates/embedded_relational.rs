@@ -398,7 +398,7 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
                 self.faults.arm_for_scenario(
                     scenario,
                     FaultPoint::CorruptDerivedArtifact,
-                    super::fault::FaultLayer::Filesystem,
+                    super::fault::FaultLayer::Logical,
                 );
                 let connection = Self::open_connection(session.adapter_locator())?;
                 connection

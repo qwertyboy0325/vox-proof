@@ -1,0 +1,12 @@
+{
+  "comparative_measurements_note": "Spike v1 records per-scenario scenario_elapsed_ms only; declared cold/warm multi-sample metrics in targets.json are deferred.",
+  "comparative_measurements_status": "not_executed",
+  "cross_platform_claims": "Inconclusive",
+  "destructive_historical_gc": "unsupported in spike adapters",
+  "fault_injection_layers": [
+    "logical"
+  ],
+  "hardware_power_loss": "not tested",
+  "negative_results_retained": true,
+  "windows_status": "NotRun"
+}

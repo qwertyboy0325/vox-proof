@@ -26,7 +26,13 @@ impl ScenarioRunner {
         manifest: EvidenceManifest,
     ) -> EvidenceRunResult {
         let mut results = Vec::new();
-        for scenario in scenario_catalog() {
+        let mut manifest = manifest;
+        let catalog = scenario_catalog();
+        manifest.scenario_ids = catalog
+            .iter()
+            .map(|scenario| format!("{}@{}", scenario.scenario_id, scenario.scenario_version))
+            .collect();
+        for scenario in &catalog {
             if scenario.requirement == ScenarioRequirement::CapabilityDependent
                 && scenario
                     .required_capabilities
@@ -44,7 +50,7 @@ impl ScenarioRunner {
                 });
                 continue;
             }
-            results.push(run_single(adapter, fixture, &scenario));
+            results.push(run_single(adapter, fixture, scenario));
         }
         EvidenceHarness::aggregate(manifest, results)
     }
