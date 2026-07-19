@@ -1,8 +1,11 @@
 # Persistence Spike v1 — Bounded Correction Plan
 
-Work package: `finalize-persistence-scenario-claim-contract-precision`
-Review baseline: `48928b30b87c62a8edcac4ebab402cfea39ac279`
+Work package: `persistence-v3-final-conflict-correction`
+Review baseline: `bf6885dbf38fe9eb98a77ded606b2ededdfcfd6e`
+Prior contract commit: `f9c746e2f09eb589e5a767d236432b90865d8779`
 Status: **plan only — no implementation authorized by this document**
+
+This packet supersedes the prior **Owner Packet — Finalize Scenario Claim Contracts** readiness conclusion. Acceptance effect remains none until owner gate after targeted GPT-5.6 Sol High verification.
 
 This plan follows specialist storage-systems and evidence-methodology review. Original evidence at `evidence/persistence/spike-v1-macos-6460148/` is preserved unchanged.
 
@@ -42,18 +45,21 @@ Each level requires claim-specific justification.
 
 `InterfaceBehavior`, `LogicalStateTransition`, `ProcessCrashRecovery`, `FilesystemDurability`, `HardwarePowerLoss`, and `CrossPlatform` are **not** a universal linear maturity ladder for every scenario. A scenario may be fully correct at `InterfaceBehavior` without needing to target a higher level.
 
-### No-transition invariant rule
+### Invariant metadata classes (v4 contract schema)
 
-A scenario that verifies **no mutation occurred** is not automatically a `LogicalStateTransition`.
+Invariant metadata is scoped by `invariant_kind`, not a single rejected-operation template:
 
-Rejection and corruption scenarios must record:
+| `invariant_kind` | Applies to |
+|---|---|
+| `rejected_operation_no_mutation` | stale-*, concurrent-writer-attempt, unknown-newer-format, canonical-reference-corruption |
+| `successful_read_after_external_artifact_mutation` | derived-state-corruption |
+| `pre_write_abort_no_authoritative_mutation` | interrupted-authoritative-transition, interrupted-compaction |
+| `unsupported_capability_not_executed` | interrupted-cleanup |
+| `not_applicable` | baseline, append/attach, semantic-duplication |
 
-- the rejected operation
-- the exact error or policy result
-- the independent persisted observation
-- the no-transition invariant being tested
+A scenario that verifies **no mutation occurred** is not automatically a `LogicalStateTransition`. Evidence strength must be assigned from the specific semantic claim demonstrated, not from operation type alone.
 
-Evidence strength must then be assigned based on the specific semantic claim demonstrated.
+Successful corruption-observation scenarios (derived-state-corruption) must **not** use `rejected_operation` metadata; they record the successful read boundary after external artifact mutation instead.
 
 ---
 
@@ -109,8 +115,8 @@ These corrections belong to **Package 4** (shared fault model and official scena
 | `stale-*` | Optional: rename failure model; retain current assertion with corrected classification |
 | `concurrent-writer-attempt` | Replace `compare(before, before)`; orphan-lock recovery as **separate scenario** |
 | `unknown-newer-format` | Remove fixture self-oracle; exact `unsupported-newer-format`; read-only salvage as **separate claim** |
-| `derived-state-corruption` | Assert derived detect/rebuild on open; or downgrade claim |
-| `canonical-reference-corruption` | Require specific error code; read-only salvage as separate claim |
+| `derived-state-corruption` | Assert derived detect/rebuild on open; or downgrade claim per subclaim (`derived_corruption_detection`, `derived_state_rebuild`, `canonical_readability_after_derived_artifact_mutation`) |
+| `canonical-reference-corruption` | Current fault is **malformed canonical JSON payload** (`{invalid-canonical-json`), not broken-reference detection; require specific error code; broken-reference claim requires different fault injector; read-only salvage as separate claim |
 | `semantic-duplication` | Reopen source and duplicate independently; verify source unchanged |
 | `interrupted-authoritative-transition` | Mid-write/post-ack faults as **separate scenarios**; current handler is logical pre-commit abort |
 | `interrupted-compaction` | Post-interrupt reopen as **separate scenario**; current fault is before_compaction_mutation only |
@@ -197,11 +203,12 @@ Package 1 remains **metadata, classification, fail-closed aggregation, and resul
 
 When separately authorized, Package 1 must:
 
-- aggregate readiness using `current_demonstrated_claim` and `current_evidence_strength`, never `intended_claim` or `intended_claims`
+- aggregate readiness using `current_status`, `current_demonstrated_claim`, and `current_evidence_strength` (or per-subclaim fields when `claim_structure = multiple`), never `intended_claim` or `intended_claims` target fields
 - not infer evidence level solely from operation type (close/reopen, fsync, transaction, etc.)
-- support multiple independently identified subclaims per scenario contract
-- exclude unsupported and deferred claims from readiness aggregation
-- require explicit no-transition invariant metadata for rejection and corruption scenarios
+- honor `claim_structure` discriminator (`single` vs `multiple`); evaluate multi-claim scenarios per subclaim
+- exclude `Unsupported`, `NotRun`, deferred, and capability-missing scenarios from readiness aggregation (`aggregation_exclusions`)
+- treat `correction_required = false` as `no_immediate_correction_not_readiness_credit` — not demonstrated, passed, complete, ready, eligible, or readiness credit (see `interrupted-cleanup`)
+- require explicit `invariant_kind` metadata scoped to rejection, successful read after mutation, pre-write abort, or unsupported capability — not a universal `rejected_operation` template
 - remain fail-closed and **cannot restore** any `Eligible*` state
 
 ---
@@ -217,8 +224,22 @@ When separately authorized, Package 1 must:
 
 ---
 
+## Owner packet supersession
+
+```yaml
+owner_packet_supersession:
+  superseded_packet_title: Owner Packet — Finalize Scenario Claim Contracts
+  superseded_target_commit: f9c746e2f09eb589e5a767d236432b90865d8779
+  reason: GPT-5.6 Sol High final conflict review identified V3-C001 through V3-C006
+  prior_ready_for_owner_gate_status: superseded
+  current_status: targeted_verification_passed_pending_owner_decision
+  acceptance_effect: none
+```
+
+Authoritative copy also recorded in `reclassification.json`.
+
 ## Related artifacts
 
-- `findings.json` — consolidated finding matrix with attribution discipline
-- `scenario-claim-contracts.json` — per-scenario claim contracts (v3)
-- `reclassification.json` — formal downgrade record (v2)
+- `findings.json` — consolidated finding matrix with attribution discipline (historical; superseded fields mapped in `reclassification.json` → `v3_contract_supersession`)
+- `scenario-claim-contracts.json` — per-scenario claim contracts (v4)
+- `reclassification.json` — formal downgrade record (v2) with v3 supersession metadata

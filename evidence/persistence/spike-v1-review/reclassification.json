@@ -188,5 +188,65 @@
   "preserved_original_evidence": {
     "policy": "Original spike-v1-macos-6460148 artifacts retained unchanged; this reclassification adds explicit downgrade without deletion",
     "negative_results_retained": true
+  },
+  "v3_contract_supersession": {
+    "superseding_work_package": "persistence-v3-final-conflict-correction",
+    "superseding_commit": "recorded_in_final_owner_packet",
+    "superseded_artifact": "evidence/persistence/spike-v1-review/findings.json",
+    "preservation_policy": "Historical findings remain unchanged as review history; specific strength attributions are superseded by v4 scenario claim contracts",
+    "superseded_fields": [
+      {
+        "finding_id": "F-015",
+        "scenario_id": "baseline-create-open-close",
+        "superseded_classification": "LogicalStateTransition attribution for baseline close/reopen or persisted initialization reload",
+        "replacement": {
+          "current_evidence_strength": ["InterfaceBehavior"],
+          "note": "Persisted initialization reload through close and reopen remains InterfaceBehavior under current taxonomy; unchanged-state invariant does not mechanically establish LogicalStateTransition"
+        }
+      },
+      {
+        "finding_id": "F-016",
+        "scenario_ids": [
+          "stale-review-ledger-command",
+          "stale-active-analysis-selection",
+          "stale-analysis-attachment"
+        ],
+        "superseded_classification": "LogicalStateTransition attribution for stale-* rejection scenarios",
+        "replacement": {
+          "current_evidence_strength": ["InterfaceBehavior"],
+          "note": "Scoped precondition rejection with same-handle before/after observation is InterfaceBehavior; unchanged-state invariant does not mechanically establish LogicalStateTransition"
+        }
+      },
+      {
+        "finding_id": "F-008",
+        "scenario_id": "derived-state-corruption",
+        "supersession_type": "partial",
+        "superseded_classification": "Blanket InterfaceBehavior attribution for entire derived-corruption scenario",
+        "replacement": {
+          "canonical_readability_after_derived_artifact_mutation": {
+            "current_evidence_strength": ["InterfaceBehavior"],
+            "current_status": "partially_demonstrated"
+          },
+          "derived_corruption_detection": {
+            "current_evidence_strength": [],
+            "current_status": "not_demonstrated"
+          },
+          "derived_state_rebuild": {
+            "current_evidence_strength": [],
+            "current_status": "not_demonstrated"
+          },
+          "note": "Historical review observation retained; classification refined per subclaim; stronger claims not demonstrated; original findings.json not overwritten"
+        }
+      }
+    ]
+  },
+  "owner_packet_supersession": {
+    "superseded_packet_title": "Owner Packet — Finalize Scenario Claim Contracts",
+    "superseded_target_commit": "f9c746e2f09eb589e5a767d236432b90865d8779",
+    "reason": "GPT-5.6 Sol High final conflict review identified V3-C001 through V3-C006",
+    "prior_ready_for_owner_gate_status": "superseded",
+    "current_status": "targeted_verification_passed_pending_owner_decision",
+    "acceptance_effect": "none",
+    "note": "Prior packet is superseded because its readiness conclusion is no longer current; it is not invalidated in all respects"
   }
 }
