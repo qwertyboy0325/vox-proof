@@ -1,0 +1,116 @@
+---
+description: "VoxProof bounded autonomous work packages with owner gates, escalation, and model-budget policy"
+alwaysApply: true
+---
+
+# VoxProof Work Packages
+
+Collaboration model: **Bounded Autonomous Work Packages with Owner Gates**.
+
+## Human role (owner gates)
+
+The product owner intervenes only for:
+
+- Material Decision acceptance or rejection
+- product-boundary changes
+- unresolved semantic conflicts
+- security/privacy risk acceptance
+- destructive or irreversible actions
+- commit, push, merge, or release authorization unless already granted in a bounded work package
+- explicit exception handling
+
+## Agent responsibility
+
+Within an **authorized** work package, agents may autonomously perform:
+
+`preflight`, `inspect`, `plan`, `implement`, `test`, `self-review`, `independent audit`, `bounded correction`, `retest`, `decision-packet preparation`
+
+Stop at the declared **stop_gate**. Do not self-approve governance acceptance.
+
+## Required work-package fields
+
+Every substantial work package must identify:
+
+`work_package_id`, `objective`, `risk_tier`, `authorized_scope`, `forbidden_scope`, `authority_dependencies`, `allowed_actions`, `forbidden_actions`, `required_checks`, `escalation_conditions`, `stop_gate`, `model_budget_policy`
+
+If any required field is missing, remain in `PROPOSED` and request owner authorization.
+
+## Workflow states
+
+`PROPOSED` → `AUTHORIZED` → `PREFLIGHT` → `EXECUTING` → `SELF_CHECKED` → `AUDITING` → `CORRECTING` → `READY_FOR_OWNER_GATE` → `APPROVED` → `COMMITTED` → `REMOTE_VERIFIED`
+
+Terminal or blocking states: `BLOCKED`
+
+Do not skip states. `READY_FOR_OWNER_GATE` is not owner approval.
+
+## Escalation conditions
+
+Escalate only for:
+
+`BLOCKED_GOVERNANCE`, `BLOCKED_SCOPE`, `BLOCKED_SEMANTIC_CONFLICT`, `BLOCKED_SECURITY`, `BLOCKED_REPO_STATE`, `BLOCKED_REMOTE_DIVERGENCE`, `BLOCKED_TEST_FAILURE`, `BLOCKED_UNEXPECTED_DRIFT`, `BLOCKED_MODEL_DISAGREEMENT`
+
+Scope expansion always requires escalation. Do not silently broaden authorized scope.
+
+## Evidence policy
+
+Separate **human decision packet** from **detailed machine evidence**.
+
+Human-facing reports normally include only:
+
+- final state
+- scope
+- validation summary
+- audit verdict
+- unresolved risks
+- governance blockers
+- requested owner decision
+- model usage
+- API escalation, if any
+
+Do not dump full command logs unless an exception occurred.
+
+## Governance rules
+
+- implementation completion is not approval
+- proposed is not accepted
+- test success is not governance authorization
+- actual diff is authoritative over model reports
+- accepted Material Decisions are authoritative
+- dependent implementation cannot be committed before required authority is accepted
+- negative evidence must be retained
+- scope expansion requires escalation
+
+## Git rules
+
+Unless explicitly authorized in the active work package:
+
+- no staging
+- no commit
+- no push
+- no force push
+- no amend
+- no rebase
+- no tag
+- no deletion of unrelated untracked artifacts
+
+When commit and push are authorized, execute them only after all declared preconditions pass and independent audit requirements are satisfied.
+
+## Model-budget policy
+
+Until **2026-08-11** (quota review date — reassess model-budget policy after this date; not a permanent semantic rule):
+
+- Cursor-native quota is preferred
+- API-backed model usage is constrained
+- API models are forbidden by default unless an escalation condition requires them
+
+Preferred routing:
+
+**Composer 2.5 Fast** — preflight, repository inspection, bounded implementation, tests, formatting, Git operations, remote verification, mechanical evidence collection
+
+**Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`)
+
+**API-backed high-reasoning model** — only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection
+
+Every report must state: `models_used`, `api_quota_used`, `api_escalation_reason`
+
+Do not substitute API-backed models for Cursor-native Grok governance audits.
