@@ -58,7 +58,6 @@ pub struct EmbeddedRelationalAdapter {
     last_clock_ms: RefCell<Option<i64>>,
     force_post_commit_verify_failure: RefCell<bool>,
     force_sqlite_busy_on_tx_begin_once: RefCell<bool>,
-    simulate_post_busy_epoch_revalidation: RefCell<bool>,
 }
 
 impl EmbeddedRelationalAdapter {
@@ -75,7 +74,6 @@ impl EmbeddedRelationalAdapter {
             last_clock_ms: RefCell::new(None),
             force_post_commit_verify_failure: RefCell::new(false),
             force_sqlite_busy_on_tx_begin_once: RefCell::new(false),
-            simulate_post_busy_epoch_revalidation: RefCell::new(false),
         }
     }
 
@@ -92,11 +90,6 @@ impl EmbeddedRelationalAdapter {
     /// Test-only hook to simulate one SQLITE_BUSY before the command transaction begins (BT-015).
     pub fn set_force_sqlite_busy_on_tx_begin_once(&self, enabled: bool) {
         *self.force_sqlite_busy_on_tx_begin_once.borrow_mut() = enabled;
-    }
-
-    /// Test-only hook simulating epoch revalidation after a busy wait (BT-015 auxiliary).
-    pub fn set_simulate_post_busy_epoch_revalidation(&self, enabled: bool) {
-        *self.simulate_post_busy_epoch_revalidation.borrow_mut() = enabled;
     }
 
     pub fn arm_test_fault(&self, point: super::fault::FaultPoint) {
@@ -1398,10 +1391,6 @@ impl PersistenceCandidateAdapter for EmbeddedRelationalAdapter {
         if *self.force_sqlite_busy_on_tx_begin_once.borrow() {
             *self.force_sqlite_busy_on_tx_begin_once.borrow_mut() = false;
             return Err(AdapterError::new("sqlite-busy", "database is locked"));
-        }
-
-        if *self.simulate_post_busy_epoch_revalidation.borrow() {
-            Self::revalidate_writer_on_connection(connection, &token, owner_epoch)?;
         }
 
         let tx = connection
