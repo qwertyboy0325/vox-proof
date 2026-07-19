@@ -17,6 +17,21 @@ fn op_id(label: &str) -> String {
     format!("00000000-0000-4000-8000-{:012x}", n & 0x0000_FFFF_FFFF_FFFF)
 }
 
+fn is_uuid(value: &str) -> bool {
+    uuid::Uuid::parse_str(value).is_ok()
+}
+
+fn writer_identities(locator: &str) -> (Option<String>, String) {
+    let connection = Connection::open(db_path(locator)).expect("open db");
+    connection
+        .query_row(
+            "SELECT token, process_instance_id FROM writer_ownership WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("writer identities")
+}
+
 fn db_path(locator: &str) -> String {
     format!("{locator}/session.db")
 }
@@ -535,4 +550,35 @@ fn bt_expired_lease_rejects_command_without_takeover() {
         count_ledger_events(session.adapter_locator()),
         before.review_ledger_events.len()
     );
+}
+
+#[test]
+fn bt_backward_clock_fail_closed() {
+    let fixture = EvidenceFixture::small();
+    let mut adapter = EmbeddedRelationalAdapter::new(fresh_storage_root("bt-backward-clock"));
+    adapter.set_test_clock_ms(Some(10_000));
+    let session = adapter.create(&fixture).expect("create");
+    let handle = adapter
+        .open(&session, SemanticOpenMode::Writable)
+        .expect("open");
+    adapter.set_test_clock_ms(Some(1_000));
+    let before = adapter.read_normalized_state(&handle).expect("state");
+    let command = append_command(&before, &op_id("backward-clock"));
+    let error = adapter
+        .apply_authoritative_command(&handle, &command)
+        .expect_err("backward clock");
+    assert_eq!(error.code, "lease-clock-ambiguous");
+}
+
+#[test]
+fn bt_writer_ownership_ids_are_uuid() {
+    let fixture = EvidenceFixture::small();
+    let mut adapter = EmbeddedRelationalAdapter::new(fresh_storage_root("bt-writer-uuid"));
+    let session = adapter.create(&fixture).expect("create");
+    let _handle = adapter
+        .open(&session, SemanticOpenMode::Writable)
+        .expect("open");
+    let (token, process_instance_id) = writer_identities(session.adapter_locator());
+    assert!(token.as_deref().is_some_and(is_uuid));
+    assert!(is_uuid(&process_instance_id));
 }
