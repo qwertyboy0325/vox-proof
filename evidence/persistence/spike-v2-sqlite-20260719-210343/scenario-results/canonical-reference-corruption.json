@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "interrupted-authoritative-transition",
+    "scenario_id": "canonical-reference-corruption",
     "scenario_version": 1,
-    "category": "Recovery",
-    "description": "Interrupt an authoritative transition around acknowledgement",
-    "failure_model": "ProcessInterruption",
+    "category": "Corruption",
+    "description": "Detect a broken canonical reference",
+    "failure_model": "LogicalFaultPoint",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -21,21 +21,19 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 2188,
+        "value": 4,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": "SafeAutomaticRecovery",
+  "failure_classification": "Unrecoverable",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/interrupted-authoritative-transition.json"
+    "scenario-results/canonical-reference-corruption.json"
   ],
   "achieved_evidence_strength": [
-    "InterfaceBehavior",
-    "ProcessCrashRecovery",
-    "LogicalStateTransition"
+    "InterfaceBehavior"
   ],
-  "process_interruption_performed": true,
-  "reopen_performed": true
+  "process_interruption_performed": false,
+  "reopen_performed": false
 }

@@ -1,9 +1,9 @@
 {
   "scenario_identity": {
-    "scenario_id": "stale-active-analysis-selection",
+    "scenario_id": "concurrent-writer-attempt",
     "scenario_version": 1,
     "category": "Concurrency",
-    "description": "Reject a stale active-analysis selection",
+    "description": "Permit at most one authoritative writer",
     "failure_model": "ConcurrentAccess",
     "required_capabilities": [],
     "requirement": "Required",
@@ -14,26 +14,26 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
-    "actual_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
+    "expected_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
+    "actual_fingerprint": "semantic:sha256-v1:970b977fccb43f696169d978e03062f301264ad308e176e6efb8e60937e66dcc",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 8,
+        "value": 2240,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": null,
+  "failure_classification": "SafeAutomaticRecovery",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/stale-active-analysis-selection.json"
+    "scenario-results/concurrent-writer-attempt.json"
   ],
   "achieved_evidence_strength": [
     "InterfaceBehavior"
   ],
-  "process_interruption_performed": false,
+  "process_interruption_performed": true,
   "reopen_performed": true
 }

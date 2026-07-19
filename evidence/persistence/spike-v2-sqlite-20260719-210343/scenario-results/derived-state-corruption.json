@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "unknown-newer-format",
+    "scenario_id": "derived-state-corruption",
     "scenario_version": 1,
-    "category": "FormatCompatibility",
-    "description": "Reject writable open for an unknown newer format",
-    "failure_model": "MalformedOrUnsupportedInput",
+    "category": "Corruption",
+    "description": "Classify and rebuild derived-state corruption",
+    "failure_model": "LogicalFaultPoint",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -14,26 +14,26 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": null,
-    "actual_fingerprint": "",
+    "expected_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+    "actual_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 7,
+        "value": 6,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": "ManualReviewRequired",
+  "failure_classification": null,
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/unknown-newer-format.json"
+    "scenario-results/derived-state-corruption.json"
   ],
   "achieved_evidence_strength": [
     "InterfaceBehavior"
   ],
   "process_interruption_performed": false,
-  "reopen_performed": false
+  "reopen_performed": true
 }

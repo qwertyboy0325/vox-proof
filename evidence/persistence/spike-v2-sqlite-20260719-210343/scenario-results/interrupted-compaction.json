@@ -23,7 +23,7 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 13,
+        "value": 10,
         "unit": "ms"
       }
     }

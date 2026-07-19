@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "stale-analysis-attachment",
+    "scenario_id": "append-correction-event",
     "scenario_version": 1,
-    "category": "Concurrency",
-    "description": "Reject a stale analysis attachment",
-    "failure_model": "ConcurrentAccess",
+    "category": "AuthoritativeCommand",
+    "description": "Append one representative correction event",
+    "failure_model": "None",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -14,25 +14,25 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": "semantic:sha256-v1:ca42e62474e247195a1ba659a166c33c410ac6a314abaffa471fa1c08089ea10",
-    "actual_fingerprint": "semantic:sha256-v1:ca42e62474e247195a1ba659a166c33c410ac6a314abaffa471fa1c08089ea10",
+    "expected_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+    "actual_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 8,
+        "value": 16,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": null,
+  "failure_classification": "SafeAutomaticRecovery",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/stale-analysis-attachment.json"
+    "scenario-results/append-correction-event.json"
   ],
   "achieved_evidence_strength": [
-    "InterfaceBehavior"
+    "LogicalStateTransition"
   ],
   "process_interruption_performed": false,
   "reopen_performed": true

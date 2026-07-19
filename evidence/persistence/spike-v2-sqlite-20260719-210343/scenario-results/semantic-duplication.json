@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "derived-state-corruption",
+    "scenario_id": "semantic-duplication",
     "scenario_version": 1,
-    "category": "Corruption",
-    "description": "Classify and rebuild derived-state corruption",
-    "failure_model": "LogicalFaultPoint",
+    "category": "Duplication",
+    "description": "Create a new session identity with source lineage",
+    "failure_model": "None",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -14,25 +14,25 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
-    "actual_fingerprint": "semantic:sha256-v1:998dd5d8c12fcdb4f0165c09c677d73a30e84ff6c2f007639fd1ada3c2d38d38",
+    "expected_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+    "actual_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 7,
+        "value": 17,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": null,
+  "failure_classification": "SafeAutomaticRecovery",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/derived-state-corruption.json"
+    "scenario-results/semantic-duplication.json"
   ],
   "achieved_evidence_strength": [
-    "InterfaceBehavior"
+    "LogicalStateTransition"
   ],
   "process_interruption_performed": false,
   "reopen_performed": true

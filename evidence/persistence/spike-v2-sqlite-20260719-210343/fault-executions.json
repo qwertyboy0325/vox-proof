@@ -2,7 +2,7 @@
   {
     "fault_id": "before_sqlite_commit",
     "physical_location": "embedded_relational.rs:apply_authoritative_command",
-    "process_pid": 87337,
+    "process_pid": 91729,
     "before_or_after_authority_change": false,
     "termination_mechanism": "std::process::abort",
     "recovery_classification": "LastCommittedState",
@@ -15,7 +15,7 @@
   {
     "fault_id": "after_sqlite_commit_before_ack",
     "physical_location": "embedded_relational.rs:apply_authoritative_command",
-    "process_pid": 87339,
+    "process_pid": 91731,
     "before_or_after_authority_change": true,
     "termination_mechanism": "std::process::abort",
     "recovery_classification": "SafeAutomaticRecovery",

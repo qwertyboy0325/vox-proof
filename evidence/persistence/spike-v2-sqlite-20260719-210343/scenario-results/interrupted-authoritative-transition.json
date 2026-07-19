@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "semantic-duplication",
+    "scenario_id": "interrupted-authoritative-transition",
     "scenario_version": 1,
-    "category": "Duplication",
-    "description": "Create a new session identity with source lineage",
-    "failure_model": "None",
+    "category": "Recovery",
+    "description": "Interrupt an authoritative transition around acknowledgement",
+    "failure_model": "ProcessInterruption",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -14,14 +14,14 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
-    "actual_fingerprint": "semantic:sha256-v1:265bcc1f2def981aec496cdec7d956e7dbbfe10681c8860012c27690243c5447",
+    "expected_fingerprint": null,
+    "actual_fingerprint": "",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 20,
+        "value": 2189,
         "unit": "ms"
       }
     }
@@ -29,11 +29,13 @@
   "failure_classification": "SafeAutomaticRecovery",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/semantic-duplication.json"
+    "scenario-results/interrupted-authoritative-transition.json"
   ],
   "achieved_evidence_strength": [
+    "InterfaceBehavior",
+    "ProcessCrashRecovery",
     "LogicalStateTransition"
   ],
-  "process_interruption_performed": false,
+  "process_interruption_performed": true,
   "reopen_performed": true
 }

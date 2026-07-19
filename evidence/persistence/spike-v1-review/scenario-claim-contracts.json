@@ -108,7 +108,7 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-205943/scenario-results/baseline-create-open-close.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210343/scenario-results/baseline-create-open-close.json"
     },
     {
       "scenario_id": "append-correction-event",
@@ -148,7 +148,7 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-205943/scenario-results/append-correction-event.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210343/scenario-results/append-correction-event.json"
     },
     {
       "scenario_id": "attach-analysis-result",
@@ -363,7 +363,7 @@
         "independent_persisted_observation": "direct-sql fixture oracle after takeover",
         "boundary_observed": "rejection plus lease-expiry takeover without canonical mutation"
       },
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-205943/scenario-results/concurrent-writer-attempt.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210343/scenario-results/concurrent-writer-attempt.json"
     },
     {
       "scenario_id": "unknown-newer-format",
@@ -583,7 +583,7 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-205943/scenario-results/semantic-duplication.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210343/scenario-results/semantic-duplication.json"
     },
     {
       "scenario_id": "interrupted-authoritative-transition",
@@ -625,7 +625,7 @@
       "current_status": "partially_demonstrated",
       "invariant_kind": "not_applicable",
       "invariant_metadata": {},
-      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-205943/scenario-results/interrupted-authoritative-transition.json"
+      "evidence_artifact_reference": "evidence/persistence/spike-v2-sqlite-20260719-210343/scenario-results/interrupted-authoritative-transition.json"
     },
     {
       "scenario_id": "interrupted-compaction",
