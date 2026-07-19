@@ -65,6 +65,8 @@ pub struct DurabilityTrialResult {
     pub process_exit_classification: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process_exit_code: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_exit_signal: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,11 +164,23 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
     ]
 }
 
-fn intentional_process_abort(classification: &ProcessExitClassification) -> bool {
-    matches!(
-        classification,
-        ProcessExitClassification::AbnormalTermination | ProcessExitClassification::Signaled
-    )
+fn intentional_process_abort(outcome: &ProcessRunOutcome) -> bool {
+    if let Some(status) = outcome.exit_status.as_ref() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            if status.signal() == Some(6) {
+                return true;
+            }
+        }
+        #[cfg(windows)]
+        {
+            if status.code() == Some(3) {
+                return true;
+            }
+        }
+    }
+    super::process_harness::exit_signal_name(outcome.exit_status.as_ref()) == Some("SIGABRT".to_string())
 }
 
 pub struct DurabilityTrialRunner {
@@ -259,7 +273,7 @@ impl DurabilityTrialRunner {
             );
         }
         if spec.interruption_model == InterruptionModel::ClassAProcessKill
-            && !intentional_process_abort(&outcome.classification)
+            && !intentional_process_abort(&outcome)
         {
             return trial_result(
                 trial_id,
@@ -479,7 +493,7 @@ impl DurabilityTrialRunner {
                 Some(&outcome),
             );
         }
-        if !intentional_process_abort(&outcome.classification) {
+        if !intentional_process_abort(&outcome) {
             return trial_result(
                 trial_id,
                 spec,
@@ -567,5 +581,7 @@ fn trial_result(
         elapsed_ms: started.elapsed().as_millis(),
         process_exit_classification: process_outcome.map(|o| format!("{:?}", o.classification)),
         process_exit_code: process_outcome.and_then(|o| o.exit_status.and_then(|s| s.code())),
+        process_exit_signal: process_outcome
+            .and_then(|o| super::process_harness::exit_signal_name(o.exit_status.as_ref())),
     }
 }

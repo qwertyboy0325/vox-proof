@@ -40,12 +40,12 @@ fn main() {
 
     let runner = SqliteScenarioRunner::new();
     let (mut scenario_result, mut artifacts) = runner.run_cross_platform_subset(&fixture, manifest);
-    scenario_result.manifest.end_timestamp =
-        KnownOrUnavailable::Known(timestamp_iso());
     artifacts.commands.push(execution_command.clone());
 
     let durability_runner = DurabilityTrialRunner::new(profile.platform_label.clone());
     let trial_results = durability_runner.run_all(&fixture, trials_per);
+    scenario_result.manifest.end_timestamp =
+        KnownOrUnavailable::Known(timestamp_iso());
 
     write_scenario_results(&platform_dir, &scenario_result);
     write_platform_artifacts(
