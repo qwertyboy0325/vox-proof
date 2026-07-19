@@ -90,7 +90,7 @@
         "demonstrated_strength": [
           "LogicalStateTransition"
         ],
-        "note": "Package 2C evidence run spike-v2-sqlite-20260719-210343 uses rusqlite online backup with independent reopen"
+        "note": "Package 2C evidence run spike-v2-sqlite-20260719-210916 uses rusqlite online backup with independent reopen"
       },
       "writer_crash_recovery": {
         "declared_original_claim": "Dedicated writer_lock table row plus open writable handle enforcement (candidate-classes.json single_writer_strategy)",
@@ -98,7 +98,7 @@
         "demonstrated_strength": [
           "InterfaceBehavior"
         ],
-        "note": "Package 2C run spike-v2-sqlite-20260719-210343: lease-expiry takeover (IB) for concurrent-writer; PCR credited only on interrupted-authoritative-transition child abort scenario"
+        "note": "Package 2C run spike-v2-sqlite-20260719-210916: lease-expiry takeover (IB) for concurrent-writer; PCR credited only on interrupted-authoritative-transition child abort scenario"
       },
       "relational_model_conformance": {
         "declared_original_claim": "Canonical entities stored relationally (candidate-classes.json authoritative_state_model)",

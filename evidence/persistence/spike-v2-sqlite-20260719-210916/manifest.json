@@ -5,7 +5,7 @@
   "harness_version": "sqlite-evidence-v1",
   "oracle_version": "2",
   "platform": "macos",
-  "repository_commit": "4a932ab31507ae16f879289950df840ac1c0cad0",
-  "run_id": "spike-v2-sqlite-20260719-210343",
+  "repository_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
+  "run_id": "spike-v2-sqlite-20260719-210916",
   "scenario_catalog_version": "1"
 }

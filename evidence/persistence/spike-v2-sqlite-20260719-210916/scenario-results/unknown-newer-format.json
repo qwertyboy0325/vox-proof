@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "interrupted-authoritative-transition",
+    "scenario_id": "unknown-newer-format",
     "scenario_version": 1,
-    "category": "Recovery",
-    "description": "Interrupt an authoritative transition around acknowledgement",
-    "failure_model": "ProcessInterruption",
+    "category": "FormatCompatibility",
+    "description": "Reject writable open for an unknown newer format",
+    "failure_model": "MalformedOrUnsupportedInput",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -21,21 +21,19 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 2189,
+        "value": 7,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": "SafeAutomaticRecovery",
+  "failure_classification": "ManualReviewRequired",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/interrupted-authoritative-transition.json"
+    "scenario-results/unknown-newer-format.json"
   ],
   "achieved_evidence_strength": [
-    "InterfaceBehavior",
-    "ProcessCrashRecovery",
-    "LogicalStateTransition"
+    "InterfaceBehavior"
   ],
-  "process_interruption_performed": true,
-  "reopen_performed": true
+  "process_interruption_performed": false,
+  "reopen_performed": false
 }

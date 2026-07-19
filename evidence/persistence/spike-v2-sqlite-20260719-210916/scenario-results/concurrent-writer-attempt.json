@@ -21,12 +21,12 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 2240,
+        "value": 2151,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": "SafeAutomaticRecovery",
+  "failure_classification": null,
   "limitations": [],
   "raw_artifact_references": [
     "scenario-results/concurrent-writer-attempt.json"

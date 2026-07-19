@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "stale-review-ledger-command",
+    "scenario_id": "append-correction-event",
     "scenario_version": 1,
-    "category": "Concurrency",
-    "description": "Reject a stale ReviewLedger command",
-    "failure_model": "ConcurrentAccess",
+    "category": "AuthoritativeCommand",
+    "description": "Append one representative correction event",
+    "failure_model": "None",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -14,14 +14,14 @@
     "passed": true,
     "violations": [],
     "warnings": [],
-    "expected_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
-    "actual_fingerprint": "semantic:sha256-v1:e0c1c94fdc6bba053ba23b82bd74cca645ff09d2020ca578d2d8bba0fb6de207",
+    "expected_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
+    "actual_fingerprint": "semantic:sha256-v1:adfb8444276c3be9973dc6b400d4ed9d9b300bf3e8367a32667b070b02159da5",
     "oracle_version": "2"
   },
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 9,
+        "value": 15,
         "unit": "ms"
       }
     }
@@ -29,10 +29,10 @@
   "failure_classification": null,
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/stale-review-ledger-command.json"
+    "scenario-results/append-correction-event.json"
   ],
   "achieved_evidence_strength": [
-    "InterfaceBehavior"
+    "LogicalStateTransition"
   ],
   "process_interruption_performed": false,
   "reopen_performed": true

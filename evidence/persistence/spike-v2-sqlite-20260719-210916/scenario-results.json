@@ -1,7 +1,7 @@
 {
   "manifest": {
     "evidence_protocol_version": "md-015-accepted-v1",
-    "repository_commit": "4a932ab31507ae16f879289950df840ac1c0cad0",
+    "repository_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
     "candidate_id": "embedded-relational-sqlite-spike",
     "candidate_version": "1",
     "fixture_id": "voxproof-persistence-evidence-small",
@@ -52,11 +52,11 @@
       }
     },
     "configuration": {
-      "execution_command": "RUSTC_VERSION=rustc 1.96.0 (ac68faa20 2026-05-25) VOXPROOF_EVIDENCE_RUN_ID=spike-v2-sqlite-20260719-210343 cargo run --features persistence-spike --bin persistence_evidence_sqlite_run",
+      "execution_command": "RUSTC_VERSION=rustc 1.96.0 (ac68faa20 2026-05-25) VOXPROOF_EVIDENCE_RUN_ID=spike-v2-sqlite-20260719-210916 cargo run --features persistence-spike --bin persistence_evidence_sqlite_run",
       "feature": "persistence-spike"
     },
     "start_timestamp": {
-      "Known": "1784466223"
+      "Known": "1784466556"
     },
     "end_timestamp": {
       "Unavailable": {
@@ -98,7 +98,7 @@
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/baseline-create-open-close.json"
@@ -132,12 +132,12 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 16,
+            "value": 15,
             "unit": "ms"
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/append-correction-event.json"
@@ -176,7 +176,7 @@
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/attach-analysis-result.json"
@@ -210,7 +210,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 9,
+            "value": 8,
             "unit": "ms"
           }
         }
@@ -327,12 +327,12 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2240,
+            "value": 2151,
             "unit": "ms"
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/concurrent-writer-attempt.json"
@@ -366,7 +366,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 5,
+            "value": 7,
             "unit": "ms"
           }
         }
@@ -405,18 +405,17 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 6,
+            "value": 8,
             "unit": "ms"
           }
         }
       },
       "failure_classification": null,
-      "limitations": [],
+      "limitations": [
+        "canonical readability subclaim only; detection and rebuild subclaims not demonstrated"
+      ],
       "raw_artifact_references": [
         "scenario-results/derived-state-corruption.json"
-      ],
-      "achieved_evidence_strength": [
-        "InterfaceBehavior"
       ],
       "process_interruption_performed": false,
       "reopen_performed": true
@@ -444,7 +443,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 4,
+            "value": 5,
             "unit": "ms"
           }
         }
@@ -483,12 +482,12 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 17,
+            "value": 19,
             "unit": "ms"
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/semantic-duplication.json"
@@ -522,7 +521,7 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 2189,
+            "value": 2184,
             "unit": "ms"
           }
         }
@@ -565,12 +564,12 @@
       "measurements": {
         "scenario_elapsed_ms": {
           "Integer": {
-            "value": 10,
+            "value": 11,
             "unit": "ms"
           }
         }
       },
-      "failure_classification": "SafeAutomaticRecovery",
+      "failure_classification": null,
       "limitations": [],
       "raw_artifact_references": [
         "scenario-results/interrupted-compaction.json"

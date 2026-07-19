@@ -21,18 +21,17 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 6,
+        "value": 8,
         "unit": "ms"
       }
     }
   },
   "failure_classification": null,
-  "limitations": [],
+  "limitations": [
+    "canonical readability subclaim only; detection and rebuild subclaims not demonstrated"
+  ],
   "raw_artifact_references": [
     "scenario-results/derived-state-corruption.json"
-  ],
-  "achieved_evidence_strength": [
-    "InterfaceBehavior"
   ],
   "process_interruption_performed": false,
   "reopen_performed": true

@@ -23,12 +23,12 @@
   "measurements": {
     "scenario_elapsed_ms": {
       "Integer": {
-        "value": 10,
+        "value": 11,
         "unit": "ms"
       }
     }
   },
-  "failure_classification": "SafeAutomaticRecovery",
+  "failure_classification": null,
   "limitations": [],
   "raw_artifact_references": [
     "scenario-results/interrupted-compaction.json"

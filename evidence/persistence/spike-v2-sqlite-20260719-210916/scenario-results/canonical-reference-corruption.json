@@ -1,10 +1,10 @@
 {
   "scenario_identity": {
-    "scenario_id": "unknown-newer-format",
+    "scenario_id": "canonical-reference-corruption",
     "scenario_version": 1,
-    "category": "FormatCompatibility",
-    "description": "Reject writable open for an unknown newer format",
-    "failure_model": "MalformedOrUnsupportedInput",
+    "category": "Corruption",
+    "description": "Detect a broken canonical reference",
+    "failure_model": "LogicalFaultPoint",
     "required_capabilities": [],
     "requirement": "Required",
     "evidence_kind": "SemanticCorrectness"
@@ -26,10 +26,10 @@
       }
     }
   },
-  "failure_classification": "ManualReviewRequired",
+  "failure_classification": "Unrecoverable",
   "limitations": [],
   "raw_artifact_references": [
-    "scenario-results/unknown-newer-format.json"
+    "scenario-results/canonical-reference-corruption.json"
   ],
   "achieved_evidence_strength": [
     "InterfaceBehavior"

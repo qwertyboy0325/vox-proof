@@ -7,7 +7,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253357
+      "lease_expires_at_unix_ms": 1784466586349
     },
     "applied_commands": [],
     "counts": {
@@ -33,7 +33,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253371
+      "lease_expires_at_unix_ms": 1784466586363
     },
     "applied_commands": [
       {
@@ -65,7 +65,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253386
+      "lease_expires_at_unix_ms": 1784466586377
     },
     "applied_commands": [
       {
@@ -97,7 +97,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253397
+      "lease_expires_at_unix_ms": 1784466586387
     },
     "applied_commands": [],
     "counts": {
@@ -123,7 +123,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253407
+      "lease_expires_at_unix_ms": 1784466586397
     },
     "applied_commands": [],
     "counts": {
@@ -149,7 +149,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466253417
+      "lease_expires_at_unix_ms": 1784466586406
     },
     "applied_commands": [],
     "counts": {
@@ -175,7 +175,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 1,
-      "lease_expires_at_unix_ms": 1784466227646
+      "lease_expires_at_unix_ms": 1784466560545
     },
     "applied_commands": [],
     "counts": {
@@ -227,7 +227,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466255684
+      "lease_expires_at_unix_ms": 1784466588588
     },
     "applied_commands": [],
     "counts": {
@@ -277,9 +277,9 @@
     "oracle_type": "direct-sql-v1",
     "session_id": "session:evidence:001:interrupted-authoritative-transition",
     "writer_ownership": {
-      "token": "2e7cb130-73a2-4731-867a-cd487963b24c",
+      "token": "2aa2daa7-5418-49b0-8f02-abec315ed556",
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466227706
+      "lease_expires_at_unix_ms": 1784466560611
     },
     "applied_commands": [],
     "counts": {
@@ -303,9 +303,9 @@
     "oracle_type": "direct-sql-v1",
     "session_id": "session:evidence:001:interrupted-authoritative-transition",
     "writer_ownership": {
-      "token": "428818bb-8ce6-4947-b6cc-134caac575dd",
+      "token": "ce760254-17f6-4b59-b362-ff30f431b05e",
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466227745
+      "lease_expires_at_unix_ms": 1784466560650
     },
     "applied_commands": [
       {
@@ -337,7 +337,7 @@
     "writer_ownership": {
       "token": null,
       "owner_epoch": 0,
-      "lease_expires_at_unix_ms": 1784466257892
+      "lease_expires_at_unix_ms": 1784466590795
     },
     "applied_commands": [],
     "counts": {
