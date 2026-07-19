@@ -1,0 +1,164 @@
+{
+  "reclassification_version": "1",
+  "work_package_id": "reclassify-existing-persistence-evidence",
+  "does_not_delete_or_overwrite_original_evidence": true,
+  "original_run_id": "spike-v1-macos-6460148",
+  "original_harness_commit": "646014865d6da0407208b3cd599936e89877d904",
+  "original_evidence_paths": [
+    "evidence/persistence/spike-v1-macos-6460148/manifest.json",
+    "evidence/persistence/spike-v1-macos-6460148/candidate-a-results.json",
+    "evidence/persistence/spike-v1-macos-6460148/candidate-b-results.json",
+    "evidence/persistence/spike-v1-macos-6460148/comparison.json",
+    "evidence/persistence/spike-v1-macos-6460148/limitations.json"
+  ],
+  "review_commit_or_baseline": "c4887e32867e0c6d610ba128ef60d2fdd527084d",
+  "reviewed_at": "2026-07-19",
+  "reviewer_verdicts": {
+    "storage_systems": "STORAGE REVIEW: CLAIM DOWNGRADE REQUIRED",
+    "evidence_methodology": "EVIDENCE REVIEW: CLAIM DOWNGRADE REQUIRED",
+    "governance_auditor": "AUDIT: PASS"
+  },
+  "original_recorded_eligibility": {
+    "embedded_relational": {
+      "host_correctness_eligibility": "EligibleForComparison",
+      "passed": 13,
+      "failed": 0,
+      "unsupported": 1,
+      "platform_scope": "macos"
+    },
+    "append_bundle": {
+      "host_correctness_eligibility": "EligibleForComparison",
+      "passed": 13,
+      "failed": 0,
+      "unsupported": 1,
+      "platform_scope": "macos"
+    },
+    "selection_status": "none",
+    "cross_platform_claims": "Inconclusive",
+    "windows_status": "NotRun"
+  },
+  "revised_classification": {
+    "macOS_harness_level_logical_behavior": "demonstrated",
+    "candidate_adapter_interface_conformance": "partially_demonstrated",
+    "durability_correctness": "insufficiently_demonstrated",
+    "recovery_correctness": "insufficiently_demonstrated",
+    "filesystem_durability": "not_demonstrated",
+    "hardware_power_loss_resilience": "not_demonstrated",
+    "cross_platform_eligibility": "inconclusive",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "selection_status": "none",
+    "host_catalog_pass_interpretation": "Thirteen scenarios recorded Passed on macOS at commit 6460148; several passes are tautological or logical-only and do not support comparison or selection claims"
+  },
+  "candidate_specific": {
+    "embedded-relational-sqlite-spike": {
+      "transaction_behavior": {
+        "original_claim": "SQLite BEGIN/COMMIT transactional authority with synchronous=FULL",
+        "revised_classification": "partially_demonstrated",
+        "demonstrated_strength": ["LogicalStateTransition"],
+        "note": "COMMIT boundary exists; proves in-process transaction completion not filesystem durability"
+      },
+      "wal_safe_duplication": {
+        "original_claim": "Filesystem copy of session.db as duplication",
+        "revised_classification": "not_demonstrated_unsafe_under_wal",
+        "demonstrated_strength": [],
+        "note": "WAL enabled; copy omits -wal/-shm; duplicate content salvaged via in-memory rewrite"
+      },
+      "writer_crash_recovery": {
+        "original_claim": "Single writer via writer_lock table",
+        "revised_classification": "insufficiently_demonstrated",
+        "demonstrated_strength": ["InterfaceBehavior"],
+        "note": "Token survives crash indefinitely; no takeover path"
+      },
+      "relational_model_conformance": {
+        "original_claim": "Canonical entities stored relationally",
+        "revised_classification": "not_demonstrated",
+        "demonstrated_strength": ["InterfaceBehavior"],
+        "note": "Authority is single state_json blob; reclassify as SQLite-hosted JSON snapshot"
+      },
+      "durability_claim_strength": {
+        "original_claim": "Durable acknowledgement after COMMIT",
+        "revised_classification": "logical_transition_only",
+        "demonstrated_strength": ["LogicalStateTransition"],
+        "note": "No ProcessCrashRecovery or FilesystemDurability evidence"
+      }
+    },
+    "append-bundle-log-spike": {
+      "append_authority": {
+        "original_claim": "Append-only JSONL canonical log as authority",
+        "revised_classification": "not_demonstrated",
+        "demonstrated_strength": [],
+        "note": "Checkpoint is authority; log records lack command payload"
+      },
+      "replay_behavior": {
+        "original_claim": "Log replay validates record chain and reconstructs state",
+        "revised_classification": "not_demonstrated",
+        "demonstrated_strength": [],
+        "note": "replay_log validates seq only; returns checkpoint unchanged"
+      },
+      "checkpoint_manifest_ordering": {
+        "original_claim": "Atomic rename with directory fsync",
+        "revised_classification": "insufficiently_demonstrated",
+        "demonstrated_strength": ["LogicalStateTransition"],
+        "note": "Log fsynced; checkpoint/manifest rename without durable sync"
+      },
+      "writer_crash_recovery": {
+        "original_claim": "writer.lock token with explicit takeover",
+        "revised_classification": "not_demonstrated",
+        "demonstrated_strength": ["InterfaceBehavior"],
+        "note": "Token in manifest.json; no takeover implementation"
+      },
+      "compaction_recovery": {
+        "original_claim": "Generation rewrite with atomic directory swap",
+        "revised_classification": "blocking_defect",
+        "demonstrated_strength": [],
+        "note": "Post-compaction seq/log inconsistency can break recovery"
+      },
+      "mechanism_class_conformance": {
+        "original_claim": "Append-oriented event/log storage materially distinct from relational candidate",
+        "revised_classification": "not_demonstrated",
+        "demonstrated_strength": ["InterfaceBehavior"],
+        "note": "Both candidates are full-state JSON snapshot persistence with different containers"
+      }
+    }
+  },
+  "scenario_reclassification_summary": {
+    "still_valid_lower_strength": [
+      "baseline-create-open-close",
+      "append-correction-event",
+      "attach-analysis-result",
+      "stale-review-ledger-command",
+      "stale-active-analysis-selection",
+      "stale-analysis-attachment"
+    ],
+    "insufficient_evidence": [
+      "concurrent-writer-attempt",
+      "unknown-newer-format",
+      "canonical-reference-corruption",
+      "interrupted-authoritative-transition"
+    ],
+    "invalid_or_unsupported_as_recorded": [
+      "derived-state-corruption",
+      "semantic-duplication",
+      "interrupted-compaction"
+    ],
+    "not_run": [
+      "interrupted-cleanup"
+    ]
+  },
+  "supersedes_claims": [
+    "EligibleForComparison as mechanism comparison readiness",
+    "Material distinctness between embedded-relational and append-bundle as declared in candidate-classes.json",
+    "Append-oriented authoritative log recovery for append-bundle candidate",
+    "Relational entity authority for embedded-relational candidate",
+    "ProcessInterruption and ProcessCrashRecovery classification for interrupted-* scenarios",
+    "Derived corruption rebuild claim for derived-state-corruption scenario",
+    "Duplication independence claim for semantic-duplication scenario",
+    "FilesystemDurability and HardwarePowerLoss for spike-v1 macOS run",
+    "Cross-platform eligibility beyond macOS host execution"
+  ],
+  "preserved_original_evidence": {
+    "policy": "Original spike-v1-macos-6460148 artifacts retained unchanged; this reclassification adds explicit downgrade without deletion",
+    "negative_results_retained": true
+  }
+}
