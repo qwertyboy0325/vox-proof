@@ -7,7 +7,18 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - persistence-package-2d-cross-platform-durability
+    paths:
+      - "src/persistence_evidence/**"
+      - "src/bin/persistence_evidence_v3_run.rs"
+      - "src/bin/persistence_evidence_worker.rs"
+      - "tests/persistence_*.rs"
+      - "Cargo.toml"
+      - ".github/workflows/persistence-sqlite-windows.yml"
+  pull_request:
+    branches:
+      - main
     paths:
       - "src/persistence_evidence/**"
       - "src/bin/persistence_evidence_v3_run.rs"
