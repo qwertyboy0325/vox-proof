@@ -1,17 +1,17 @@
 use vox_proof::persistence_evidence::{
-    durability_experiments, DirectorySyncCapability, MIN_TRIALS_PER_POINT, TrialOutcome,
+    DirectorySyncCapability, MIN_TRIALS_PER_POINT, TrialOutcome, durability_experiments,
 };
 
 #[test]
 fn durability_experiments_deny_filesystem_and_hardware_power_loss() {
     for spec in durability_experiments() {
         assert!(
-            spec.denied.iter().any(|d| *d == "FilesystemDurability"),
+            spec.denied.contains(&"FilesystemDurability"),
             "{} must deny FSD",
             spec.experiment_id
         );
         assert!(
-            spec.denied.iter().any(|d| *d == "HardwarePowerLoss"),
+            spec.denied.contains(&"HardwarePowerLoss"),
             "{} must deny HPL",
             spec.experiment_id
         );
@@ -23,10 +23,7 @@ fn durability_experiments_deny_filesystem_and_hardware_power_loss() {
     }
 }
 
-#[test]
-fn min_trials_per_point_is_at_least_five() {
-    assert!(MIN_TRIALS_PER_POINT >= 5);
-}
+const _: () = assert!(MIN_TRIALS_PER_POINT >= 5);
 
 #[test]
 fn directory_sync_capability_not_implemented_by_default() {

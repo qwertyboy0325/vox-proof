@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub const PACKAGE_2C_HEAD: &str = "8cc0b8209282065db0521d612b07b1559e4f1183";
 pub const PACKAGE_2C_EVIDENCE_RUN: &str = "spike-v2-sqlite-20260719-210916";
+/// Design contract revision referenced by SQLite spike evidence manifests.
 pub const DESIGN_CONTRACT_VERSION: &str = "sqlite-design-v1";
 pub const V3_HARNESS_VERSION: &str = "sqlite-evidence-v3";
 
@@ -67,19 +68,21 @@ pub struct PlatformProfile {
     pub package_2c_evidence_run: String,
     pub child_termination_mechanism: String,
     pub directory_sync_capability: DirectorySyncCapability,
+    pub design_contract_version: String,
 }
 
 impl PlatformProfile {
     pub fn capture(repository_commit: &str) -> Self {
-        let platform_label = std::env::var("VOXPROOF_PLATFORM_LABEL").unwrap_or_else(|_| {
-            match std::env::consts::OS {
-                "macos" => "macos-native".to_string(),
-                "windows" => "windows-native".to_string(),
-                other => format!("{other}-native"),
-            }
-        });
-        let execution_environment = std::env::var("VOXPROOF_EXECUTION_ENVIRONMENT")
-            .unwrap_or_else(|_| {
+        let platform_label =
+            std::env::var("VOXPROOF_PLATFORM_LABEL").unwrap_or_else(
+                |_| match std::env::consts::OS {
+                    "macos" => "macos-native".to_string(),
+                    "windows" => "windows-native".to_string(),
+                    other => format!("{other}-native"),
+                },
+            );
+        let execution_environment =
+            std::env::var("VOXPROOF_EXECUTION_ENVIRONMENT").unwrap_or_else(|_| {
                 if platform_label.contains("github") {
                     "github-actions".to_string()
                 } else {
@@ -103,10 +106,13 @@ impl PlatformProfile {
             package_2c_evidence_run: PACKAGE_2C_EVIDENCE_RUN.to_string(),
             child_termination_mechanism: child_termination_note(),
             directory_sync_capability: DirectorySyncCapability::not_implemented(),
+            design_contract_version: DESIGN_CONTRACT_VERSION.to_string(),
         }
     }
 }
 
+/// Evidence harness utility for optional platform capture fields.
+#[allow(dead_code)]
 pub fn probe_sqlite_pragma(db_path: &Path) -> Result<SqlitePragmaSnapshot, String> {
     let connection =
         Connection::open(db_path).map_err(|error| format!("open for pragma probe: {error}"))?;
@@ -130,6 +136,8 @@ pub fn probe_sqlite_pragma(db_path: &Path) -> Result<SqlitePragmaSnapshot, Strin
     })
 }
 
+/// Evidence harness utility for optional WAL companion observation.
+#[allow(dead_code)]
 pub fn wal_companion_paths(db_path: &Path) -> BTreeMap<String, bool> {
     let mut out = BTreeMap::new();
     let stem = db_path
@@ -228,12 +236,10 @@ fn rustc_version() -> String {
 }
 
 fn probe_filesystem() -> String {
-    std::env::var("VOXPROOF_FILESYSTEM").unwrap_or_else(|_| {
-        match std::env::consts::OS {
-            "macos" => "apfs-assumed-native".to_string(),
-            "windows" => "ntfs-assumed-native".to_string(),
-            other => format!("{other}-unknown"),
-        }
+    std::env::var("VOXPROOF_FILESYSTEM").unwrap_or_else(|_| match std::env::consts::OS {
+        "macos" => "apfs-assumed-native".to_string(),
+        "windows" => "ntfs-assumed-native".to_string(),
+        other => format!("{other}-unknown"),
     })
 }
 
@@ -241,6 +247,7 @@ fn child_termination_note() -> String {
     if cfg!(unix) {
         "std::process::abort for crash faults; child.kill() maps to SIGKILL on Unix".to_string()
     } else {
-        "std::process::abort for crash faults; child.kill() uses TerminateProcess on Windows".to_string()
+        "std::process::abort for crash faults; child.kill() uses TerminateProcess on Windows"
+            .to_string()
     }
 }

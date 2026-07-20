@@ -8,11 +8,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 use vox_proof::persistence_evidence::{
-    EvidenceFixture, EvidenceManifest, EvidenceRunResult, KnownOrUnavailable, ORACLE_VERSION,
+    DurabilityTrialRunner, EvidenceFixture, EvidenceManifest, EvidenceRunResult,
+    KnownOrUnavailable, MIN_TRIALS_PER_POINT, ORACLE_VERSION, PlatformProfile,
     SCENARIO_CATALOG_VERSION, SMALL_FIXTURE_ID, SMALL_FIXTURE_VERSION, SqliteScenarioRunner,
-    V3_HARNESS_VERSION, PlatformProfile, TrialOutcome,
-    build_platform_matrix,
-    DurabilityTrialRunner, MIN_TRIALS_PER_POINT,
+    TrialOutcome, V3_HARNESS_VERSION, build_platform_matrix,
 };
 
 fn main() {
@@ -44,8 +43,7 @@ fn main() {
 
     let durability_runner = DurabilityTrialRunner::new(profile.platform_label.clone());
     let trial_results = durability_runner.run_all(&fixture, trials_per);
-    scenario_result.manifest.end_timestamp =
-        KnownOrUnavailable::Known(timestamp_iso());
+    scenario_result.manifest.end_timestamp = KnownOrUnavailable::Known(timestamp_iso());
 
     write_scenario_results(&platform_dir, &scenario_result);
     write_platform_artifacts(
@@ -69,13 +67,12 @@ fn main() {
 }
 
 fn platform_subdirectory(output_root: &Path) -> PathBuf {
-    let label = std::env::var("VOXPROOF_PLATFORM_LABEL").unwrap_or_else(|_| {
-        match std::env::consts::OS {
+    let label =
+        std::env::var("VOXPROOF_PLATFORM_LABEL").unwrap_or_else(|_| match std::env::consts::OS {
             "macos" => "macos".to_string(),
             "windows" => "windows".to_string(),
             other => other.to_string(),
-        }
-    });
+        });
     output_root.join("platforms").join(label)
 }
 
@@ -95,7 +92,9 @@ fn build_manifest(
         oracle_version: ORACLE_VERSION.to_string(),
         scenario_ids: Vec::new(),
         operating_system: KnownOrUnavailable::Known(profile.operating_system.clone()),
-        operating_system_version: KnownOrUnavailable::Known(profile.operating_system_version.clone()),
+        operating_system_version: KnownOrUnavailable::Known(
+            profile.operating_system_version.clone(),
+        ),
         filesystem: KnownOrUnavailable::Known(profile.filesystem.clone()),
         hardware_summary: KnownOrUnavailable::Unavailable {
             reason: "not probed".to_string(),
@@ -116,11 +115,11 @@ fn build_manifest(
         ]),
         configuration: BTreeMap::from([
             ("feature".to_string(), "persistence-spike".to_string()),
-            ("execution_command".to_string(), execution_command.to_string()),
             (
-                "platform_label".to_string(),
-                profile.platform_label.clone(),
+                "execution_command".to_string(),
+                execution_command.to_string(),
             ),
+            ("platform_label".to_string(), profile.platform_label.clone()),
         ]),
         start_timestamp: KnownOrUnavailable::Known(timestamp_iso()),
         end_timestamp: KnownOrUnavailable::Unavailable {
@@ -191,10 +190,7 @@ fn write_platform_artifacts(
         }),
     );
     write_json(&platform_dir.join("scenario-results.json"), scenario_result);
-    write_json(
-        &output_root.join("scenario-results.json"),
-        scenario_result,
-    );
+    write_json(&output_root.join("scenario-results.json"), scenario_result);
     write_json(
         &platform_dir.join("process-events.json"),
         &artifacts.process_events,
@@ -207,14 +203,8 @@ fn write_platform_artifacts(
         &platform_dir.join("oracle-observations.json"),
         &artifacts.oracle_observations,
     );
-    write_json(
-        &output_root.join("trial-results.json"),
-        trial_results,
-    );
-    write_json(
-        &output_root.join("durability-events.json"),
-        trial_results,
-    );
+    write_json(&output_root.join("trial-results.json"), trial_results);
+    write_json(&output_root.join("durability-events.json"), trial_results);
     write_json(
         &output_root.join("filesystem-observations.json"),
         &serde_json::json!({
@@ -254,7 +244,8 @@ fn write_scenario_results(platform_dir: &Path, result: &EvidenceRunResult) {
 }
 
 fn merge_peer_platform(output_root: &Path, run_id: &str, local_dir: &Path, peer_dir: &Path) {
-    let local_results: EvidenceRunResult = match read_json(&local_dir.join("scenario-results.json")) {
+    let local_results: EvidenceRunResult = match read_json(&local_dir.join("scenario-results.json"))
+    {
         Ok(r) => r,
         Err(error) => {
             eprintln!("merge skip local: {error}");
@@ -269,22 +260,22 @@ fn merge_peer_platform(output_root: &Path, run_id: &str, local_dir: &Path, peer_
         }
     };
 
-    let (macos_id, windows_id, macos_results, windows_results) =
-        if std::env::consts::OS == "macos" {
-            (
-                Some(run_id.to_string()),
-                std::env::var("VOXPROOF_PEER_RUN_ID").ok(),
-                local_results.scenario_results.clone(),
-                peer_results.scenario_results.clone(),
-            )
-        } else {
-            (
-                std::env::var("VOXPROOF_PEER_RUN_ID").ok(),
-                Some(run_id.to_string()),
-                peer_results.scenario_results.clone(),
-                local_results.scenario_results.clone(),
-            )
-        };
+    let (macos_id, windows_id, macos_results, windows_results) = if std::env::consts::OS == "macos"
+    {
+        (
+            Some(run_id.to_string()),
+            std::env::var("VOXPROOF_PEER_RUN_ID").ok(),
+            local_results.scenario_results.clone(),
+            peer_results.scenario_results.clone(),
+        )
+    } else {
+        (
+            std::env::var("VOXPROOF_PEER_RUN_ID").ok(),
+            Some(run_id.to_string()),
+            peer_results.scenario_results.clone(),
+            local_results.scenario_results.clone(),
+        )
+    };
 
     let matrix = build_platform_matrix(
         macos_id.as_deref(),
@@ -335,7 +326,10 @@ fn checksum_dir(root: &Path) -> BTreeMap<String, String> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                if path.file_name().is_some_and(|name| name == "checksums.json") {
+                if path
+                    .file_name()
+                    .is_some_and(|name| name == "checksums.json")
+                {
                     continue;
                 }
                 let rel = path

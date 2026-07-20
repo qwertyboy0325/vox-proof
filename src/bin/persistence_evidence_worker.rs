@@ -6,8 +6,8 @@ use vox_proof::persistence_evidence::candidates::fault::{FaultExecutionMode, Fau
 use vox_proof::persistence_evidence::candidates::semantic_ops::sample_append_event;
 use vox_proof::persistence_evidence::filesystem_safe_path_segment;
 use vox_proof::persistence_evidence::{
-    AuthoritativeCommand, EmbeddedRelationalAdapter, PersistenceCandidateAdapter,
-    SemanticOpenMode, SemanticPrecondition,
+    AuthoritativeCommand, EmbeddedRelationalAdapter, PersistenceCandidateAdapter, SemanticOpenMode,
+    SemanticPrecondition,
 };
 
 fn main() {

@@ -31,7 +31,7 @@ use super::scenario_runner::{catalog_command_id, fresh_storage_root, isolated_fi
 
 pub const SQLITE_EVIDENCE_HARNESS_VERSION: &str = "sqlite-evidence-v1";
 
-use super::platform::{filesystem_safe_path_segment, CROSS_PLATFORM_SCENARIO_IDS};
+use super::platform::{CROSS_PLATFORM_SCENARIO_IDS, filesystem_safe_path_segment};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FaultExecutionRecord {
@@ -828,22 +828,22 @@ impl SqliteScenarioRunner {
                 {
                     Ok((token, _, _)) if token.is_none() => {
                         let mut result = Self::passed(
-                        scenario,
-                        started,
-                        OracleResult {
-                            passed: true,
-                            violations: Vec::new(),
-                            warnings: Vec::new(),
-                            expected_fingerprint: None,
-                            actual_fingerprint: String::new(),
-                            oracle_version: super::oracle::ORACLE_VERSION.to_string(),
-                        },
-                        vec!["InterfaceBehavior"],
-                        Some(RecoveryClassification::ManualReviewRequired),
-                        false,
-                        false,
-                        "scenario-results/unknown-newer-format.json",
-                    );
+                            scenario,
+                            started,
+                            OracleResult {
+                                passed: true,
+                                violations: Vec::new(),
+                                warnings: Vec::new(),
+                                expected_fingerprint: None,
+                                actual_fingerprint: String::new(),
+                                oracle_version: super::oracle::ORACLE_VERSION.to_string(),
+                            },
+                            vec!["InterfaceBehavior"],
+                            Some(RecoveryClassification::ManualReviewRequired),
+                            false,
+                            false,
+                            "scenario-results/unknown-newer-format.json",
+                        );
                         result.observed_error_code = Some(e.code.clone());
                         result
                     }

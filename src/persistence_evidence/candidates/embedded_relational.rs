@@ -152,7 +152,9 @@ impl EmbeddedRelationalAdapter {
 
     fn session_dir(&self, session_id: &str) -> PathBuf {
         self.storage_root
-            .join(super::super::platform::filesystem_safe_path_segment(session_id))
+            .join(super::super::platform::filesystem_safe_path_segment(
+                session_id,
+            ))
     }
 
     fn db_path(locator: &str) -> PathBuf {

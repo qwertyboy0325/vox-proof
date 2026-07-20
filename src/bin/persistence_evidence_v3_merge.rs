@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
-use vox_proof::persistence_evidence::{build_platform_matrix, EvidenceRunResult};
+use vox_proof::persistence_evidence::{EvidenceRunResult, build_platform_matrix};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -19,7 +19,10 @@ fn main() {
     let output_run_id = &args[1];
     let macos_dir = PathBuf::from(&args[2]);
     let windows_dir = PathBuf::from(&args[3]);
-    let windows_run_id = args.get(4).cloned().unwrap_or_else(|| output_run_id.clone());
+    let windows_run_id = args
+        .get(4)
+        .cloned()
+        .unwrap_or_else(|| output_run_id.clone());
     let output_root = PathBuf::from("evidence/persistence").join(output_run_id);
     let windows_platform_label = windows_dir
         .file_name()
@@ -64,13 +67,22 @@ fn main() {
     } else {
         Vec::new()
     };
-    if !commands.iter().any(|c| c.contains("persistence_evidence_v3_merge")) {
+    if !commands
+        .iter()
+        .any(|c| c.contains("persistence_evidence_v3_merge"))
+    {
         commands.push(merge_cmd);
     }
     write_json(&commands_path, &commands);
-    write_json(&output_root.join("checksums.json"), &checksum_dir(&output_root));
+    write_json(
+        &output_root.join("checksums.json"),
+        &checksum_dir(&output_root),
+    );
 
-    println!("Merged platform matrix written to {}", output_root.display());
+    println!(
+        "Merged platform matrix written to {}",
+        output_root.display()
+    );
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) {
@@ -98,7 +110,10 @@ fn checksum_dir(root: &Path) -> BTreeMap<String, String> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                if path.file_name().is_some_and(|name| name == "checksums.json") {
+                if path
+                    .file_name()
+                    .is_some_and(|name| name == "checksums.json")
+                {
                     continue;
                 }
                 let rel = path

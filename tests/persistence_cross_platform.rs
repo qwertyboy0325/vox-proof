@@ -1,7 +1,7 @@
 use vox_proof::persistence_evidence::{
-    build_platform_matrix, compare_scenario, normalize_platform_label,
-    PlatformEquivalenceResult, ScenarioIdentity, ScenarioResult, ScenarioStatus,
-    FailureModel, ScenarioCategory, ScenarioEvidenceKind, ScenarioRequirement,
+    FailureModel, PlatformEquivalenceResult, ScenarioCategory, ScenarioEvidenceKind,
+    ScenarioIdentity, ScenarioRequirement, ScenarioResult, ScenarioStatus, build_platform_matrix,
+    compare_scenario, normalize_platform_label,
 };
 
 fn passed_scenario(id: &str, fingerprint: &str) -> ScenarioResult {
@@ -42,7 +42,10 @@ fn equivalent_passed_scenarios_credit_cross_platform() {
     let macos = passed_scenario("baseline-create-open-close", fp);
     let windows = passed_scenario("baseline-create-open-close", fp);
     let row = compare_scenario("baseline-create-open-close", Some(&macos), Some(&windows));
-    assert_eq!(row.equivalence_result, PlatformEquivalenceResult::Equivalent);
+    assert_eq!(
+        row.equivalence_result,
+        PlatformEquivalenceResult::Equivalent
+    );
     assert!(row.cross_platform_credited);
 }
 

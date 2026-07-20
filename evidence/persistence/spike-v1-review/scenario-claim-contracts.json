@@ -629,7 +629,7 @@
       "intended_claim": {
         "claim": "Detect a broken or invalid canonical reference and fail closed according to the canonical-corruption policy."
       },
-      "current_demonstrated_claim": "Writable open fails after the fault injector replaces the persisted canonical JSON payload with malformed JSON. The current handler therefore demonstrates a generic malformed-payload/deserialization failure path, not broken-reference detection.",
+      "current_demonstrated_claim": "Writable open fails closed with exact AdapterError code canonical-corruption after the fault injector replaces the persisted canonical JSON payload with malformed JSON. This demonstrates malformed-payload rejection with a specific classification code, not broken-reference or referential-integrity detection.",
       "pre_state": "Created session; canonical JSON payload replaced with malformed content",
       "operation": "corrupt_or_fault_inject(CanonicalReferenceCorruption) then open(Writable)",
       "fault_point": "malformed canonical JSON payload before open",
@@ -637,14 +637,15 @@
       "persisted_observation": "Writable open fails after malformed payload injection",
       "reopen_or_recovery_step": "Not performed",
       "expected_result": "Writable open fails with specific canonical-corruption classification",
-      "required_error_classification": "canonical-corruption or equivalent specific code",
+      "required_error_classification": "canonical-corruption",
       "forbidden_shortcuts": [
-        "Err(_) any error",
+        "accept any Err without exact code match",
         "compare(fixture, fixture)",
-        "upgrade exact error classification to LogicalStateTransition mechanically"
+        "upgrade exact error classification to LogicalStateTransition mechanically",
+        "treat malformed-payload rejection as broken-reference detection"
       ],
-      "current_assertion_summary": "Err on writable open; no independent persisted oracle",
-      "demonstrated_observation_kind": "writable_open_fail_closed_any_error",
+      "current_assertion_summary": "Writable open returns Err with observed_error_code canonical-corruption; no independent persisted oracle",
+      "demonstrated_observation_kind": "writable_open_fail_closed_exact_canonical_corruption_code",
       "current_evidence_strength": [
         "InterfaceBehavior",
         "CrossPlatform"
@@ -669,7 +670,7 @@
       "invariant_kind": "rejected_operation_no_mutation",
       "invariant_metadata": {
         "rejected_operation": "open(Writable) after malformed canonical JSON payload injection",
-        "exact_error_or_policy_result": "any Err accepted in current handler; intended specific canonical-corruption code",
+        "exact_error_or_policy_result": "canonical-corruption on macos-native and windows-github-actions at evidence commit dedf1d6a2de9d0c730a5b1b0ecdbe73ba938c310",
         "independent_persisted_observation": "not performed",
         "boundary_observed": "writable open fails on malformed payload; not broken-reference or referential-integrity detection",
         "does_not_describe_observation_as": [

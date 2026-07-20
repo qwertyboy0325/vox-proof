@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
+use super::EmbeddedRelationalAdapter;
 use super::adapter::{
     AuthoritativeCommand, MaintenanceOperation, PersistenceCandidateAdapter, SemanticOpenMode,
     SemanticPrecondition,
@@ -12,11 +13,9 @@ use super::candidates::fault::FaultPoint;
 use super::candidates::semantic_ops::{apply_command, sample_append_event};
 use super::fixture::EvidenceFixture;
 use super::independent_oracle::IndependentSqliteOracle;
-use super::model::NormalizedSemanticState;
-use super::process_harness::{ProcessExitClassification, ProcessHarness, ProcessRunOutcome};
 use super::platform::filesystem_safe_path_segment;
+use super::process_harness::{ProcessExitClassification, ProcessHarness, ProcessRunOutcome};
 use super::scenario_runner::{catalog_command_id, fresh_storage_root};
-use super::EmbeddedRelationalAdapter;
 
 pub const MIN_TRIALS_PER_POINT: u32 = 5;
 
@@ -111,7 +110,11 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
                 directory_sync_performed: false,
             },
             credited: &["InterfaceBehavior"],
-            denied: &["ProcessCrashRecovery", "FilesystemDurability", "HardwarePowerLoss"],
+            denied: &[
+                "ProcessCrashRecovery",
+                "FilesystemDurability",
+                "HardwarePowerLoss",
+            ],
         },
         DurabilityExperimentSpec {
             experiment_id: "wal-checkpoint-interrupt".to_string(),
@@ -119,7 +122,9 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
             interruption_model: InterruptionModel::LogicalReturnError,
             sync_boundary: SyncBoundaryRecord {
                 boundary_id: "before_wal_checkpoint_truncate".to_string(),
-                description: "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError".to_string(),
+                description:
+                    "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError"
+                        .to_string(),
                 commit_returned: None,
                 ack_returned: None,
                 checkpoint_completed: Some(false),
@@ -135,7 +140,8 @@ pub fn durability_experiments() -> Vec<DurabilityExperimentSpec> {
             interruption_model: InterruptionModel::LogicalReturnError,
             sync_boundary: SyncBoundaryRecord {
                 boundary_id: "before_online_backup_copy".to_string(),
-                description: "Fault armed before backup.run_to_completion; pre-rename temp state".to_string(),
+                description: "Fault armed before backup.run_to_completion; pre-rename temp state"
+                    .to_string(),
                 commit_returned: None,
                 ack_returned: None,
                 checkpoint_completed: None,
@@ -182,7 +188,8 @@ fn intentional_process_abort(outcome: &ProcessRunOutcome) -> bool {
             }
         }
     }
-    super::process_harness::exit_signal_name(outcome.exit_status.as_ref()) == Some("SIGABRT".to_string())
+    super::process_harness::exit_signal_name(outcome.exit_status.as_ref())
+        == Some("SIGABRT".to_string())
 }
 
 pub struct DurabilityTrialRunner {
@@ -207,7 +214,6 @@ impl DurabilityTrialRunner {
         for spec in durability_experiments() {
             for trial_index in 0..trials_per_experiment {
                 let started = Instant::now();
-                let trial_id = format!("{}-trial-{}", spec.experiment_id, trial_index);
                 let result = match spec.experiment_id.as_str() {
                     "post-publication-process-kill" => {
                         self.run_duplicate_crash_trial(fixture, &spec, trial_index, started)
@@ -244,23 +250,26 @@ impl DurabilityTrialRunner {
             ("VOXPROOF_LEASE_DURATION_MS", "2000"),
             ("VOXPROOF_COMMAND_OPERATION_ID", cmd_id.as_str()),
         ];
-        let outcome = match self.harness.spawn_worker("apply-command-crash", &env, Duration::from_secs(15))
-        {
-            Ok(o) => o,
-            Err(error) => {
-                return trial_result(
-                    trial_id,
-                    spec,
-                    trial_index,
-                    TrialOutcome::Failed,
-                    None,
-                    Some(error),
-                    started,
-                    &self.platform_label,
-                    None,
-                );
-            }
-        };
+        let outcome =
+            match self
+                .harness
+                .spawn_worker("apply-command-crash", &env, Duration::from_secs(15))
+            {
+                Ok(o) => o,
+                Err(error) => {
+                    return trial_result(
+                        trial_id,
+                        spec,
+                        trial_index,
+                        TrialOutcome::Failed,
+                        None,
+                        Some(error),
+                        started,
+                        &self.platform_label,
+                        None,
+                    );
+                }
+            };
         if outcome.classification == ProcessExitClassification::Success {
             return trial_result(
                 trial_id,
@@ -465,23 +474,26 @@ impl DurabilityTrialRunner {
             ("VOXPROOF_FAULT_POINT", spec.fault_point.fault_id()),
             ("VOXPROOF_DUP_DEST_ID", dest_id.as_str()),
         ];
-        let outcome = match self.harness.spawn_worker("duplicate-and-crash", &env, Duration::from_secs(20))
-        {
-            Ok(o) => o,
-            Err(error) => {
-                return trial_result(
-                    trial_id,
-                    spec,
-                    trial_index,
-                    TrialOutcome::Failed,
-                    None,
-                    Some(error),
-                    started,
-                    &self.platform_label,
-                    None,
-                );
-            }
-        };
+        let outcome =
+            match self
+                .harness
+                .spawn_worker("duplicate-and-crash", &env, Duration::from_secs(20))
+            {
+                Ok(o) => o,
+                Err(error) => {
+                    return trial_result(
+                        trial_id,
+                        spec,
+                        trial_index,
+                        TrialOutcome::Failed,
+                        None,
+                        Some(error),
+                        started,
+                        &self.platform_label,
+                        None,
+                    );
+                }
+            };
         if outcome.classification == ProcessExitClassification::Success {
             return trial_result(
                 trial_id,
@@ -551,6 +563,7 @@ impl DurabilityTrialRunner {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn trial_result(
     trial_id: String,
     spec: &DurabilityExperimentSpec,

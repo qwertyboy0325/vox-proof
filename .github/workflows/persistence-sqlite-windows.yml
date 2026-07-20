@@ -1,3 +1,6 @@
+# Package 2D Windows persistence evidence (authoritative for SQLite spike v3).
+# Supersedes the retired Package 1 workflow `persistence-evidence-windows.yml`
+# (spike-v1 candidate comparison via persistence_candidates.rs).
 name: persistence-sqlite-windows
 
 on:
