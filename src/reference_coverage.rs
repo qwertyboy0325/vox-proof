@@ -86,7 +86,7 @@ pub struct ReferenceCoverageAssessment {
     pub unknown_cue_ids: Vec<CueReferenceId>,
     pub unresolved_cue_ids: Vec<CueReferenceId>,
     pub inventory_complete: bool,
-    pub primary_reference_complete: bool,
+    pub reference_resolved: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -138,12 +138,9 @@ pub enum ReferenceCoverageValidationError {
     },
     CoverageStateMismatch {
         state: ReferenceCoverageState,
-        purpose: ReferenceCoveragePurpose,
         assessment: Box<ReferenceCoverageAssessment>,
     },
-    PrimaryCompletenessForbiddenForPurpose {
-        purpose: ReferenceCoveragePurpose,
-    },
+    PrimaryAttachmentRequiresCompleteState,
     RunIdMismatch,
     InputIdentityMismatch,
     SealIdMismatch,
@@ -268,7 +265,7 @@ impl ReferenceCoverage {
             && unknown_cue_ids.is_empty()
             && observed_unique.len() == expected_ids.len();
 
-        let primary_reference_complete = inventory_complete && unresolved_cue_ids.is_empty();
+        let reference_resolved = inventory_complete && unresolved_cue_ids.is_empty();
 
         Ok(ReferenceCoverageAssessment {
             expected_count: expected_universe.total_cues,
@@ -278,7 +275,7 @@ impl ReferenceCoverage {
             unknown_cue_ids,
             unresolved_cue_ids,
             inventory_complete,
-            primary_reference_complete,
+            reference_resolved,
         })
     }
 
@@ -309,37 +306,13 @@ impl ReferenceCoverage {
             });
         }
 
-        if self.coverage_state == ReferenceCoverageState::Complete {
-            let complete_ok = match self.coverage_purpose {
-                ReferenceCoveragePurpose::PrimaryBlindCalibration => {
-                    derived.primary_reference_complete
-                }
-                ReferenceCoveragePurpose::DiagnosticOnly
-                | ReferenceCoveragePurpose::SyntheticProtocolValidation => {
-                    derived.inventory_complete
-                }
-            };
-
-            if !complete_ok {
-                return Err(ReferenceCoverageValidationError::CoverageStateMismatch {
-                    state: self.coverage_state,
-                    purpose: self.coverage_purpose,
-                    assessment: Box::new(derived),
-                });
-            }
-        }
-
-        if matches!(
-            self.coverage_purpose,
-            ReferenceCoveragePurpose::DiagnosticOnly
-                | ReferenceCoveragePurpose::SyntheticProtocolValidation
-        ) && derived.primary_reference_complete
+        if self.coverage_state == ReferenceCoverageState::Complete
+            && (!derived.inventory_complete || !derived.reference_resolved)
         {
-            return Err(
-                ReferenceCoverageValidationError::PrimaryCompletenessForbiddenForPurpose {
-                    purpose: self.coverage_purpose,
-                },
-            );
+            return Err(ReferenceCoverageValidationError::CoverageStateMismatch {
+                state: self.coverage_state,
+                assessment: Box::new(derived),
+            });
         }
 
         Ok(())
@@ -377,14 +350,14 @@ impl ReferenceCoverage {
             return Err(ReferenceCoverageValidationError::EnvelopeNotBlindReference);
         }
 
-        validate_attachment_for_purpose(self.coverage_purpose, envelope, seal)?;
+        validate_attachment_for_purpose(self, envelope, seal)?;
 
         Ok(())
     }
 }
 
 fn validate_attachment_for_purpose(
-    purpose: ReferenceCoveragePurpose,
+    coverage: &ReferenceCoverage,
     envelope: &RunEnvelope,
     seal: &ReferenceSeal,
 ) -> Result<(), ReferenceCoverageValidationError> {
@@ -394,8 +367,14 @@ fn validate_attachment_for_purpose(
         });
     }
 
-    match purpose {
+    match coverage.coverage_purpose {
         ReferenceCoveragePurpose::PrimaryBlindCalibration => {
+            if coverage.coverage_state != ReferenceCoverageState::Complete {
+                return Err(
+                    ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState,
+                );
+            }
+
             if envelope.lifecycle_state != RunLifecycleState::ReferenceSealed {
                 return Err(
                     ReferenceCoverageValidationError::EnvelopeLifecycleIncompatible {
@@ -409,7 +388,7 @@ fn validate_attachment_for_purpose(
             {
                 return Err(
                     ReferenceCoverageValidationError::SealClassificationIncompatible {
-                        purpose,
+                        purpose: coverage.coverage_purpose,
                         classification: seal.calibration_classification,
                     },
                 );
@@ -418,7 +397,7 @@ fn validate_attachment_for_purpose(
             if seal.calibration_validity_impact != CalibrationValidityImpact::None {
                 return Err(
                     ReferenceCoverageValidationError::SealValidityImpactIncompatible {
-                        purpose,
+                        purpose: coverage.coverage_purpose,
                         impact: seal.calibration_validity_impact,
                     },
                 );
@@ -444,7 +423,7 @@ fn validate_attachment_for_purpose(
             ) {
                 return Err(
                     ReferenceCoverageValidationError::SealClassificationIncompatible {
-                        purpose,
+                        purpose: coverage.coverage_purpose,
                         classification: seal.calibration_classification,
                     },
                 );
@@ -467,7 +446,7 @@ fn validate_attachment_for_purpose(
             {
                 return Err(
                     ReferenceCoverageValidationError::SealClassificationIncompatible {
-                        purpose,
+                        purpose: coverage.coverage_purpose,
                         classification: seal.calibration_classification,
                     },
                 );
@@ -640,7 +619,7 @@ mod unit_tests {
                 cue_id: CueReferenceId::new(1).expect("cue"),
                 disposition: ReferenceCueDisposition::NoTranscriptionError,
             }],
-            coverage_state: ReferenceCoverageState::Draft,
+            coverage_state: ReferenceCoverageState::Complete,
             assessment: ReferenceCoverageAssessment {
                 expected_count: 1,
                 observed_unique_count: 1,
@@ -649,7 +628,7 @@ mod unit_tests {
                 unknown_cue_ids: vec![],
                 unresolved_cue_ids: vec![],
                 inventory_complete: true,
-                primary_reference_complete: true,
+                reference_resolved: true,
             },
         };
 

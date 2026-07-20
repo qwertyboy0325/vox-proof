@@ -160,7 +160,7 @@ fn unknown_top_level_field_rejected() {
     "unknown_cue_ids": [],
     "unresolved_cue_ids": [],
     "inventory_complete": true,
-    "primary_reference_complete": true
+    "reference_resolved": true
   }},
   "transcript_text": "forbidden"
 }}"#
@@ -191,7 +191,7 @@ fn unknown_enum_value_rejected() {
     "unknown_cue_ids": [],
     "unresolved_cue_ids": [],
     "inventory_complete": true,
-    "primary_reference_complete": true
+    "reference_resolved": true
   }}
 }}"#
     );
@@ -272,7 +272,7 @@ fn explicit_no_error_counts_as_reviewed_inventory() {
     let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
 
     assert!(assessment.inventory_complete);
-    assert!(assessment.primary_reference_complete);
+    assert!(assessment.reference_resolved);
 }
 
 #[test]
@@ -322,13 +322,13 @@ fn unknown_observed_cue_prevents_inventory_complete() {
 }
 
 #[test]
-fn uncertain_prevents_primary_reference_complete() {
+fn uncertain_prevents_reference_resolved() {
     let expected = universe(&[1]);
     let records = vec![record(1, ReferenceCueDisposition::Uncertain)];
     let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
 
     assert!(assessment.inventory_complete);
-    assert!(!assessment.primary_reference_complete);
+    assert!(!assessment.reference_resolved);
     assert_eq!(
         assessment.unresolved_cue_ids,
         vec![CueReferenceId::new(1).expect("cue")]
@@ -336,13 +336,13 @@ fn uncertain_prevents_primary_reference_complete() {
 }
 
 #[test]
-fn unreviewable_prevents_primary_reference_complete() {
+fn unreviewable_prevents_reference_resolved() {
     let expected = universe(&[1]);
     let records = vec![record(1, ReferenceCueDisposition::Unreviewable)];
     let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
 
     assert!(assessment.inventory_complete);
-    assert!(!assessment.primary_reference_complete);
+    assert!(!assessment.reference_resolved);
 }
 
 #[test]
@@ -356,7 +356,7 @@ fn caller_cannot_force_stored_assessment_inconsistent_with_derivation() {
         "seal-primary",
     );
     coverage.assessment.inventory_complete = true;
-    coverage.assessment.primary_reference_complete = true;
+    coverage.assessment.reference_resolved = true;
 
     assert!(matches!(
         coverage.validate(),
@@ -367,7 +367,7 @@ fn caller_cannot_force_stored_assessment_inconsistent_with_derivation() {
 #[test]
 fn same_cue_id_under_different_revision_is_separate_attachment_context() {
     let (envelope_a, seal_a) = primary_posture();
-    let coverage_a = build_coverage(
+    let mut coverage_a = build_coverage(
         ReferenceCoveragePurpose::PrimaryBlindCalibration,
         universe(&[1]),
         vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
@@ -375,6 +375,7 @@ fn same_cue_id_under_different_revision_is_separate_attachment_context() {
         SAMPLE_REVISION,
         "seal-primary",
     );
+    coverage_a.coverage_state = ReferenceCoverageState::Complete;
 
     let mut envelope_b = envelope_a.clone();
     envelope_b.input_identity.transcript_revision_id = OTHER_REVISION.to_string();
@@ -394,7 +395,7 @@ fn same_cue_id_under_different_revision_is_separate_attachment_context() {
 #[test]
 fn primary_attachment_passes_for_reference_sealed_and_sealed_seal() {
     let (envelope, seal) = primary_posture();
-    let coverage = build_coverage(
+    let mut coverage = build_coverage(
         ReferenceCoveragePurpose::PrimaryBlindCalibration,
         universe(&[1, 2]),
         vec![
@@ -405,10 +406,43 @@ fn primary_attachment_passes_for_reference_sealed_and_sealed_seal() {
         SAMPLE_REVISION,
         "seal-primary",
     );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
 
     coverage
         .validate_against(&envelope, &seal)
         .expect("primary attachment");
+}
+
+fn synthetic_protocol_seal(envelope: &RunEnvelope) -> ReferenceSeal {
+    ReferenceSeal {
+        schema_revision: REFERENCE_SEAL_SCHEMA.to_string(),
+        seal_id: ReferenceSealId::new("seal-synthetic").expect("seal id"),
+        run_id: envelope.run_id.clone(),
+        input_identity: envelope.input_identity.clone(),
+        producer_class: ReferenceProducerClass::SyntheticFixtureGenerator,
+        reference_created_before_detector_run: true,
+        prior_detector_run_on_same_input: false,
+        prior_knowledge_of_detector_targets: false,
+        session_terms_visible_during_reference: false,
+        external_notes_encode_detector_targets: false,
+        seal_state: ReferenceSealState::Sealed,
+        calibration_classification: ReferenceCalibrationValidity::SyntheticProtocolOnly,
+        calibration_validity_impact: CalibrationValidityImpact::ProtocolOnly,
+    }
+}
+
+fn primary_coverage_for_attachment(records: Vec<CueReferenceCoverageRecord>) -> ReferenceCoverage {
+    let cue_ids: Vec<u32> = records.iter().map(|record| record.cue_id.value()).collect();
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&cue_ids),
+        records,
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+    coverage
 }
 
 #[test]
@@ -416,14 +450,10 @@ fn draft_seal_fails_primary_coverage() {
     let (envelope, mut seal) = primary_posture();
     seal.seal_state = ReferenceSealState::Draft;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &seal),
@@ -441,14 +471,10 @@ fn term_conditioned_seal_fails_primary_coverage() {
     contaminated.calibration_validity_impact =
         CalibrationValidityImpact::ExcludedFromPrimaryMetrics;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &contaminated),
@@ -465,14 +491,10 @@ fn contaminated_seal_fails_primary_coverage() {
         CalibrationValidityImpact::ExcludedFromPrimaryMetrics;
     contaminated.prior_detector_run_on_same_input = true;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &contaminated),
@@ -487,14 +509,10 @@ fn synthetic_seal_fails_primary_coverage() {
     seal.calibration_classification = ReferenceCalibrationValidity::SyntheticProtocolOnly;
     seal.calibration_validity_impact = CalibrationValidityImpact::ProtocolOnly;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &seal),
@@ -528,14 +546,10 @@ fn reference_preparation_lifecycle_fails_primary_coverage() {
     let (mut envelope, seal) = primary_posture();
     envelope.lifecycle_state = RunLifecycleState::ReferencePreparation;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &seal),
@@ -548,14 +562,10 @@ fn detector_execution_lifecycle_rejects_retroactive_coverage() {
     let (mut envelope, seal) = primary_posture();
     envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
 
-    let coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
 
     assert!(matches!(
         coverage.validate_against(&envelope, &seal),
@@ -617,13 +627,160 @@ fn diagnostic_coverage_allows_term_conditioned_seal() {
     coverage
         .validate_against(&envelope, &diagnostic_seal)
         .expect("diagnostic attachment");
-    assert!(!coverage.assessment.primary_reference_complete);
+    assert!(!coverage.assessment.reference_resolved);
 }
 
 #[test]
-fn diagnostic_purpose_forbids_primary_reference_complete_flag() {
+fn complete_diagnostic_coverage_validates_when_resolved() {
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::DiagnosticOnly,
+        universe(&[1, 2]),
+        vec![
+            record(1, ReferenceCueDisposition::NoTranscriptionError),
+            record(2, ReferenceCueDisposition::TranscriptionError),
+        ],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-diagnostic",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    assert!(coverage.assessment.inventory_complete);
+    assert!(coverage.assessment.reference_resolved);
+    coverage
+        .validate()
+        .expect("resolved diagnostic coverage valid");
+}
+
+#[test]
+fn complete_synthetic_coverage_validates_when_resolved() {
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::SyntheticProtocolValidation,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-synthetic",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    assert!(coverage.assessment.inventory_complete);
+    assert!(coverage.assessment.reference_resolved);
+    coverage
+        .validate()
+        .expect("resolved synthetic coverage valid");
+}
+
+#[test]
+fn unresolved_diagnostic_coverage_derives_reference_resolved_false() {
     let coverage = build_coverage(
         ReferenceCoveragePurpose::DiagnosticOnly,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::Uncertain)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-diagnostic",
+    );
+
+    assert!(coverage.assessment.inventory_complete);
+    assert!(!coverage.assessment.reference_resolved);
+}
+
+#[test]
+fn unresolved_synthetic_coverage_derives_reference_resolved_false() {
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::SyntheticProtocolValidation,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::Unreviewable)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-synthetic",
+    );
+
+    assert!(coverage.assessment.inventory_complete);
+    assert!(!coverage.assessment.reference_resolved);
+}
+
+#[test]
+fn changing_only_coverage_purpose_does_not_mutate_structural_assessment() {
+    let records = vec![
+        record(1, ReferenceCueDisposition::NoTranscriptionError),
+        record(2, ReferenceCueDisposition::TranscriptionError),
+    ];
+    let expected = universe(&[1, 2]);
+
+    let primary = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        expected.clone(),
+        records.clone(),
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    let diagnostic = build_coverage(
+        ReferenceCoveragePurpose::DiagnosticOnly,
+        expected,
+        records,
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+
+    assert_eq!(primary.assessment, diagnostic.assessment);
+}
+
+#[test]
+fn obsolete_primary_reference_complete_field_rejected() {
+    let json = format!(
+        r#"{{
+  "schema_revision": "{REFERENCE_COVERAGE_SCHEMA}",
+  "coverage_id": "coverage-test",
+  "run_id": "run-primary",
+  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
+  "seal_id": "seal-primary",
+  "coverage_purpose": "primary_blind_calibration",
+  "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
+  "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
+  "coverage_state": "draft",
+  "assessment": {{
+    "expected_count": 1,
+    "observed_unique_count": 1,
+    "missing_cue_ids": [],
+    "duplicate_cue_ids": [],
+    "unknown_cue_ids": [],
+    "unresolved_cue_ids": [],
+    "inventory_complete": true,
+    "primary_reference_complete": true
+  }}
+}}"#
+    );
+
+    let error = serde_json::from_str::<ReferenceCoverage>(&json).expect_err("must fail");
+    assert!(error.to_string().contains("unknown field"));
+}
+
+#[test]
+fn json_round_trip_retains_reference_resolved_field() {
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    let json = serde_json::to_string(&coverage).expect("serialize");
+    assert!(json.contains("\"reference_resolved\""));
+    assert!(!json.contains("primary_reference_complete"));
+}
+
+#[test]
+fn primary_attachment_requires_complete_state() {
+    let (envelope, seal) = primary_posture();
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
         universe(&[1]),
         vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
         "run-primary",
@@ -632,8 +789,62 @@ fn diagnostic_purpose_forbids_primary_reference_complete_flag() {
     );
 
     assert!(matches!(
+        coverage.validate_against(&envelope, &seal),
+        Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
+    ));
+}
+
+#[test]
+fn draft_unresolved_coverage_fails_primary_attachment_before_complete_state() {
+    let (envelope, seal) = primary_posture();
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::Uncertain)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal),
+        Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
+    ));
+}
+
+#[test]
+fn complete_unresolved_coverage_fails_validation() {
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::Uncertain)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    assert!(matches!(
         coverage.validate(),
-        Err(ReferenceCoverageValidationError::PrimaryCompletenessForbiddenForPurpose { .. })
+        Err(ReferenceCoverageValidationError::CoverageStateMismatch { .. })
+    ));
+}
+
+#[test]
+fn draft_coverage_fails_primary_attachment() {
+    let (envelope, seal) = primary_posture();
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal),
+        Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
     ));
 }
 
@@ -683,7 +894,7 @@ fn serialized_coverage_contains_no_content_or_path_fields() {
 }
 
 #[test]
-fn complete_state_requires_primary_reference_complete_for_primary_purpose() {
+fn complete_state_requires_reference_resolved_for_all_purposes() {
     let mut coverage = build_coverage(
         ReferenceCoveragePurpose::PrimaryBlindCalibration,
         universe(&[1, 2]),
@@ -701,7 +912,7 @@ fn complete_state_requires_primary_reference_complete_for_primary_purpose() {
 }
 
 #[test]
-fn complete_state_accepts_inventory_complete_for_diagnostic_purpose() {
+fn complete_state_accepts_resolved_diagnostic_coverage() {
     let mut envelope = primary_posture().0;
     envelope.lifecycle_state = RunLifecycleState::ReferencePreparation;
     let seal = term_conditioned_seal(&envelope);
@@ -709,15 +920,39 @@ fn complete_state_accepts_inventory_complete_for_diagnostic_purpose() {
     let mut coverage = build_coverage(
         ReferenceCoveragePurpose::DiagnosticOnly,
         universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::Uncertain)],
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
         "run-primary",
         SAMPLE_REVISION,
         "seal-diagnostic",
     );
     coverage.coverage_state = ReferenceCoverageState::Complete;
 
-    coverage.validate().expect("diagnostic complete valid");
+    coverage
+        .validate()
+        .expect("resolved diagnostic complete valid");
     coverage
         .validate_against(&envelope, &seal)
         .expect("diagnostic attachment");
+}
+
+#[test]
+fn synthetic_protocol_attachment_allows_resolved_protocol_only_seal() {
+    let mut envelope = primary_posture().0;
+    envelope.lifecycle_state = RunLifecycleState::ReferencePreparation;
+    let seal = synthetic_protocol_seal(&envelope);
+
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::SyntheticProtocolValidation,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-synthetic",
+    );
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    coverage.validate().expect("synthetic complete valid");
+    coverage
+        .validate_against(&envelope, &seal)
+        .expect("synthetic protocol attachment");
 }
