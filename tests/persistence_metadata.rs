@@ -565,3 +565,33 @@ fn canonical_reference_corruption_contract_matches_authoritative_evidence() {
     .expect("parse evidence artifact");
     assert_eq!(evidence["observed_error_code"], "canonical-corruption");
 }
+
+#[test]
+fn canonical_reference_corruption_harness_enforces_exact_error_code() {
+    let runner_src = include_str!("../src/persistence_evidence/sqlite_scenario_runner.rs");
+    let start = runner_src
+        .find("fn run_canonical_corruption")
+        .expect("run_canonical_corruption");
+    let end = runner_src[start..]
+        .find("fn run_duplication")
+        .expect("next runner fn");
+    let body = &runner_src[start..start + end];
+    assert!(
+        body.contains(r#"e.code == "canonical-corruption""#),
+        "runner must require exact canonical-corruption code"
+    );
+    assert!(
+        !body.contains("sqlite-open-failed"),
+        "runner must not accept sqlite-open-failed for canonical-reference-corruption"
+    );
+
+    let cross_platform_src = include_str!("../src/persistence_evidence/cross_platform.rs");
+    let start = cross_platform_src
+        .find("fn error_codes_equivalent")
+        .expect("error_codes_equivalent");
+    let body = &cross_platform_src[start..];
+    assert!(
+        !body.contains("sqlite-open-failed"),
+        "cross-platform CRC equivalence must not treat sqlite-open-failed as interchangeable"
+    );
+}

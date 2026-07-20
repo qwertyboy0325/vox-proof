@@ -919,7 +919,7 @@ impl SqliteScenarioRunner {
             return self.failed(scenario, started, e.to_string());
         }
         match adapter.open(&session, SemanticOpenMode::Writable) {
-            Err(e) if e.code == "canonical-corruption" || e.code == "sqlite-open-failed" => {
+            Err(e) if e.code == "canonical-corruption" => {
                 let mut result = Self::passed(
                     scenario,
                     started,

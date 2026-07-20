@@ -655,11 +655,10 @@
       ],
       "related_higher_level_claims_requiring_separate_scenarios": [
         "Broken or invalid canonical reference detection requires a different fault injector and separately authorized scenario change",
-        "Exact canonical-corruption error classification: InterfaceBehavior",
         "Canonical state remains unchanged after rejected writable open: requires independent persisted before/after observation",
         "Read-only salvage path as separate claim"
       ],
-      "current_gap": "Weak error classification; tautological oracle; no independent persisted observation",
+      "current_gap": "Tautological oracle; no independent persisted observation",
       "correction_required": true,
       "claim_structure": "single",
       "catalog_scenario_id": "canonical-reference-corruption",

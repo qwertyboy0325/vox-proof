@@ -174,11 +174,7 @@ fn error_codes_equivalent(
             scenario_id,
             "unknown-newer-format" | "canonical-reference-corruption"
         ),
-        (Some(a), Some(b)) if scenario_id == "canonical-reference-corruption" => {
-            a == b
-                || (matches!(a, "canonical-corruption" | "sqlite-open-failed")
-                    && matches!(b, "canonical-corruption" | "sqlite-open-failed"))
-        }
+        (Some(a), Some(b)) if scenario_id == "canonical-reference-corruption" => a == b,
         (Some(a), Some(b)) => a == b,
         _ => false,
     }
