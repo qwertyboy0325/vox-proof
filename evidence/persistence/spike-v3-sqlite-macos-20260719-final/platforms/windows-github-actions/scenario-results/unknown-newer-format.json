@@ -1,0 +1,40 @@
+{
+  "scenario_identity": {
+    "scenario_id": "unknown-newer-format",
+    "scenario_version": 1,
+    "category": "FormatCompatibility",
+    "description": "Reject writable open for an unknown newer format",
+    "failure_model": "MalformedOrUnsupportedInput",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": null,
+    "actual_fingerprint": "",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 141,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": "ManualReviewRequired",
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/unknown-newer-format.json"
+  ],
+  "achieved_evidence_strength": [
+    "InterfaceBehavior"
+  ],
+  "process_interruption_performed": false,
+  "reopen_performed": false,
+  "observed_error_code": "unsupported-newer-format"
+}

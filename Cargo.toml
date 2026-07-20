@@ -5,24 +5,71 @@ edition = "2024"
 
 [features]
 default = []
-persistence-spike = ["dep:rusqlite"]
+persistence-spike = ["dep:rusqlite", "dep:uuid"]
 
 [dependencies]
 pinyin = "0.11.0"
 rphonetic = "=3.0.6"
-rusqlite = { version = "0.32", optional = true, features = ["bundled"] }
+rusqlite = { version = "0.32", optional = true, features = ["bundled", "backup"] }
+uuid = { version = "1", features = ["v4"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 
 [dev-dependencies]
+uuid = { version = "1", features = ["v4"] }
 
 [[bin]]
 name = "persistence_evidence_run"
 path = "src/bin/persistence_evidence_run.rs"
 required-features = ["persistence-spike"]
 
+[[bin]]
+name = "persistence_evidence_worker"
+path = "src/bin/persistence_evidence_worker.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_sqlite_run"
+path = "src/bin/persistence_evidence_sqlite_run.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_v3_run"
+path = "src/bin/persistence_evidence_v3_run.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_scenarios"
+path = "tests/persistence_scenarios.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_sqlite_evidence"
+path = "tests/persistence_sqlite_evidence.rs"
+required-features = ["persistence-spike"]
+
 [[test]]
 name = "persistence_candidates"
 path = "tests/persistence_candidates.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_sqlite_mechanism"
+path = "tests/persistence_sqlite_mechanism.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_v3_merge"
+path = "src/bin/persistence_evidence_v3_merge.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_cross_platform"
+path = "tests/persistence_cross_platform.rs"
+required-features = ["persistence-spike"]
+
+[[test]]
+name = "persistence_durability"
+path = "tests/persistence_durability.rs"
 required-features = ["persistence-spike"]

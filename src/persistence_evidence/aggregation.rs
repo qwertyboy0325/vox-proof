@@ -263,14 +263,14 @@ fn aggregate_validated_metadata_with_mode(
         ReadinessOutcome::NotReady
     };
 
-    let mechanism_selection_readiness =
-        if mechanism_comparison_readiness == ReadinessOutcome::NotReady {
-            ReadinessOutcome::NotReady
-        } else if reclassification.mechanism_selection_readiness == "not_ready" {
-            ReadinessOutcome::NotReady
-        } else {
-            ReadinessOutcome::Ready
-        };
+    let mechanism_selection_readiness = if mechanism_comparison_readiness
+        == ReadinessOutcome::NotReady
+        || reclassification.mechanism_selection_readiness == "not_ready"
+    {
+        ReadinessOutcome::NotReady
+    } else {
+        ReadinessOutcome::Ready
+    };
 
     let selection_status = if mechanism_comparison_readiness == ReadinessOutcome::NotReady
         || reclassification.selection_status != "none"

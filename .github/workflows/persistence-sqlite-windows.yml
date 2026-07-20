@@ -1,0 +1,58 @@
+# Package 2D Windows persistence evidence (authoritative for SQLite spike v3).
+# Supersedes the retired Package 1 workflow `persistence-evidence-windows.yml`
+# (spike-v1 candidate comparison via persistence_candidates.rs).
+name: persistence-sqlite-windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - persistence-package-2d-cross-platform-durability
+    paths:
+      - "src/persistence_evidence/**"
+      - "src/bin/persistence_evidence_v3_run.rs"
+      - "src/bin/persistence_evidence_worker.rs"
+      - "tests/persistence_*.rs"
+      - "Cargo.toml"
+      - ".github/workflows/persistence-sqlite-windows.yml"
+
+jobs:
+  windows-v3-evidence:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Capture rustc version
+        id: rustc
+        shell: bash
+        run: echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+      - name: Run persistence tests
+        run: cargo test --features persistence-spike --test persistence_sqlite_evidence --test persistence_sqlite_mechanism --test persistence_cross_platform --test persistence_durability --test persistence_scenarios
+      - name: Run Package 2D v3 evidence
+        shell: bash
+        run: |
+          RUN_ID="spike-v3-sqlite-windows-${{ github.run_id }}"
+          export RUSTC_VERSION="${{ steps.rustc.outputs.version }}"
+          export VOXPROOF_EVIDENCE_RUN_ID="$RUN_ID"
+          export VOXPROOF_PLATFORM_LABEL="windows-github-actions"
+          export VOXPROOF_EXECUTION_ENVIRONMENT="github-actions-windows-latest"
+          export VOXPROOF_FILESYSTEM="ntfs-github-actions-runner"
+          cargo run --features persistence-spike --bin persistence_evidence_v3_run
+          echo "VOXPROOF_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+      - name: Validate evidence JSON
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path("evidence/persistence") / "${{ env.VOXPROOF_RUN_ID }}"
+          if not root.exists():
+              sys.exit(f"missing evidence root {root}")
+          for p in root.rglob("*.json"):
+              json.loads(p.read_text())
+          print("json ok")
+          PY
+      - name: Upload Windows v3 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-v3-windows-evidence
+          path: evidence/persistence/${{ env.VOXPROOF_RUN_ID }}/

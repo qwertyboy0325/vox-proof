@@ -334,7 +334,7 @@ fn valid_input_target_strength_inflation_does_not_create_credit() {
     assert_eq!(baseline_entry.subclaim_id, None);
     assert_eq!(
         baseline_entry.evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec!["InterfaceBehavior".to_string(), "CrossPlatform".to_string()]
     );
     assert!(
         !inflated
@@ -342,9 +342,13 @@ fn valid_input_target_strength_inflation_does_not_create_credit() {
             .contains_key("HardwarePowerLoss")
     );
     assert!(
-        !inflated
+        inflated
             .evidence_strength_counts
-            .contains_key("CrossPlatform")
+            .get("CrossPlatform")
+            .copied()
+            .unwrap_or(0)
+            >= 1,
+        "CrossPlatform credit must come from demonstrated Package 2D fields, not target inflation alone"
     );
 }
 
@@ -421,7 +425,7 @@ fn golden_positive_evidence_credits_only_readability_subclaim() {
     );
     assert_eq!(
         derived_entries[0].evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec!["InterfaceBehavior".to_string(), "CrossPlatform".to_string()]
     );
 }
 
@@ -499,7 +503,7 @@ fn sibling_subclaim_evidence_does_not_transfer() {
     assert!(detection.current_evidence_strength.is_empty());
     assert_eq!(
         readability.current_evidence_strength,
-        vec!["InterfaceBehavior".to_string()]
+        vec!["InterfaceBehavior".to_string(), "CrossPlatform".to_string()]
     );
 }
 
@@ -530,5 +534,64 @@ fn selection_status_cannot_become_non_none_while_comparison_not_ready() {
     assert_eq!(
         result.mechanism_comparison_readiness,
         ReadinessOutcome::NotReady
+    );
+}
+
+#[test]
+fn canonical_reference_corruption_contract_matches_authoritative_evidence() {
+    let contract: serde_json::Value =
+        serde_json::from_str(&accepted_contract_json()).expect("parse contract");
+    let scenario = contract["contracts"]
+        .as_array()
+        .expect("contracts array")
+        .iter()
+        .find(|entry| entry["scenario_id"] == "canonical-reference-corruption")
+        .expect("canonical-reference-corruption contract");
+    assert_eq!(
+        scenario["demonstrated_observation_kind"],
+        "writable_open_fail_closed_exact_canonical_corruption_code"
+    );
+    assert_eq!(
+        scenario["required_error_classification"],
+        "canonical-corruption"
+    );
+
+    let evidence_path = scenario["evidence_artifact_reference"]
+        .as_str()
+        .expect("evidence path");
+    let evidence: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(evidence_path).expect("read authoritative evidence artifact"),
+    )
+    .expect("parse evidence artifact");
+    assert_eq!(evidence["observed_error_code"], "canonical-corruption");
+}
+
+#[test]
+fn canonical_reference_corruption_harness_enforces_exact_error_code() {
+    let runner_src = include_str!("../src/persistence_evidence/sqlite_scenario_runner.rs");
+    let start = runner_src
+        .find("fn run_canonical_corruption")
+        .expect("run_canonical_corruption");
+    let end = runner_src[start..]
+        .find("fn run_duplication")
+        .expect("next runner fn");
+    let body = &runner_src[start..start + end];
+    assert!(
+        body.contains(r#"e.code == "canonical-corruption""#),
+        "runner must require exact canonical-corruption code"
+    );
+    assert!(
+        !body.contains("sqlite-open-failed"),
+        "runner must not accept sqlite-open-failed for canonical-reference-corruption"
+    );
+
+    let cross_platform_src = include_str!("../src/persistence_evidence/cross_platform.rs");
+    let start = cross_platform_src
+        .find("fn error_codes_equivalent")
+        .expect("error_codes_equivalent");
+    let body = &cross_platform_src[start..];
+    assert!(
+        !body.contains("sqlite-open-failed"),
+        "cross-platform CRC equivalence must not treat sqlite-open-failed as interchangeable"
     );
 }

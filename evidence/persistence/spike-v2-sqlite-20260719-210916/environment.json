@@ -1,0 +1,42 @@
+{
+  "architecture": "aarch64",
+  "authorized_file_scope_audit": {
+    "authorized_areas": [
+      "src/persistence_evidence/process_harness.rs",
+      "src/persistence_evidence/independent_oracle.rs",
+      "src/persistence_evidence/sqlite_scenario_runner.rs",
+      "src/bin/persistence_evidence_worker.rs",
+      "src/bin/persistence_evidence_sqlite_run.rs",
+      "src/persistence_evidence/scenario_runner.rs",
+      "src/persistence_evidence/model.rs",
+      "src/persistence_evidence/mod.rs",
+      "src/persistence_evidence/candidates/fault.rs",
+      "src/persistence_evidence/candidates/embedded_relational.rs",
+      "tests/persistence_scenarios.rs",
+      "tests/persistence_sqlite_evidence.rs",
+      "tests/persistence_evidence.rs",
+      "tests/persistence_metadata.rs",
+      "evidence/persistence/spike-v1-review/scenario-claim-contracts.json",
+      "evidence/persistence/spike-v1-review/reclassification.json",
+      "Cargo.toml"
+    ],
+    "explicitly_excluded": [
+      "append_bundle.rs",
+      "Package 2D filesystem durability"
+    ],
+    "scope_threshold_exceeded": true,
+    "tracked_files_changed": 17,
+    "work_package_id": "persistence-package-2c-sqlite-targeted-evidence"
+  },
+  "child_termination_mechanism": "std::process::abort for crash faults; SIGKILL for parent-killed hold workers",
+  "design_contract_version": "sqlite-design-v1",
+  "implementation_baseline": "persistence-package-2b-sqlite-implementation",
+  "platform": "macos",
+  "process_topology": "parent-controller + persistence_evidence_worker child",
+  "repository_commit": "e2381c5c4aa5b0c73fcbb4584e4d093aef733d1b",
+  "run_id": "spike-v2-sqlite-20260719-210916",
+  "rusqlite_version": "0.32",
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "scenario_contract_version": "4",
+  "sqlite_version": "bundled-with-rusqlite-0.32"
+}

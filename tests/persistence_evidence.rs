@@ -89,6 +89,10 @@ fn scenario_result(
         failure_classification: None,
         limitations,
         raw_artifact_references: Vec::new(),
+        achieved_evidence_strength: Vec::new(),
+        process_interruption_performed: None,
+        reopen_performed: None,
+        observed_error_code: None,
     }
 }
 
@@ -1398,6 +1402,7 @@ fn fake_adapter_represents_and_rejects_stale_scoped_precondition() {
     event.event_id = "ledger-event:004".to_string();
     event.sequence = 4;
     let command = AuthoritativeCommand::AppendCorrectionEvent {
+        command_operation_id: "00000000-0000-4000-8000-000000000001".to_string(),
         event,
         preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
             expected_event_id: Some(expected_head),
@@ -1444,6 +1449,7 @@ fn unrelated_state_change_does_not_invalidate_scoped_ledger_precondition() {
     fake.apply_authoritative_command(
         &handle,
         &AuthoritativeCommand::SelectActiveAnalysis {
+            command_operation_id: "00000000-0000-4000-8000-000000000002".to_string(),
             selection: ActiveAnalysisSelection {
                 analysis_result_id: alternate_analysis,
                 selection_event_id: "active-analysis-selection:002".to_string(),
@@ -1461,6 +1467,7 @@ fn unrelated_state_change_does_not_invalidate_scoped_ledger_precondition() {
     fake.apply_authoritative_command(
         &handle,
         &AuthoritativeCommand::AppendCorrectionEvent {
+            command_operation_id: "00000000-0000-4000-8000-000000000003".to_string(),
             event,
             preconditions: vec![SemanticPrecondition::ReviewLedgerHead {
                 expected_event_id: Some(expected_head),

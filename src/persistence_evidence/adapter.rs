@@ -106,18 +106,22 @@ pub enum SemanticPrecondition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthoritativeCommand {
     AppendCorrectionEvent {
+        command_operation_id: String,
         event: ReviewLedgerEventState,
         preconditions: Vec<SemanticPrecondition>,
     },
     AttachAnalysisResult {
+        command_operation_id: String,
         analysis_result: AnalysisResultState,
         preconditions: Vec<SemanticPrecondition>,
     },
     SelectActiveAnalysis {
+        command_operation_id: String,
         selection: ActiveAnalysisSelection,
         preconditions: Vec<SemanticPrecondition>,
     },
     ExecuteCleanupPlan {
+        command_operation_id: String,
         plan_id: String,
         preconditions: Vec<SemanticPrecondition>,
     },
