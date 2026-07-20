@@ -237,3 +237,7 @@ This contract does **not** make the v0.2 loop operational. Reference validity, p
 `ReferenceSeal` is a typed, serializable protocol record for blind human reference ordering attestations and derived calibration-validity classification. It references `RunId` and `InputIdentityReference` from the run envelope but remains a separate contract.
 
 `ReferenceSealState::Sealed` means protocol record finalization only. It does not imply cryptographic signing, tamper-proof storage, or durable persistence. Blind eligibility is derived fail-closed from explicit independent attestations; coverage, joins, metrics, execution, and persistence remain deferred.
+
+## v0.2 Per-Cue Reference Coverage (Contract Foundation)
+
+`ReferenceCoverage` is a typed, serializable contract for the expected cue universe and one explicit reference disposition per cue. Absence of a record is not equivalent to `NoTranscriptionError`. Inventory completeness and primary-reference completeness are derived separately; neither means join complete or metrics-ready. Primary blind calibration coverage requires a sealed blind-reference-eligible seal and an envelope lifecycle of `ReferenceSealed`. The contract carries no transcript text, cue text, detector output, join keys, or metrics.
