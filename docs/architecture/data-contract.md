@@ -247,3 +247,11 @@ This contract does **not** make the v0.2 loop operational. Reference validity, p
 `ArtifactBundle` is a typed manifest for artifact descriptors bound to one run and input revision through shared context metadata and typed SHA-256 content references. Bundle manifests contain metadata only; they do not embed payload bytes, filenames, paths, transcript text, cue text, session terms, or detector output. Existing compare/evaluate artifacts remain provisional payloads outside this contract.
 
 Bundle completeness is structural inventory completeness and context consistency only. Context binding is not detector/reference semantic joining. A content digest binds bytes but does not prove correctness, privacy, semantic compatibility, provenance truth, payload validity, or join success. Semantic joining and metrics remain deferred.
+
+## v0.2 Human-Final Reference (Contract Foundation)
+
+`HumanFinalReference` is a typed, serializable **private** contract for human-final reference-error records bound to one sealed reference revision. Seal attestation and individual error records are separate contracts. Per-cue coverage and individual error records are separate: one cue may contain multiple distinct reference errors; no-error cues require coverage completion records but not fabricated error records.
+
+Reference surfaces (`original_surface`, `human_final_surface`) are private content-bearing data. Authorization to create or execute a reference does not authorize committing its surfaces. Join fields (`detector_case_id`, `match_disposition`, adjudication, metric contribution) are forbidden in sealed reference records. Correction of a sealed reference requires a new `ReferenceRevisionId`; this slice does not implement revision history.
+
+Recall eligibility is derived from `ReferenceClass::TranscriptionError` plus an accepted verification basis (`audio_listened` or `mixed_sources`). Transcript-context-only references are excluded from recall denominators. Original-surface equality is integrity/anchor material only and does not imply correction correctness. Byte anchors are not resolved against real transcript bytes in this contract. Join, adjudication, metrics, execution, and persistence remain deferred.

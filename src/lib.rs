@@ -6,6 +6,7 @@ pub mod calibration_join;
 pub mod candidate;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
+pub mod human_final_reference;
 pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
