@@ -1,67 +1,61 @@
+<!--
 Status: current
-Owns: Public project introduction, high-level current focus, implementation signal, and navigation to canonical documentation.
+Owns: Public project introduction, high-level current focus, implementation signal, navigation to canonical documentation.
 Does not own: Installation, technical stack details, benchmarks, detailed roadmap, or full product and architecture specifications.
-Last reviewed against code/evidence: the canonical exact and bounded ASCII-Latin phonetic evidence review loop now includes effective transcript/session-term/detector/config/algorithm analysis identity, nearby source context in review prompts, raw-versus-final comparison/change inventory for strict skeleton-compatible inputs, strict skeleton-compatible calibration correspondence evaluation (`vox-proof evaluate`, committed at `e21be2e`), and bounded ASCII-Latin phonetic similarity evidence (`ascii-latin-phonetic-similarity` v0.1.0); qualifying owner-operated FLEURS real-speech human review completed at repository HEAD `7efe8ba` with all ten MD-007 mechanism gates passing; v0.1 is established by MD-008 as a bounded core mechanism only; local annotated tag pending recreation; the experiment-only contextual retrieval/ranking sidecar exists; all implemented paths are covered by unit and CLI tests; product and external-user validation remain deferred beyond v0.1
+Last reviewed against code/evidence:
+- v0.1 bounded core: exact/phonetic review loop, compare/evaluate calibration, FLEURS human-review gates (MD-007)
+- Persistence Packages 2A–2D merged to main; mechanism selection remains none
+- v0.2 authoritative loop branch ready; implementation not started
+- Product and external-user validation remain deferred
+-->
 
 # VoxProof
 
-![Local-first](https://img.shields.io/badge/runtime-local--first-informational)
-![v0.2 architecture: draft](https://img.shields.io/badge/v0.2%20architecture-draft-yellow)
+[![Persistence CI](https://github.com/qwertyboy0325/vox-proof/actions/workflows/persistence-sqlite-windows.yml/badge.svg?branch=main)](https://github.com/qwertyboy0325/vox-proof/actions/workflows/persistence-sqlite-windows.yml)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Rust](https://img.shields.io/badge/Rust-2024-orange)
+![Runtime](https://img.shields.io/badge/runtime-local--first-informational)
 
-Local-first, evidence-backed transcript QA.
+**Local-first, evidence-backed transcript QA with deterministic review boundaries and explicit human authority.**
 
-VoxProof is a local-first, evidence-backed transcript QA tool for reviewing an existing transcript, initially SRT, with provisional session-scoped term input. It identifies high-risk transcript spans, presents bounded candidate corrections with evidence, and requires human review before producing a reviewed transcript.
+VoxProof reviews an existing transcript—initially SRT—with provisional session-scoped terminology. It surfaces bounded, evidence-backed candidate corrections, requires human decisions before any reviewed output, and keeps experimental sidecar results outside canonical authority.
 
-The authoritative review path remains deterministic and human-governed. An experiment-only sidecar can also retrieve bounded non-exact candidates from the current session terms and optionally rank them through a strict external-command interface. Experimental results are not canonical Evidence, ReviewCases, ReviewLedger decisions, or materialized edits.
+> VoxProof is under active development. Current evidence establishes bounded mechanisms and engineering behavior—not production readiness, product validation, filesystem durability, or hardware power-loss resilience.
 
-Optional audio, Domain Collections, policies, automation, and formal model-dependent product behavior remain future directions rather than current authoritative runtime contracts.
+## Project Status
+
+| Area | Status |
+|---|---|
+| Bounded v0.1 core | Established |
+| Authoritative review path | Deterministic and human-governed |
+| Main persistence CI | Passing on Windows GitHub Actions |
+| Persistence evidence | Packages 2A–2D merged; mechanism selection remains `none` |
+| v0.2 authoritative loop | Branch ready; implementation not started |
+| Product validation | Deferred |
 
 ## Current Focus
 
-VoxProof is currently under active development.
+VoxProof is completing the narrow text-first pain-point MVP while making each real run produce local calibration and evaluation artifacts:
 
-The current focus is completing the narrow text-first pain-point MVP while making each real run produce local calibration and evaluation artifacts:
-
-- local-first SRT transcript inspection
-- source-preserving transcript representation
-- usable session terms, glossary, and observed-error-form inputs
-- evidence-backed candidate review cases with provisional deterministic detectors
+- local-first SRT transcript inspection with source preservation
+- provisional session-scoped terms, glossary, and observed-error-form inputs
+- evidence-backed candidate review cases with deterministic detectors
 - reviewed SRT, decision log, correction profile, and local run metrics
 - raw-ASR-versus-human-final comparison for iterative calibration
-- real-material evaluation of bounded non-exact retrieval
-- measurement of candidate recall, contextual-ranking uplift, and false-positive burden
 - explicit Material Decisions before durable semantic changes
 
-Engineering completion and validation collection proceed in parallel. The first measured error distribution is expected to come from the first instrumented real-material run rather than block the remaining MVP work. This does not make synthetic tests or an engineering-complete prototype product-validation evidence.
+Engineering completion and validation collection proceed in parallel. An engineering-complete prototype is not product validation.
 
-Recent work:
+Recent work (capability groups):
 
-- Rust project bootstrap
-- strict SRT parsing and validation boundaries
-- source anchors and candidate spans
-- glossary-backed evidence model
-- v0.1 scope, non-goals, and data-contract documentation
-- Material Decision governance
-- stable `TranscriptRevisionId` decision and implementation
-- human review decisions and append-only review ledger
-- deterministic reviewed SRT derivation
-- decision log rendering
-- minimal facilitated CLI review flow
-- nearby source context in authoritative review prompts
-- raw-versus-final comparison/change inventory for strict skeleton-compatible inputs (`vox-proof compare`)
-- strict skeleton-compatible calibration correspondence evaluation for strict skeleton-compatible inputs (`vox-proof evaluate`, committed at `e21be2e`)
-- provisional session-scoped term / observed-form file input
-- human-readable session summary and minimum local run metrics
-- distinct exact alias and observed-error-form evidence paths
-- effective analysis identity for the canonical session-term detector set
-- bounded ASCII-Latin phonetic similarity evidence in the authoritative review pipeline
-- exploratory real-speech zero-candidate and reference-supported emitted-candidate mechanism paths for the bounded phonetic producer
-- exploratory calibration correspondence evaluate path on frozen public FLEURS material at `e21be2e`
-- phonetic-representation characterization covering Latin, Han, acronyms, symbols, and mixed-script limitations
-- experiment-only bounded Latin and Han-pinyin candidate retrieval
-- rules-only, deterministic-fake, and strict external-command contextual-ranking modes
-- versioned contextual-resolution sidecar with request-local candidate IDs
-- authority-preserving manual-correction markers with explicit alias-and-rerun guidance
+- **Deterministic SRT parsing and source preservation** — strict parsing, anchors, stable revision identity, source-preserving transcript model
+- **Evidence-backed candidate detection** — glossary, observed-error-form, and bounded ASCII-Latin phonetic paths; effective analysis identity
+- **Human review ledger and reviewed transcript derivation** — interactive CLI review, decision log, reviewed SRT, nearby source context in prompts
+- **Calibration comparison and evaluation** — `vox-proof compare` and `vox-proof evaluate` for strict skeleton-compatible inputs
+- **Bounded phonetic and contextual-retrieval experiments** — exploratory real-speech probes; experiment-only sidecar with non-authoritative ranking
+- **Persistence authority, recovery, and cross-platform evidence** — SQLite spike contracts, durability harness, bounded macOS / Windows-GHA evidence (selection `none`)
+
+See [documentation index](docs/README.md) and [v0.1 execution order](docs/product/v0.1-execution-order.md) for canonical detail.
 
 ## Current Implementation Status
 
@@ -95,7 +89,11 @@ Recent work:
 - [ ] Matching semantics v0
 - [ ] Eval harness
 - [x] Correction profile / session report artifact
-- [ ] Persistence
+- [x] Persistence authority and recovery contracts
+- [x] SQLite persistence mechanism and durability evidence harness
+- [x] Bounded macOS / Windows-GHA persistence evidence
+- [ ] Persistence mechanism selection
+- [ ] Product persistence integration
 
 ## What VoxProof Does
 
