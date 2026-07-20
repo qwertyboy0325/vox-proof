@@ -248,6 +248,10 @@ impl RunEnvelope {
     }
 }
 
+pub fn validate_opaque_identifier(value: &str) -> Result<(), RunIdError> {
+    validate_run_id_value(value)
+}
+
 fn validate_run_id_value(value: &str) -> Result<(), RunIdError> {
     if value.is_empty() {
         return Err(RunIdError::Empty);

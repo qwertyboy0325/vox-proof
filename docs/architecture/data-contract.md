@@ -231,3 +231,9 @@ Field-level schemas, persistence choices, and storage paths are intentionally un
 `RunEnvelope` is a typed, serializable contract foundation for the proposed v0.2 real-transcript authoritative loop. It carries non-path-based run and input identities, explicit evaluation-mode separation, input qualification metadata, lifecycle state, and expected artifact roles.
 
 This contract does **not** make the v0.2 loop operational. Reference validity, per-cue coverage, artifact joining, metric computation, transcript execution, CLI orchestration, and product persistence remain deferred to later slices.
+
+## v0.2 Blind Reference Seal (Contract Foundation)
+
+`ReferenceSeal` is a typed, serializable protocol record for blind human reference ordering attestations and derived calibration-validity classification. It references `RunId` and `InputIdentityReference` from the run envelope but remains a separate contract.
+
+`ReferenceSealState::Sealed` means protocol record finalization only. It does not imply cryptographic signing, tamper-proof storage, or durable persistence. Blind eligibility is derived fail-closed from explicit independent attestations; coverage, joins, metrics, execution, and persistence remain deferred.

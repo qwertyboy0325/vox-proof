@@ -8,6 +8,7 @@ pub mod experimental_retrieval;
 pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
+pub mod reference_seal;
 pub mod review;
 pub mod reviewed_output;
 pub mod run_manifest;
