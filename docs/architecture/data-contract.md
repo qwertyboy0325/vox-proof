@@ -241,3 +241,9 @@ This contract does **not** make the v0.2 loop operational. Reference validity, p
 ## v0.2 Per-Cue Reference Coverage (Contract Foundation)
 
 `ReferenceCoverage` is a typed, serializable contract for the expected cue universe and one explicit reference disposition per cue. Absence of a record is not equivalent to `NoTranscriptionError`. Inventory completeness and resolved reference status are structural, purpose-neutral concepts. Diagnostic and synthetic references may be complete and resolved while remaining categorically ineligible for primary blind calibration. Primary-calibration eligibility is a separate seal/envelope/purpose posture; completeness does not imply join completion or metrics eligibility. Primary blind calibration coverage requires a sealed blind-reference-eligible seal and an envelope lifecycle of `ReferenceSealed`. The contract carries no transcript text, cue text, detector output, join keys, or metrics.
+
+## v0.2 Artifact Bundle (Contract Foundation)
+
+`ArtifactBundle` is a typed manifest for artifact descriptors bound to one run and input revision through shared context metadata and typed SHA-256 content references. Bundle manifests contain metadata only; they do not embed payload bytes, filenames, paths, transcript text, cue text, session terms, or detector output. Existing compare/evaluate artifacts remain provisional payloads outside this contract.
+
+Bundle completeness is structural inventory completeness and context consistency only. Context binding is not detector/reference semantic joining. A content digest binds bytes but does not prove correctness, privacy, semantic compatibility, provenance truth, payload validity, or join success. Semantic joining and metrics remain deferred.

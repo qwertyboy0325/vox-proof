@@ -1,5 +1,6 @@
 pub mod analysis;
 pub mod anchor;
+pub mod artifact_bundle;
 pub mod calibration;
 pub mod calibration_join;
 pub mod candidate;
