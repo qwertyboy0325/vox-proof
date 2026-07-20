@@ -225,3 +225,9 @@ The following remain intentionally deferred by this review-unit and detection li
 - UI owns only transient interaction state such as selection and filters; playback position is a proposed future UI state, not current v0.1 behavior.
 
 Field-level schemas, persistence choices, and storage paths are intentionally unsettled until implementation work requires them.
+
+## v0.2 Run Envelope (Contract Foundation)
+
+`RunEnvelope` is a typed, serializable contract foundation for the proposed v0.2 real-transcript authoritative loop. It carries non-path-based run and input identities, explicit evaluation-mode separation, input qualification metadata, lifecycle state, and expected artifact roles.
+
+This contract does **not** make the v0.2 loop operational. Reference validity, per-cue coverage, artifact joining, metric computation, transcript execution, CLI orchestration, and product persistence remain deferred to later slices.
