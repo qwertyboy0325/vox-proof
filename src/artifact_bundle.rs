@@ -196,6 +196,9 @@ pub enum ArtifactBundleValidationError {
     HumanReferenceRecordMismatch,
     HumanReferenceValidation(HumanFinalReferenceValidationError),
     CoverageWithoutSealInInventory,
+    ReferenceContextLifecycleIncompatible {
+        lifecycle_state: RunLifecycleState,
+    },
 }
 
 impl ArtifactBundleId {
@@ -449,10 +452,24 @@ impl ArtifactBundle {
 
         validate_role_specific_context(self, seal, coverage, human_reference)?;
 
+        let reference_validation_mode =
+            if seal.is_some() || coverage.is_some() || human_reference.is_some() {
+                Some(reference_context_validation_mode(envelope.lifecycle_state)?)
+            } else {
+                None
+            };
+
         if let Some(seal_record) = seal {
-            seal_record
-                .validate_with_envelope(envelope)
-                .map_err(ArtifactBundleValidationError::SealValidation)?;
+            match reference_validation_mode
+                .expect("reference validation mode required when seal supplied")
+            {
+                ReferenceContextValidationMode::CreationTime => seal_record
+                    .validate_with_envelope(envelope)
+                    .map_err(ArtifactBundleValidationError::SealValidation)?,
+                ReferenceContextValidationMode::HistoricalContext => seal_record
+                    .validate_historical_context(envelope)
+                    .map_err(ArtifactBundleValidationError::SealValidation)?,
+            }
             if seal_record.run_id != self.binding_context.run_id
                 || seal_record.input_identity != self.binding_context.input_identity
             {
@@ -492,9 +509,16 @@ impl ArtifactBundle {
             }
 
             if let Some(seal_record) = seal {
-                coverage_record
-                    .validate_against(envelope, seal_record, human_reference)
-                    .map_err(ArtifactBundleValidationError::CoverageValidation)?;
+                match reference_validation_mode
+                    .expect("reference validation mode required when coverage and seal supplied")
+                {
+                    ReferenceContextValidationMode::CreationTime => coverage_record
+                        .validate_against(envelope, seal_record, human_reference)
+                        .map_err(ArtifactBundleValidationError::CoverageValidation)?,
+                    ReferenceContextValidationMode::HistoricalContext => coverage_record
+                        .validate_historical_context(envelope, seal_record, human_reference)
+                        .map_err(ArtifactBundleValidationError::CoverageValidation)?,
+                }
             } else if coverage_record.coverage_state == ReferenceCoverageState::Complete {
                 return Err(ArtifactBundleValidationError::CoverageContextMissing);
             }
@@ -521,13 +545,44 @@ impl ArtifactBundle {
             }
 
             if let Some(seal_record) = seal {
-                human_reference_record
-                    .validate_against(envelope, seal_record)
-                    .map_err(ArtifactBundleValidationError::HumanReferenceValidation)?;
+                match reference_validation_mode.expect(
+                    "reference validation mode required when human reference and seal supplied",
+                ) {
+                    ReferenceContextValidationMode::CreationTime => human_reference_record
+                        .validate_against(envelope, seal_record)
+                        .map_err(ArtifactBundleValidationError::HumanReferenceValidation)?,
+                    ReferenceContextValidationMode::HistoricalContext => human_reference_record
+                        .validate_historical_context(envelope, seal_record)
+                        .map_err(ArtifactBundleValidationError::HumanReferenceValidation)?,
+                }
             }
         }
 
         Ok(())
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ReferenceContextValidationMode {
+    CreationTime,
+    HistoricalContext,
+}
+
+fn reference_context_validation_mode(
+    lifecycle_state: RunLifecycleState,
+) -> Result<ReferenceContextValidationMode, ArtifactBundleValidationError> {
+    match lifecycle_state {
+        RunLifecycleState::ReferencePreparation | RunLifecycleState::ReferenceSealed => {
+            Ok(ReferenceContextValidationMode::CreationTime)
+        }
+        RunLifecycleState::DetectorExecution
+        | RunLifecycleState::AssistedReview
+        | RunLifecycleState::Finalized => Ok(ReferenceContextValidationMode::HistoricalContext),
+        RunLifecycleState::Declared | RunLifecycleState::Invalidated => Err(
+            ArtifactBundleValidationError::ReferenceContextLifecycleIncompatible {
+                lifecycle_state,
+            },
+        ),
     }
 }
 

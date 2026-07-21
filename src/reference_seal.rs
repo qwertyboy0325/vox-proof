@@ -111,6 +111,12 @@ pub enum ReferenceSealValidationError {
     EnvelopeLifecycleIncompatible {
         lifecycle_state: RunLifecycleState,
     },
+    HistoricalEnvelopeLifecycleIncompatible {
+        lifecycle_state: RunLifecycleState,
+    },
+    SealStateIncompatible {
+        seal_state: ReferenceSealState,
+    },
     EnvelopeValidation(RunEnvelopeValidationError),
 }
 
@@ -120,6 +126,7 @@ pub enum ReferenceSealEnvelopeConsistencyError {
     InputIdentityMismatch,
     EnvelopeNotBlindReference,
     EnvelopeLifecycleIncompatible { lifecycle_state: RunLifecycleState },
+    HistoricalEnvelopeLifecycleIncompatible { lifecycle_state: RunLifecycleState },
     EnvelopeValidation(RunEnvelopeValidationError),
 }
 
@@ -280,9 +287,43 @@ impl ReferenceSeal {
             return Err(ReferenceSealEnvelopeConsistencyError::EnvelopeNotBlindReference);
         }
 
-        if !is_envelope_lifecycle_compatible(envelope.lifecycle_state) {
+        if !is_creation_envelope_lifecycle_compatible(envelope.lifecycle_state) {
             return Err(
                 ReferenceSealEnvelopeConsistencyError::EnvelopeLifecycleIncompatible {
+                    lifecycle_state: envelope.lifecycle_state,
+                },
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_historical_against_run_envelope(
+        &self,
+        envelope: &RunEnvelope,
+    ) -> Result<(), ReferenceSealEnvelopeConsistencyError> {
+        envelope
+            .validate()
+            .map_err(ReferenceSealEnvelopeConsistencyError::EnvelopeValidation)?;
+
+        if self.run_id != envelope.run_id {
+            return Err(ReferenceSealEnvelopeConsistencyError::RunIdMismatch {
+                seal: self.run_id.clone(),
+                envelope: envelope.run_id.clone(),
+            });
+        }
+
+        if self.input_identity != envelope.input_identity {
+            return Err(ReferenceSealEnvelopeConsistencyError::InputIdentityMismatch);
+        }
+
+        if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
+            return Err(ReferenceSealEnvelopeConsistencyError::EnvelopeNotBlindReference);
+        }
+
+        if !is_historical_envelope_lifecycle_compatible(envelope.lifecycle_state) {
+            return Err(
+                ReferenceSealEnvelopeConsistencyError::HistoricalEnvelopeLifecycleIncompatible {
                     lifecycle_state: envelope.lifecycle_state,
                 },
             );
@@ -297,6 +338,23 @@ impl ReferenceSeal {
     ) -> Result<(), ReferenceSealValidationError> {
         self.validate()?;
         self.validate_against_run_envelope(envelope)
+            .map_err(map_envelope_consistency_error)?;
+        Ok(())
+    }
+
+    pub fn validate_historical_context(
+        &self,
+        envelope: &RunEnvelope,
+    ) -> Result<(), ReferenceSealValidationError> {
+        self.validate()?;
+
+        if self.seal_state != ReferenceSealState::Sealed {
+            return Err(ReferenceSealValidationError::SealStateIncompatible {
+                seal_state: self.seal_state,
+            });
+        }
+
+        self.validate_historical_against_run_envelope(envelope)
             .map_err(map_envelope_consistency_error)?;
         Ok(())
     }
@@ -319,10 +377,20 @@ fn is_detector_contaminated(seal: &ReferenceSeal) -> bool {
         || seal.producer_class == ReferenceProducerClass::HumanDetectorAssistedReviewer
 }
 
-fn is_envelope_lifecycle_compatible(lifecycle_state: RunLifecycleState) -> bool {
+fn is_creation_envelope_lifecycle_compatible(lifecycle_state: RunLifecycleState) -> bool {
     matches!(
         lifecycle_state,
         RunLifecycleState::ReferencePreparation | RunLifecycleState::ReferenceSealed
+    )
+}
+
+fn is_historical_envelope_lifecycle_compatible(lifecycle_state: RunLifecycleState) -> bool {
+    matches!(
+        lifecycle_state,
+        RunLifecycleState::ReferenceSealed
+            | RunLifecycleState::DetectorExecution
+            | RunLifecycleState::AssistedReview
+            | RunLifecycleState::Finalized
     )
 }
 
@@ -361,6 +429,11 @@ fn map_envelope_consistency_error(
         ReferenceSealEnvelopeConsistencyError::EnvelopeLifecycleIncompatible {
             lifecycle_state,
         } => ReferenceSealValidationError::EnvelopeLifecycleIncompatible { lifecycle_state },
+        ReferenceSealEnvelopeConsistencyError::HistoricalEnvelopeLifecycleIncompatible {
+            lifecycle_state,
+        } => ReferenceSealValidationError::HistoricalEnvelopeLifecycleIncompatible {
+            lifecycle_state,
+        },
         ReferenceSealEnvelopeConsistencyError::EnvelopeValidation(error) => {
             ReferenceSealValidationError::EnvelopeValidation(error)
         }

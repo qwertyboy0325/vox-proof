@@ -1629,3 +1629,125 @@ fn caller_cannot_force_assessment_fields() {
         Err(DetectorProposalSnapshotValidationError::AssessmentMismatch { .. })
     ));
 }
+
+#[test]
+fn historical_reference_stack_and_frozen_snapshot_coexist_without_join() {
+    use vox_proof::human_final_reference::{
+        HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState,
+    };
+    use vox_proof::reference_coverage::{
+        CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
+        ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
+        ReferenceCueDisposition,
+    };
+    use vox_proof::reference_identity::ReferenceReviewerIdentityClass;
+    use vox_proof::reference_identity::{
+        CueSourceTextDigest, ReferenceRevisionId, VerificationBasis,
+    };
+    use vox_proof::reference_seal::{
+        CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
+        ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
+    };
+
+    const REFERENCE_REVISION: &str = "ref-rev-coexist";
+
+    let envelope = lifecycle_envelope(
+        CalibrationValidityMode::BlindReference,
+        RunLifecycleState::DetectorExecution,
+    );
+
+    let seal = ReferenceSeal {
+        schema_revision: REFERENCE_SEAL_SCHEMA.to_string(),
+        seal_id: ReferenceSealId::new("seal-coexist").expect("seal id"),
+        run_id: envelope.run_id.clone(),
+        input_identity: envelope.input_identity.clone(),
+        reference_revision: ReferenceRevisionId::new(REFERENCE_REVISION).expect("revision id"),
+        producer_class: ReferenceProducerClass::HumanBlindReviewer,
+        reference_created_before_detector_run: true,
+        prior_detector_run_on_same_input: false,
+        prior_knowledge_of_detector_targets: false,
+        session_terms_visible_during_reference: false,
+        external_notes_encode_detector_targets: false,
+        seal_state: ReferenceSealState::Sealed,
+        calibration_classification: ReferenceCalibrationValidity::BlindReferenceEligible,
+        calibration_validity_impact: CalibrationValidityImpact::None,
+    };
+
+    let expected = ExpectedCueUniverse {
+        total_cues: 1,
+        cue_ids: vec![CueReferenceId::new(1).expect("cue id")],
+    };
+    let records = vec![CueReviewCompletionRecord {
+        cue_id: CueReferenceId::new(1).expect("cue id"),
+        segment_position: 0,
+        source_text_digest: CueSourceTextDigest::new(SAMPLE_DIGEST).expect("digest"),
+        disposition: ReferenceCueDisposition::NoTranscriptionError,
+        fully_reviewed: true,
+        all_known_transcription_errors_enumerated: true,
+        verification_source_used: VerificationBasis::AudioListened,
+        reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+        completed_at_unix_ms: 1_700_000_000_000,
+    }];
+    let mut assessment =
+        ReferenceCoverage::derive_assessment(&expected, &records).expect("derive coverage");
+    assessment.total_eligible_transcription_errors = 0;
+    let coverage = ReferenceCoverage {
+        schema_revision: REFERENCE_COVERAGE_SCHEMA.to_string(),
+        coverage_id: ReferenceCoverageId::new("coverage-coexist").expect("coverage id"),
+        run_id: envelope.run_id.clone(),
+        input_identity: envelope.input_identity.clone(),
+        seal_id: seal.seal_id.clone(),
+        reference_revision: seal.reference_revision.clone(),
+        coverage_purpose: ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        expected_universe: expected,
+        records,
+        coverage_state: ReferenceCoverageState::Complete,
+        assessment,
+    };
+
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: envelope.run_id.clone(),
+        input_identity: envelope.input_identity.clone(),
+        seal_id: seal.seal_id.clone(),
+        reference_revision: seal.reference_revision.clone(),
+        records: vec![],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &seal.reference_revision,
+            &seal.input_identity,
+            &[],
+        )
+        .expect("derive assessment"),
+    };
+
+    let snapshot = build_snapshot(
+        vec![],
+        DetectorProposalSnapshotState::Frozen,
+        1_700_000_000_000,
+        CalibrationValidityMode::BlindReference,
+    );
+
+    seal.validate_historical_context(&envelope)
+        .expect("historical seal context");
+    coverage
+        .validate_historical_context(&envelope, &seal, Some(&human_reference))
+        .expect("historical coverage context");
+    human_reference
+        .validate_historical_context(&envelope, &seal)
+        .expect("historical human reference context");
+    snapshot
+        .validate_context_against(&envelope)
+        .expect("historical detector snapshot context");
+
+    let mut assisted_review = envelope.clone();
+    assisted_review.lifecycle_state = RunLifecycleState::AssistedReview;
+    seal.validate_historical_context(&assisted_review)
+        .expect("historical seal at assisted review");
+    coverage
+        .validate_historical_context(&assisted_review, &seal, Some(&human_reference))
+        .expect("historical coverage at assisted review");
+    snapshot
+        .validate_context_against(&assisted_review)
+        .expect("historical snapshot at assisted review");
+}

@@ -539,3 +539,94 @@ fn generated_seal_id_is_valid_opaque_identifier() {
     assert!(generated.as_str().starts_with("seal-"));
     assert!(generated.as_str().len() <= 128);
 }
+
+fn sealed_blind_seal() -> ReferenceSeal {
+    let mut seal = seal_with_attestations(
+        ReferenceProducerClass::HumanBlindReviewer,
+        true,
+        false,
+        false,
+        false,
+        false,
+    );
+    seal.seal_state = ReferenceSealState::Sealed;
+    seal
+}
+
+#[test]
+fn creation_validator_rejects_detector_execution_lifecycle() {
+    let seal = sealed_blind_seal();
+    let envelope = blind_envelope(RunLifecycleState::DetectorExecution);
+
+    assert!(matches!(
+        seal.validate_with_envelope(&envelope),
+        Err(ReferenceSealValidationError::EnvelopeLifecycleIncompatible { .. })
+    ));
+}
+
+#[test]
+fn historical_validator_accepts_sealed_reference_lifecycle_states() {
+    let seal = sealed_blind_seal();
+
+    for lifecycle_state in [
+        RunLifecycleState::ReferenceSealed,
+        RunLifecycleState::DetectorExecution,
+        RunLifecycleState::AssistedReview,
+        RunLifecycleState::Finalized,
+    ] {
+        seal.validate_historical_context(&blind_envelope(lifecycle_state))
+            .unwrap_or_else(|error| {
+                panic!("historical validation must pass at {lifecycle_state:?}: {error:?}")
+            });
+    }
+}
+
+#[test]
+fn historical_validator_rejects_pre_sealing_and_invalidated_states() {
+    let seal = sealed_blind_seal();
+
+    for lifecycle_state in [
+        RunLifecycleState::Declared,
+        RunLifecycleState::ReferencePreparation,
+        RunLifecycleState::Invalidated,
+    ] {
+        assert!(matches!(
+            seal.validate_historical_context(&blind_envelope(lifecycle_state)),
+            Err(ReferenceSealValidationError::HistoricalEnvelopeLifecycleIncompatible { .. })
+        ));
+    }
+}
+
+#[test]
+fn draft_seal_fails_historical_validation() {
+    let seal = seal_with_attestations(
+        ReferenceProducerClass::HumanBlindReviewer,
+        true,
+        false,
+        false,
+        false,
+        false,
+    );
+    let envelope = blind_envelope(RunLifecycleState::DetectorExecution);
+
+    assert!(matches!(
+        seal.validate_historical_context(&envelope),
+        Err(ReferenceSealValidationError::SealStateIncompatible { .. })
+    ));
+}
+
+#[test]
+fn malformed_seal_fails_creation_and_historical_validation() {
+    let mut seal = sealed_blind_seal();
+    seal.calibration_classification = ReferenceCalibrationValidity::DetectorContaminated;
+    let envelope = blind_envelope(RunLifecycleState::ReferenceSealed);
+
+    assert!(matches!(
+        seal.validate_with_envelope(&envelope),
+        Err(ReferenceSealValidationError::ClassificationMismatch { .. })
+    ));
+    assert!(matches!(
+        seal.validate_historical_context(&envelope),
+        Err(ReferenceSealValidationError::ClassificationMismatch { .. })
+    ));
+}

@@ -710,6 +710,93 @@ fn detector_execution_lifecycle_rejects_retroactive_coverage() {
 }
 
 #[test]
+fn historical_primary_coverage_passes_at_later_active_lifecycle_states() {
+    let (mut envelope, seal, coverage, human_reference) = valid_primary_attachment();
+
+    for lifecycle_state in [
+        RunLifecycleState::DetectorExecution,
+        RunLifecycleState::AssistedReview,
+        RunLifecycleState::Finalized,
+    ] {
+        envelope.lifecycle_state = lifecycle_state;
+        coverage
+            .validate_historical_context(&envelope, &seal, Some(&human_reference))
+            .unwrap_or_else(|error| {
+                panic!("historical primary coverage must pass at {lifecycle_state:?}: {error:?}")
+            });
+    }
+}
+
+#[test]
+fn historical_primary_coverage_requires_sealed_human_reference() {
+    let (mut envelope, seal, coverage, _) = valid_primary_attachment();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+
+    assert!(matches!(
+        coverage.validate_historical_context(&envelope, &seal, None),
+        Err(ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage)
+    ));
+}
+
+#[test]
+fn draft_human_reference_fails_before_historical_alignment() {
+    let (mut envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    human_reference.state = HumanFinalReferenceState::Draft;
+
+    assert_human_reference_validation_failure(
+        coverage.validate_historical_context(&envelope, &seal, Some(&human_reference)),
+        HumanFinalReferenceValidationError::ReferenceStateMismatch {
+            state: HumanFinalReferenceState::Draft,
+            assessment: Box::new(human_reference.assessment.clone()),
+        },
+    );
+}
+
+#[test]
+fn incomplete_coverage_fails_historical_primary_validation() {
+    let (mut envelope, seal, mut coverage, human_reference) = valid_primary_attachment();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    coverage.coverage_state = ReferenceCoverageState::Draft;
+
+    assert!(matches!(
+        coverage.validate_historical_context(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
+    ));
+}
+
+#[test]
+fn historical_primary_coverage_rejects_contaminated_seal() {
+    let (mut envelope, mut seal, coverage, human_reference) = valid_primary_attachment();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    seal.calibration_classification = ReferenceCalibrationValidity::DetectorContaminated;
+    seal.calibration_validity_impact = CalibrationValidityImpact::ExcludedFromPrimaryMetrics;
+    seal.prior_detector_run_on_same_input = true;
+
+    assert!(matches!(
+        coverage.validate_historical_context(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::SealClassificationIncompatible { .. })
+    ));
+}
+
+#[test]
+fn historical_validator_rejects_reference_preparation_and_invalidated() {
+    let (mut envelope, seal, coverage, human_reference) = valid_primary_attachment();
+
+    for lifecycle_state in [
+        RunLifecycleState::Declared,
+        RunLifecycleState::ReferencePreparation,
+        RunLifecycleState::Invalidated,
+    ] {
+        envelope.lifecycle_state = lifecycle_state;
+        assert!(matches!(
+            coverage.validate_historical_context(&envelope, &seal, Some(&human_reference)),
+            Err(ReferenceCoverageValidationError::HistoricalEnvelopeLifecycleIncompatible { .. })
+        ));
+    }
+}
+
+#[test]
 fn mismatched_run_id_fails_attachment() {
     let (envelope, seal) = primary_posture();
     let coverage = build_coverage(

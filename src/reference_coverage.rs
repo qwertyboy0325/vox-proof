@@ -190,6 +190,9 @@ pub enum ReferenceCoverageValidationError {
     EnvelopeLifecycleIncompatible {
         lifecycle_state: RunLifecycleState,
     },
+    HistoricalEnvelopeLifecycleIncompatible {
+        lifecycle_state: RunLifecycleState,
+    },
     SealStateIncompatible {
         seal_state: ReferenceSealState,
     },
@@ -479,64 +482,172 @@ impl ReferenceCoverage {
     ) -> Result<(), ReferenceCoverageValidationError> {
         self.validate()?;
 
-        envelope
-            .validate()
-            .map_err(ReferenceCoverageValidationError::EnvelopeValidation)?;
+        validate_coverage_identity_binding(self, envelope, seal)?;
 
-        seal.validate()
-            .map_err(ReferenceCoverageValidationError::SealValidation)?;
+        validate_creation_attachment_for_purpose(self, envelope, seal)?;
 
-        if self.run_id != envelope.run_id || self.run_id != seal.run_id {
-            return Err(ReferenceCoverageValidationError::RunIdMismatch);
-        }
+        validate_coverage_human_reference_alignment(
+            self,
+            envelope,
+            seal,
+            human_reference,
+            HumanReferenceValidationMode::CreationTime,
+        )
+    }
 
-        if self.input_identity != envelope.input_identity
-            || self.input_identity != seal.input_identity
-        {
-            return Err(ReferenceCoverageValidationError::InputIdentityMismatch);
-        }
+    pub fn validate_historical_context(
+        &self,
+        envelope: &RunEnvelope,
+        seal: &ReferenceSeal,
+        human_reference: Option<&HumanFinalReference>,
+    ) -> Result<(), ReferenceCoverageValidationError> {
+        self.validate()?;
 
-        if self.seal_id != seal.seal_id {
-            return Err(ReferenceCoverageValidationError::SealIdMismatch);
-        }
+        validate_coverage_identity_binding(self, envelope, seal)?;
 
-        if self.reference_revision != seal.reference_revision {
-            return Err(ReferenceCoverageValidationError::ReferenceRevisionMismatch);
-        }
+        validate_historical_attachment_for_purpose(self, envelope, seal)?;
 
-        if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
-            return Err(ReferenceCoverageValidationError::EnvelopeNotBlindReference);
-        }
+        validate_coverage_human_reference_alignment(
+            self,
+            envelope,
+            seal,
+            human_reference,
+            HumanReferenceValidationMode::HistoricalContext,
+        )
+    }
+}
 
-        validate_attachment_for_purpose(self, envelope, seal)?;
+enum HumanReferenceValidationMode {
+    CreationTime,
+    HistoricalContext,
+}
 
-        if self.coverage_state == ReferenceCoverageState::Complete
-            && self.coverage_purpose == ReferenceCoveragePurpose::PrimaryBlindCalibration
-            && human_reference.is_none()
-        {
-            return Err(
-                ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage,
-            );
-        }
+fn validate_coverage_identity_binding(
+    coverage: &ReferenceCoverage,
+    envelope: &RunEnvelope,
+    seal: &ReferenceSeal,
+) -> Result<(), ReferenceCoverageValidationError> {
+    envelope
+        .validate()
+        .map_err(ReferenceCoverageValidationError::EnvelopeValidation)?;
 
-        if let Some(human_reference) = human_reference {
-            human_reference
+    seal.validate()
+        .map_err(ReferenceCoverageValidationError::SealValidation)?;
+
+    if coverage.run_id != envelope.run_id || coverage.run_id != seal.run_id {
+        return Err(ReferenceCoverageValidationError::RunIdMismatch);
+    }
+
+    if coverage.input_identity != envelope.input_identity
+        || coverage.input_identity != seal.input_identity
+    {
+        return Err(ReferenceCoverageValidationError::InputIdentityMismatch);
+    }
+
+    if coverage.seal_id != seal.seal_id {
+        return Err(ReferenceCoverageValidationError::SealIdMismatch);
+    }
+
+    if coverage.reference_revision != seal.reference_revision {
+        return Err(ReferenceCoverageValidationError::ReferenceRevisionMismatch);
+    }
+
+    if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
+        return Err(ReferenceCoverageValidationError::EnvelopeNotBlindReference);
+    }
+
+    Ok(())
+}
+
+fn validate_coverage_human_reference_alignment(
+    coverage: &ReferenceCoverage,
+    envelope: &RunEnvelope,
+    seal: &ReferenceSeal,
+    human_reference: Option<&HumanFinalReference>,
+    mode: HumanReferenceValidationMode,
+) -> Result<(), ReferenceCoverageValidationError> {
+    if coverage.coverage_state == ReferenceCoverageState::Complete
+        && coverage.coverage_purpose == ReferenceCoveragePurpose::PrimaryBlindCalibration
+        && human_reference.is_none()
+    {
+        return Err(ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage);
+    }
+
+    if let Some(human_reference) = human_reference {
+        match mode {
+            HumanReferenceValidationMode::CreationTime => human_reference
                 .validate_against(envelope, seal)
                 .map_err(|error| {
                     ReferenceCoverageValidationError::HumanReferenceValidation(Box::new(error))
-                })?;
-            validate_coverage_against_human_reference(self, human_reference)?;
-        } else if self.assessment.total_eligible_transcription_errors != 0 {
-            return Err(
-                ReferenceCoverageValidationError::EligibleTranscriptionErrorCountMismatch {
-                    stored: self.assessment.total_eligible_transcription_errors,
-                    derived: 0,
-                },
-            );
+                })?,
+            HumanReferenceValidationMode::HistoricalContext => human_reference
+                .validate_historical_context(envelope, seal)
+                .map_err(|error| {
+                    ReferenceCoverageValidationError::HumanReferenceValidation(Box::new(error))
+                })?,
         }
-
-        Ok(())
+        validate_coverage_against_human_reference(coverage, human_reference)?;
+    } else if coverage.assessment.total_eligible_transcription_errors != 0 {
+        return Err(
+            ReferenceCoverageValidationError::EligibleTranscriptionErrorCountMismatch {
+                stored: coverage.assessment.total_eligible_transcription_errors,
+                derived: 0,
+            },
+        );
     }
+
+    Ok(())
+}
+
+fn is_historical_reference_lifecycle(lifecycle_state: RunLifecycleState) -> bool {
+    matches!(
+        lifecycle_state,
+        RunLifecycleState::ReferenceSealed
+            | RunLifecycleState::DetectorExecution
+            | RunLifecycleState::AssistedReview
+            | RunLifecycleState::Finalized
+    )
+}
+
+fn validate_sealed_posture_for_attachment(
+    seal: &ReferenceSeal,
+) -> Result<(), ReferenceCoverageValidationError> {
+    if seal.seal_state != ReferenceSealState::Sealed {
+        return Err(ReferenceCoverageValidationError::SealStateIncompatible {
+            seal_state: seal.seal_state,
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_primary_attachment_posture(
+    coverage: &ReferenceCoverage,
+    seal: &ReferenceSeal,
+) -> Result<(), ReferenceCoverageValidationError> {
+    if coverage.coverage_state != ReferenceCoverageState::Complete {
+        return Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState);
+    }
+
+    if seal.calibration_classification != ReferenceCalibrationValidity::BlindReferenceEligible {
+        return Err(
+            ReferenceCoverageValidationError::SealClassificationIncompatible {
+                purpose: coverage.coverage_purpose,
+                classification: seal.calibration_classification,
+            },
+        );
+    }
+
+    if seal.calibration_validity_impact != CalibrationValidityImpact::None {
+        return Err(
+            ReferenceCoverageValidationError::SealValidityImpactIncompatible {
+                purpose: coverage.coverage_purpose,
+                impact: seal.calibration_validity_impact,
+            },
+        );
+    }
+
+    Ok(())
 }
 
 fn assessment_without_eligible_count(
@@ -547,49 +658,21 @@ fn assessment_without_eligible_count(
     normalized
 }
 
-fn validate_attachment_for_purpose(
+fn validate_creation_attachment_for_purpose(
     coverage: &ReferenceCoverage,
     envelope: &RunEnvelope,
     seal: &ReferenceSeal,
 ) -> Result<(), ReferenceCoverageValidationError> {
-    if seal.seal_state != ReferenceSealState::Sealed {
-        return Err(ReferenceCoverageValidationError::SealStateIncompatible {
-            seal_state: seal.seal_state,
-        });
-    }
+    validate_sealed_posture_for_attachment(seal)?;
 
     match coverage.coverage_purpose {
         ReferenceCoveragePurpose::PrimaryBlindCalibration => {
-            if coverage.coverage_state != ReferenceCoverageState::Complete {
-                return Err(
-                    ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState,
-                );
-            }
+            validate_primary_attachment_posture(coverage, seal)?;
 
             if envelope.lifecycle_state != RunLifecycleState::ReferenceSealed {
                 return Err(
                     ReferenceCoverageValidationError::EnvelopeLifecycleIncompatible {
                         lifecycle_state: envelope.lifecycle_state,
-                    },
-                );
-            }
-
-            if seal.calibration_classification
-                != ReferenceCalibrationValidity::BlindReferenceEligible
-            {
-                return Err(
-                    ReferenceCoverageValidationError::SealClassificationIncompatible {
-                        purpose: coverage.coverage_purpose,
-                        classification: seal.calibration_classification,
-                    },
-                );
-            }
-
-            if seal.calibration_validity_impact != CalibrationValidityImpact::None {
-                return Err(
-                    ReferenceCoverageValidationError::SealValidityImpactIncompatible {
-                        purpose: coverage.coverage_purpose,
-                        impact: seal.calibration_validity_impact,
                     },
                 );
             }
@@ -658,6 +741,57 @@ fn validate_attachment_for_purpose(
                 lifecycle_state: envelope.lifecycle_state,
             },
         );
+    }
+
+    Ok(())
+}
+
+fn validate_historical_attachment_for_purpose(
+    coverage: &ReferenceCoverage,
+    envelope: &RunEnvelope,
+    seal: &ReferenceSeal,
+) -> Result<(), ReferenceCoverageValidationError> {
+    validate_sealed_posture_for_attachment(seal)?;
+
+    if !is_historical_reference_lifecycle(envelope.lifecycle_state) {
+        return Err(
+            ReferenceCoverageValidationError::HistoricalEnvelopeLifecycleIncompatible {
+                lifecycle_state: envelope.lifecycle_state,
+            },
+        );
+    }
+
+    match coverage.coverage_purpose {
+        ReferenceCoveragePurpose::PrimaryBlindCalibration => {
+            validate_primary_attachment_posture(coverage, seal)?;
+        }
+        ReferenceCoveragePurpose::DiagnosticOnly => {
+            if !matches!(
+                seal.calibration_classification,
+                ReferenceCalibrationValidity::TermConditionedDiagnostic
+                    | ReferenceCalibrationValidity::DetectorContaminated
+                    | ReferenceCalibrationValidity::Invalid
+            ) {
+                return Err(
+                    ReferenceCoverageValidationError::SealClassificationIncompatible {
+                        purpose: coverage.coverage_purpose,
+                        classification: seal.calibration_classification,
+                    },
+                );
+            }
+        }
+        ReferenceCoveragePurpose::SyntheticProtocolValidation => {
+            if seal.calibration_classification
+                != ReferenceCalibrationValidity::SyntheticProtocolOnly
+            {
+                return Err(
+                    ReferenceCoverageValidationError::SealClassificationIncompatible {
+                        purpose: coverage.coverage_purpose,
+                        classification: seal.calibration_classification,
+                    },
+                );
+            }
+        }
     }
 
     Ok(())

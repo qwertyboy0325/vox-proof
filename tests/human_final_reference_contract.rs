@@ -627,6 +627,131 @@ fn non_reference_sealed_lifecycle_fails() {
     ));
 }
 
+fn sealed_reference_stack() -> (HumanFinalReference, RunEnvelope, ReferenceSeal) {
+    let records = vec![record(
+        "ref-err-001",
+        1,
+        0,
+        0,
+        4,
+        "wrng",
+        "wrong",
+        ReferenceClass::TranscriptionError,
+        VerificationBasis::AudioListened,
+    )];
+    let reference = build_reference(records, HumanFinalReferenceState::Sealed);
+    let (envelope, seal) = primary_posture();
+    (reference, envelope, seal)
+}
+
+#[test]
+fn creation_validator_rejects_detector_execution_lifecycle() {
+    let (reference, mut envelope, seal) = sealed_reference_stack();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+
+    assert!(matches!(
+        reference.validate_against(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::EnvelopeLifecycleIncompatible { .. })
+    ));
+}
+
+#[test]
+fn historical_validator_accepts_later_active_lifecycle_states() {
+    let (reference, mut envelope, seal) = sealed_reference_stack();
+
+    for lifecycle_state in [
+        RunLifecycleState::DetectorExecution,
+        RunLifecycleState::AssistedReview,
+        RunLifecycleState::Finalized,
+    ] {
+        envelope.lifecycle_state = lifecycle_state;
+        reference
+            .validate_historical_context(&envelope, &seal)
+            .unwrap_or_else(|error| {
+                panic!("historical validation must pass at {lifecycle_state:?}: {error:?}")
+            });
+    }
+}
+
+#[test]
+fn historical_validator_rejects_reference_preparation_and_invalidated() {
+    let (reference, mut envelope, seal) = sealed_reference_stack();
+
+    for lifecycle_state in [
+        RunLifecycleState::Declared,
+        RunLifecycleState::ReferencePreparation,
+        RunLifecycleState::Invalidated,
+    ] {
+        envelope.lifecycle_state = lifecycle_state;
+        assert!(matches!(
+            reference.validate_historical_context(&envelope, &seal),
+            Err(HumanFinalReferenceValidationError::HistoricalEnvelopeLifecycleIncompatible { .. })
+        ));
+    }
+}
+
+#[test]
+fn draft_reference_fails_historical_validation() {
+    let (mut reference, envelope, seal) = sealed_reference_stack();
+    reference.state = HumanFinalReferenceState::Draft;
+
+    assert!(matches!(
+        reference.validate_historical_context(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::ReferenceStateMismatch { .. })
+    ));
+}
+
+#[test]
+fn draft_seal_fails_historical_reference_validation() {
+    let (reference, envelope, mut seal) = sealed_reference_stack();
+    seal.seal_state = ReferenceSealState::Draft;
+    let mut envelope = envelope;
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+
+    assert!(matches!(
+        reference.validate_historical_context(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::SealStateIncompatible { .. })
+    ));
+}
+
+#[test]
+fn historical_validator_rejects_revision_mismatch() {
+    let (reference, mut envelope, mut seal) = sealed_reference_stack();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    seal.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+
+    assert!(matches!(
+        reference.validate_historical_context(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::ReferenceRevisionMismatch)
+    ));
+}
+
+#[test]
+fn historical_validator_rejects_duplicate_reference_error_ids() {
+    let duplicate = record(
+        "ref-err-dup",
+        1,
+        0,
+        0,
+        4,
+        "wrng",
+        "wrong",
+        ReferenceClass::TranscriptionError,
+        VerificationBasis::AudioListened,
+    );
+    let reference = build_reference(
+        vec![duplicate.clone(), duplicate],
+        HumanFinalReferenceState::Sealed,
+    );
+    let (mut envelope, seal) = primary_posture();
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+
+    assert!(matches!(
+        reference.validate_historical_context(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::ReferenceStateMismatch { .. })
+    ));
+}
+
 #[test]
 fn transcription_error_cue_with_one_reference_error_passes_coverage() {
     let records = vec![record(

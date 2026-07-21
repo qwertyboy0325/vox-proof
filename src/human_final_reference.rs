@@ -145,6 +145,9 @@ pub enum HumanFinalReferenceValidationError {
     EnvelopeLifecycleIncompatible {
         lifecycle_state: RunLifecycleState,
     },
+    HistoricalEnvelopeLifecycleIncompatible {
+        lifecycle_state: RunLifecycleState,
+    },
     SealStateIncompatible {
         seal_state: ReferenceSealState,
     },
@@ -419,31 +422,7 @@ impl HumanFinalReference {
     ) -> Result<(), HumanFinalReferenceValidationError> {
         self.validate()?;
 
-        envelope
-            .validate()
-            .map_err(HumanFinalReferenceValidationError::EnvelopeValidation)?;
-
-        if self.run_id != envelope.run_id || self.run_id != seal.run_id {
-            return Err(HumanFinalReferenceValidationError::RunIdMismatch);
-        }
-
-        if self.input_identity != envelope.input_identity
-            || self.input_identity != seal.input_identity
-        {
-            return Err(HumanFinalReferenceValidationError::InputIdentityMismatch);
-        }
-
-        if self.seal_id != seal.seal_id {
-            return Err(HumanFinalReferenceValidationError::SealIdMismatch);
-        }
-
-        if self.reference_revision != seal.reference_revision {
-            return Err(HumanFinalReferenceValidationError::ReferenceRevisionMismatch);
-        }
-
-        if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
-            return Err(HumanFinalReferenceValidationError::EnvelopeNotBlindReference);
-        }
+        validate_human_reference_identity_binding(self, envelope, seal)?;
 
         if envelope.lifecycle_state != RunLifecycleState::ReferenceSealed {
             return Err(
@@ -453,20 +432,34 @@ impl HumanFinalReference {
             );
         }
 
-        if seal.seal_state != ReferenceSealState::Sealed {
-            return Err(HumanFinalReferenceValidationError::SealStateIncompatible {
-                seal_state: seal.seal_state,
-            });
-        }
-
-        if self.state != HumanFinalReferenceState::Sealed {
-            return Err(HumanFinalReferenceValidationError::ReferenceStateMismatch {
-                state: self.state,
-                assessment: Box::new(self.assessment.clone()),
-            });
-        }
+        validate_human_reference_sealed_posture(self, seal)?;
 
         seal.validate_with_envelope(envelope)
+            .map_err(HumanFinalReferenceValidationError::SealValidation)?;
+
+        Ok(())
+    }
+
+    pub fn validate_historical_context(
+        &self,
+        envelope: &RunEnvelope,
+        seal: &ReferenceSeal,
+    ) -> Result<(), HumanFinalReferenceValidationError> {
+        self.validate()?;
+
+        validate_human_reference_identity_binding(self, envelope, seal)?;
+
+        if !is_historical_reference_lifecycle(envelope.lifecycle_state) {
+            return Err(
+                HumanFinalReferenceValidationError::HistoricalEnvelopeLifecycleIncompatible {
+                    lifecycle_state: envelope.lifecycle_state,
+                },
+            );
+        }
+
+        validate_human_reference_sealed_posture(self, seal)?;
+
+        seal.validate_historical_context(envelope)
             .map_err(HumanFinalReferenceValidationError::SealValidation)?;
 
         Ok(())
@@ -485,6 +478,70 @@ impl HumanFinalReference {
         validate_coverage_against_human_reference(coverage, self)
             .map_err(map_alignment_error_to_human_final)
     }
+}
+
+fn is_historical_reference_lifecycle(lifecycle_state: RunLifecycleState) -> bool {
+    matches!(
+        lifecycle_state,
+        RunLifecycleState::ReferenceSealed
+            | RunLifecycleState::DetectorExecution
+            | RunLifecycleState::AssistedReview
+            | RunLifecycleState::Finalized
+    )
+}
+
+fn validate_human_reference_identity_binding(
+    reference: &HumanFinalReference,
+    envelope: &RunEnvelope,
+    seal: &ReferenceSeal,
+) -> Result<(), HumanFinalReferenceValidationError> {
+    envelope
+        .validate()
+        .map_err(HumanFinalReferenceValidationError::EnvelopeValidation)?;
+
+    if reference.run_id != envelope.run_id || reference.run_id != seal.run_id {
+        return Err(HumanFinalReferenceValidationError::RunIdMismatch);
+    }
+
+    if reference.input_identity != envelope.input_identity
+        || reference.input_identity != seal.input_identity
+    {
+        return Err(HumanFinalReferenceValidationError::InputIdentityMismatch);
+    }
+
+    if reference.seal_id != seal.seal_id {
+        return Err(HumanFinalReferenceValidationError::SealIdMismatch);
+    }
+
+    if reference.reference_revision != seal.reference_revision {
+        return Err(HumanFinalReferenceValidationError::ReferenceRevisionMismatch);
+    }
+
+    if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
+        return Err(HumanFinalReferenceValidationError::EnvelopeNotBlindReference);
+    }
+
+    Ok(())
+}
+
+fn validate_human_reference_sealed_posture(
+    reference: &HumanFinalReference,
+    seal: &ReferenceSeal,
+) -> Result<(), HumanFinalReferenceValidationError> {
+    if seal.seal_state != ReferenceSealState::Sealed {
+        return Err(HumanFinalReferenceValidationError::SealStateIncompatible {
+            seal_state: seal.seal_state,
+        });
+    }
+
+    if reference.state != HumanFinalReferenceState::Sealed {
+        return Err(HumanFinalReferenceValidationError::ReferenceStateMismatch {
+            state: reference.state,
+            assessment: Box::new(reference.assessment.clone()),
+        });
+    }
+
+    Ok(())
 }
 
 fn validate_reference_error_id(value: &str) -> Result<(), ReferenceIdentityIdError> {

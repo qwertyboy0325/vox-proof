@@ -15,6 +15,7 @@ use vox_proof::reference_identity::{CueSourceTextDigest, ReferenceRevisionId};
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
+    ReferenceSealValidationError,
 };
 use vox_proof::run_manifest::{
     ArtifactRole, CalibrationValidityMode, InputClass, InputIdentityReference, RUN_ENVELOPE_SCHEMA,
@@ -682,7 +683,7 @@ fn seal_context_requires_accepted_envelope_lifecycle() {
 
     assert!(matches!(
         bundle.validate_with_reference_context(&envelope, Some(&seal), None, None),
-        Err(ArtifactBundleValidationError::SealValidation(_))
+        Err(ArtifactBundleValidationError::ReferenceContextLifecycleIncompatible { .. })
     ));
 }
 
@@ -1011,4 +1012,182 @@ fn structural_completeness_does_not_imply_semantic_join() {
             .present_roles
             .contains(&ArtifactRole::EvaluationJoin)
     );
+}
+
+fn complete_reference_bundle(
+    envelope: RunEnvelope,
+) -> (
+    RunEnvelope,
+    ArtifactBundle,
+    ReferenceSeal,
+    ReferenceCoverage,
+    HumanFinalReference,
+) {
+    let seal = blind_seal();
+    let coverage = blind_coverage(&seal);
+    let human_reference = blind_human_reference(&seal);
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let artifacts = vec![
+        descriptor(&context, ArtifactRole::ReferenceSeal, "artifact-seal"),
+        descriptor(
+            &context,
+            ArtifactRole::HumanFinalReference,
+            "artifact-human-reference",
+        ),
+        descriptor(
+            &context,
+            ArtifactRole::CueReviewCompletion,
+            "artifact-coverage",
+        ),
+    ];
+    let bundle = complete_bundle(expected, artifacts, context);
+    (envelope, bundle, seal, coverage, human_reference)
+}
+
+#[test]
+fn reference_sealed_bundle_uses_creation_time_reference_validation() {
+    let envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+    let (_, bundle, seal, coverage, human_reference) = complete_reference_bundle(envelope.clone());
+
+    bundle
+        .validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        )
+        .expect("creation-time reference bundle validation");
+}
+
+#[test]
+fn detector_execution_bundle_uses_historical_reference_validation() {
+    let mut envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    let (_, bundle, seal, coverage, human_reference) = complete_reference_bundle(envelope.clone());
+
+    bundle
+        .validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        )
+        .expect("historical reference bundle validation at detector execution");
+}
+
+#[test]
+fn assisted_review_and_finalized_bundles_pass_historical_reference_validation() {
+    for lifecycle_state in [
+        RunLifecycleState::AssistedReview,
+        RunLifecycleState::Finalized,
+    ] {
+        let mut envelope = blind_envelope(vec![
+            ArtifactRole::ReferenceSeal,
+            ArtifactRole::HumanFinalReference,
+            ArtifactRole::CueReviewCompletion,
+        ]);
+        envelope.lifecycle_state = lifecycle_state;
+        let (_, bundle, seal, coverage, human_reference) =
+            complete_reference_bundle(envelope.clone());
+
+        bundle
+            .validate_with_reference_context(
+                &envelope,
+                Some(&seal),
+                Some(&coverage),
+                Some(&human_reference),
+            )
+            .unwrap_or_else(|error| {
+                panic!("historical bundle validation must pass at {lifecycle_state:?}: {error:?}")
+            });
+    }
+}
+
+#[test]
+fn invalidated_envelope_rejects_reference_bundle_context() {
+    let mut envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+    envelope.lifecycle_state = RunLifecycleState::Invalidated;
+    let (_, bundle, seal, coverage, human_reference) = complete_reference_bundle(envelope.clone());
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        ),
+        Err(ArtifactBundleValidationError::EnvelopeInvalidated)
+            | Err(ArtifactBundleValidationError::ReferenceContextLifecycleIncompatible { .. })
+    ));
+}
+
+#[test]
+fn draft_seal_fails_historical_bundle_reference_validation() {
+    let mut envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    let (_, bundle, mut seal, coverage, human_reference) =
+        complete_reference_bundle(envelope.clone());
+    seal.seal_state = ReferenceSealState::Draft;
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        ),
+        Err(ArtifactBundleValidationError::SealValidation(
+            ReferenceSealValidationError::SealStateIncompatible { .. }
+        ))
+    ));
+}
+
+#[test]
+fn structurally_complete_bundle_still_requires_historical_reference_checks() {
+    let mut envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+    envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+    let (_, mut bundle, seal, coverage, mut human_reference) =
+        complete_reference_bundle(envelope.clone());
+    bundle.bundle_state = ArtifactBundleState::Complete;
+    bundle.assessment.inventory_complete = true;
+    human_reference.state = HumanFinalReferenceState::Draft;
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        ),
+        Err(ArtifactBundleValidationError::CoverageValidation(_))
+            | Err(ArtifactBundleValidationError::HumanReferenceValidation(_))
+    ));
 }
