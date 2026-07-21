@@ -290,6 +290,24 @@ fn validate_run_id_value(value: &str) -> Result<(), RunIdError> {
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InputIdentityValidationError {
+    InvalidTranscriptRevisionId(String),
+}
+
+pub fn validate_input_identity_reference(
+    identity: &InputIdentityReference,
+) -> Result<(), InputIdentityValidationError> {
+    validate_transcript_revision_id(&identity.transcript_revision_id).map_err(|error| match error {
+        RunEnvelopeValidationError::InvalidTranscriptRevisionId(value) => {
+            InputIdentityValidationError::InvalidTranscriptRevisionId(value)
+        }
+        _ => {
+            unreachable!("validate_transcript_revision_id only returns InvalidTranscriptRevisionId")
+        }
+    })
+}
+
 fn validate_transcript_revision_id(value: &str) -> Result<(), RunEnvelopeValidationError> {
     if value.contains('/') || value.contains('\\') {
         return Err(RunEnvelopeValidationError::InvalidTranscriptRevisionId(

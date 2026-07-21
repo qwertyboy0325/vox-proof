@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use serde::{Deserialize, Serialize};
+
 use crate::analysis::{
     AlgorithmIdentity, AnalysisConfigurationIdentity, AnalysisRun, CanonicalDetectorSetIdentity,
     DetectorConfigIdentity, DetectorIdentity, SessionTermsIdentity,
@@ -7,7 +9,8 @@ use crate::analysis::{
 use crate::anchor::{SourceAnchor, TranscriptRevisionId};
 use crate::transcript::Transcript;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DetectionKind {
     GlossaryAliasMatch,
     MixedLanguageAnomaly,

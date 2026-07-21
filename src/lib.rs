@@ -4,6 +4,7 @@ pub mod artifact_bundle;
 pub mod calibration;
 pub mod calibration_join;
 pub mod candidate;
+pub mod detector_snapshot;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
 pub mod human_final_reference;

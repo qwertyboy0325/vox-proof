@@ -255,3 +255,9 @@ Bundle completeness is structural inventory completeness and context consistency
 Reference surfaces (`original_surface`, `human_final_surface`) are private content-bearing data. Authorization to create or execute a reference does not authorize committing its surfaces. Join fields (`detector_case_id`, `match_disposition`, adjudication, metric contribution) are forbidden in sealed reference records. Correction of a sealed reference requires a new `ReferenceRevisionId`; this slice does not implement revision history.
 
 Recall eligibility is derived from `ReferenceClass::TranscriptionError` plus an accepted verification basis (`audio_listened` or `mixed_sources`). Transcript-context-only references are excluded from recall denominators. Original-surface equality is integrity/anchor material only and does not imply correction correctness. Byte anchors are not resolved against real transcript bytes in this contract. Join, adjudication, metrics, execution, and persistence remain deferred.
+
+## v0.2 Detector Proposal Snapshot (Contract Foundation)
+
+`DetectorProposalSnapshot` is a typed, serializable **private** contract for detector proposal records bound to one run, analysis identity, and detector-output artifact reference. Proposal surfaces, evidence payloads, and alternatives are private content-bearing data. Authorization to define this contract does not authorize committing real detector surfaces or executing detectors.
+
+Semantic identity derives from detector id, `DetectionKind`, and source anchor; detector version is excluded. Duplicate proposal ids and duplicate semantic keys are forbidden in `Frozen` state. Join fields (`match_disposition`, review disposition, adjudication, metric contribution) are forbidden on proposal records and evidence. Byte anchors are not resolved against real transcript bytes in this contract. Detector execution, transcript parsing, join, adjudication, and persistence remain deferred.
