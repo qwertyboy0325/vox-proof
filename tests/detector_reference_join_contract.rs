@@ -7,8 +7,10 @@ use vox_proof::candidate::DetectionKind;
 use vox_proof::detector_reference_join::{
     ALTERNATIVE_CARDINALITY_POLICY, CORRECTION_EQUALITY_REVISION, DETECTOR_REFERENCE_JOIN_SCHEMA,
     DetectorReferenceJoin, DetectorReferenceJoinAssessment, DetectorReferenceJoinContext,
-    DetectorReferenceJoinError, DetectorReferenceJoinId, DetectorReferenceJoinRevisionId,
-    DetectorReferenceJoinState, DetectorReferenceMatchDisposition, OVERLAP_RULE_REVISION,
+    DetectorReferenceJoinEdge, DetectorReferenceJoinError, DetectorReferenceJoinId,
+    DetectorReferenceJoinPurpose, DetectorReferenceJoinRevisionId, DetectorReferenceJoinState,
+    DetectorReferenceMatchDisposition, JoinAnchorRelation, JoinEdgeResolution, JoinRecordId,
+    OVERLAP_RULE_REVISION, Phase3AdjudicationRejectionReason, PrimaryTopologyViolation,
     anchors_exact, anchors_overlap, nfc_correction_equal,
 };
 use vox_proof::detector_snapshot::{
@@ -25,7 +27,7 @@ use vox_proof::human_final_reference::{
 use vox_proof::join_adjudication::{
     OVERLAP_ADJUDICATION_SCHEMA, OverlapAdjudicationId, OverlapAdjudicationRecord,
     OverlapAdjudicationResult, OverlapAdjudicationSet, OverlapAdjudicationSetId,
-    OverlapAdjudicationSetState, OverlapAdjudicatorRole,
+    OverlapAdjudicationSetState, OverlapAdjudicationValidationError, OverlapAdjudicatorRole,
 };
 use vox_proof::reference_coverage::{
     CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
@@ -405,7 +407,12 @@ fn join_context() -> DetectorReferenceJoinContext {
         join_id: DetectorReferenceJoinId::new("join-test").expect("join id"),
         join_revision: DetectorReferenceJoinRevisionId::new("join-rev-001").expect("join revision"),
         evaluation_join_artifact_id: evaluation_join_artifact_id(),
+        join_adjudication_artifact_id: join_adjudication_artifact_id(),
     }
+}
+
+fn empty_frozen_adjudication_set() -> OverlapAdjudicationSet {
+    frozen_adjudication_set(vec![])
 }
 
 fn descriptor(
@@ -492,6 +499,7 @@ fn join_stack() -> (
     DetectorProposalSnapshot,
     ArtifactBundle,
     DetectorReferenceJoinContext,
+    OverlapAdjudicationSet,
 ) {
     let envelope = join_envelope(RunLifecycleState::DetectorExecution);
     let seal = join_seal();
@@ -526,6 +534,7 @@ fn join_stack() -> (
         reference_revision: Some(seal.reference_revision.clone()),
     };
     let bundle = build_join_bundle(context.clone(), true, true, ArtifactBundleState::Complete);
+    let adjudication = empty_frozen_adjudication_set();
 
     (
         envelope,
@@ -535,6 +544,7 @@ fn join_stack() -> (
         snapshot,
         bundle,
         join_context(),
+        adjudication,
     )
 }
 
@@ -579,7 +589,8 @@ fn adjudication_record(
 
 #[test]
 fn json_round_trip_retains_schema_and_policy_constants() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     let join = DetectorReferenceJoin::derive(
         &context,
         &envelope,
@@ -588,7 +599,7 @@ fn json_round_trip_retains_schema_and_policy_constants() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -671,7 +682,8 @@ fn anchors_overlap_accepts_one_byte_overlap() {
 
 #[test]
 fn zero_alternatives_rejected_with_proposal_id() {
-    let (envelope, seal, coverage, human_reference, mut snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, mut snapshot, bundle, context, adjudication) =
+        join_stack();
     snapshot.proposals[0].alternatives.clear();
 
     assert!(matches!(
@@ -683,7 +695,7 @@ fn zero_alternatives_rejected_with_proposal_id() {
             &human_reference,
             &snapshot,
             &bundle,
-            None,
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::UnsupportedProposalAlternativeCardinality {
             detector_proposal_id,
@@ -694,7 +706,8 @@ fn zero_alternatives_rejected_with_proposal_id() {
 
 #[test]
 fn two_alternatives_rejected_with_proposal_id() {
-    let (envelope, seal, coverage, human_reference, mut snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, mut snapshot, bundle, context, adjudication) =
+        join_stack();
     snapshot.proposals[0]
         .alternatives
         .push(DetectorProposalAlternative {
@@ -711,7 +724,7 @@ fn two_alternatives_rejected_with_proposal_id() {
             &human_reference,
             &snapshot,
             &bundle,
-            None,
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::UnsupportedProposalAlternativeCardinality {
             detector_proposal_id,
@@ -724,7 +737,8 @@ fn two_alternatives_rejected_with_proposal_id() {
 
 #[test]
 fn phase1_exact_match_resolves_single_cue() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     let join = DetectorReferenceJoin::derive(
         &context,
         &envelope,
@@ -733,7 +747,7 @@ fn phase1_exact_match_resolves_single_cue() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -750,14 +764,15 @@ fn phase1_exact_match_resolves_single_cue() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("validate derived join");
 }
 
 #[test]
 fn phase1_duplicate_proposals_use_lowest_id_as_primary() {
-    let (envelope, seal, mut coverage, human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, mut coverage, human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
     coverage.expected_universe = universe(&[1]);
     coverage.assessment =
@@ -779,7 +794,7 @@ fn phase1_duplicate_proposals_use_lowest_id_as_primary() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -802,7 +817,8 @@ fn phase1_duplicate_proposals_use_lowest_id_as_primary() {
 
 #[test]
 fn phase2_exact_anchor_wrong_correction_assigns_detector_wrong_correction() {
-    let (envelope, seal, coverage, human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     let snapshot = build_snapshot(
         vec![glossary_proposal(
             "det-prop-001",
@@ -824,7 +840,7 @@ fn phase2_exact_anchor_wrong_correction_assigns_detector_wrong_correction() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -840,7 +856,8 @@ fn phase2_exact_anchor_wrong_correction_assigns_detector_wrong_correction() {
 
 #[test]
 fn phase3_overlap_without_adjudication_requires_adjudication_state() {
-    let (envelope, seal, coverage, human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     let mut human_reference = human_reference;
     human_reference.records = vec![reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")];
     human_reference.assessment = HumanFinalReference::derive_assessment(
@@ -871,7 +888,7 @@ fn phase3_overlap_without_adjudication_requires_adjudication_state() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -885,7 +902,8 @@ fn phase3_overlap_without_adjudication_requires_adjudication_state() {
 
 #[test]
 fn accepted_overlap_requires_frozen_adjudication_at_assisted_review() {
-    let (mut envelope, seal, coverage, human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let mut human_reference = human_reference;
@@ -925,7 +943,7 @@ fn accepted_overlap_requires_frozen_adjudication_at_assisted_review() {
         &human_reference,
         &snapshot,
         &bundle,
-        Some(&adjudication),
+        &adjudication,
     )
     .expect("derive overlap join");
 
@@ -939,7 +957,8 @@ fn accepted_overlap_requires_frozen_adjudication_at_assisted_review() {
 
 #[test]
 fn draft_adjudication_set_cannot_resolve_overlap_join() {
-    let (mut envelope, seal, coverage, human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let mut human_reference = human_reference;
@@ -981,7 +1000,7 @@ fn draft_adjudication_set_cannot_resolve_overlap_join() {
             &human_reference,
             &snapshot,
             &bundle,
-            Some(&adjudication),
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::AdjudicationValidation(_))
     ));
@@ -991,7 +1010,8 @@ fn draft_adjudication_set_cannot_resolve_overlap_join() {
 
 #[test]
 fn exact_only_join_resolves_at_detector_execution() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     assert_eq!(
         envelope.lifecycle_state,
         RunLifecycleState::DetectorExecution
@@ -1005,7 +1025,7 @@ fn exact_only_join_resolves_at_detector_execution() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive at detector execution");
 
@@ -1014,7 +1034,8 @@ fn exact_only_join_resolves_at_detector_execution() {
 
 #[test]
 fn reference_sealed_lifecycle_rejects_join_creation() {
-    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::ReferenceSealed;
 
     assert!(matches!(
@@ -1026,7 +1047,7 @@ fn reference_sealed_lifecycle_rejects_join_creation() {
             &human_reference,
             &snapshot,
             &bundle,
-            None,
+            &adjudication,
         ),
         Err(
             DetectorReferenceJoinError::JoinCreationLifecycleIncompatible {
@@ -1040,9 +1061,18 @@ fn reference_sealed_lifecycle_rejects_join_creation() {
 
 #[test]
 fn missing_evaluation_join_role_fails() {
-    let (envelope, seal, coverage, human_reference, snapshot, context) = {
-        let (envelope, seal, coverage, human_reference, snapshot, _, context) = join_stack();
-        (envelope, seal, coverage, human_reference, snapshot, context)
+    let (envelope, seal, coverage, human_reference, snapshot, context, adjudication) = {
+        let (envelope, seal, coverage, human_reference, snapshot, _, context, adjudication) =
+            join_stack();
+        (
+            envelope,
+            seal,
+            coverage,
+            human_reference,
+            snapshot,
+            context,
+            adjudication,
+        )
     };
     let context_binding = ArtifactBindingContext {
         run_id: envelope.run_id.clone(),
@@ -1063,7 +1093,7 @@ fn missing_evaluation_join_role_fails() {
             &human_reference,
             &snapshot,
             &bundle,
-            None,
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::EvaluationJoinArtifactMismatch)
     ));
@@ -1071,9 +1101,18 @@ fn missing_evaluation_join_role_fails() {
 
 #[test]
 fn missing_join_adjudication_role_fails() {
-    let (envelope, seal, coverage, human_reference, snapshot, context) = {
-        let (envelope, seal, coverage, human_reference, snapshot, _, context) = join_stack();
-        (envelope, seal, coverage, human_reference, snapshot, context)
+    let (envelope, seal, coverage, human_reference, snapshot, context, adjudication) = {
+        let (envelope, seal, coverage, human_reference, snapshot, _, context, adjudication) =
+            join_stack();
+        (
+            envelope,
+            seal,
+            coverage,
+            human_reference,
+            snapshot,
+            context,
+            adjudication,
+        )
     };
     let context_binding = ArtifactBindingContext {
         run_id: envelope.run_id.clone(),
@@ -1094,7 +1133,7 @@ fn missing_join_adjudication_role_fails() {
             &human_reference,
             &snapshot,
             &bundle,
-            None,
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch)
     ));
@@ -1104,7 +1143,8 @@ fn missing_join_adjudication_role_fails() {
 
 #[test]
 fn serialized_join_contains_no_tp_fp_fn_fields() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     let join = DetectorReferenceJoin::derive(
         &context,
         &envelope,
@@ -1113,7 +1153,7 @@ fn serialized_join_contains_no_tp_fp_fn_fields() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -1141,7 +1181,8 @@ fn serialized_join_contains_no_tp_fp_fn_fields() {
 
 #[test]
 fn shuffled_proposal_order_produces_identical_join() {
-    let (envelope, seal, coverage, human_reference, _, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, _, bundle, context, adjudication) =
+        join_stack();
     let proposals = vec![
         glossary_proposal("det-prop-b", 1, 0, 0, 4, "wrng", "wrong"),
         observed_error_proposal("det-prop-a", 1, 0, 0, 4, "wrng", "wrong"),
@@ -1156,7 +1197,7 @@ fn shuffled_proposal_order_produces_identical_join() {
         &human_reference,
         &canonical_snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("canonical derive");
 
@@ -1176,7 +1217,7 @@ fn shuffled_proposal_order_produces_identical_join() {
         &human_reference,
         &shuffled_snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("shuffled derive");
 
@@ -1188,7 +1229,7 @@ fn shuffled_proposal_order_produces_identical_join() {
             &human_reference,
             &shuffled_snapshot,
             &bundle,
-            None,
+            &adjudication,
         )
         .expect("shuffled join validates");
 
@@ -1207,7 +1248,8 @@ fn shuffled_proposal_order_produces_identical_join() {
 
 #[test]
 fn contract_tests_use_synthetic_strings_only() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     let join = DetectorReferenceJoin::derive(
         &context,
         &envelope,
@@ -1216,7 +1258,7 @@ fn contract_tests_use_synthetic_strings_only() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -1227,7 +1269,8 @@ fn contract_tests_use_synthetic_strings_only() {
 
 #[test]
 fn overlap_wrong_correction_requires_frozen_adjudication_and_nfc_difference() {
-    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let mut human_reference = human_reference_for_coverage(&coverage);
@@ -1267,7 +1310,7 @@ fn overlap_wrong_correction_requires_frozen_adjudication_and_nfc_difference() {
         &human_reference,
         &snapshot,
         &bundle,
-        Some(&adjudication),
+        &adjudication,
     )
     .expect("derive overlap wrong correction join");
 
@@ -1281,7 +1324,8 @@ fn overlap_wrong_correction_requires_frozen_adjudication_and_nfc_difference() {
 
 #[test]
 fn same_error_same_correction_fails_when_nfc_correction_differs() {
-    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let mut human_reference = human_reference_for_coverage(&coverage);
@@ -1322,7 +1366,7 @@ fn same_error_same_correction_fails_when_nfc_correction_differs() {
             &human_reference,
             &snapshot,
             &bundle,
-            Some(&adjudication),
+            &adjudication,
         ),
         Err(DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch { .. })
     ));
@@ -1330,8 +1374,16 @@ fn same_error_same_correction_fails_when_nfc_correction_differs() {
 
 #[test]
 fn one_detector_multiple_overlap_primaries_becomes_ambiguous() {
-    let (mut envelope, seal, mut coverage, _human_reference, _snapshot, bundle, context) =
-        join_stack();
+    let (
+        mut envelope,
+        seal,
+        mut coverage,
+        _human_reference,
+        _snapshot,
+        bundle,
+        context,
+        _adjudication,
+    ) = join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
     coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
     coverage.expected_universe = universe(&[1]);
@@ -1396,7 +1448,7 @@ fn one_detector_multiple_overlap_primaries_becomes_ambiguous() {
         &human_reference,
         &snapshot,
         &bundle,
-        Some(&adjudication),
+        &adjudication,
     )
     .expect("derive ambiguous join");
 
@@ -1413,7 +1465,8 @@ fn one_detector_multiple_overlap_primaries_becomes_ambiguous() {
 
 #[test]
 fn transcript_context_only_reference_is_excluded_from_matching() {
-    let (envelope, seal, mut coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, mut coverage, _human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     coverage.assessment.total_eligible_transcription_errors = 0;
     let mut human_reference = human_reference_for_coverage(&coverage);
     human_reference.records = vec![ReferenceErrorRecord {
@@ -1456,7 +1509,7 @@ fn transcript_context_only_reference_is_excluded_from_matching() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -1472,7 +1525,8 @@ fn transcript_context_only_reference_is_excluded_from_matching() {
 
 #[test]
 fn original_surface_equality_does_not_override_nfc_correction_authority() {
-    let (envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, _human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     let mut human_reference = human_reference_for_coverage(&coverage);
     human_reference.records = vec![ReferenceErrorRecord {
         reference_error_id: ReferenceErrorId::new("ref-err-orig").expect("error id"),
@@ -1514,7 +1568,7 @@ fn original_surface_equality_does_not_override_nfc_correction_authority() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
@@ -1526,7 +1580,8 @@ fn original_surface_equality_does_not_override_nfc_correction_authority() {
 
 #[test]
 fn exact_primary_reference_stays_resolved_when_other_detector_has_overlap_candidate() {
-    let (envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (envelope, seal, coverage, _human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
     let human_reference = HumanFinalReference {
         schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
         run_id: coverage.run_id.clone(),
@@ -1559,11 +1614,11 @@ fn exact_primary_reference_stays_resolved_when_other_detector_has_overlap_candid
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
     )
     .expect("derive join");
 
-    assert_eq!(join.state, DetectorReferenceJoinState::RequiresAdjudication);
+    assert_eq!(join.state, DetectorReferenceJoinState::Resolved);
     assert_eq!(
         join.reference_dispositions[0].disposition,
         DetectorReferenceMatchDisposition::ExactMatch
@@ -1582,13 +1637,15 @@ fn exact_primary_reference_stays_resolved_when_other_detector_has_overlap_candid
             .find(|record| record.detector_proposal_id.as_str() == "det-prop-overlap")
             .expect("overlap detector")
             .disposition,
-        DetectorReferenceMatchDisposition::OverlapCandidate
+        DetectorReferenceMatchDisposition::UnmatchedDetector
     );
+    assert_eq!(join.assessment.unresolved_overlap_edge_count, 0);
 }
 
 #[test]
 fn exact_anchor_adjudication_pair_is_rejected() {
-    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let human_reference = HumanFinalReference {
@@ -1608,21 +1665,16 @@ fn exact_anchor_adjudication_pair_is_rejected() {
     };
 
     let snapshot = build_snapshot(
-        vec![glossary_proposal(
-            "det-prop-001",
-            1,
-            0,
-            0,
-            4,
-            "wrng",
-            "wrong",
-        )],
+        vec![
+            glossary_proposal("det-prop-a", 1, 0, 0, 4, "wrng", "wrong"),
+            observed_error_proposal("det-prop-b", 1, 0, 0, 4, "wrng", "wrong"),
+        ],
         DetectorProposalSnapshotState::Frozen,
     );
 
     let adjudication = frozen_adjudication_set(vec![adjudication_record(
         "adj-001",
-        "det-prop-001",
+        "det-prop-b",
         "ref-err-1",
         OverlapAdjudicationResult::SameErrorSameCorrection,
     )]);
@@ -1636,15 +1688,21 @@ fn exact_anchor_adjudication_pair_is_rejected() {
             &human_reference,
             &snapshot,
             &bundle,
-            Some(&adjudication),
+            &adjudication,
         ),
-        Err(DetectorReferenceJoinError::AdjudicationPairNotOverlapEdge { .. })
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase,
+                ..
+            }
+        )
     ));
 }
 
 #[test]
 fn exact_primary_wins_over_adjudicated_overlap_on_same_reference() {
-    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context) = join_stack();
+    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
     envelope.lifecycle_state = RunLifecycleState::AssistedReview;
 
     let human_reference = HumanFinalReference {
@@ -1678,51 +1736,87 @@ fn exact_primary_wins_over_adjudicated_overlap_on_same_reference() {
         OverlapAdjudicationResult::SameErrorSameCorrection,
     )]);
 
-    let join = DetectorReferenceJoin::derive(
-        &context,
-        &envelope,
-        &seal,
-        &coverage,
-        &human_reference,
-        &snapshot,
-        &bundle,
-        Some(&adjudication),
-    )
-    .expect("derive join");
-
-    assert_eq!(join.state, DetectorReferenceJoinState::Resolved);
-    assert_eq!(
-        join.reference_dispositions[0].disposition,
-        DetectorReferenceMatchDisposition::ExactMatch
-    );
-    assert_eq!(
-        join.reference_dispositions[0]
-            .primary_detector_proposal_id
-            .as_ref()
-            .map(|id| id.as_str()),
-        Some("det-prop-exact")
-    );
-    assert_eq!(
-        join.detector_dispositions
-            .iter()
-            .find(|record| record.detector_proposal_id.as_str() == "det-prop-exact")
-            .expect("exact detector")
-            .disposition,
-        DetectorReferenceMatchDisposition::ExactMatch
-    );
-    assert_eq!(
-        join.detector_dispositions
-            .iter()
-            .find(|record| record.detector_proposal_id.as_str() == "det-prop-overlap")
-            .expect("overlap detector")
-            .disposition,
-        DetectorReferenceMatchDisposition::DuplicateProposal
-    );
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
 }
 
 #[test]
-fn caller_cannot_force_join_assessment_fields() {
-    let (envelope, seal, coverage, human_reference, snapshot, bundle, context) = join_stack();
+fn extraneous_adjudication_rejected_when_reference_exact_assigned() {
+    let (mut envelope, seal, coverage, _human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")],
+        )
+        .expect("derive assessment"),
+    };
+
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-overlap", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-exact", 1, 0, 0, 4, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-overlap",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn stored_top_level_binding_mismatch_rejects_mutated_run_id() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
     let mut join = DetectorReferenceJoin::derive(
         &context,
         &envelope,
@@ -1731,7 +1825,308 @@ fn caller_cannot_force_join_assessment_fields() {
         &human_reference,
         &snapshot,
         &bundle,
-        None,
+        &adjudication,
+    )
+    .expect("derive join");
+    join.run_id = RunId::new("run-other").expect("run id");
+
+    assert!(matches!(
+        join.validate_against(
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::TopLevelBindingMismatch { field: "run_id" })
+    ));
+}
+
+#[test]
+fn unknown_adjudication_detector_proposal_rejects_join() {
+    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-unknown-det",
+        "det-prop-missing",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal { .. })
+    ));
+}
+
+#[test]
+fn unknown_adjudication_reference_error_rejects_join() {
+    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-unknown-ref",
+        "det-prop-001",
+        "ref-err-missing",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationReferenceError { .. })
+    ));
+}
+
+#[test]
+fn extraneous_adjudication_record_rejects_whole_join() {
+    let (
+        mut envelope,
+        seal,
+        mut coverage,
+        _human_reference,
+        _snapshot,
+        bundle,
+        context,
+        _adjudication,
+    ) = join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+
+    let adjudication = frozen_adjudication_set(vec![
+        adjudication_record(
+            "adj-valid",
+            "det-prop-001",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-extra",
+            "det-prop-missing",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    assert_eq!(adjudication.records.len(), 2);
+
+    let result = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    );
+    assert!(
+        matches!(
+            result,
+            Err(DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal { .. })
+        ),
+        "unexpected derive result: {result:?}"
+    );
+}
+
+#[test]
+fn assisted_review_join_fails_validation_at_detector_execution() {
+    let (
+        mut assisted_envelope,
+        seal,
+        coverage,
+        human_reference,
+        _snapshot,
+        bundle,
+        context,
+        _adjudication,
+    ) = join_stack();
+    assisted_envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let mut human_reference = human_reference;
+    human_reference.records = vec![reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")];
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+
+    let join = DetectorReferenceJoin::derive(
+        &context,
+        &assisted_envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive at assisted review");
+
+    let mut detector_envelope = assisted_envelope.clone();
+    detector_envelope.lifecycle_state = RunLifecycleState::DetectorExecution;
+
+    assert!(matches!(
+        join.validate_against(
+            &detector_envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::AdjudicationChronologyViolation { .. })
+    ));
+}
+
+#[test]
+fn duplicate_detector_disposition_id_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    let duplicate = join.detector_dispositions[0].clone();
+    join.detector_dispositions.push(duplicate);
+
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::DuplicateDetectorDispositionId { .. })
+    ));
+}
+
+#[test]
+fn join_stores_join_adjudication_artifact_id() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+
+    assert_eq!(
+        join.join_adjudication_artifact_id,
+        join_adjudication_artifact_id()
+    );
+    assert_eq!(
+        join.join_adjudication_artifact_id,
+        adjudication.join_adjudication_artifact_id
+    );
+}
+
+#[test]
+fn caller_cannot_force_join_assessment_fields() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
     )
     .expect("derive join");
     join.assessment = DetectorReferenceJoinAssessment {
@@ -1755,6 +2150,1589 @@ fn caller_cannot_force_join_assessment_fields() {
 
     assert!(matches!(
         join.validate(),
-        Err(DetectorReferenceJoinError::AssessmentMismatch { .. })
+        Err(DetectorReferenceJoinError::AssessmentMismatch { .. }
+            | DetectorReferenceJoinError::TerminalDispositionMismatch)
     ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn assert_top_level_binding_mismatch(
+    join: &DetectorReferenceJoin,
+    envelope: &RunEnvelope,
+    seal: &ReferenceSeal,
+    coverage: &ReferenceCoverage,
+    human_reference: &HumanFinalReference,
+    snapshot: &DetectorProposalSnapshot,
+    bundle: &ArtifactBundle,
+    adjudication: &OverlapAdjudicationSet,
+    mutate: impl FnOnce(&mut DetectorReferenceJoin),
+    expected_field: &str,
+) {
+    let mut mutated = join.clone();
+    mutate(&mut mutated);
+    assert!(
+        matches!(
+            mutated.validate_against(
+                envelope,
+                seal,
+                coverage,
+                human_reference,
+                snapshot,
+                bundle,
+                adjudication,
+            ),
+            Err(DetectorReferenceJoinError::TopLevelBindingMismatch { field })
+                if field == expected_field
+        ),
+        "expected TopLevelBindingMismatch for field {expected_field}"
+    );
+}
+
+#[test]
+fn stored_top_level_binding_mismatch_rejects_every_authoritative_field() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| join.run_id = RunId::new("run-other").expect("run id"),
+        "run_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| join.input_identity.transcript_revision_id = "rev-other".to_string(),
+        "input_identity",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| join.calibration_validity = CalibrationValidityMode::DetectorAssisted,
+        "calibration_validity",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| join.reference_seal_id = ReferenceSealId::new("seal-other").expect("seal id"),
+        "reference_seal_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.reference_revision =
+                ReferenceRevisionId::new("ref-rev-other").expect("reference revision")
+        },
+        "reference_revision",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.reference_coverage_id =
+                ReferenceCoverageId::new("coverage-other").expect("coverage id")
+        },
+        "reference_coverage_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.detector_snapshot_revision =
+                DetectorSnapshotRevisionId::new("snap-rev-other").expect("snapshot revision")
+        },
+        "detector_snapshot_revision",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.detector_output_artifact_id =
+                ArtifactId::new("detector-output-other").expect("artifact id")
+        },
+        "detector_output_artifact_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.evaluation_join_artifact_id =
+                ArtifactId::new("evaluation-join-other").expect("artifact id")
+        },
+        "evaluation_join_artifact_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| {
+            join.join_adjudication_artifact_id =
+                ArtifactId::new("join-adj-other").expect("artifact id")
+        },
+        "join_adjudication_artifact_id",
+    );
+    assert_top_level_binding_mismatch(
+        &join,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+        |join| join.join_purpose = DetectorReferenceJoinPurpose::DiagnosticOnly,
+        "join_purpose",
+    );
+
+    let mut overlap_policy = join.clone();
+    overlap_policy.overlap_rule_revision = "other-overlap-rev".to_string();
+    assert!(matches!(
+        overlap_policy.validate(),
+        Err(DetectorReferenceJoinError::UnsupportedPolicyRevision { .. })
+    ));
+
+    let mut correction_policy = join.clone();
+    correction_policy.correction_equality_revision = "other-nfc-rev".to_string();
+    assert!(matches!(
+        correction_policy.validate(),
+        Err(DetectorReferenceJoinError::UnsupportedPolicyRevision { .. })
+    ));
+
+    let mut cardinality_policy = join.clone();
+    cardinality_policy.alternative_cardinality_policy = "other-cardinality".to_string();
+    assert!(matches!(
+        cardinality_policy.validate(),
+        Err(DetectorReferenceJoinError::UnsupportedPolicyRevision { .. })
+    ));
+}
+
+#[test]
+fn unknown_adjudication_both_ids_reject_join() {
+    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-both-unknown",
+        "det-prop-missing",
+        "ref-err-missing",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal { .. })
+    ));
+}
+
+#[test]
+fn disjoint_adjudication_pair_rejects_whole_join() {
+    let (
+        mut envelope,
+        seal,
+        mut coverage,
+        _human_reference,
+        _snapshot,
+        bundle,
+        context,
+        _adjudication,
+    ) = join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+
+    let adjudication = frozen_adjudication_set(vec![
+        adjudication_record(
+            "adj-valid",
+            "det-prop-001",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-disjoint",
+            "det-prop-001",
+            "ref-err-2",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::DisjointAnchor,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn adjudication_pair_removed_by_snapshot_revision_rejects_join() {
+    let (mut envelope, seal, coverage, human_reference, snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+
+    let mut adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-overlap",
+        "det-prop-001",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    adjudication.detector_snapshot_revision =
+        DetectorSnapshotRevisionId::new("det-snap-rev-stale").expect("snapshot revision");
+
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::AdjudicationValidation(
+            OverlapAdjudicationValidationError::DetectorSnapshotRevisionMismatch
+        ))
+    ));
+}
+
+#[test]
+fn exact_assigned_detector_does_not_create_overlap_against_other_references() {
+    let (envelope, seal, mut coverage, _human_reference, _snapshot, bundle, context, adjudication) =
+        join_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 2, 8, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 2, 8, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-exact",
+            1,
+            0,
+            0,
+            4,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+
+    let join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+
+    assert_eq!(join.state, DetectorReferenceJoinState::Resolved);
+    assert!(
+        join.edges
+            .iter()
+            .all(|edge| edge.anchor_relation != JoinAnchorRelation::Overlap),
+        "exact-assigned detector must not emit overlap edges against other references"
+    );
+    assert_eq!(
+        join.reference_dispositions
+            .iter()
+            .find(|record| record.reference_error_id.as_str() == "ref-err-2")
+            .expect("second reference")
+            .disposition,
+        DetectorReferenceMatchDisposition::UnmatchedReference
+    );
+}
+
+#[test]
+fn duplicate_reference_disposition_id_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    let duplicate = join.reference_dispositions[0].clone();
+    join.reference_dispositions.push(duplicate);
+
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::DuplicateReferenceDispositionId { .. })
+    ));
+}
+
+#[test]
+fn terminal_disposition_mismatch_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    join.detector_dispositions.pop();
+
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::TerminalDispositionMismatch)
+    ));
+}
+
+#[test]
+fn primary_assignment_inconsistent_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    join.reference_dispositions[0].primary_detector_proposal_id =
+        Some(DetectorProposalId::new("det-prop-other").expect("proposal id"));
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::PrimaryTopologyViolation { .. })
+    ));
+}
+
+#[test]
+fn requires_adjudication_state_inconsistent_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    join.state = DetectorReferenceJoinState::RequiresAdjudication;
+
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::RequiresAdjudicationStateInconsistent)
+    ));
+}
+
+#[test]
+fn duplicate_join_record_id_rejected_locally() {
+    let (envelope, seal, coverage, human_reference, snapshot, bundle, context, adjudication) =
+        join_stack();
+    let mut join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive join");
+    let duplicate = join.edges[0].join_record_id.clone();
+    join.edges.push(DetectorReferenceJoinEdge {
+        join_record_id: duplicate,
+        ..join.edges[0].clone()
+    });
+
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::DuplicateJoinRecordId { .. })
+    ));
+}
+
+// --- SOL-JOIN-FC-01 / SOL-JOIN-FC-02 regressions ---
+
+fn assert_primary_topology_violation(
+    join: &DetectorReferenceJoin,
+    violation: PrimaryTopologyViolation,
+) {
+    match join.validate() {
+        Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: observed,
+        }) if observed == violation => {}
+        other => panic!("expected PrimaryTopologyViolation {violation:?}, got {other:?}"),
+    }
+}
+
+fn assisted_review_stack() -> (
+    RunEnvelope,
+    ReferenceSeal,
+    ReferenceCoverage,
+    HumanFinalReference,
+    ArtifactBundle,
+    DetectorReferenceJoinContext,
+) {
+    let (mut envelope, seal, coverage, human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
+    envelope.lifecycle_state = RunLifecycleState::AssistedReview;
+    (envelope, seal, coverage, human_reference, bundle, context)
+}
+
+fn derive_assisted_overlap_accepted_join() -> DetectorReferenceJoin {
+    let (envelope, seal, coverage, mut human_reference, bundle, context) = assisted_review_stack();
+    human_reference.records = vec![reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")];
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive overlap accepted join")
+}
+
+fn derive_assisted_overlap_wrong_correction_join() -> DetectorReferenceJoin {
+    let (envelope, seal, coverage, mut human_reference, bundle, context) = assisted_review_stack();
+    human_reference.records = vec![reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong")];
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wright",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorWrongCorrection,
+    )]);
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive overlap wrong correction join")
+}
+
+fn derive_assisted_exact_join() -> DetectorReferenceJoin {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            0,
+            4,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = empty_frozen_adjudication_set();
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive exact join")
+}
+
+fn primary_edge(join: &DetectorReferenceJoin) -> &DetectorReferenceJoinEdge {
+    join.edges
+        .iter()
+        .find(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+        .expect("primary edge")
+}
+
+#[test]
+fn fc01_valid_adjudication_materializes_exactly_one_overlap_edge() {
+    let join = derive_assisted_overlap_accepted_join();
+    let overlap_primaries: Vec<_> = join
+        .edges
+        .iter()
+        .filter(|edge| {
+            edge.resolution == JoinEdgeResolution::PrimaryAssignment
+                && edge.anchor_relation == JoinAnchorRelation::Overlap
+        })
+        .collect();
+    assert_eq!(overlap_primaries.len(), 1);
+    assert!(overlap_primaries[0].adjudication_id.is_some());
+}
+
+#[test]
+fn fc01_detector_consumed_by_exact_assignment_rejects_adjudication() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-exact",
+            1,
+            0,
+            0,
+            4,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-exact",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::DetectorAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn fc01_reference_consumed_by_exact_assignment_rejects_adjudication() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-overlap", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-exact", 1, 0, 0, 4, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-overlap",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn fc01_verification_ineligible_adjudication_rejected() {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.assessment.total_eligible_transcription_errors = 0;
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![ReferenceErrorRecord {
+            reference_error_id: ReferenceErrorId::new("ref-err-tco").expect("error id"),
+            reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+                .expect("revision"),
+            input_identity: input_identity(),
+            source_anchor: reference_source_anchor(1, 0, 0, 4),
+            original_surface: "wrng".to_string(),
+            human_final_surface: "wrong".to_string(),
+            reference_class: ReferenceClass::TranscriptionError,
+            verification_basis: VerificationBasis::TranscriptContextOnly,
+            reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+            reviewed_at_unix_ms: 1_700_000_000_000,
+        }],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[ReferenceErrorRecord {
+                reference_error_id: ReferenceErrorId::new("ref-err-tco").expect("error id"),
+                reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+                    .expect("revision"),
+                input_identity: input_identity(),
+                source_anchor: reference_source_anchor(1, 0, 0, 4),
+                original_surface: "wrng".to_string(),
+                human_final_surface: "wrong".to_string(),
+                reference_class: ReferenceClass::TranscriptionError,
+                verification_basis: VerificationBasis::TranscriptContextOnly,
+                reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+                reviewed_at_unix_ms: 1_700_000_000_000,
+            }],
+        )
+        .expect("derive assessment"),
+    };
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-tco",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::VerificationIneligibleReference,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn fc01_excluded_reference_class_adjudication_rejected() {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::NoTranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    coverage.assessment.total_eligible_transcription_errors = 0;
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![ReferenceErrorRecord {
+            reference_error_id: ReferenceErrorId::new("ref-err-style").expect("error id"),
+            reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+                .expect("revision"),
+            input_identity: input_identity(),
+            source_anchor: reference_source_anchor(1, 0, 0, 4),
+            original_surface: "wrng".to_string(),
+            human_final_surface: "wrong".to_string(),
+            reference_class: ReferenceClass::StylePreference,
+            verification_basis: VerificationBasis::AudioListened,
+            reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+            reviewed_at_unix_ms: 1_700_000_000_000,
+        }],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[ReferenceErrorRecord {
+                reference_error_id: ReferenceErrorId::new("ref-err-style").expect("error id"),
+                reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+                    .expect("revision"),
+                input_identity: input_identity(),
+                source_anchor: reference_source_anchor(1, 0, 0, 4),
+                original_surface: "wrng".to_string(),
+                human_final_surface: "wrong".to_string(),
+                reference_class: ReferenceClass::StylePreference,
+                verification_basis: VerificationBasis::AudioListened,
+                reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+                reviewed_at_unix_ms: 1_700_000_000_000,
+            }],
+        )
+        .expect("derive assessment"),
+    };
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-style",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    let result = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    );
+    assert!(
+        matches!(
+            result,
+            Err(
+                DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                    reason: Phase3AdjudicationRejectionReason::NonTranscriptionErrorReference,
+                    ..
+                }
+            )
+        ),
+        "unexpected derive result: {result:?}"
+    );
+}
+
+#[test]
+fn fc01_unknown_detector_adjudication_rejected() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-missing",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal { .. })
+    ));
+}
+
+#[test]
+fn fc01_unknown_reference_adjudication_rejected() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-missing",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationReferenceError { .. })
+    ));
+}
+
+#[test]
+fn fc01_mixed_valid_and_inadmissible_record_fails_whole_derivation() {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![
+        adjudication_record(
+            "adj-valid",
+            "det-prop-001",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-extra",
+            "det-prop-missing",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal { .. })
+    ));
+}
+
+#[test]
+fn fc01_stale_record_after_source_revision_change_rejected() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-001",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let mut adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-001",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    adjudication.detector_snapshot_revision =
+        DetectorSnapshotRevisionId::new("det-snap-rev-stale").expect("snapshot revision");
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::AdjudicationValidation(
+            OverlapAdjudicationValidationError::DetectorSnapshotRevisionMismatch
+        ))
+    ));
+}
+
+#[test]
+fn fc01_partial_adjudication_materializes_consumed_records_only() {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-a", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-b", 1, 0, 10, 14, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-a",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    let join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive partial adjudication join");
+    assert_eq!(join.state, DetectorReferenceJoinState::RequiresAdjudication);
+    assert_eq!(join.assessment.accepted_overlap_count, 1);
+    assert_eq!(join.assessment.unresolved_overlap_edge_count, 1);
+}
+
+#[test]
+fn fc01_exact_only_join_rejects_stale_overlap_adjudication() {
+    let (envelope, seal, coverage, human_reference, _snapshot, bundle, context, _adjudication) =
+        join_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-exact",
+            1,
+            0,
+            0,
+            4,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-stale",
+        "det-prop-exact",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(DetectorReferenceJoinError::AdjudicationRecordsForbiddenAtDetectorExecution)
+    ));
+}
+
+#[test]
+fn fc01_shuffled_adjudication_order_produces_identical_join() {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-a", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-b", 1, 0, 10, 14, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let forward = frozen_adjudication_set(vec![
+        adjudication_record(
+            "adj-a",
+            "det-prop-a",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-b",
+            "det-prop-b",
+            "ref-err-2",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+    ]);
+    let reverse = frozen_adjudication_set(vec![
+        adjudication_record(
+            "adj-b",
+            "det-prop-b",
+            "ref-err-2",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-a",
+            "det-prop-a",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+    ]);
+    let forward_join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &forward,
+    )
+    .expect("forward join");
+    let reverse_join = DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &reverse,
+    )
+    .expect("reverse join");
+    assert_eq!(forward_join.edges, reverse_join.edges);
+    assert_eq!(
+        forward_join.detector_dispositions,
+        reverse_join.detector_dispositions
+    );
+    assert_eq!(
+        forward_join.reference_dispositions,
+        reverse_join.reference_dispositions
+    );
+}
+
+#[test]
+fn fc02_primary_edge_with_detector_disposition_only_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.reference_dispositions[0].primary_detector_proposal_id = None;
+    join.reference_dispositions[0].disposition =
+        DetectorReferenceMatchDisposition::UnmatchedReference;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_primary_edge_with_reference_disposition_only_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.detector_dispositions[0].primary_reference_error_id = None;
+    join.detector_dispositions[0].disposition =
+        DetectorReferenceMatchDisposition::UnmatchedDetector;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_both_dispositions_without_primary_edge_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.detector_dispositions[0].primary_reference_error_id = None;
+    join.detector_dispositions[0].disposition =
+        DetectorReferenceMatchDisposition::UnmatchedDetector;
+    join.reference_dispositions[0].primary_detector_proposal_id = None;
+    join.reference_dispositions[0].disposition =
+        DetectorReferenceMatchDisposition::UnmatchedReference;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_extra_primary_edge_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    let template = primary_edge(&join).clone();
+    join.edges.push(DetectorReferenceJoinEdge {
+        join_record_id: JoinRecordId::new("join-edge-extra").expect("join record id"),
+        detector_proposal_id: DetectorProposalId::new("det-prop-extra").expect("proposal id"),
+        reference_error_id: ReferenceErrorId::new("ref-err-extra").expect("reference id"),
+        ..template
+    });
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_extra_detector_side_primary_id_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.detector_dispositions.push(
+        vox_proof::detector_reference_join::DetectorJoinDispositionRecord {
+            detector_proposal_id: DetectorProposalId::new("det-prop-extra").expect("proposal id"),
+            disposition: DetectorReferenceMatchDisposition::AcceptedOverlap,
+            primary_reference_error_id: Some(
+                ReferenceErrorId::new("ref-err-1").expect("reference id"),
+            ),
+        },
+    );
+    join.assessment.detector_proposal_count += 1;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_extra_reference_side_primary_id_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.reference_dispositions.push(
+        vox_proof::detector_reference_join::ReferenceJoinDispositionRecord {
+            reference_error_id: ReferenceErrorId::new("ref-err-extra").expect("reference id"),
+            disposition: DetectorReferenceMatchDisposition::AcceptedOverlap,
+            primary_detector_proposal_id: Some(
+                DetectorProposalId::new("det-prop-001").expect("proposal id"),
+            ),
+        },
+    );
+    join.assessment.reference_record_count += 1;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_detector_and_reference_primary_pair_mismatch_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.reference_dispositions[0].primary_detector_proposal_id =
+        Some(DetectorProposalId::new("det-prop-other").expect("proposal id"));
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_duplicate_detector_disposition_id_fails() {
+    let mut join = derive_assisted_exact_join();
+    join.detector_dispositions
+        .push(join.detector_dispositions[0].clone());
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::DuplicateDetectorDispositionId { .. })
+    ));
+}
+
+#[test]
+fn fc02_duplicate_reference_disposition_id_fails() {
+    let mut join = derive_assisted_exact_join();
+    join.reference_dispositions
+        .push(join.reference_dispositions[0].clone());
+    assert!(matches!(
+        join.validate(),
+        Err(DetectorReferenceJoinError::DuplicateReferenceDispositionId { .. })
+    ));
+}
+
+#[test]
+fn fc02_duplicate_primary_edge_pair_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    let template = primary_edge(&join).clone();
+    join.edges.push(DetectorReferenceJoinEdge {
+        join_record_id: JoinRecordId::new("join-edge-dup").expect("join record id"),
+        ..template
+    });
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::DuplicatePrimaryEdgePair);
+}
+
+#[test]
+fn fc02_two_primary_references_for_one_detector_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    let template = primary_edge(&join).clone();
+    join.edges.push(DetectorReferenceJoinEdge {
+        join_record_id: JoinRecordId::new("join-edge-second-ref").expect("join record id"),
+        reference_error_id: ReferenceErrorId::new("ref-err-2").expect("reference id"),
+        ..template
+    });
+    join.reference_dispositions.push(
+        vox_proof::detector_reference_join::ReferenceJoinDispositionRecord {
+            reference_error_id: ReferenceErrorId::new("ref-err-2").expect("reference id"),
+            disposition: DetectorReferenceMatchDisposition::AcceptedOverlap,
+            primary_detector_proposal_id: Some(
+                DetectorProposalId::new("det-prop-001").expect("proposal id"),
+            ),
+        },
+    );
+    join.assessment.reference_record_count += 1;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_two_primary_detectors_for_one_reference_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    let template = primary_edge(&join).clone();
+    join.edges.push(DetectorReferenceJoinEdge {
+        join_record_id: JoinRecordId::new("join-edge-second-det").expect("join record id"),
+        detector_proposal_id: DetectorProposalId::new("det-prop-002").expect("proposal id"),
+        ..template
+    });
+    join.detector_dispositions.push(
+        vox_proof::detector_reference_join::DetectorJoinDispositionRecord {
+            detector_proposal_id: DetectorProposalId::new("det-prop-002").expect("proposal id"),
+            disposition: DetectorReferenceMatchDisposition::AcceptedOverlap,
+            primary_reference_error_id: Some(
+                ReferenceErrorId::new("ref-err-1").expect("reference id"),
+            ),
+        },
+    );
+    join.assessment.detector_proposal_count += 1;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::PrimaryTopologySetMismatch);
+}
+
+#[test]
+fn fc02_primary_disposition_without_primary_id_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.detector_dispositions[0].primary_reference_error_id = None;
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::DispositionRequiresPrimaryId,
+    );
+}
+
+#[test]
+fn fc02_non_primary_disposition_carrying_primary_id_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    join.detector_dispositions[0].disposition = DetectorReferenceMatchDisposition::OverlapCandidate;
+    assert_primary_topology_violation(&join, PrimaryTopologyViolation::DispositionForbidsPrimaryId);
+}
+
+#[test]
+fn fc02_overlap_primary_without_adjudication_fails() {
+    let mut join = derive_assisted_overlap_accepted_join();
+    let edge = join
+        .edges
+        .iter_mut()
+        .find(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+        .expect("primary edge");
+    edge.adjudication_id = None;
+    edge.adjudication_result = None;
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::OverlapPrimaryMissingAdjudication,
+    );
+}
+
+#[test]
+fn fc02_overlap_primary_with_inconsistent_adjudication_result_fails() {
+    let mut join = derive_assisted_overlap_wrong_correction_join();
+    let edge = join
+        .edges
+        .iter_mut()
+        .find(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+        .expect("primary edge");
+    edge.adjudication_result = Some(OverlapAdjudicationResult::SameErrorSameCorrection);
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::OverlapPrimaryAdjudicationInconsistent,
+    );
+}
+
+#[test]
+fn fc02_valid_exact_topology_passes_local_validation() {
+    let join = derive_assisted_exact_join();
+    join.validate().expect("exact topology valid");
+}
+
+#[test]
+fn fc02_valid_accepted_overlap_topology_passes_local_validation() {
+    let join = derive_assisted_overlap_accepted_join();
+    join.validate().expect("accepted overlap topology valid");
+}
+
+#[test]
+fn fc02_valid_overlap_wrong_correction_topology_passes_local_validation() {
+    let join = derive_assisted_overlap_wrong_correction_join();
+    join.validate()
+        .expect("overlap wrong correction topology valid");
 }

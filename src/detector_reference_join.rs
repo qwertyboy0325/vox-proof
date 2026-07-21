@@ -85,6 +85,47 @@ pub enum JoinCorrectionRelation {
     Different,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Phase3OverlapPair {
+    pub detector_proposal_id: DetectorProposalId,
+    pub reference_error_id: ReferenceErrorId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Phase3AdjudicationRejectionReason {
+    UnknownDetectorProposal,
+    UnknownReferenceError,
+    ExactAnchor,
+    DisjointAnchor,
+    TouchingNonOverlap,
+    CrossInput,
+    CrossCue,
+    CrossSegment,
+    VerificationIneligibleReference,
+    NonTranscriptionErrorReference,
+    DetectorAssignedByExactPhase,
+    ReferenceAssignedByExactPhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrimaryTopologyViolation {
+    PrimaryEdgeMissingDetectorDisposition,
+    PrimaryEdgeMissingReferenceDisposition,
+    DetectorPrimaryWithoutEdge,
+    ReferencePrimaryWithoutEdge,
+    PrimaryPairSideMismatch,
+    ExtraPrimaryEdge,
+    DuplicatePrimaryEdgePair,
+    MultiplePrimaryReferencesForDetector,
+    MultiplePrimaryDetectorsForReference,
+    PrimaryTopologySetMismatch,
+    DispositionRequiresPrimaryId,
+    DispositionForbidsPrimaryId,
+    PrimaryDispositionSideMismatch,
+    OverlapPrimaryMissingAdjudication,
+    OverlapPrimaryAdjudicationInconsistent,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JoinEdgeResolution {
@@ -176,6 +217,7 @@ pub struct DetectorReferenceJoin {
     pub detector_snapshot_revision: DetectorSnapshotRevisionId,
     pub detector_output_artifact_id: ArtifactId,
     pub evaluation_join_artifact_id: ArtifactId,
+    pub join_adjudication_artifact_id: ArtifactId,
     pub join_purpose: DetectorReferenceJoinPurpose,
     pub overlap_rule_revision: String,
     pub correction_equality_revision: String,
@@ -192,6 +234,7 @@ pub struct DetectorReferenceJoinContext {
     pub join_id: DetectorReferenceJoinId,
     pub join_revision: DetectorReferenceJoinRevisionId,
     pub evaluation_join_artifact_id: ArtifactId,
+    pub join_adjudication_artifact_id: ArtifactId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -216,6 +259,9 @@ pub enum DetectorReferenceJoinError {
     InvalidJoinId(JoinIdentityIdError),
     InvalidJoinRevisionId(JoinIdentityIdError),
     InvalidJoinRecordId(JoinIdentityIdError),
+    DuplicateJoinRecordId {
+        join_record_id: JoinRecordId,
+    },
     UnsupportedPolicyRevision {
         field: &'static str,
         found: String,
@@ -236,6 +282,27 @@ pub enum DetectorReferenceJoinError {
     DetectorOutputArtifactMismatch,
     EvaluationJoinArtifactMismatch,
     JoinAdjudicationArtifactMismatch,
+    TopLevelBindingMismatch {
+        field: &'static str,
+    },
+    UnknownAdjudicationDetectorProposal {
+        detector_proposal_id: DetectorProposalId,
+    },
+    UnknownAdjudicationReferenceError {
+        reference_error_id: ReferenceErrorId,
+    },
+    AdjudicationChronologyViolation {
+        lifecycle_state: RunLifecycleState,
+    },
+    DuplicateDetectorDispositionId {
+        detector_proposal_id: DetectorProposalId,
+    },
+    DuplicateReferenceDispositionId {
+        reference_error_id: ReferenceErrorId,
+    },
+    TerminalDispositionMismatch,
+    PrimaryAssignmentInconsistent,
+    RequiresAdjudicationStateInconsistent,
     JoinPurposeIncompatible {
         purpose: DetectorReferenceJoinPurpose,
     },
@@ -263,6 +330,18 @@ pub enum DetectorReferenceJoinError {
     AdjudicationPairNotOverlapEdge {
         detector_proposal_id: DetectorProposalId,
         reference_error_id: ReferenceErrorId,
+    },
+    AdjudicationPairNotAdmissiblePhase3Edge {
+        detector_proposal_id: DetectorProposalId,
+        reference_error_id: ReferenceErrorId,
+        reason: Phase3AdjudicationRejectionReason,
+    },
+    AdjudicationRecordNotMaterialized {
+        detector_proposal_id: DetectorProposalId,
+        reference_error_id: ReferenceErrorId,
+    },
+    PrimaryTopologyViolation {
+        violation: PrimaryTopologyViolation,
     },
     MissingAdjudicationRecord {
         detector_proposal_id: DetectorProposalId,
@@ -337,9 +416,10 @@ impl DetectorReferenceJoin {
         human_reference: &HumanFinalReference,
         detector_snapshot: &DetectorProposalSnapshot,
         artifact_bundle: &ArtifactBundle,
-        adjudication_set: Option<&OverlapAdjudicationSet>,
+        adjudication_set: &OverlapAdjudicationSet,
     ) -> Result<Self, DetectorReferenceJoinError> {
         validate_join_creation_lifecycle(envelope.lifecycle_state)?;
+        validate_adjudication_chronology(envelope, adjudication_set, None)?;
         validate_join_inputs(
             envelope,
             seal,
@@ -351,24 +431,6 @@ impl DetectorReferenceJoin {
             context,
             DeriveMode::Creation,
         )?;
-
-        if envelope.lifecycle_state == RunLifecycleState::DetectorExecution
-            && adjudication_set.is_some_and(|set| !set.records.is_empty())
-        {
-            return Err(
-                DetectorReferenceJoinError::AdjudicationRecordsForbiddenAtDetectorExecution,
-            );
-        }
-
-        if adjudication_set.is_some_and(|set| !set.records.is_empty())
-            && envelope.lifecycle_state != RunLifecycleState::AssistedReview
-        {
-            return Err(
-                DetectorReferenceJoinError::AdjudicationResolutionLifecycleIncompatible {
-                    lifecycle_state: envelope.lifecycle_state,
-                },
-            );
-        }
 
         let purpose = join_purpose_from_coverage(coverage.coverage_purpose)?;
         let join = derive_join_body(
@@ -403,7 +465,7 @@ impl DetectorReferenceJoin {
         human_reference: &HumanFinalReference,
         detector_snapshot: &DetectorProposalSnapshot,
         artifact_bundle: &ArtifactBundle,
-        adjudication_set: Option<&OverlapAdjudicationSet>,
+        adjudication_set: &OverlapAdjudicationSet,
     ) -> Result<(), DetectorReferenceJoinError> {
         self.validate()?;
 
@@ -419,6 +481,9 @@ impl DetectorReferenceJoin {
             );
         };
 
+        validate_adjudication_chronology(envelope, adjudication_set, Some(self))?;
+        let context =
+            authoritative_join_context_for_validation(self, artifact_bundle, adjudication_set)?;
         validate_join_inputs(
             envelope,
             seal,
@@ -427,27 +492,13 @@ impl DetectorReferenceJoin {
             detector_snapshot,
             artifact_bundle,
             adjudication_set,
-            &DetectorReferenceJoinContext {
-                join_id: self.join_id.clone(),
-                join_revision: self.join_revision.clone(),
-                evaluation_join_artifact_id: self.evaluation_join_artifact_id.clone(),
-            },
+            &context,
             mode,
         )?;
 
         let purpose = join_purpose_from_coverage(coverage.coverage_purpose)?;
-        if self.join_purpose != purpose {
-            return Err(DetectorReferenceJoinError::JoinPurposeIncompatible {
-                purpose: self.join_purpose,
-            });
-        }
-
         let derived = derive_join_body(
-            &DetectorReferenceJoinContext {
-                join_id: self.join_id.clone(),
-                join_revision: self.join_revision.clone(),
-                evaluation_join_artifact_id: self.evaluation_join_artifact_id.clone(),
-            },
+            &context,
             envelope,
             seal,
             coverage,
@@ -456,6 +507,8 @@ impl DetectorReferenceJoin {
             adjudication_set,
             purpose,
         )?;
+
+        compare_stored_top_level_bindings(self, &derived)?;
 
         if self.edges != derived.edges
             || self.detector_dispositions != derived.detector_dispositions
@@ -502,17 +555,43 @@ impl DetectorReferenceJoin {
         validate_join_id_value(self.join_revision.as_str())
             .map_err(DetectorReferenceJoinError::InvalidJoinRevisionId)?;
 
+        let mut detector_disposition_ids = HashSet::new();
+        for record in &self.detector_dispositions {
+            if !detector_disposition_ids.insert(record.detector_proposal_id.clone()) {
+                return Err(DetectorReferenceJoinError::DuplicateDetectorDispositionId {
+                    detector_proposal_id: record.detector_proposal_id.clone(),
+                });
+            }
+        }
+        let mut reference_disposition_ids = HashSet::new();
+        for record in &self.reference_dispositions {
+            if !reference_disposition_ids.insert(record.reference_error_id.clone()) {
+                return Err(
+                    DetectorReferenceJoinError::DuplicateReferenceDispositionId {
+                        reference_error_id: record.reference_error_id.clone(),
+                    },
+                );
+            }
+        }
+
         let mut edge_ids = HashSet::new();
         for edge in &self.edges {
             validate_join_id_value(edge.join_record_id.as_str())
                 .map_err(DetectorReferenceJoinError::InvalidJoinRecordId)?;
             if !edge_ids.insert(edge.join_record_id.clone()) {
-                return Err(DetectorReferenceJoinError::AssessmentMismatch {
-                    stored: Box::new(self.assessment.clone()),
-                    derived: Box::new(self.assessment.clone()),
+                return Err(DetectorReferenceJoinError::DuplicateJoinRecordId {
+                    join_record_id: edge.join_record_id.clone(),
                 });
             }
         }
+
+        if self.detector_dispositions.len() as u32 != self.assessment.detector_proposal_count
+            || self.reference_dispositions.len() as u32 != self.assessment.reference_record_count
+        {
+            return Err(DetectorReferenceJoinError::TerminalDispositionMismatch);
+        }
+
+        validate_local_primary_topology(self)?;
 
         let derived_assessment = derive_assessment_from_records(
             self.detector_dispositions.len() as u32,
@@ -525,21 +604,11 @@ impl DetectorReferenceJoin {
         if self.assessment != derived_assessment {
             return Err(DetectorReferenceJoinError::AssessmentMismatch {
                 stored: Box::new(self.assessment.clone()),
-                derived: Box::new(derived_assessment),
+                derived: Box::new(derived_assessment.clone()),
             });
         }
 
-        if self.state == DetectorReferenceJoinState::Resolved && !derived_assessment.fully_resolved
-        {
-            return Err(DetectorReferenceJoinError::JoinStateMismatch {
-                state: self.state,
-                assessment: Box::new(derived_assessment),
-            });
-        }
-
-        if self.state == DetectorReferenceJoinState::Invalidated {
-            return Err(DetectorReferenceJoinError::InvalidatedJoinContext);
-        }
+        validate_local_state_consistency(self, &derived_assessment)?;
 
         Ok(())
     }
@@ -548,6 +617,716 @@ impl DetectorReferenceJoin {
 enum DeriveMode {
     Creation,
     Historical,
+}
+
+fn authoritative_join_context_for_validation(
+    stored: &DetectorReferenceJoin,
+    artifact_bundle: &ArtifactBundle,
+    adjudication_set: &OverlapAdjudicationSet,
+) -> Result<DetectorReferenceJoinContext, DetectorReferenceJoinError> {
+    let evaluation_joins = artifact_bundle
+        .artifacts
+        .iter()
+        .filter(|descriptor| descriptor.role == ArtifactRole::EvaluationJoin)
+        .collect::<Vec<_>>();
+    if evaluation_joins.len() != 1 {
+        return Err(DetectorReferenceJoinError::EvaluationJoinArtifactMismatch);
+    }
+
+    let adjudication_roles = artifact_bundle
+        .artifacts
+        .iter()
+        .filter(|descriptor| descriptor.role == ArtifactRole::JoinAdjudication)
+        .collect::<Vec<_>>();
+    if adjudication_roles.len() != 1 {
+        return Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch);
+    }
+
+    if adjudication_roles[0].artifact_id != adjudication_set.join_adjudication_artifact_id {
+        return Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch);
+    }
+
+    Ok(DetectorReferenceJoinContext {
+        join_id: stored.join_id.clone(),
+        join_revision: stored.join_revision.clone(),
+        evaluation_join_artifact_id: evaluation_joins[0].artifact_id.clone(),
+        join_adjudication_artifact_id: adjudication_set.join_adjudication_artifact_id.clone(),
+    })
+}
+
+fn compare_stored_top_level_bindings(
+    stored: &DetectorReferenceJoin,
+    derived: &DetectorReferenceJoin,
+) -> Result<(), DetectorReferenceJoinError> {
+    if stored.run_id != derived.run_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch { field: "run_id" });
+    }
+    if stored.input_identity != derived.input_identity {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "input_identity",
+        });
+    }
+    if stored.calibration_validity != derived.calibration_validity {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "calibration_validity",
+        });
+    }
+    if stored.reference_seal_id != derived.reference_seal_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "reference_seal_id",
+        });
+    }
+    if stored.reference_revision != derived.reference_revision {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "reference_revision",
+        });
+    }
+    if stored.reference_coverage_id != derived.reference_coverage_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "reference_coverage_id",
+        });
+    }
+    if stored.detector_snapshot_revision != derived.detector_snapshot_revision {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "detector_snapshot_revision",
+        });
+    }
+    if stored.detector_output_artifact_id != derived.detector_output_artifact_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "detector_output_artifact_id",
+        });
+    }
+    if stored.evaluation_join_artifact_id != derived.evaluation_join_artifact_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "evaluation_join_artifact_id",
+        });
+    }
+    if stored.join_adjudication_artifact_id != derived.join_adjudication_artifact_id {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "join_adjudication_artifact_id",
+        });
+    }
+    if stored.join_purpose != derived.join_purpose {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "join_purpose",
+        });
+    }
+    if stored.overlap_rule_revision != derived.overlap_rule_revision {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "overlap_rule_revision",
+        });
+    }
+    if stored.correction_equality_revision != derived.correction_equality_revision {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "correction_equality_revision",
+        });
+    }
+    if stored.alternative_cardinality_policy != derived.alternative_cardinality_policy {
+        return Err(DetectorReferenceJoinError::TopLevelBindingMismatch {
+            field: "alternative_cardinality_policy",
+        });
+    }
+    Ok(())
+}
+
+fn join_has_adjudication_resolved_overlap(join: &DetectorReferenceJoin) -> bool {
+    join.edges.iter().any(|edge| {
+        edge.anchor_relation == JoinAnchorRelation::Overlap
+            && matches!(
+                edge.adjudication_result,
+                Some(OverlapAdjudicationResult::SameErrorSameCorrection)
+                    | Some(OverlapAdjudicationResult::SameErrorWrongCorrection)
+            )
+            && edge.resolution == JoinEdgeResolution::PrimaryAssignment
+    })
+}
+
+fn validate_adjudication_chronology(
+    envelope: &RunEnvelope,
+    adjudication_set: &OverlapAdjudicationSet,
+    join: Option<&DetectorReferenceJoin>,
+) -> Result<(), DetectorReferenceJoinError> {
+    if envelope.lifecycle_state == RunLifecycleState::Invalidated {
+        return Err(DetectorReferenceJoinError::InvalidatedJoinContext);
+    }
+
+    match envelope.lifecycle_state {
+        RunLifecycleState::DetectorExecution => {
+            if let Some(join) = join
+                && join_has_adjudication_resolved_overlap(join)
+            {
+                return Err(
+                    DetectorReferenceJoinError::AdjudicationChronologyViolation {
+                        lifecycle_state: envelope.lifecycle_state,
+                    },
+                );
+            }
+            if !adjudication_set.records.is_empty() {
+                return Err(
+                    DetectorReferenceJoinError::AdjudicationRecordsForbiddenAtDetectorExecution,
+                );
+            }
+        }
+        RunLifecycleState::AssistedReview | RunLifecycleState::Finalized => {}
+        RunLifecycleState::Declared
+        | RunLifecycleState::ReferencePreparation
+        | RunLifecycleState::ReferenceSealed => {
+            return Err(
+                DetectorReferenceJoinError::JoinHistoricalLifecycleIncompatible {
+                    lifecycle_state: envelope.lifecycle_state,
+                },
+            );
+        }
+        RunLifecycleState::Invalidated => {
+            return Err(DetectorReferenceJoinError::InvalidatedJoinContext);
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_local_primary_topology(
+    join: &DetectorReferenceJoin,
+) -> Result<(), DetectorReferenceJoinError> {
+    for record in &join.detector_dispositions {
+        let has_primary = record.primary_reference_error_id.is_some();
+        if disposition_requires_primary_id(record.disposition) && !has_primary {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::DispositionRequiresPrimaryId,
+            });
+        }
+        if disposition_forbids_primary_id(record.disposition) && has_primary {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::DispositionForbidsPrimaryId,
+            });
+        }
+    }
+    for record in &join.reference_dispositions {
+        let has_primary = record.primary_detector_proposal_id.is_some();
+        if disposition_requires_primary_id(record.disposition) && !has_primary {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::DispositionRequiresPrimaryId,
+            });
+        }
+        if disposition_forbids_primary_id(record.disposition) && has_primary {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::DispositionForbidsPrimaryId,
+            });
+        }
+    }
+
+    let primary_edge_pairs = collect_primary_edge_pairs(join);
+    let detector_disposition_primary_pairs = collect_detector_disposition_primary_pairs(join);
+    let reference_disposition_primary_pairs = collect_reference_disposition_primary_pairs(join);
+
+    if primary_edge_pairs != detector_disposition_primary_pairs {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::PrimaryTopologySetMismatch,
+        });
+    }
+    if primary_edge_pairs != reference_disposition_primary_pairs {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::PrimaryTopologySetMismatch,
+        });
+    }
+
+    let mut primary_edge_pair_counts = HashMap::new();
+    for edge in join
+        .edges
+        .iter()
+        .filter(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+    {
+        let pair = (
+            edge.detector_proposal_id.clone(),
+            edge.reference_error_id.clone(),
+        );
+        *primary_edge_pair_counts.entry(pair).or_insert(0u32) += 1;
+    }
+    if primary_edge_pair_counts.values().any(|count| *count > 1) {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::DuplicatePrimaryEdgePair,
+        });
+    }
+
+    let mut detector_primary_targets = HashMap::new();
+    for (detector, reference) in &primary_edge_pairs {
+        if let Some(existing) = detector_primary_targets.insert(detector.clone(), reference.clone())
+            && existing != *reference
+        {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::MultiplePrimaryReferencesForDetector,
+            });
+        }
+    }
+
+    let mut reference_primary_targets = HashMap::new();
+    for (detector, reference) in &primary_edge_pairs {
+        if let Some(existing) =
+            reference_primary_targets.insert(reference.clone(), detector.clone())
+            && existing != *detector
+        {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::MultiplePrimaryDetectorsForReference,
+            });
+        }
+    }
+
+    for (detector, reference) in &primary_edge_pairs {
+        let Some(detector_record) = join
+            .detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id == *detector)
+        else {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryEdgeMissingDetectorDisposition,
+            });
+        };
+        let Some(reference_record) = join
+            .reference_dispositions
+            .iter()
+            .find(|record| record.reference_error_id == *reference)
+        else {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryEdgeMissingReferenceDisposition,
+            });
+        };
+        if detector_record.primary_reference_error_id.as_ref() != Some(reference) {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryPairSideMismatch,
+            });
+        }
+        if reference_record.primary_detector_proposal_id.as_ref() != Some(detector) {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryPairSideMismatch,
+            });
+        }
+        if detector_record.disposition != reference_record.disposition {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryDispositionSideMismatch,
+            });
+        }
+    }
+
+    for record in &join.detector_dispositions {
+        if let Some(reference) = &record.primary_reference_error_id {
+            let pair = (record.detector_proposal_id.clone(), reference.clone());
+            if !primary_edge_pairs.contains(&pair) {
+                return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                    violation: PrimaryTopologyViolation::DetectorPrimaryWithoutEdge,
+                });
+            }
+        }
+    }
+    for record in &join.reference_dispositions {
+        if let Some(detector) = &record.primary_detector_proposal_id {
+            let pair = (detector.clone(), record.reference_error_id.clone());
+            if !primary_edge_pairs.contains(&pair) {
+                return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                    violation: PrimaryTopologyViolation::ReferencePrimaryWithoutEdge,
+                });
+            }
+        }
+    }
+
+    for edge in join
+        .edges
+        .iter()
+        .filter(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+    {
+        validate_primary_edge_semantics(edge)?;
+        let Some(detector_record) = join
+            .detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id == edge.detector_proposal_id)
+        else {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryEdgeMissingDetectorDisposition,
+            });
+        };
+        let expected = expected_primary_disposition(edge)?;
+        if detector_record.disposition != expected {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::PrimaryDispositionSideMismatch,
+            });
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_local_state_consistency(
+    join: &DetectorReferenceJoin,
+    derived_assessment: &DetectorReferenceJoinAssessment,
+) -> Result<(), DetectorReferenceJoinError> {
+    if join.state == DetectorReferenceJoinState::Resolved && !derived_assessment.fully_resolved {
+        return Err(DetectorReferenceJoinError::JoinStateMismatch {
+            state: join.state,
+            assessment: Box::new(derived_assessment.clone()),
+        });
+    }
+
+    if join.state == DetectorReferenceJoinState::Invalidated {
+        return Err(DetectorReferenceJoinError::InvalidatedJoinContext);
+    }
+
+    if join.state == DetectorReferenceJoinState::RequiresAdjudication
+        && derived_assessment.unresolved_overlap_edge_count == 0
+        && derived_assessment.ambiguous_match_count == 0
+        && derived_assessment.one_to_one_consistent
+    {
+        return Err(DetectorReferenceJoinError::RequiresAdjudicationStateInconsistent);
+    }
+
+    Ok(())
+}
+
+fn disposition_requires_primary_id(disposition: DetectorReferenceMatchDisposition) -> bool {
+    matches!(
+        disposition,
+        DetectorReferenceMatchDisposition::ExactMatch
+            | DetectorReferenceMatchDisposition::AcceptedOverlap
+            | DetectorReferenceMatchDisposition::DetectorWrongCorrection
+    )
+}
+
+fn disposition_forbids_primary_id(disposition: DetectorReferenceMatchDisposition) -> bool {
+    matches!(
+        disposition,
+        DetectorReferenceMatchDisposition::DuplicateProposal
+            | DetectorReferenceMatchDisposition::UnmatchedReference
+            | DetectorReferenceMatchDisposition::UnmatchedDetector
+            | DetectorReferenceMatchDisposition::AmbiguousMatch
+            | DetectorReferenceMatchDisposition::ExcludedFromErrorMetrics
+            | DetectorReferenceMatchDisposition::OverlapCandidate
+    )
+}
+
+fn collect_primary_edge_pairs(
+    join: &DetectorReferenceJoin,
+) -> HashSet<(DetectorProposalId, ReferenceErrorId)> {
+    join.edges
+        .iter()
+        .filter(|edge| edge.resolution == JoinEdgeResolution::PrimaryAssignment)
+        .map(|edge| {
+            (
+                edge.detector_proposal_id.clone(),
+                edge.reference_error_id.clone(),
+            )
+        })
+        .collect()
+}
+
+fn collect_detector_disposition_primary_pairs(
+    join: &DetectorReferenceJoin,
+) -> HashSet<(DetectorProposalId, ReferenceErrorId)> {
+    join.detector_dispositions
+        .iter()
+        .filter_map(|record| {
+            record
+                .primary_reference_error_id
+                .as_ref()
+                .map(|reference| (record.detector_proposal_id.clone(), reference.clone()))
+        })
+        .collect()
+}
+
+fn collect_reference_disposition_primary_pairs(
+    join: &DetectorReferenceJoin,
+) -> HashSet<(DetectorProposalId, ReferenceErrorId)> {
+    join.reference_dispositions
+        .iter()
+        .filter_map(|record| {
+            record
+                .primary_detector_proposal_id
+                .as_ref()
+                .map(|detector| (detector.clone(), record.reference_error_id.clone()))
+        })
+        .collect()
+}
+
+fn expected_primary_disposition(
+    edge: &DetectorReferenceJoinEdge,
+) -> Result<DetectorReferenceMatchDisposition, DetectorReferenceJoinError> {
+    match (edge.anchor_relation, edge.correction_relation) {
+        (JoinAnchorRelation::Exact, JoinCorrectionRelation::NfcEqual) => {
+            Ok(DetectorReferenceMatchDisposition::ExactMatch)
+        }
+        (JoinAnchorRelation::Exact, JoinCorrectionRelation::Different) => {
+            Ok(DetectorReferenceMatchDisposition::DetectorWrongCorrection)
+        }
+        (JoinAnchorRelation::Overlap, JoinCorrectionRelation::NfcEqual) => {
+            validate_overlap_primary_adjudication(edge)?;
+            Ok(DetectorReferenceMatchDisposition::AcceptedOverlap)
+        }
+        (JoinAnchorRelation::Overlap, JoinCorrectionRelation::Different) => {
+            validate_overlap_primary_adjudication(edge)?;
+            Ok(DetectorReferenceMatchDisposition::DetectorWrongCorrection)
+        }
+    }
+}
+
+fn validate_overlap_primary_adjudication(
+    edge: &DetectorReferenceJoinEdge,
+) -> Result<(), DetectorReferenceJoinError> {
+    let Some(result) = edge.adjudication_result else {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::OverlapPrimaryMissingAdjudication,
+        });
+    };
+    let expected = match edge.correction_relation {
+        JoinCorrectionRelation::NfcEqual => OverlapAdjudicationResult::SameErrorSameCorrection,
+        JoinCorrectionRelation::Different => OverlapAdjudicationResult::SameErrorWrongCorrection,
+    };
+    if result != expected {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::OverlapPrimaryAdjudicationInconsistent,
+        });
+    }
+    if edge.adjudication_id.is_none() {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::OverlapPrimaryMissingAdjudication,
+        });
+    }
+    Ok(())
+}
+
+fn validate_primary_edge_semantics(
+    edge: &DetectorReferenceJoinEdge,
+) -> Result<(), DetectorReferenceJoinError> {
+    if let Some(OverlapAdjudicationResult::DifferentError | OverlapAdjudicationResult::Ambiguous) =
+        edge.adjudication_result
+    {
+        return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+            violation: PrimaryTopologyViolation::OverlapPrimaryAdjudicationInconsistent,
+        });
+    }
+    expected_primary_disposition(edge).map(|_| ())
+}
+
+fn compute_exact_phase_assignments(
+    proposals: &[DetectorProposalRecord],
+    references: &[ReferenceErrorRecord],
+) -> (HashSet<DetectorProposalId>, HashSet<ReferenceErrorId>) {
+    let mut assigned_detectors = HashSet::new();
+    let mut assigned_references = HashSet::new();
+
+    for reference in references {
+        if !is_recall_eligible_for_matching(reference)
+            || assigned_references.contains(&reference.reference_error_id)
+        {
+            continue;
+        }
+        let mut qualifying = proposals
+            .iter()
+            .filter(|proposal| {
+                anchors_exact(&proposal.source_anchor, &reference.source_anchor)
+                    && nfc_correction_equal(
+                        proposal_correction(proposal),
+                        &reference.human_final_surface,
+                    )
+            })
+            .collect::<Vec<_>>();
+        qualifying.sort_by(|left, right| {
+            left.detector_proposal_id
+                .as_str()
+                .cmp(right.detector_proposal_id.as_str())
+        });
+        if let Some(primary) = qualifying.first()
+            && !assigned_detectors.contains(&primary.detector_proposal_id)
+        {
+            assigned_detectors.insert(primary.detector_proposal_id.clone());
+            assigned_references.insert(reference.reference_error_id.clone());
+        }
+    }
+
+    for reference in references {
+        if !is_recall_eligible_for_matching(reference)
+            || assigned_references.contains(&reference.reference_error_id)
+        {
+            continue;
+        }
+        let mut qualifying = proposals
+            .iter()
+            .filter(|proposal| {
+                anchors_exact(&proposal.source_anchor, &reference.source_anchor)
+                    && !nfc_correction_equal(
+                        proposal_correction(proposal),
+                        &reference.human_final_surface,
+                    )
+            })
+            .collect::<Vec<_>>();
+        qualifying.sort_by(|left, right| {
+            left.detector_proposal_id
+                .as_str()
+                .cmp(right.detector_proposal_id.as_str())
+        });
+        if let Some(primary) = qualifying.first()
+            && !assigned_detectors.contains(&primary.detector_proposal_id)
+        {
+            assigned_detectors.insert(primary.detector_proposal_id.clone());
+            assigned_references.insert(reference.reference_error_id.clone());
+        }
+    }
+
+    (assigned_detectors, assigned_references)
+}
+
+fn compute_phase3_admissible_overlap_pairs(
+    detector_snapshot: &DetectorProposalSnapshot,
+    human_reference: &HumanFinalReference,
+) -> HashSet<(DetectorProposalId, ReferenceErrorId)> {
+    let mut proposals = detector_snapshot.proposals.clone();
+    proposals.sort_by(|left, right| {
+        left.detector_proposal_id
+            .as_str()
+            .cmp(right.detector_proposal_id.as_str())
+    });
+
+    let mut references = human_reference.records.clone();
+    references.sort_by(|left, right| {
+        left.reference_error_id
+            .as_str()
+            .cmp(right.reference_error_id.as_str())
+    });
+
+    let (assigned_detectors, assigned_references) =
+        compute_exact_phase_assignments(&proposals, &references);
+
+    let mut admissible = HashSet::new();
+    for reference in &references {
+        if !is_recall_eligible_for_matching(reference) {
+            continue;
+        }
+        for proposal in &proposals {
+            if assigned_detectors.contains(&proposal.detector_proposal_id)
+                || assigned_references.contains(&reference.reference_error_id)
+            {
+                continue;
+            }
+            if anchors_overlap(&proposal.source_anchor, &reference.source_anchor) {
+                admissible.insert((
+                    proposal.detector_proposal_id.clone(),
+                    reference.reference_error_id.clone(),
+                ));
+            }
+        }
+    }
+    admissible
+}
+
+fn classify_phase3_adjudication_pair(
+    detector_proposal_id: &DetectorProposalId,
+    reference_error_id: &ReferenceErrorId,
+    detector_snapshot: &DetectorProposalSnapshot,
+    human_reference: &HumanFinalReference,
+    assigned_detectors: &HashSet<DetectorProposalId>,
+    assigned_references: &HashSet<ReferenceErrorId>,
+    admissible_pairs: &HashSet<(DetectorProposalId, ReferenceErrorId)>,
+) -> Result<(), Phase3AdjudicationRejectionReason> {
+    let Some(proposal) = detector_snapshot
+        .proposals
+        .iter()
+        .find(|proposal| proposal.detector_proposal_id == *detector_proposal_id)
+    else {
+        return Err(Phase3AdjudicationRejectionReason::UnknownDetectorProposal);
+    };
+    let Some(reference) = human_reference
+        .records
+        .iter()
+        .find(|reference| reference.reference_error_id == *reference_error_id)
+    else {
+        return Err(Phase3AdjudicationRejectionReason::UnknownReferenceError);
+    };
+
+    if proposal.source_anchor.input_identity != reference.source_anchor.input_identity {
+        return Err(Phase3AdjudicationRejectionReason::CrossInput);
+    }
+    if proposal.source_anchor.cue_id != reference.source_anchor.cue_id {
+        return Err(Phase3AdjudicationRejectionReason::CrossCue);
+    }
+    if proposal.source_anchor.segment_position != reference.source_anchor.segment_position {
+        return Err(Phase3AdjudicationRejectionReason::CrossSegment);
+    }
+    if !is_te_reference(reference) {
+        return Err(Phase3AdjudicationRejectionReason::NonTranscriptionErrorReference);
+    }
+    if !is_recall_eligible_for_matching(reference) {
+        return Err(Phase3AdjudicationRejectionReason::VerificationIneligibleReference);
+    }
+    if assigned_detectors.contains(detector_proposal_id) {
+        return Err(Phase3AdjudicationRejectionReason::DetectorAssignedByExactPhase);
+    }
+    if assigned_references.contains(reference_error_id) {
+        return Err(Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase);
+    }
+    if anchors_exact(&proposal.source_anchor, &reference.source_anchor) {
+        return Err(Phase3AdjudicationRejectionReason::ExactAnchor);
+    }
+    if anchors_touching_non_overlap(&proposal.source_anchor, &reference.source_anchor) {
+        return Err(Phase3AdjudicationRejectionReason::TouchingNonOverlap);
+    }
+    if !anchors_overlap(&proposal.source_anchor, &reference.source_anchor) {
+        return Err(Phase3AdjudicationRejectionReason::DisjointAnchor);
+    }
+    let pair = (detector_proposal_id.clone(), reference_error_id.clone());
+    if !admissible_pairs.contains(&pair) {
+        return Err(Phase3AdjudicationRejectionReason::DisjointAnchor);
+    }
+    Ok(())
+}
+
+fn validate_supplied_adjudication_closure(
+    adjudication_set: &OverlapAdjudicationSet,
+    detector_snapshot: &DetectorProposalSnapshot,
+    human_reference: &HumanFinalReference,
+) -> Result<(), DetectorReferenceJoinError> {
+    let admissible_pairs =
+        compute_phase3_admissible_overlap_pairs(detector_snapshot, human_reference);
+    let mut proposals = detector_snapshot.proposals.clone();
+    proposals.sort_by(|left, right| {
+        left.detector_proposal_id
+            .as_str()
+            .cmp(right.detector_proposal_id.as_str())
+    });
+    let mut references = human_reference.records.clone();
+    references.sort_by(|left, right| {
+        left.reference_error_id
+            .as_str()
+            .cmp(right.reference_error_id.as_str())
+    });
+    let (assigned_detectors, assigned_references) =
+        compute_exact_phase_assignments(&proposals, &references);
+
+    for record in &adjudication_set.records {
+        if let Err(reason) = classify_phase3_adjudication_pair(
+            &record.detector_proposal_id,
+            &record.reference_error_id,
+            detector_snapshot,
+            human_reference,
+            &assigned_detectors,
+            &assigned_references,
+            &admissible_pairs,
+        ) {
+            return Err(match reason {
+                Phase3AdjudicationRejectionReason::UnknownDetectorProposal => {
+                    DetectorReferenceJoinError::UnknownAdjudicationDetectorProposal {
+                        detector_proposal_id: record.detector_proposal_id.clone(),
+                    }
+                }
+                Phase3AdjudicationRejectionReason::UnknownReferenceError => {
+                    DetectorReferenceJoinError::UnknownAdjudicationReferenceError {
+                        reference_error_id: record.reference_error_id.clone(),
+                    }
+                }
+                reason => DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                    detector_proposal_id: record.detector_proposal_id.clone(),
+                    reference_error_id: record.reference_error_id.clone(),
+                    reason,
+                },
+            });
+        }
+    }
+    Ok(())
 }
 
 fn validate_policy_revision(
@@ -613,7 +1392,7 @@ fn validate_join_inputs(
     human_reference: &HumanFinalReference,
     detector_snapshot: &DetectorProposalSnapshot,
     artifact_bundle: &ArtifactBundle,
-    adjudication_set: Option<&OverlapAdjudicationSet>,
+    adjudication_set: &OverlapAdjudicationSet,
     context: &DetectorReferenceJoinContext,
     mode: DeriveMode,
 ) -> Result<(), DetectorReferenceJoinError> {
@@ -666,6 +1445,20 @@ fn validate_join_inputs(
 
     validate_join_bundle_roles(artifact_bundle, context, adjudication_set)?;
 
+    adjudication_set
+        .validate_frozen_for_join(
+            envelope,
+            &seal.reference_revision,
+            &detector_snapshot.snapshot_revision,
+        )
+        .map_err(DetectorReferenceJoinError::AdjudicationValidation)?;
+
+    validate_proposal_cardinality(detector_snapshot)?;
+    validate_proposal_anchor_mapping(detector_snapshot, coverage)?;
+    validate_reference_anchor_mapping(human_reference, coverage)?;
+
+    validate_supplied_adjudication_closure(adjudication_set, detector_snapshot, human_reference)?;
+
     if seal.run_id != envelope.run_id
         || coverage.run_id != envelope.run_id
         || human_reference.run_id != envelope.run_id
@@ -703,48 +1496,13 @@ fn validate_join_inputs(
         return Err(DetectorReferenceJoinError::CoverageIdMismatch);
     }
 
-    if let Some(set) = adjudication_set {
-        set.validate_frozen_for_join(
-            envelope,
-            &seal.reference_revision,
-            &detector_snapshot.snapshot_revision,
-        )
-        .map_err(DetectorReferenceJoinError::AdjudicationValidation)?;
-
-        for record in &set.records {
-            let Some(proposal) = detector_snapshot
-                .proposals
-                .iter()
-                .find(|proposal| proposal.detector_proposal_id == record.detector_proposal_id)
-            else {
-                continue;
-            };
-            let Some(reference) = human_reference
-                .records
-                .iter()
-                .find(|reference| reference.reference_error_id == record.reference_error_id)
-            else {
-                continue;
-            };
-            validate_adjudication_for_overlap(
-                record,
-                &proposal.source_anchor,
-                &reference.source_anchor,
-            )?;
-        }
-    }
-
-    validate_proposal_cardinality(detector_snapshot)?;
-    validate_proposal_anchor_mapping(detector_snapshot, coverage)?;
-    validate_reference_anchor_mapping(human_reference, coverage)?;
-
     Ok(())
 }
 
 fn validate_join_bundle_roles(
     bundle: &ArtifactBundle,
     context: &DetectorReferenceJoinContext,
-    adjudication_set: Option<&OverlapAdjudicationSet>,
+    adjudication_set: &OverlapAdjudicationSet,
 ) -> Result<(), DetectorReferenceJoinError> {
     let evaluation_joins = bundle
         .artifacts
@@ -767,9 +1525,11 @@ fn validate_join_bundle_roles(
         return Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch);
     }
 
-    if let Some(set) = adjudication_set
-        && adjudication_roles[0].artifact_id != set.join_adjudication_artifact_id
-    {
+    if adjudication_roles[0].artifact_id != context.join_adjudication_artifact_id {
+        return Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch);
+    }
+
+    if adjudication_roles[0].artifact_id != adjudication_set.join_adjudication_artifact_id {
         return Err(DetectorReferenceJoinError::JoinAdjudicationArtifactMismatch);
     }
 
@@ -872,6 +1632,23 @@ pub fn anchors_overlap(
     proposal.start_byte.max(reference.start_byte) < proposal.end_byte.min(reference.end_byte)
 }
 
+fn anchors_touching_non_overlap(
+    proposal: &DetectorProposalSourceAnchor,
+    reference: &ReferenceSourceAnchor,
+) -> bool {
+    if proposal.input_identity != reference.input_identity
+        || proposal.cue_id != reference.cue_id
+        || proposal.segment_position != reference.segment_position
+    {
+        return false;
+    }
+    if anchors_exact(proposal, reference) {
+        return false;
+    }
+    proposal.start_byte.max(reference.start_byte) == proposal.end_byte.min(reference.end_byte)
+        && !anchors_overlap(proposal, reference)
+}
+
 fn proposal_correction(proposal: &DetectorProposalRecord) -> &str {
     &proposal.alternatives[0].replacement_surface
 }
@@ -908,7 +1685,7 @@ fn derive_join_body(
     coverage: &ReferenceCoverage,
     human_reference: &HumanFinalReference,
     detector_snapshot: &DetectorProposalSnapshot,
-    adjudication_set: Option<&OverlapAdjudicationSet>,
+    adjudication_set: &OverlapAdjudicationSet,
     purpose: DetectorReferenceJoinPurpose,
 ) -> Result<DetectorReferenceJoin, DetectorReferenceJoinError> {
     let mut proposals = detector_snapshot.proposals.clone();
@@ -1072,139 +1849,215 @@ fn derive_join_body(
     }
 
     // Phase 3: non-exact overlap
+    let admissible_pairs =
+        compute_phase3_admissible_overlap_pairs(detector_snapshot, human_reference);
     let mut unresolved_overlap_pairs = HashSet::new();
-    for reference in &references {
-        if !is_recall_eligible_for_matching(reference) {
+    let mut consumed_adjudication_pairs = HashSet::new();
+    let mut materialized_phase3_pairs = HashSet::new();
+
+    let mut adjudication_records = adjudication_set.records.clone();
+    adjudication_records.sort_by(|left, right| {
+        left.detector_proposal_id
+            .as_str()
+            .cmp(right.detector_proposal_id.as_str())
+            .then_with(|| {
+                left.reference_error_id
+                    .as_str()
+                    .cmp(right.reference_error_id.as_str())
+            })
+    });
+
+    for record in &adjudication_records {
+        let pair = (
+            record.detector_proposal_id.clone(),
+            record.reference_error_id.clone(),
+        );
+        if !admissible_pairs.contains(&pair) {
             continue;
         }
-        for proposal in &proposals {
-            if !anchors_overlap(&proposal.source_anchor, &reference.source_anchor) {
-                continue;
+        let Some(proposal) = proposals
+            .iter()
+            .find(|proposal| proposal.detector_proposal_id == record.detector_proposal_id)
+        else {
+            continue;
+        };
+        let Some(reference) = references
+            .iter()
+            .find(|reference| reference.reference_error_id == record.reference_error_id)
+        else {
+            continue;
+        };
+        validate_adjudication_for_overlap(
+            record,
+            &proposal.source_anchor,
+            &reference.source_anchor,
+        )?;
+        let correction_equal = nfc_correction_equal(
+            proposal_correction(proposal),
+            &reference.human_final_surface,
+        );
+        let (mut resolution, adjudication_id, adjudication_result) =
+            match record.adjudication_result {
+                OverlapAdjudicationResult::SameErrorSameCorrection => {
+                    if !correction_equal {
+                        return Err(
+                            DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
+                                detector_proposal_id: proposal.detector_proposal_id.clone(),
+                                reference_error_id: reference.reference_error_id.clone(),
+                            },
+                        );
+                    }
+                    (
+                        JoinEdgeResolution::PrimaryAssignment,
+                        Some(record.adjudication_id.clone()),
+                        Some(record.adjudication_result),
+                    )
+                }
+                OverlapAdjudicationResult::SameErrorWrongCorrection => {
+                    if correction_equal {
+                        return Err(
+                            DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
+                                detector_proposal_id: proposal.detector_proposal_id.clone(),
+                                reference_error_id: reference.reference_error_id.clone(),
+                            },
+                        );
+                    }
+                    (
+                        JoinEdgeResolution::PrimaryAssignment,
+                        Some(record.adjudication_id.clone()),
+                        Some(record.adjudication_result),
+                    )
+                }
+                OverlapAdjudicationResult::DifferentError => (
+                    JoinEdgeResolution::RejectedDifferentError,
+                    Some(record.adjudication_id.clone()),
+                    Some(record.adjudication_result),
+                ),
+                OverlapAdjudicationResult::Ambiguous => (
+                    JoinEdgeResolution::Ambiguous,
+                    Some(record.adjudication_id.clone()),
+                    Some(record.adjudication_result),
+                ),
+            };
+        if resolution == JoinEdgeResolution::PrimaryAssignment {
+            if assigned_references.contains(&reference.reference_error_id) {
+                resolution = JoinEdgeResolution::DuplicateProposal;
+            } else if assigned_detectors.contains(&proposal.detector_proposal_id) {
+                resolution = JoinEdgeResolution::Ambiguous;
             }
-            let pair = (
+        }
+        push_edge(DetectorReferenceJoinEdge {
+            join_record_id: make_edge_id(&mut join_record_counter),
+            detector_proposal_id: proposal.detector_proposal_id.clone(),
+            reference_error_id: reference.reference_error_id.clone(),
+            anchor_relation: JoinAnchorRelation::Overlap,
+            correction_relation: if correction_equal {
+                JoinCorrectionRelation::NfcEqual
+            } else {
+                JoinCorrectionRelation::Different
+            },
+            reference_eligibility: reference_eligibility(reference),
+            adjudication_id,
+            adjudication_result,
+            resolution,
+        });
+        consumed_adjudication_pairs.insert(pair.clone());
+        materialized_phase3_pairs.insert(pair);
+        if resolution == JoinEdgeResolution::PrimaryAssignment
+            && !assigned_detectors.contains(&proposal.detector_proposal_id)
+            && !assigned_references.contains(&reference.reference_error_id)
+        {
+            primary_detector.insert(
                 proposal.detector_proposal_id.clone(),
                 reference.reference_error_id.clone(),
             );
-            let correction_equal = nfc_correction_equal(
-                proposal_correction(proposal),
-                &reference.human_final_surface,
+            primary_reference.insert(
+                reference.reference_error_id.clone(),
+                proposal.detector_proposal_id.clone(),
             );
-            let adjudication_record = adjudication_set.and_then(|set| {
-                set.record_for_pair(
-                    &proposal.detector_proposal_id,
-                    &reference.reference_error_id,
-                )
-            });
-
-            if let Some(record) = adjudication_record {
-                validate_adjudication_for_overlap(
-                    record,
-                    &proposal.source_anchor,
-                    &reference.source_anchor,
-                )?;
-                let (mut resolution, adjudication_id, adjudication_result) =
-                    match record.adjudication_result {
-                        OverlapAdjudicationResult::SameErrorSameCorrection => {
-                            if !correction_equal {
-                                return Err(
-                                DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
-                                    detector_proposal_id: proposal.detector_proposal_id.clone(),
-                                    reference_error_id: reference.reference_error_id.clone(),
-                                },
-                            );
-                            }
-                            (
-                                JoinEdgeResolution::PrimaryAssignment,
-                                Some(record.adjudication_id.clone()),
-                                Some(record.adjudication_result),
-                            )
-                        }
-                        OverlapAdjudicationResult::SameErrorWrongCorrection => {
-                            if correction_equal {
-                                return Err(
-                                DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
-                                    detector_proposal_id: proposal.detector_proposal_id.clone(),
-                                    reference_error_id: reference.reference_error_id.clone(),
-                                },
-                            );
-                            }
-                            (
-                                JoinEdgeResolution::PrimaryAssignment,
-                                Some(record.adjudication_id.clone()),
-                                Some(record.adjudication_result),
-                            )
-                        }
-                        OverlapAdjudicationResult::DifferentError => (
-                            JoinEdgeResolution::RejectedDifferentError,
-                            Some(record.adjudication_id.clone()),
-                            Some(record.adjudication_result),
-                        ),
-                        OverlapAdjudicationResult::Ambiguous => (
-                            JoinEdgeResolution::Ambiguous,
-                            Some(record.adjudication_id.clone()),
-                            Some(record.adjudication_result),
-                        ),
-                    };
-                if resolution == JoinEdgeResolution::PrimaryAssignment {
-                    if assigned_references.contains(&reference.reference_error_id) {
-                        resolution = JoinEdgeResolution::DuplicateProposal;
-                    } else if assigned_detectors.contains(&proposal.detector_proposal_id) {
-                        resolution = JoinEdgeResolution::Ambiguous;
-                    }
-                }
-                push_edge(DetectorReferenceJoinEdge {
-                    join_record_id: make_edge_id(&mut join_record_counter),
-                    detector_proposal_id: proposal.detector_proposal_id.clone(),
-                    reference_error_id: reference.reference_error_id.clone(),
-                    anchor_relation: JoinAnchorRelation::Overlap,
-                    correction_relation: if correction_equal {
-                        JoinCorrectionRelation::NfcEqual
-                    } else {
-                        JoinCorrectionRelation::Different
-                    },
-                    reference_eligibility: reference_eligibility(reference),
-                    adjudication_id,
-                    adjudication_result,
-                    resolution,
-                });
-                if resolution == JoinEdgeResolution::PrimaryAssignment
-                    && !assigned_detectors.contains(&proposal.detector_proposal_id)
-                    && !assigned_references.contains(&reference.reference_error_id)
-                {
-                    primary_detector.insert(
-                        proposal.detector_proposal_id.clone(),
-                        reference.reference_error_id.clone(),
-                    );
-                    primary_reference.insert(
-                        reference.reference_error_id.clone(),
-                        proposal.detector_proposal_id.clone(),
-                    );
-                    assigned_detectors.insert(proposal.detector_proposal_id.clone());
-                    assigned_references.insert(reference.reference_error_id.clone());
-                }
-            } else {
-                unresolved_overlap_pairs.insert(pair.clone());
-                push_edge(DetectorReferenceJoinEdge {
-                    join_record_id: make_edge_id(&mut join_record_counter),
-                    detector_proposal_id: proposal.detector_proposal_id.clone(),
-                    reference_error_id: reference.reference_error_id.clone(),
-                    anchor_relation: JoinAnchorRelation::Overlap,
-                    correction_relation: if correction_equal {
-                        JoinCorrectionRelation::NfcEqual
-                    } else {
-                        JoinCorrectionRelation::Different
-                    },
-                    reference_eligibility: reference_eligibility(reference),
-                    adjudication_id: None,
-                    adjudication_result: None,
-                    resolution: JoinEdgeResolution::OverlapCandidate,
-                });
-            }
+            assigned_detectors.insert(proposal.detector_proposal_id.clone());
+            assigned_references.insert(reference.reference_error_id.clone());
         }
     }
 
+    let mut admissible_sorted: Vec<(DetectorProposalId, ReferenceErrorId)> =
+        admissible_pairs.into_iter().collect();
+    admissible_sorted.sort_by(|left, right| {
+        left.0
+            .as_str()
+            .cmp(right.0.as_str())
+            .then_with(|| left.1.as_str().cmp(right.1.as_str()))
+    });
+
+    for (detector_proposal_id, reference_error_id) in admissible_sorted {
+        let pair = (detector_proposal_id.clone(), reference_error_id.clone());
+        if materialized_phase3_pairs.contains(&pair) {
+            continue;
+        }
+        if assigned_detectors.contains(&detector_proposal_id)
+            || assigned_references.contains(&reference_error_id)
+        {
+            continue;
+        }
+        let Some(proposal) = proposals
+            .iter()
+            .find(|proposal| proposal.detector_proposal_id == detector_proposal_id)
+        else {
+            continue;
+        };
+        let Some(reference) = references
+            .iter()
+            .find(|reference| reference.reference_error_id == reference_error_id)
+        else {
+            continue;
+        };
+        let correction_equal = nfc_correction_equal(
+            proposal_correction(proposal),
+            &reference.human_final_surface,
+        );
+        unresolved_overlap_pairs.insert(pair);
+        push_edge(DetectorReferenceJoinEdge {
+            join_record_id: make_edge_id(&mut join_record_counter),
+            detector_proposal_id: proposal.detector_proposal_id.clone(),
+            reference_error_id: reference.reference_error_id.clone(),
+            anchor_relation: JoinAnchorRelation::Overlap,
+            correction_relation: if correction_equal {
+                JoinCorrectionRelation::NfcEqual
+            } else {
+                JoinCorrectionRelation::Different
+            },
+            reference_eligibility: reference_eligibility(reference),
+            adjudication_id: None,
+            adjudication_result: None,
+            resolution: JoinEdgeResolution::OverlapCandidate,
+        });
+    }
+
+    let supplied_adjudication_pairs: HashSet<_> = adjudication_set
+        .records
+        .iter()
+        .map(|record| {
+            (
+                record.detector_proposal_id.clone(),
+                record.reference_error_id.clone(),
+            )
+        })
+        .collect();
+    if consumed_adjudication_pairs != supplied_adjudication_pairs
+        && let Some((detector_proposal_id, reference_error_id)) = supplied_adjudication_pairs
+            .difference(&consumed_adjudication_pairs)
+            .next()
+    {
+        return Err(
+            DetectorReferenceJoinError::AdjudicationRecordNotMaterialized {
+                detector_proposal_id: detector_proposal_id.clone(),
+                reference_error_id: reference_error_id.clone(),
+            },
+        );
+    }
+
     // Phase 4: primary uniqueness, duplicate selection, and multi-reference ambiguity
-    demote_multi_reference_overlap_adjudications(&mut edges);
+    demote_multi_reference_overlap_adjudications(&mut edges, adjudication_set);
     resolve_primary_assignment_conflicts(&mut edges);
     primary_detector.clear();
     primary_reference.clear();
@@ -1388,6 +2241,7 @@ fn derive_join_body(
         detector_snapshot_revision: detector_snapshot.snapshot_revision.clone(),
         detector_output_artifact_id: detector_snapshot.detector_output_artifact_id.clone(),
         evaluation_join_artifact_id: context.evaluation_join_artifact_id.clone(),
+        join_adjudication_artifact_id: context.join_adjudication_artifact_id.clone(),
         join_purpose: purpose,
         overlap_rule_revision: OVERLAP_RULE_REVISION.to_string(),
         correction_equality_revision: CORRECTION_EQUALITY_REVISION.to_string(),
@@ -1400,22 +2254,22 @@ fn derive_join_body(
     })
 }
 
-fn demote_multi_reference_overlap_adjudications(edges: &mut [DetectorReferenceJoinEdge]) {
+fn demote_multi_reference_overlap_adjudications(
+    edges: &mut [DetectorReferenceJoinEdge],
+    adjudication_set: &OverlapAdjudicationSet,
+) {
     let mut detector_positive_overlap: HashMap<DetectorProposalId, HashSet<ReferenceErrorId>> =
         HashMap::new();
-    for edge in edges.iter() {
-        if edge.anchor_relation != JoinAnchorRelation::Overlap {
-            continue;
-        }
+    for record in &adjudication_set.records {
         if matches!(
-            edge.adjudication_result,
-            Some(OverlapAdjudicationResult::SameErrorSameCorrection)
-                | Some(OverlapAdjudicationResult::SameErrorWrongCorrection)
+            record.adjudication_result,
+            OverlapAdjudicationResult::SameErrorSameCorrection
+                | OverlapAdjudicationResult::SameErrorWrongCorrection
         ) {
             detector_positive_overlap
-                .entry(edge.detector_proposal_id.clone())
+                .entry(record.detector_proposal_id.clone())
                 .or_default()
-                .insert(edge.reference_error_id.clone());
+                .insert(record.reference_error_id.clone());
         }
     }
 
@@ -1427,10 +2281,6 @@ fn demote_multi_reference_overlap_adjudications(edges: &mut [DetectorReferenceJo
             if edge.detector_proposal_id == detector
                 && edge.anchor_relation == JoinAnchorRelation::Overlap
                 && references.contains(&edge.reference_error_id)
-                && matches!(
-                    edge.resolution,
-                    JoinEdgeResolution::PrimaryAssignment | JoinEdgeResolution::Ambiguous
-                )
             {
                 edge.resolution = JoinEdgeResolution::Ambiguous;
             }
