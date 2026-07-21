@@ -10,6 +10,7 @@ pub mod experimental_ranking;
 pub mod experimental_retrieval;
 pub mod human_final_reference;
 pub mod join_adjudication;
+pub mod join_metric_contribution;
 pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;

@@ -326,6 +326,19 @@ Boundary:
 - resolved join state does not establish primary calibration validity, detector effectiveness, or product validation
 - human adjudication execution, real/synthetic protocol runs, and persistence remain deferred
 
+## v0.2 Join Metric Contribution Contract Boundary
+
+The typed contract `voxproof-join-metric-contributions-v1` (`ArtifactRole::MetricContributions`) derives per-source numerator/denominator participation from one validated join. It is separate from the future aggregate `ArtifactRole::Metrics` artifact.
+
+Boundary:
+
+- one contribution record per detector proposal and per reference record; mappings are deterministic and revalidated against sources
+- five primary metric dimensions share one common eligibility gate; eligible sets are all-five or empty
+- contribution records may be `numerator_and_denominator`, `denominator_only`, `excluded`, or `pending_adjudication`; no aggregate numerators, denominators, ratios, percentages, TP/FP/FN, thresholds, or performance claims
+- wrong correction counts as localized but not correction-exact; unmatched reference is not in the conditional correction-exactness denominator; duplicate proposal shares the detector denominator with proposal precision
+- diagnostic, synthetic, ambiguous, excluded, and pending posture are explicit; `qualifies_as_real_material_evidence` is separate from calibration eligibility
+- metric aggregation, execution, and persistence remain deferred
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:

@@ -78,6 +78,7 @@ pub enum ArtifactRole {
     Comparison,
     EvaluationJoin,
     JoinAdjudication,
+    MetricContributions,
     Metrics,
     WorkflowTiming,
 }
