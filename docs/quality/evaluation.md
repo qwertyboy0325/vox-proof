@@ -337,7 +337,22 @@ Boundary:
 - contribution records may be `numerator_and_denominator`, `denominator_only`, `excluded`, or `pending_adjudication`; no aggregate numerators, denominators, ratios, percentages, TP/FP/FN, thresholds, or performance claims
 - wrong correction counts as localized but not correction-exact; unmatched reference is not in the conditional correction-exactness denominator; duplicate proposal shares the detector denominator with proposal precision
 - diagnostic, synthetic, ambiguous, excluded, and pending posture are explicit; `qualifies_as_real_material_evidence` is separate from calibration eligibility
-- metric aggregation, execution, and persistence remain deferred
+- execution and persistence remain deferred
+
+## v0.2 Join Metric Aggregation Contract Boundary
+
+The typed contract `voxproof-join-metric-aggregates-v1` (`ArtifactRole::Metrics`) deterministically aggregates one complete `JoinMetricContributionSet` into five exact numerator/denominator records. It is separate from future reporting, thresholding, and effectiveness claims.
+
+Boundary:
+
+- aggregation consumes validated complete contribution sets only; pending or invalidated contributions refuse aggregation
+- five aggregate records in canonical order; counts use checked integer arithmetic with no floating-point metric values
+- zero denominator is `undefined_zero_denominator`, never zero score, perfect score, pass, or fail
+- cross-metric invariants tie detector denominators and reference localization/correction/end-to-end populations
+- report class, primary eligibility, blocking reasons, and real-material qualification are copied from contributions; `qualifies_as_primary_metric_evidence` is derived and does not require non-zero denominators
+- diagnostic and synthetic aggregates remain non-primary
+- no decimal rendering, percentages, TP/FP/FN, thresholds, pass/fail, protocol execution, or detector-effectiveness claims
+- Metrics artifacts remain private unless separately authorized
 
 ## Future Evaluation Areas
 
