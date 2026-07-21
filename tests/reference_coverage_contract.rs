@@ -1,9 +1,14 @@
+use vox_proof::human_final_reference::{
+    HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState, ReferenceClass,
+    ReferenceErrorId, ReferenceErrorRecord, ReferenceReviewerIdentityClass, ReferenceSourceAnchor,
+    VerificationBasis,
+};
 use vox_proof::reference_coverage::{
-    CueReferenceCoverageRecord, CueReferenceId, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
+    CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
     ReferenceCoverageValidationError, ReferenceCueDisposition,
 };
-use vox_proof::reference_identity::ReferenceRevisionId;
+use vox_proof::reference_identity::{CueSourceTextDigest, ReferenceRevisionId};
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -18,6 +23,8 @@ const SAMPLE_REVISION: &str =
 const OTHER_REVISION: &str =
     "rev:sha256-v1:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 const SAMPLE_REFERENCE_REVISION: &str = "ref-rev-001";
+const SAMPLE_CUE_DIGEST: &str =
+    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 fn universe(cue_ids: &[u32]) -> ExpectedCueUniverse {
     ExpectedCueUniverse {
@@ -29,17 +36,46 @@ fn universe(cue_ids: &[u32]) -> ExpectedCueUniverse {
     }
 }
 
-fn record(cue_id: u32, disposition: ReferenceCueDisposition) -> CueReferenceCoverageRecord {
-    CueReferenceCoverageRecord {
+fn record_at(
+    cue_id: u32,
+    segment_position: u32,
+    disposition: ReferenceCueDisposition,
+) -> CueReviewCompletionRecord {
+    record_with_attestations(cue_id, segment_position, disposition, true, true)
+}
+
+fn record(cue_id: u32, disposition: ReferenceCueDisposition) -> CueReviewCompletionRecord {
+    record_at(cue_id, cue_id - 1, disposition)
+}
+
+fn record_with_attestations(
+    cue_id: u32,
+    segment_position: u32,
+    disposition: ReferenceCueDisposition,
+    fully_reviewed: bool,
+    all_known_transcription_errors_enumerated: bool,
+) -> CueReviewCompletionRecord {
+    CueReviewCompletionRecord {
         cue_id: CueReferenceId::new(cue_id).expect("cue id"),
+        segment_position,
+        source_text_digest: CueSourceTextDigest::new(SAMPLE_CUE_DIGEST).expect("digest"),
         disposition,
+        fully_reviewed,
+        all_known_transcription_errors_enumerated,
+        verification_source_used: VerificationBasis::AudioListened,
+        reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+        completed_at_unix_ms: if fully_reviewed || all_known_transcription_errors_enumerated {
+            1_700_000_000_000
+        } else {
+            0
+        },
     }
 }
 
 fn build_coverage(
     purpose: ReferenceCoveragePurpose,
     expected: ExpectedCueUniverse,
-    records: Vec<CueReferenceCoverageRecord>,
+    records: Vec<CueReviewCompletionRecord>,
     run_id: &str,
     revision: &str,
     seal_id: &str,
@@ -149,33 +185,21 @@ fn json_round_trip_retains_schema_and_enum_spellings() {
 
 #[test]
 fn unknown_top_level_field_rejected() {
-    let json = format!(
-        r#"{{
-  "schema_revision": "{REFERENCE_COVERAGE_SCHEMA}",
-  "coverage_id": "coverage-test",
-  "run_id": "run-primary",
-  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
-  "seal_id": "seal-primary",
-  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
-  "coverage_purpose": "primary_blind_calibration",
-  "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
-  "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
-  "coverage_state": "draft",
-  "assessment": {{
-    "expected_count": 1,
-    "observed_unique_count": 1,
-    "missing_cue_ids": [],
-    "duplicate_cue_ids": [],
-    "unknown_cue_ids": [],
-    "unresolved_cue_ids": [],
-    "inventory_complete": true,
-    "reference_resolved": true
-  }},
-  "transcript_text": "forbidden"
-}}"#
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    let mut value = serde_json::to_value(&coverage).expect("value");
+    value.as_object_mut().expect("object").insert(
+        "transcript_text".to_string(),
+        serde_json::json!("forbidden"),
     );
 
-    let error = serde_json::from_str::<ReferenceCoverage>(&json).expect_err("must fail");
+    let error = serde_json::from_value::<ReferenceCoverage>(value).expect_err("must fail");
     assert!(error.to_string().contains("unknown field"));
 }
 
@@ -283,6 +307,7 @@ fn explicit_no_error_counts_as_reviewed_inventory() {
 
     assert!(assessment.inventory_complete);
     assert!(assessment.reference_resolved);
+    assert!(assessment.coverage_complete);
 }
 
 #[test]
@@ -377,15 +402,11 @@ fn caller_cannot_force_stored_assessment_inconsistent_with_derivation() {
 #[test]
 fn same_cue_id_under_different_revision_is_separate_attachment_context() {
     let (envelope_a, seal_a) = primary_posture();
-    let mut coverage_a = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1]),
-        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
-    coverage_a.coverage_state = ReferenceCoverageState::Complete;
+    let coverage_a = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
+    let human_reference = human_reference_for_coverage(&coverage_a);
 
     let mut envelope_b = envelope_a.clone();
     envelope_b.input_identity.transcript_revision_id = OTHER_REVISION.to_string();
@@ -393,11 +414,11 @@ fn same_cue_id_under_different_revision_is_separate_attachment_context() {
     seal_b.input_identity = envelope_b.input_identity.clone();
 
     coverage_a
-        .validate_against(&envelope_a, &seal_a)
+        .validate_against(&envelope_a, &seal_a, Some(&human_reference))
         .expect("matches revision A");
 
     assert!(matches!(
-        coverage_a.validate_against(&envelope_b, &seal_b),
+        coverage_a.validate_against(&envelope_b, &seal_b, None),
         Err(ReferenceCoverageValidationError::InputIdentityMismatch)
     ));
 }
@@ -405,21 +426,14 @@ fn same_cue_id_under_different_revision_is_separate_attachment_context() {
 #[test]
 fn primary_attachment_passes_for_reference_sealed_and_sealed_seal() {
     let (envelope, seal) = primary_posture();
-    let mut coverage = build_coverage(
-        ReferenceCoveragePurpose::PrimaryBlindCalibration,
-        universe(&[1, 2]),
-        vec![
-            record(1, ReferenceCueDisposition::NoTranscriptionError),
-            record(2, ReferenceCueDisposition::TranscriptionError),
-        ],
-        "run-primary",
-        SAMPLE_REVISION,
-        "seal-primary",
-    );
-    coverage.coverage_state = ReferenceCoverageState::Complete;
+    let coverage = primary_coverage_for_attachment(vec![
+        record(1, ReferenceCueDisposition::NoTranscriptionError),
+        record(2, ReferenceCueDisposition::TranscriptionError),
+    ]);
+    let human_reference = human_reference_for_coverage(&coverage);
 
     coverage
-        .validate_against(&envelope, &seal)
+        .validate_against(&envelope, &seal, Some(&human_reference))
         .expect("primary attachment");
 }
 
@@ -443,7 +457,56 @@ fn synthetic_protocol_seal(envelope: &RunEnvelope) -> ReferenceSeal {
     }
 }
 
-fn primary_coverage_for_attachment(records: Vec<CueReferenceCoverageRecord>) -> ReferenceCoverage {
+fn human_reference_for_coverage(coverage: &ReferenceCoverage) -> HumanFinalReference {
+    let mut te_records = Vec::new();
+    for completion in &coverage.records {
+        if completion.disposition != ReferenceCueDisposition::TranscriptionError {
+            continue;
+        }
+        te_records.push(ReferenceErrorRecord {
+            reference_error_id: ReferenceErrorId::new(format!(
+                "ref-err-{}",
+                completion.cue_id.value()
+            ))
+            .expect("error id"),
+            reference_revision: coverage.reference_revision.clone(),
+            input_identity: coverage.input_identity.clone(),
+            source_anchor: ReferenceSourceAnchor {
+                input_identity: coverage.input_identity.clone(),
+                cue_id: completion.cue_id,
+                segment_position: completion.segment_position,
+                start_byte: 0,
+                end_byte: 4,
+            },
+            original_surface: "wrng".to_string(),
+            human_final_surface: "wrong".to_string(),
+            reference_class: ReferenceClass::TranscriptionError,
+            verification_basis: VerificationBasis::AudioListened,
+            reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+            reviewed_at_unix_ms: 1_700_000_000_000,
+        });
+    }
+
+    let assessment = HumanFinalReference::derive_assessment(
+        &coverage.reference_revision,
+        &coverage.input_identity,
+        &te_records,
+    )
+    .expect("derive human reference assessment");
+
+    HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: te_records,
+        state: HumanFinalReferenceState::Sealed,
+        assessment,
+    }
+}
+
+fn primary_coverage_for_attachment(records: Vec<CueReviewCompletionRecord>) -> ReferenceCoverage {
     let cue_ids: Vec<u32> = records.iter().map(|record| record.cue_id.value()).collect();
     let mut coverage = build_coverage(
         ReferenceCoveragePurpose::PrimaryBlindCalibration,
@@ -453,6 +516,10 @@ fn primary_coverage_for_attachment(records: Vec<CueReferenceCoverageRecord>) -> 
         SAMPLE_REVISION,
         "seal-primary",
     );
+    let human_reference = human_reference_for_coverage(&coverage);
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
     coverage.coverage_state = ReferenceCoverageState::Complete;
     coverage
 }
@@ -468,7 +535,7 @@ fn draft_seal_fails_primary_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::SealStateIncompatible { .. })
     ));
 }
@@ -489,7 +556,7 @@ fn term_conditioned_seal_fails_primary_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &contaminated),
+        coverage.validate_against(&envelope, &contaminated, None),
         Err(ReferenceCoverageValidationError::SealClassificationIncompatible { .. })
     ));
 }
@@ -509,7 +576,7 @@ fn contaminated_seal_fails_primary_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &contaminated),
+        coverage.validate_against(&envelope, &contaminated, None),
         Err(ReferenceCoverageValidationError::SealClassificationIncompatible { .. })
     ));
 }
@@ -527,7 +594,7 @@ fn synthetic_seal_fails_primary_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::SealClassificationIncompatible { .. })
     ));
 }
@@ -548,7 +615,7 @@ fn detector_assisted_envelope_fails_coverage_attachment() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::EnvelopeNotBlindReference)
     ));
 }
@@ -564,7 +631,7 @@ fn reference_preparation_lifecycle_fails_primary_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::EnvelopeLifecycleIncompatible { .. })
     ));
 }
@@ -580,7 +647,7 @@ fn detector_execution_lifecycle_rejects_retroactive_coverage() {
     )]);
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::EnvelopeLifecycleIncompatible { .. })
     ));
 }
@@ -598,7 +665,7 @@ fn mismatched_run_id_fails_attachment() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::RunIdMismatch)
     ));
 }
@@ -616,7 +683,7 @@ fn mismatched_seal_id_fails_attachment() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::SealIdMismatch)
     ));
 }
@@ -637,7 +704,7 @@ fn diagnostic_coverage_allows_term_conditioned_seal() {
     );
 
     coverage
-        .validate_against(&envelope, &diagnostic_seal)
+        .validate_against(&envelope, &diagnostic_seal, None)
         .expect("diagnostic attachment");
     assert!(!coverage.assessment.reference_resolved);
 }
@@ -743,32 +810,28 @@ fn changing_only_coverage_purpose_does_not_mutate_structural_assessment() {
 
 #[test]
 fn obsolete_primary_reference_complete_field_rejected() {
-    let json = format!(
-        r#"{{
-  "schema_revision": "{REFERENCE_COVERAGE_SCHEMA}",
-  "coverage_id": "coverage-test",
-  "run_id": "run-primary",
-  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
-  "seal_id": "seal-primary",
-  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
-  "coverage_purpose": "primary_blind_calibration",
-  "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
-  "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
-  "coverage_state": "draft",
-  "assessment": {{
-    "expected_count": 1,
-    "observed_unique_count": 1,
-    "missing_cue_ids": [],
-    "duplicate_cue_ids": [],
-    "unknown_cue_ids": [],
-    "unresolved_cue_ids": [],
-    "inventory_complete": true,
-    "primary_reference_complete": true
-  }}
-}}"#
+    let coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
     );
+    let mut value = serde_json::to_value(&coverage).expect("value");
+    value
+        .as_object_mut()
+        .expect("object")
+        .get_mut("assessment")
+        .expect("assessment")
+        .as_object_mut()
+        .expect("assessment object")
+        .insert(
+            "primary_reference_complete".to_string(),
+            serde_json::json!(true),
+        );
 
-    let error = serde_json::from_str::<ReferenceCoverage>(&json).expect_err("must fail");
+    let error = serde_json::from_value::<ReferenceCoverage>(value).expect_err("must fail");
     assert!(error.to_string().contains("unknown field"));
 }
 
@@ -802,7 +865,7 @@ fn primary_attachment_requires_complete_state() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
     ));
 }
@@ -820,7 +883,7 @@ fn draft_unresolved_coverage_fails_primary_attachment_before_complete_state() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
     ));
 }
@@ -856,7 +919,7 @@ fn draft_coverage_fails_primary_attachment() {
     );
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::PrimaryAttachmentRequiresCompleteState)
     ));
 }
@@ -944,7 +1007,7 @@ fn complete_state_accepts_resolved_diagnostic_coverage() {
         .validate()
         .expect("resolved diagnostic complete valid");
     coverage
-        .validate_against(&envelope, &seal)
+        .validate_against(&envelope, &seal, None)
         .expect("diagnostic attachment");
 }
 
@@ -966,7 +1029,7 @@ fn synthetic_protocol_attachment_allows_resolved_protocol_only_seal() {
 
     coverage.validate().expect("synthetic complete valid");
     coverage
-        .validate_against(&envelope, &seal)
+        .validate_against(&envelope, &seal, None)
         .expect("synthetic protocol attachment");
 }
 
@@ -1015,7 +1078,7 @@ fn mismatched_reference_revision_fails_attachment() {
     coverage.coverage_state = ReferenceCoverageState::Complete;
 
     assert!(matches!(
-        coverage.validate_against(&envelope, &seal),
+        coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::ReferenceRevisionMismatch)
     ));
 }
@@ -1027,4 +1090,143 @@ fn reference_revision_does_not_change_structural_assessment() {
     let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
     assert!(assessment.inventory_complete);
     assert!(!assessment.reference_resolved);
+}
+
+#[test]
+fn legacy_minimal_record_missing_required_fields_rejected() {
+    let json = format!(
+        r#"{{
+  "schema_revision": "{REFERENCE_COVERAGE_SCHEMA}",
+  "coverage_id": "coverage-test",
+  "run_id": "run-primary",
+  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
+  "seal_id": "seal-primary",
+  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
+  "coverage_purpose": "primary_blind_calibration",
+  "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
+  "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
+  "coverage_state": "draft",
+  "assessment": {{
+    "expected_count": 1,
+    "observed_unique_count": 0,
+    "completed_cue_count": 0,
+    "incomplete_cue_count": 1,
+    "cues_with_transcription_errors": 0,
+    "total_eligible_transcription_errors": 0,
+    "missing_cue_ids": [1],
+    "duplicate_cue_ids": [],
+    "duplicate_segment_positions": [],
+    "unknown_cue_ids": [],
+    "invalid_mapping_cue_ids": [],
+    "unresolved_cue_ids": [],
+    "incomplete_attestation_cue_ids": [],
+    "inventory_complete": false,
+    "reference_resolved": false,
+    "coverage_complete": false
+  }}
+}}"#
+    );
+
+    let error = serde_json::from_str::<ReferenceCoverage>(&json).expect_err("must fail");
+    assert!(error.to_string().contains("missing field"));
+}
+
+#[test]
+fn cue_source_digest_rejects_invalid_forms() {
+    for invalid in [
+        "SHA256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "sha256:0123456789abcdef",
+        "sha256:gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+    ] {
+        assert!(
+            CueSourceTextDigest::new(invalid).is_err(),
+            "digest must reject {invalid:?}"
+        );
+    }
+
+    assert!(CueSourceTextDigest::new(SAMPLE_CUE_DIGEST).is_ok());
+}
+
+#[test]
+fn non_contiguous_cue_ids_map_by_segment_position() {
+    let expected = universe(&[5, 17]);
+    let records = vec![
+        record_at(5, 0, ReferenceCueDisposition::NoTranscriptionError),
+        record_at(17, 1, ReferenceCueDisposition::NoTranscriptionError),
+    ];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(assessment.inventory_complete);
+    assert!(assessment.coverage_complete);
+}
+
+#[test]
+fn duplicate_segment_position_prevents_inventory_complete() {
+    let expected = universe(&[1, 2]);
+    let records = vec![
+        record_at(1, 0, ReferenceCueDisposition::NoTranscriptionError),
+        record_at(2, 0, ReferenceCueDisposition::NoTranscriptionError),
+    ];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(!assessment.inventory_complete);
+    assert_eq!(assessment.duplicate_segment_positions, vec![0]);
+}
+
+#[test]
+fn cue_mapping_mismatch_prevents_inventory_complete() {
+    let expected = universe(&[1]);
+    let records = vec![record_at(
+        2,
+        0,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(!assessment.inventory_complete);
+    assert_eq!(
+        assessment.invalid_mapping_cue_ids,
+        vec![CueReferenceId::new(2).expect("cue")]
+    );
+}
+
+#[test]
+fn incomplete_review_attestation_prevents_coverage_complete() {
+    let expected = universe(&[1]);
+    let records = vec![record_with_attestations(
+        1,
+        0,
+        ReferenceCueDisposition::NoTranscriptionError,
+        false,
+        true,
+    )];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(assessment.inventory_complete);
+    assert!(!assessment.coverage_complete);
+}
+
+#[test]
+fn incomplete_enumeration_attestation_prevents_coverage_complete() {
+    let expected = universe(&[1]);
+    let records = vec![record_with_attestations(
+        1,
+        0,
+        ReferenceCueDisposition::NoTranscriptionError,
+        true,
+        false,
+    )];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(assessment.inventory_complete);
+    assert!(!assessment.coverage_complete);
+}
+
+#[test]
+fn primary_complete_coverage_requires_human_reference_for_attachment() {
+    let (envelope, seal) = primary_posture();
+    let coverage = primary_coverage_for_attachment(vec![record(
+        1,
+        ReferenceCueDisposition::NoTranscriptionError,
+    )]);
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal, None),
+        Err(ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage)
+    ));
 }

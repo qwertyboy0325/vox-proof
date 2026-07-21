@@ -11,6 +11,7 @@ pub mod human_final_reference;
 pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
+pub mod reference_alignment;
 pub mod reference_coverage;
 pub mod reference_identity;
 pub mod reference_seal;

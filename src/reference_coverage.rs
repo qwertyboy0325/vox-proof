@@ -3,8 +3,15 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::human_final_reference::HumanFinalReference;
+use crate::reference_alignment::{
+    cue_id_for_segment_position, validate_completion_record_mapping,
+    validate_coverage_against_human_reference,
+};
 use crate::reference_identity::{
-    ReferenceIdentityIdError, ReferenceRevisionId, validate_identity_value,
+    CueSourceTextDigest, CueSourceTextDigestError, ReferenceIdentityIdError,
+    ReferenceReviewerIdentityClass, ReferenceRevisionId, VerificationBasis,
+    validate_identity_value,
 };
 use crate::reference_seal::{
     CalibrationValidityImpact, ReferenceCalibrationValidity, ReferenceSeal, ReferenceSealId,
@@ -28,7 +35,7 @@ pub struct ReferenceCoverage {
     pub reference_revision: ReferenceRevisionId,
     pub coverage_purpose: ReferenceCoveragePurpose,
     pub expected_universe: ExpectedCueUniverse,
-    pub records: Vec<CueReferenceCoverageRecord>,
+    pub records: Vec<CueReviewCompletionRecord>,
     pub coverage_state: ReferenceCoverageState,
     pub assessment: ReferenceCoverageAssessment,
 }
@@ -50,9 +57,16 @@ pub struct ExpectedCueUniverse {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CueReferenceCoverageRecord {
+pub struct CueReviewCompletionRecord {
     pub cue_id: CueReferenceId,
+    pub segment_position: u32,
+    pub source_text_digest: CueSourceTextDigest,
     pub disposition: ReferenceCueDisposition,
+    pub fully_reviewed: bool,
+    pub all_known_transcription_errors_enumerated: bool,
+    pub verification_source_used: VerificationBasis,
+    pub reviewer_identity_class: ReferenceReviewerIdentityClass,
+    pub completed_at_unix_ms: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,12 +99,20 @@ pub enum ReferenceCoverageState {
 pub struct ReferenceCoverageAssessment {
     pub expected_count: u32,
     pub observed_unique_count: u32,
+    pub completed_cue_count: u32,
+    pub incomplete_cue_count: u32,
+    pub cues_with_transcription_errors: u32,
+    pub total_eligible_transcription_errors: u32,
     pub missing_cue_ids: Vec<CueReferenceId>,
     pub duplicate_cue_ids: Vec<CueReferenceId>,
+    pub duplicate_segment_positions: Vec<u32>,
     pub unknown_cue_ids: Vec<CueReferenceId>,
+    pub invalid_mapping_cue_ids: Vec<CueReferenceId>,
     pub unresolved_cue_ids: Vec<CueReferenceId>,
+    pub incomplete_attestation_cue_ids: Vec<CueReferenceId>,
     pub inventory_complete: bool,
     pub reference_resolved: bool,
+    pub coverage_complete: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,6 +142,8 @@ pub enum ReferenceCoverageValidationError {
     InvalidCoverageId(ReferenceCoverageIdError),
     InvalidReferenceRevisionId(ReferenceIdentityIdError),
     InvalidCueReferenceId(CueReferenceIdError),
+    InvalidSourceTextDigest(CueSourceTextDigestError),
+    ZeroCompletionTimestamp,
     EmptyExpectedUniverse,
     DuplicateExpectedCueId {
         cue_id: CueReferenceId,
@@ -137,6 +161,17 @@ pub enum ReferenceCoverageValidationError {
     MissingExpectedCueId {
         cue_id: CueReferenceId,
     },
+    SegmentPositionOutOfRange {
+        segment_position: u32,
+    },
+    DuplicateSegmentPosition {
+        segment_position: u32,
+    },
+    CueMappingMismatch {
+        cue_id: CueReferenceId,
+        segment_position: u32,
+        expected_cue_id: CueReferenceId,
+    },
     AssessmentMismatch {
         stored: Box<ReferenceCoverageAssessment>,
         derived: Box<ReferenceCoverageAssessment>,
@@ -146,6 +181,7 @@ pub enum ReferenceCoverageValidationError {
         assessment: Box<ReferenceCoverageAssessment>,
     },
     PrimaryAttachmentRequiresCompleteState,
+    HumanReferenceRequiredForCompleteCoverage,
     RunIdMismatch,
     InputIdentityMismatch,
     SealIdMismatch,
@@ -164,6 +200,26 @@ pub enum ReferenceCoverageValidationError {
     SealValidityImpactIncompatible {
         purpose: ReferenceCoveragePurpose,
         impact: CalibrationValidityImpact,
+    },
+    UnknownReferenceCueId {
+        cue_id: CueReferenceId,
+    },
+    ReferenceAnchorMappingMismatch {
+        cue_id: CueReferenceId,
+        segment_position: u32,
+    },
+    TranscriptionErrorCueMissingRecord {
+        cue_id: CueReferenceId,
+    },
+    NoTranscriptionErrorCueHasRecord {
+        cue_id: CueReferenceId,
+    },
+    TranscriptionErrorRecordForUnresolvedCue {
+        cue_id: CueReferenceId,
+    },
+    EligibleTranscriptionErrorCountMismatch {
+        stored: u32,
+        derived: u32,
     },
     EnvelopeValidation(RunEnvelopeValidationError),
     SealValidation(ReferenceSealValidationError),
@@ -210,10 +266,37 @@ impl fmt::Display for ReferenceCoverageId {
     }
 }
 
+impl CueReviewCompletionRecord {
+    pub fn validate_fields(&self) -> Result<(), ReferenceCoverageValidationError> {
+        validate_cue_reference_id(self.cue_id)?;
+        CueSourceTextDigest::new(self.source_text_digest.as_str())
+            .map_err(ReferenceCoverageValidationError::InvalidSourceTextDigest)?;
+
+        if (self.fully_reviewed || self.all_known_transcription_errors_enumerated)
+            && self.completed_at_unix_ms == 0
+        {
+            return Err(ReferenceCoverageValidationError::ZeroCompletionTimestamp);
+        }
+
+        Ok(())
+    }
+
+    fn is_recall_complete(&self) -> bool {
+        self.fully_reviewed && self.all_known_transcription_errors_enumerated
+    }
+
+    fn is_unresolved_disposition(&self) -> bool {
+        matches!(
+            self.disposition,
+            ReferenceCueDisposition::Uncertain | ReferenceCueDisposition::Unreviewable
+        )
+    }
+}
+
 impl ReferenceCoverage {
     pub fn derive_assessment(
         expected_universe: &ExpectedCueUniverse,
-        records: &[CueReferenceCoverageRecord],
+        records: &[CueReviewCompletionRecord],
     ) -> Result<ReferenceCoverageAssessment, ReferenceCoverageValidationError> {
         validate_expected_universe(expected_universe)?;
 
@@ -221,16 +304,63 @@ impl ReferenceCoverage {
             expected_universe.cue_ids.iter().copied().collect();
 
         let mut counts: HashMap<CueReferenceId, u32> = HashMap::new();
+        let mut segment_counts: HashMap<u32, u32> = HashMap::new();
+        let mut invalid_mapping_cue_ids = Vec::new();
+        let mut incomplete_attestation_cue_ids = Vec::new();
+        let mut unresolved_cue_ids = Vec::new();
+        let mut cues_with_transcription_errors = 0u32;
+        let mut completed_cue_count = 0u32;
+
         for record in records {
-            validate_cue_reference_id(record.cue_id)?;
+            record.validate_fields()?;
+            if let Err(error) = validate_completion_record_mapping(expected_universe, record) {
+                match error {
+                    ReferenceCoverageValidationError::CueMappingMismatch { .. }
+                    | ReferenceCoverageValidationError::SegmentPositionOutOfRange { .. } => {
+                        if !invalid_mapping_cue_ids.contains(&record.cue_id) {
+                            invalid_mapping_cue_ids.push(record.cue_id);
+                        }
+                    }
+                    other => return Err(other),
+                }
+            }
+
             *counts.entry(record.cue_id).or_default() += 1;
+            *segment_counts.entry(record.segment_position).or_default() += 1;
+
+            if record.disposition == ReferenceCueDisposition::TranscriptionError {
+                cues_with_transcription_errors += 1;
+            }
+
+            if record.is_unresolved_disposition() && !unresolved_cue_ids.contains(&record.cue_id) {
+                unresolved_cue_ids.push(record.cue_id);
+            }
+
+            let attestation_complete =
+                record.is_recall_complete() && !record.is_unresolved_disposition();
+            if !attestation_complete && !incomplete_attestation_cue_ids.contains(&record.cue_id) {
+                incomplete_attestation_cue_ids.push(record.cue_id);
+            }
+            if attestation_complete {
+                completed_cue_count += 1;
+            }
         }
+
+        invalid_mapping_cue_ids.sort_unstable();
+        incomplete_attestation_cue_ids.sort_unstable();
+        unresolved_cue_ids.sort_unstable();
 
         let mut duplicate_cue_ids = counts
             .iter()
             .filter_map(|(cue_id, count)| (*count > 1).then_some(*cue_id))
             .collect::<Vec<_>>();
         duplicate_cue_ids.sort_unstable();
+
+        let mut duplicate_segment_positions = segment_counts
+            .iter()
+            .filter_map(|(segment_position, count)| (*count > 1).then_some(*segment_position))
+            .collect::<Vec<_>>();
+        duplicate_segment_positions.sort_unstable();
 
         let mut unknown_cue_ids = counts
             .keys()
@@ -250,38 +380,51 @@ impl ReferenceCoverage {
             .copied()
             .collect::<Vec<_>>();
 
-        let mut unresolved_cue_ids = Vec::new();
-        let mut seen_unresolved = HashSet::new();
+        let mut out_of_range_positions = Vec::new();
         for record in records {
-            if !expected_ids.contains(&record.cue_id) {
-                continue;
-            }
-            if matches!(
-                record.disposition,
-                ReferenceCueDisposition::Uncertain | ReferenceCueDisposition::Unreviewable
-            ) && seen_unresolved.insert(record.cue_id)
+            if cue_id_for_segment_position(expected_universe, record.segment_position).is_none()
+                && !out_of_range_positions.contains(&record.segment_position)
             {
-                unresolved_cue_ids.push(record.cue_id);
+                out_of_range_positions.push(record.segment_position);
             }
         }
-        unresolved_cue_ids.sort_unstable();
 
         let inventory_complete = missing_cue_ids.is_empty()
             && duplicate_cue_ids.is_empty()
             && unknown_cue_ids.is_empty()
+            && duplicate_segment_positions.is_empty()
+            && invalid_mapping_cue_ids.is_empty()
+            && out_of_range_positions.is_empty()
             && observed_unique.len() == expected_ids.len();
 
         let reference_resolved = inventory_complete && unresolved_cue_ids.is_empty();
 
+        let expected_count = expected_universe.total_cues;
+        let incomplete_cue_count = expected_count.saturating_sub(completed_cue_count);
+
+        let coverage_complete = inventory_complete
+            && reference_resolved
+            && completed_cue_count == expected_count
+            && incomplete_cue_count == 0
+            && incomplete_attestation_cue_ids.is_empty();
+
         Ok(ReferenceCoverageAssessment {
-            expected_count: expected_universe.total_cues,
+            expected_count,
             observed_unique_count: observed_unique.len() as u32,
+            completed_cue_count,
+            incomplete_cue_count,
+            cues_with_transcription_errors,
+            total_eligible_transcription_errors: 0,
             missing_cue_ids,
             duplicate_cue_ids,
+            duplicate_segment_positions,
             unknown_cue_ids,
+            invalid_mapping_cue_ids,
             unresolved_cue_ids,
+            incomplete_attestation_cue_ids,
             inventory_complete,
             reference_resolved,
+            coverage_complete,
         })
     }
 
@@ -308,16 +451,16 @@ impl ReferenceCoverage {
         validate_expected_universe(&self.expected_universe)?;
 
         let derived = Self::derive_assessment(&self.expected_universe, &self.records)?;
-        if self.assessment != derived {
+        if assessment_without_eligible_count(&self.assessment)
+            != assessment_without_eligible_count(&derived)
+        {
             return Err(ReferenceCoverageValidationError::AssessmentMismatch {
                 stored: Box::new(self.assessment.clone()),
                 derived: Box::new(derived.clone()),
             });
         }
 
-        if self.coverage_state == ReferenceCoverageState::Complete
-            && (!derived.inventory_complete || !derived.reference_resolved)
-        {
+        if self.coverage_state == ReferenceCoverageState::Complete && !derived.coverage_complete {
             return Err(ReferenceCoverageValidationError::CoverageStateMismatch {
                 state: self.coverage_state,
                 assessment: Box::new(derived),
@@ -331,6 +474,7 @@ impl ReferenceCoverage {
         &self,
         envelope: &RunEnvelope,
         seal: &ReferenceSeal,
+        human_reference: Option<&HumanFinalReference>,
     ) -> Result<(), ReferenceCoverageValidationError> {
         self.validate()?;
 
@@ -365,8 +509,36 @@ impl ReferenceCoverage {
 
         validate_attachment_for_purpose(self, envelope, seal)?;
 
+        if self.coverage_state == ReferenceCoverageState::Complete
+            && self.coverage_purpose == ReferenceCoveragePurpose::PrimaryBlindCalibration
+            && human_reference.is_none()
+        {
+            return Err(
+                ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage,
+            );
+        }
+
+        if let Some(human_reference) = human_reference {
+            validate_coverage_against_human_reference(self, human_reference)?;
+        } else if self.assessment.total_eligible_transcription_errors != 0 {
+            return Err(
+                ReferenceCoverageValidationError::EligibleTranscriptionErrorCountMismatch {
+                    stored: self.assessment.total_eligible_transcription_errors,
+                    derived: 0,
+                },
+            );
+        }
+
         Ok(())
     }
+}
+
+fn assessment_without_eligible_count(
+    assessment: &ReferenceCoverageAssessment,
+) -> ReferenceCoverageAssessment {
+    let mut normalized = assessment.clone();
+    normalized.total_eligible_transcription_errors = 0;
+    normalized
 }
 
 fn validate_attachment_for_purpose(
@@ -550,47 +722,26 @@ pub fn coverage_to_json(coverage: &ReferenceCoverage) -> Result<String, serde_js
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use crate::reference_seal::{REFERENCE_SEAL_SCHEMA, ReferenceProducerClass};
-    use crate::run_manifest::{
-        ArtifactRole, InputClass, RUN_ENVELOPE_SCHEMA, RunEnvelope, WorkflowObservationMode,
-    };
 
-    const SAMPLE_REVISION: &str =
-        "rev:sha256-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const SAMPLE_DIGEST: &str =
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
-    fn primary_posture() -> (RunEnvelope, ReferenceSeal) {
-        let envelope = RunEnvelope {
-            schema_revision: RUN_ENVELOPE_SCHEMA.to_string(),
-            run_id: RunId::new("run-primary").expect("run id"),
-            input_identity: InputIdentityReference {
-                transcript_revision_id: SAMPLE_REVISION.to_string(),
-            },
-            calibration_validity: CalibrationValidityMode::BlindReference,
-            workflow_observation: WorkflowObservationMode::Disabled,
-            input_class: InputClass::SelfOwnedReal,
-            qualifies_as_real_material_evidence: false,
-            lifecycle_state: RunLifecycleState::ReferenceSealed,
-            expected_artifact_roles: vec![ArtifactRole::CueReviewCompletion],
-        };
-
-        let seal = ReferenceSeal {
-            schema_revision: REFERENCE_SEAL_SCHEMA.to_string(),
-            seal_id: ReferenceSealId::new("seal-primary").expect("seal id"),
-            run_id: envelope.run_id.clone(),
-            input_identity: envelope.input_identity.clone(),
-            producer_class: ReferenceProducerClass::HumanBlindReviewer,
-            reference_created_before_detector_run: true,
-            prior_detector_run_on_same_input: false,
-            prior_knowledge_of_detector_targets: false,
-            session_terms_visible_during_reference: false,
-            external_notes_encode_detector_targets: false,
-            seal_state: ReferenceSealState::Sealed,
-            calibration_classification: ReferenceCalibrationValidity::BlindReferenceEligible,
-            calibration_validity_impact: CalibrationValidityImpact::None,
-            reference_revision: ReferenceRevisionId::new("ref-rev-primary").expect("revision id"),
-        };
-
-        (envelope, seal)
+    fn completion_record(
+        cue_id: u32,
+        segment_position: u32,
+        disposition: ReferenceCueDisposition,
+    ) -> CueReviewCompletionRecord {
+        CueReviewCompletionRecord {
+            cue_id: CueReferenceId::new(cue_id).expect("cue"),
+            segment_position,
+            source_text_digest: CueSourceTextDigest::new(SAMPLE_DIGEST).expect("digest"),
+            disposition,
+            fully_reviewed: true,
+            all_known_transcription_errors_enumerated: true,
+            verification_source_used: VerificationBasis::AudioListened,
+            reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+            completed_at_unix_ms: 1_700_000_000_000,
+        }
     }
 
     #[test]
@@ -602,10 +753,11 @@ mod unit_tests {
                 CueReferenceId::new(2).expect("cue"),
             ],
         };
-        let records = vec![CueReferenceCoverageRecord {
-            cue_id: CueReferenceId::new(1).expect("cue"),
-            disposition: ReferenceCueDisposition::NoTranscriptionError,
-        }];
+        let records = vec![completion_record(
+            1,
+            0,
+            ReferenceCueDisposition::NoTranscriptionError,
+        )];
 
         let assessment = ReferenceCoverage::derive_assessment(&universe, &records).expect("derive");
         assert!(!assessment.inventory_complete);
@@ -613,42 +765,5 @@ mod unit_tests {
             assessment.missing_cue_ids,
             vec![CueReferenceId::new(2).expect("cue")]
         );
-    }
-
-    #[test]
-    fn primary_attachment_requires_sealed_seal_and_reference_sealed_lifecycle() {
-        let (envelope, seal) = primary_posture();
-        let coverage = ReferenceCoverage {
-            schema_revision: REFERENCE_COVERAGE_SCHEMA.to_string(),
-            coverage_id: ReferenceCoverageId::new("coverage-primary").expect("coverage id"),
-            run_id: envelope.run_id.clone(),
-            input_identity: envelope.input_identity.clone(),
-            seal_id: seal.seal_id.clone(),
-            reference_revision: ReferenceRevisionId::new("ref-rev-primary").expect("revision id"),
-            coverage_purpose: ReferenceCoveragePurpose::PrimaryBlindCalibration,
-            expected_universe: ExpectedCueUniverse {
-                total_cues: 1,
-                cue_ids: vec![CueReferenceId::new(1).expect("cue")],
-            },
-            records: vec![CueReferenceCoverageRecord {
-                cue_id: CueReferenceId::new(1).expect("cue"),
-                disposition: ReferenceCueDisposition::NoTranscriptionError,
-            }],
-            coverage_state: ReferenceCoverageState::Complete,
-            assessment: ReferenceCoverageAssessment {
-                expected_count: 1,
-                observed_unique_count: 1,
-                missing_cue_ids: vec![],
-                duplicate_cue_ids: vec![],
-                unknown_cue_ids: vec![],
-                unresolved_cue_ids: vec![],
-                inventory_complete: true,
-                reference_resolved: true,
-            },
-        };
-
-        coverage
-            .validate_against(&envelope, &seal)
-            .expect("primary attachment");
     }
 }

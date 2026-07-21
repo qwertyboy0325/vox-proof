@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::human_final_reference::{HumanFinalReference, HumanFinalReferenceValidationError};
 use crate::reference_coverage::{
-    ReferenceCoverage, ReferenceCoverageId, ReferenceCoverageValidationError,
+    ReferenceCoverage, ReferenceCoverageId, ReferenceCoverageState,
+    ReferenceCoverageValidationError,
 };
 use crate::reference_identity::{ReferenceRevisionId, validate_identity_value};
 use crate::reference_seal::{ReferenceSeal, ReferenceSealId, ReferenceSealValidationError};
@@ -492,8 +493,10 @@ impl ArtifactBundle {
 
             if let Some(seal_record) = seal {
                 coverage_record
-                    .validate_against(envelope, seal_record)
+                    .validate_against(envelope, seal_record, human_reference)
                     .map_err(ArtifactBundleValidationError::CoverageValidation)?;
+            } else if coverage_record.coverage_state == ReferenceCoverageState::Complete {
+                return Err(ArtifactBundleValidationError::CoverageContextMissing);
             }
         }
 

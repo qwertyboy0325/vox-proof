@@ -3,9 +3,11 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::reference_alignment::{
+    map_alignment_error_to_human_final, validate_coverage_against_human_reference,
+};
 use crate::reference_coverage::{
     CueReferenceId, CueReferenceIdError, ReferenceCoverage, ReferenceCoverageValidationError,
-    ReferenceCueDisposition,
 };
 use crate::reference_identity::validate_identity_value;
 use crate::reference_seal::{
@@ -16,7 +18,10 @@ use crate::run_manifest::{
     RunId, RunLifecycleState,
 };
 
-pub use crate::reference_identity::{ReferenceIdentityIdError, ReferenceRevisionId};
+pub use crate::reference_identity::{
+    CueSourceTextDigest, ReferenceIdentityIdError, ReferenceReviewerIdentityClass,
+    ReferenceRevisionId, VerificationBasis,
+};
 
 pub const HUMAN_FINAL_REFERENCE_SCHEMA: &str = "voxproof-human-final-reference-v1";
 
@@ -58,22 +63,6 @@ pub enum ReferenceClass {
     Ambiguous,
     Unsupported,
     NonError,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VerificationBasis {
-    AudioListened,
-    TranscriptContextOnly,
-    MixedSources,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReferenceReviewerIdentityClass {
-    OwnerBlindReviewer,
-    AuthorizedDomainReviewer,
-    SyntheticFixtureGenerator,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -174,6 +163,11 @@ pub enum HumanFinalReferenceValidationError {
     TranscriptionErrorRecordForUnresolvedCue {
         cue_id: CueReferenceId,
     },
+    ReferenceAnchorMappingMismatch {
+        cue_id: CueReferenceId,
+        segment_position: u32,
+    },
+    EligibleTranscriptionErrorCountMismatch,
 }
 
 impl ReferenceErrorId {
@@ -488,76 +482,8 @@ impl HumanFinalReference {
             .validate()
             .map_err(HumanFinalReferenceValidationError::CoverageValidation)?;
 
-        if self.run_id != coverage.run_id {
-            return Err(HumanFinalReferenceValidationError::RunIdMismatch);
-        }
-
-        if self.input_identity != coverage.input_identity {
-            return Err(HumanFinalReferenceValidationError::InputIdentityMismatch);
-        }
-
-        if self.seal_id != coverage.seal_id {
-            return Err(HumanFinalReferenceValidationError::SealIdMismatch);
-        }
-
-        if self.reference_revision != coverage.reference_revision {
-            return Err(HumanFinalReferenceValidationError::CoverageReferenceRevisionMismatch);
-        }
-
-        let expected_cue_ids: HashSet<CueReferenceId> =
-            coverage.expected_universe.cue_ids.iter().copied().collect();
-
-        let mut te_records_by_cue: HashMap<CueReferenceId, u32> = HashMap::new();
-
-        for record in &self.records {
-            let cue_id = record.source_anchor.cue_id;
-            if !expected_cue_ids.contains(&cue_id) {
-                return Err(HumanFinalReferenceValidationError::UnknownCueReferenceId { cue_id });
-            }
-
-            if record.reference_class == ReferenceClass::TranscriptionError {
-                *te_records_by_cue.entry(cue_id).or_default() += 1;
-            }
-        }
-
-        for coverage_record in &coverage.records {
-            match coverage_record.disposition {
-                ReferenceCueDisposition::TranscriptionError => {
-                    if te_records_by_cue
-                        .get(&coverage_record.cue_id)
-                        .copied()
-                        .unwrap_or(0)
-                        == 0
-                    {
-                        return Err(
-                            HumanFinalReferenceValidationError::TranscriptionErrorCueMissingRecord {
-                                cue_id: coverage_record.cue_id,
-                            },
-                        );
-                    }
-                }
-                ReferenceCueDisposition::NoTranscriptionError => {
-                    if te_records_by_cue.contains_key(&coverage_record.cue_id) {
-                        return Err(
-                            HumanFinalReferenceValidationError::NoTranscriptionErrorCueHasRecord {
-                                cue_id: coverage_record.cue_id,
-                            },
-                        );
-                    }
-                }
-                ReferenceCueDisposition::Uncertain | ReferenceCueDisposition::Unreviewable => {
-                    if te_records_by_cue.contains_key(&coverage_record.cue_id) {
-                        return Err(
-                            HumanFinalReferenceValidationError::TranscriptionErrorRecordForUnresolvedCue {
-                                cue_id: coverage_record.cue_id,
-                            },
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(())
+        validate_coverage_against_human_reference(coverage, self)
+            .map_err(map_alignment_error_to_human_final)
     }
 }
 

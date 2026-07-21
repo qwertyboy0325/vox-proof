@@ -7,11 +7,11 @@ use vox_proof::human_final_reference::{
     HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState,
 };
 use vox_proof::reference_coverage::{
-    CueReferenceCoverageRecord, CueReferenceId, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
+    CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
     ReferenceCueDisposition,
 };
-use vox_proof::reference_identity::ReferenceRevisionId;
+use vox_proof::reference_identity::{CueSourceTextDigest, ReferenceRevisionId};
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -138,9 +138,17 @@ fn blind_coverage(seal: &ReferenceSeal) -> ReferenceCoverage {
         total_cues: 1,
         cue_ids: vec![CueReferenceId::new(1).expect("cue")],
     };
-    let records = vec![CueReferenceCoverageRecord {
+    let records = vec![CueReviewCompletionRecord {
         cue_id: CueReferenceId::new(1).expect("cue"),
+        segment_position: 0,
+        source_text_digest: CueSourceTextDigest::new(SAMPLE_DIGEST).expect("digest"),
         disposition: ReferenceCueDisposition::NoTranscriptionError,
+        fully_reviewed: true,
+        all_known_transcription_errors_enumerated: true,
+        verification_source_used: vox_proof::reference_identity::VerificationBasis::AudioListened,
+        reviewer_identity_class:
+            vox_proof::reference_identity::ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+        completed_at_unix_ms: 1_700_000_000_000,
     }];
     let assessment =
         ReferenceCoverage::derive_assessment(&expected, &records).expect("derive coverage");
@@ -529,6 +537,7 @@ fn seal_only_context_passes_when_role_requires_seal() {
 fn seal_and_coverage_context_passes_for_cue_review_role() {
     let seal = blind_seal();
     let coverage = blind_coverage(&seal);
+    let human_reference = blind_human_reference(&seal);
     let mut context = binding_context(CalibrationValidityMode::BlindReference);
     context.reference_seal_id = Some(seal.seal_id.clone());
     context.reference_coverage_id = Some(coverage.coverage_id.clone());
@@ -536,10 +545,16 @@ fn seal_and_coverage_context_passes_for_cue_review_role() {
 
     let expected = vec![
         ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
         ArtifactRole::CueReviewCompletion,
     ];
     let artifacts = vec![
         descriptor(&context, ArtifactRole::ReferenceSeal, "artifact-seal"),
+        descriptor(
+            &context,
+            ArtifactRole::HumanFinalReference,
+            "artifact-human-reference",
+        ),
         descriptor(
             &context,
             ArtifactRole::CueReviewCompletion,
@@ -550,7 +565,12 @@ fn seal_and_coverage_context_passes_for_cue_review_role() {
     let envelope = blind_envelope(expected);
 
     bundle
-        .validate_with_reference_context(&envelope, Some(&seal), Some(&coverage), None)
+        .validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        )
         .expect("seal and coverage context");
 }
 
@@ -667,23 +687,23 @@ fn seal_context_requires_accepted_envelope_lifecycle() {
 }
 
 fn blind_human_reference(seal: &ReferenceSeal) -> HumanFinalReference {
+    let records = vec![];
+    let assessment = HumanFinalReference::derive_assessment(
+        &seal.reference_revision,
+        &seal.input_identity,
+        &records,
+    )
+    .expect("derive assessment");
+
     HumanFinalReference {
         schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
         run_id: seal.run_id.clone(),
         input_identity: seal.input_identity.clone(),
         seal_id: seal.seal_id.clone(),
         reference_revision: seal.reference_revision.clone(),
-        records: vec![],
+        records,
         state: HumanFinalReferenceState::Sealed,
-        assessment: vox_proof::human_final_reference::HumanFinalReferenceAssessment {
-            total_record_count: 0,
-            transcription_error_count: 0,
-            recall_eligible_transcription_error_count: 0,
-            excluded_reference_count: 0,
-            duplicate_reference_error_ids: vec![],
-            duplicate_exact_anchors: vec![],
-            context_consistent: true,
-        },
+        assessment,
     }
 }
 

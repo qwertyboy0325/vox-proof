@@ -4,10 +4,11 @@ use vox_proof::human_final_reference::{
     ReferenceReviewerIdentityClass, ReferenceRevisionId, ReferenceSourceAnchor, VerificationBasis,
 };
 use vox_proof::reference_coverage::{
-    CueReferenceCoverageRecord, CueReferenceId, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
+    CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
     ReferenceCueDisposition,
 };
+use vox_proof::reference_identity::CueSourceTextDigest;
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -21,6 +22,8 @@ const SAMPLE_REVISION: &str =
     "rev:sha256-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const OTHER_REVISION: &str =
     "rev:sha256-v1:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+const SAMPLE_CUE_DIGEST: &str =
+    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 fn input_identity() -> InputIdentityReference {
     InputIdentityReference {
@@ -121,9 +124,28 @@ fn primary_posture() -> (RunEnvelope, ReferenceSeal) {
     (envelope, seal)
 }
 
+fn completion_record(
+    cue_id: u32,
+    segment_position: u32,
+    disposition: ReferenceCueDisposition,
+) -> CueReviewCompletionRecord {
+    CueReviewCompletionRecord {
+        cue_id: CueReferenceId::new(cue_id).expect("cue id"),
+        segment_position,
+        source_text_digest: CueSourceTextDigest::new(SAMPLE_CUE_DIGEST).expect("digest"),
+        disposition,
+        fully_reviewed: true,
+        all_known_transcription_errors_enumerated: true,
+        verification_source_used: VerificationBasis::AudioListened,
+        reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+        completed_at_unix_ms: 1_700_000_000_000,
+    }
+}
+
 fn coverage_for(
     cue_dispositions: &[(u32, ReferenceCueDisposition)],
     state: ReferenceCoverageState,
+    total_eligible_transcription_errors: u32,
 ) -> ReferenceCoverage {
     let cue_ids: Vec<CueReferenceId> = cue_dispositions
         .iter()
@@ -133,16 +155,16 @@ fn coverage_for(
         total_cues: cue_ids.len() as u32,
         cue_ids: cue_ids.clone(),
     };
-    let records: Vec<CueReferenceCoverageRecord> = cue_dispositions
+    let records: Vec<CueReviewCompletionRecord> = cue_dispositions
         .iter()
-        .map(|(id, disposition)| CueReferenceCoverageRecord {
-            cue_id: CueReferenceId::new(*id).expect("cue id"),
-            disposition: *disposition,
+        .enumerate()
+        .map(|(segment_position, (id, disposition))| {
+            completion_record(*id, segment_position as u32, *disposition)
         })
         .collect();
-    let assessment =
-        vox_proof::reference_coverage::ReferenceCoverage::derive_assessment(&expected, &records)
-            .expect("derive coverage");
+    let mut assessment =
+        ReferenceCoverage::derive_assessment(&expected, &records).expect("derive coverage");
+    assessment.total_eligible_transcription_errors = total_eligible_transcription_errors;
 
     ReferenceCoverage {
         schema_revision: REFERENCE_COVERAGE_SCHEMA.to_string(),
@@ -622,6 +644,7 @@ fn transcription_error_cue_with_one_reference_error_passes_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::TranscriptionError)],
         ReferenceCoverageState::Complete,
+        1,
     );
 
     reference
@@ -646,7 +669,7 @@ fn transcription_error_cue_with_multiple_distinct_errors_passes_coverage() {
         record(
             "ref-err-002",
             1,
-            1,
+            0,
             10,
             14,
             "othr",
@@ -659,6 +682,7 @@ fn transcription_error_cue_with_multiple_distinct_errors_passes_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::TranscriptionError)],
         ReferenceCoverageState::Complete,
+        2,
     );
 
     reference
@@ -672,6 +696,7 @@ fn transcription_error_cue_without_te_record_fails_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::TranscriptionError)],
         ReferenceCoverageState::Complete,
+        0,
     );
 
     assert!(matches!(
@@ -686,6 +711,7 @@ fn no_error_cue_with_no_record_passes_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::NoTranscriptionError)],
         ReferenceCoverageState::Complete,
+        0,
     );
 
     reference
@@ -710,6 +736,7 @@ fn no_error_cue_with_te_record_fails_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::NoTranscriptionError)],
         ReferenceCoverageState::Complete,
+        1,
     );
 
     assert!(matches!(
@@ -735,6 +762,7 @@ fn unknown_cue_in_record_fails_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::TranscriptionError)],
         ReferenceCoverageState::Complete,
+        1,
     );
 
     assert!(matches!(
@@ -760,6 +788,7 @@ fn uncertain_cue_with_te_record_fails_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::Uncertain)],
         ReferenceCoverageState::Draft,
+        1,
     );
 
     assert!(matches!(
@@ -810,6 +839,7 @@ fn mismatched_coverage_reference_revision_fails() {
     let mut coverage = coverage_for(
         &[(1, ReferenceCueDisposition::NoTranscriptionError)],
         ReferenceCoverageState::Complete,
+        0,
     );
     coverage.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
 
@@ -847,11 +877,39 @@ fn post_seal_new_revision_cannot_reuse_old_coverage() {
     let coverage = coverage_for(
         &[(1, ReferenceCueDisposition::TranscriptionError)],
         ReferenceCoverageState::Complete,
+        1,
     );
 
     assert!(matches!(
         reference.validate_against_coverage(&coverage),
         Err(HumanFinalReferenceValidationError::CoverageReferenceRevisionMismatch)
+    ));
+}
+
+#[test]
+fn eligible_transcription_error_count_mismatch_fails_coverage() {
+    let records = vec![record(
+        "ref-err-001",
+        1,
+        0,
+        0,
+        4,
+        "wrng",
+        "wrong",
+        ReferenceClass::TranscriptionError,
+        VerificationBasis::AudioListened,
+    )];
+    let reference = build_reference(records, HumanFinalReferenceState::Sealed);
+    let mut coverage = coverage_for(
+        &[(1, ReferenceCueDisposition::TranscriptionError)],
+        ReferenceCoverageState::Complete,
+        0,
+    );
+    coverage.assessment.total_eligible_transcription_errors = 2;
+
+    assert!(matches!(
+        reference.validate_against_coverage(&coverage),
+        Err(HumanFinalReferenceValidationError::EligibleTranscriptionErrorCountMismatch)
     ));
 }
 
