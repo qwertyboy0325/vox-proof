@@ -77,6 +77,7 @@ pub enum ArtifactRole {
     ReviewedTranscript,
     Comparison,
     EvaluationJoin,
+    JoinAdjudication,
     Metrics,
     WorkflowTiming,
 }

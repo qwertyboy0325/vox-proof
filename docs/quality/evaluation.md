@@ -313,6 +313,19 @@ Results from one category must not be reported as evidence for another. In parti
 
 This slice does not define additional metrics or gates beyond MD-007 for v0.1 establishment.
 
+## v0.2 Detector/Reference Join Contract Boundary
+
+The typed contracts `voxproof-detector-reference-join-v1` and `voxproof-overlap-adjudication-v1` define deterministic relationship derivation and immutable overlap-adjudication input records only.
+
+Boundary:
+
+- descriptive disposition counts only; no TP, FP, FN, precision, recall, exactness ratios, thresholds, or `primary_metrics_allowed`
+- overlap requires frozen human adjudication before `accepted_overlap`; overlap geometry alone is insufficient
+- NFC equality is the sole correction-equality rule for join derivation; `original_surface` equality is not authority
+- exactly one detector alternative is required for join v1 derivation
+- resolved join state does not establish primary calibration validity, detector effectiveness, or product validation
+- human adjudication execution, real/synthetic protocol runs, and persistence remain deferred
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:
