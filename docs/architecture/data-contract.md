@@ -238,9 +238,13 @@ This contract does **not** make the v0.2 loop operational. Reference validity, p
 
 `ReferenceSealState::Sealed` means protocol record finalization only. It does not imply cryptographic signing, tamper-proof storage, or durable persistence. Blind eligibility is derived fail-closed from explicit independent attestations; coverage, joins, metrics, execution, and persistence remain deferred.
 
+Each `ReferenceSeal` binds to one exact `ReferenceRevisionId` shared with per-cue coverage, human-final reference records, and artifact-bundle context. Post-seal reference correction requires a new revision; old coverage or bundle bindings must not silently attach to a new revision.
+
 ## v0.2 Per-Cue Reference Coverage (Contract Foundation)
 
 `ReferenceCoverage` is a typed, serializable contract for the expected cue universe and one explicit reference disposition per cue. Absence of a record is not equivalent to `NoTranscriptionError`. Inventory completeness and resolved reference status are structural, purpose-neutral concepts. Diagnostic and synthetic references may be complete and resolved while remaining categorically ineligible for primary blind calibration. Primary-calibration eligibility is a separate seal/envelope/purpose posture; completeness does not imply join completion or metrics eligibility. Primary blind calibration coverage requires a sealed blind-reference-eligible seal and an envelope lifecycle of `ReferenceSealed`. The contract carries no transcript text, cue text, detector output, join keys, or metrics.
+
+Each `ReferenceCoverage` binds to the same exact `ReferenceRevisionId` as its paired `ReferenceSeal`. Revision mismatch fails closed and does not alter structural completeness assessment.
 
 ## v0.2 Artifact Bundle (Contract Foundation)
 
@@ -248,9 +252,13 @@ This contract does **not** make the v0.2 loop operational. Reference validity, p
 
 Bundle completeness is structural inventory completeness and context consistency only. Context binding is not detector/reference semantic joining. A content digest binds bytes but does not prove correctness, privacy, semantic compatibility, provenance truth, payload validity, or join success. Semantic joining and metrics remain deferred.
 
+`ArtifactBindingContext` may carry an optional exact `ReferenceRevisionId` when reference seal or coverage context is declared. `ArtifactRole::HumanFinalReference` denotes the private human-final reference payload descriptor. `ReferenceSeal`, `HumanFinalReference`, and `CueReviewCompletion` remain distinct roles. Bundle context binding does not prove payload correctness or join success.
+
 ## v0.2 Human-Final Reference (Contract Foundation)
 
 `HumanFinalReference` is a typed, serializable **private** contract for human-final reference-error records bound to one sealed reference revision. Seal attestation and individual error records are separate contracts. Per-cue coverage and individual error records are separate: one cue may contain multiple distinct reference errors; no-error cues require coverage completion records but not fabricated error records.
+
+`ReferenceRevisionId` is shared across seal, coverage, human-final records, and bundle context. Post-seal correction creates a new revision; old coverage cannot attach to a new revision silently.
 
 Reference surfaces (`original_surface`, `human_final_surface`) are private content-bearing data. Authorization to create or execute a reference does not authorize committing its surfaces. Join fields (`detector_case_id`, `match_disposition`, adjudication, metric contribution) are forbidden in sealed reference records. Correction of a sealed reference requires a new `ReferenceRevisionId`; this slice does not implement revision history.
 

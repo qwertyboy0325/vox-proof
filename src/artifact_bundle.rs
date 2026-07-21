@@ -3,9 +3,11 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::human_final_reference::{HumanFinalReference, HumanFinalReferenceValidationError};
 use crate::reference_coverage::{
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoverageValidationError,
 };
+use crate::reference_identity::{ReferenceRevisionId, validate_identity_value};
 use crate::reference_seal::{ReferenceSeal, ReferenceSealId, ReferenceSealValidationError};
 use crate::run_manifest::{
     ArtifactRole, CalibrationValidityMode, InputIdentityReference, RunEnvelope,
@@ -59,6 +61,7 @@ pub struct ArtifactBindingContext {
     pub calibration_validity: CalibrationValidityMode,
     pub reference_seal_id: Option<ReferenceSealId>,
     pub reference_coverage_id: Option<ReferenceCoverageId>,
+    pub reference_revision: Option<ReferenceRevisionId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,6 +152,9 @@ pub enum ArtifactBundleValidationError {
         role: ArtifactRole,
     },
     CoverageReferenceWithoutSeal,
+    ReferenceRevisionWithoutContext,
+    SealContextWithoutRevision,
+    DetectorAssistedReferenceRevisionContext,
     DetectorAssistedBlindReferenceContext,
     AssessmentMismatch {
         stored: Box<ArtifactBundleAssessment>,
@@ -180,6 +186,14 @@ pub enum ArtifactBundleValidationError {
     CoverageContextMismatch,
     SealRecordMismatch,
     CoverageRecordMismatch,
+    ReferenceRevisionContextMismatch,
+    UnexpectedHumanReferenceSupplied,
+    HumanReferenceContextMissing,
+    HumanReferenceRequired {
+        role: ArtifactRole,
+    },
+    HumanReferenceRecordMismatch,
+    HumanReferenceValidation(HumanFinalReferenceValidationError),
     CoverageWithoutSealInInventory,
 }
 
@@ -410,6 +424,7 @@ impl ArtifactBundle {
         envelope: &RunEnvelope,
         seal: Option<&ReferenceSeal>,
         coverage: Option<&ReferenceCoverage>,
+        human_reference: Option<&HumanFinalReference>,
     ) -> Result<(), ArtifactBundleValidationError> {
         self.validate_against_envelope(envelope)?;
 
@@ -418,6 +433,7 @@ impl ArtifactBundle {
             envelope.calibration_validity,
             seal,
             coverage,
+            human_reference,
         )?;
 
         if self.binding_context.reference_coverage_id.is_some()
@@ -430,7 +446,7 @@ impl ArtifactBundle {
             return Err(ArtifactBundleValidationError::CoverageWithoutSealInInventory);
         }
 
-        validate_role_specific_context(self, seal, coverage)?;
+        validate_role_specific_context(self, seal, coverage, human_reference)?;
 
         if let Some(seal_record) = seal {
             seal_record
@@ -443,6 +459,11 @@ impl ArtifactBundle {
             }
             if self.binding_context.reference_seal_id.as_ref() != Some(&seal_record.seal_id) {
                 return Err(ArtifactBundleValidationError::SealRecordMismatch);
+            }
+            if self.binding_context.reference_revision.as_ref()
+                != Some(&seal_record.reference_revision)
+            {
+                return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
             }
         }
 
@@ -463,11 +484,43 @@ impl ArtifactBundle {
             if self.binding_context.reference_seal_id.as_ref() != Some(&coverage_record.seal_id) {
                 return Err(ArtifactBundleValidationError::CoverageRecordMismatch);
             }
+            if self.binding_context.reference_revision.as_ref()
+                != Some(&coverage_record.reference_revision)
+            {
+                return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
+            }
 
             if let Some(seal_record) = seal {
                 coverage_record
                     .validate_against(envelope, seal_record)
                     .map_err(ArtifactBundleValidationError::CoverageValidation)?;
+            }
+        }
+
+        if let Some(human_reference_record) = human_reference {
+            human_reference_record
+                .validate()
+                .map_err(ArtifactBundleValidationError::HumanReferenceValidation)?;
+            if human_reference_record.run_id != self.binding_context.run_id
+                || human_reference_record.input_identity != self.binding_context.input_identity
+            {
+                return Err(ArtifactBundleValidationError::HumanReferenceRecordMismatch);
+            }
+            if self.binding_context.reference_seal_id.as_ref()
+                != Some(&human_reference_record.seal_id)
+            {
+                return Err(ArtifactBundleValidationError::HumanReferenceRecordMismatch);
+            }
+            if self.binding_context.reference_revision.as_ref()
+                != Some(&human_reference_record.reference_revision)
+            {
+                return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
+            }
+
+            if let Some(seal_record) = seal {
+                human_reference_record
+                    .validate_against(envelope, seal_record)
+                    .map_err(ArtifactBundleValidationError::HumanReferenceValidation)?;
             }
         }
 
@@ -505,10 +558,35 @@ fn validate_binding_context(
         return Err(ArtifactBundleValidationError::CoverageReferenceWithoutSeal);
     }
 
+    if context.reference_seal_id.is_some() && context.reference_revision.is_none() {
+        return Err(ArtifactBundleValidationError::SealContextWithoutRevision);
+    }
+
+    if context.reference_coverage_id.is_some()
+        && (context.reference_seal_id.is_none() || context.reference_revision.is_none())
+    {
+        return Err(ArtifactBundleValidationError::CoverageReferenceWithoutSeal);
+    }
+
+    if context.reference_revision.is_some()
+        && context.reference_seal_id.is_none()
+        && context.reference_coverage_id.is_none()
+    {
+        return Err(ArtifactBundleValidationError::ReferenceRevisionWithoutContext);
+    }
+
     if context.calibration_validity == CalibrationValidityMode::DetectorAssisted
-        && (context.reference_seal_id.is_some() || context.reference_coverage_id.is_some())
+        && (context.reference_seal_id.is_some()
+            || context.reference_coverage_id.is_some()
+            || context.reference_revision.is_some())
     {
         return Err(ArtifactBundleValidationError::DetectorAssistedBlindReferenceContext);
+    }
+
+    if let Some(reference_revision) = context.reference_revision.as_ref() {
+        validate_identity_value(reference_revision.as_str()).map_err(|error| {
+            ArtifactBundleValidationError::InvalidBundleId(map_identity_id_error(error))
+        })?;
     }
 
     Ok(())
@@ -519,6 +597,7 @@ fn validate_reference_context_binding(
     envelope_mode: CalibrationValidityMode,
     seal: Option<&ReferenceSeal>,
     coverage: Option<&ReferenceCoverage>,
+    human_reference: Option<&HumanFinalReference>,
 ) -> Result<(), ArtifactBundleValidationError> {
     match (
         context.reference_seal_id.as_ref(),
@@ -530,6 +609,9 @@ fn validate_reference_context_binding(
             }
             if coverage.is_some() {
                 return Err(ArtifactBundleValidationError::UnexpectedCoverageSupplied);
+            }
+            if human_reference.is_some() {
+                return Err(ArtifactBundleValidationError::UnexpectedHumanReferenceSupplied);
             }
         }
         (Some(_), None) => {
@@ -551,10 +633,27 @@ fn validate_reference_context_binding(
         (None, Some(_)) => return Err(ArtifactBundleValidationError::CoverageReferenceWithoutSeal),
     }
 
+    if human_reference.is_some() {
+        if seal.is_none() || context.reference_seal_id.is_none() {
+            return Err(ArtifactBundleValidationError::SealContextMissing);
+        }
+        if context.reference_revision.is_none() {
+            return Err(ArtifactBundleValidationError::SealContextWithoutRevision);
+        }
+    }
+
     if envelope_mode == CalibrationValidityMode::DetectorAssisted
-        && (context.reference_seal_id.is_some() || context.reference_coverage_id.is_some())
+        && (context.reference_seal_id.is_some()
+            || context.reference_coverage_id.is_some()
+            || context.reference_revision.is_some())
     {
         return Err(ArtifactBundleValidationError::DetectorAssistedBlindReferenceContext);
+    }
+
+    if envelope_mode == CalibrationValidityMode::DetectorAssisted
+        && context.reference_revision.is_some()
+    {
+        return Err(ArtifactBundleValidationError::DetectorAssistedReferenceRevisionContext);
     }
 
     if let (Some(expected_seal_id), Some(seal_record)) = (context.reference_seal_id.as_ref(), seal)
@@ -570,6 +669,27 @@ fn validate_reference_context_binding(
         return Err(ArtifactBundleValidationError::CoverageContextMismatch);
     }
 
+    if let (Some(expected_revision), Some(seal_record)) =
+        (context.reference_revision.as_ref(), seal)
+        && expected_revision != &seal_record.reference_revision
+    {
+        return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
+    }
+
+    if let (Some(expected_revision), Some(coverage_record)) =
+        (context.reference_revision.as_ref(), coverage)
+        && expected_revision != &coverage_record.reference_revision
+    {
+        return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
+    }
+
+    if let (Some(expected_revision), Some(human_reference_record)) =
+        (context.reference_revision.as_ref(), human_reference)
+        && expected_revision != &human_reference_record.reference_revision
+    {
+        return Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch);
+    }
+
     Ok(())
 }
 
@@ -577,29 +697,50 @@ fn validate_role_specific_context(
     bundle: &ArtifactBundle,
     seal: Option<&ReferenceSeal>,
     coverage: Option<&ReferenceCoverage>,
+    human_reference: Option<&HumanFinalReference>,
 ) -> Result<(), ArtifactBundleValidationError> {
     let roles = canonical_role_set(&bundle.expected_roles);
 
     if roles.contains(&ArtifactRole::ReferenceSeal)
-        && bundle.binding_context.reference_seal_id.is_none()
+        && (bundle.binding_context.reference_seal_id.is_none()
+            || bundle.binding_context.reference_revision.is_none())
     {
         return Err(ArtifactBundleValidationError::ReferenceSealRequired {
             role: ArtifactRole::ReferenceSeal,
         });
     }
 
+    if roles.contains(&ArtifactRole::HumanFinalReference)
+        && (bundle.binding_context.reference_seal_id.is_none()
+            || bundle.binding_context.reference_revision.is_none())
+    {
+        return Err(ArtifactBundleValidationError::HumanReferenceRequired {
+            role: ArtifactRole::HumanFinalReference,
+        });
+    }
+
     if roles.contains(&ArtifactRole::CueReviewCompletion)
         && (bundle.binding_context.reference_seal_id.is_none()
-            || bundle.binding_context.reference_coverage_id.is_none())
+            || bundle.binding_context.reference_coverage_id.is_none()
+            || bundle.binding_context.reference_revision.is_none())
     {
         return Err(ArtifactBundleValidationError::ReferenceCoverageRequired {
             role: ArtifactRole::CueReviewCompletion,
         });
     }
 
+    if human_reference.is_some() && !roles.contains(&ArtifactRole::HumanFinalReference) {
+        return Err(ArtifactBundleValidationError::UnexpectedHumanReferenceSupplied);
+    }
+
     if bundle.bundle_state == ArtifactBundleState::Complete {
         if roles.contains(&ArtifactRole::ReferenceSeal) && seal.is_none() {
             return Err(ArtifactBundleValidationError::SealContextMissing);
+        }
+        if roles.contains(&ArtifactRole::HumanFinalReference)
+            && (seal.is_none() || human_reference.is_none())
+        {
+            return Err(ArtifactBundleValidationError::HumanReferenceContextMissing);
         }
         if roles.contains(&ArtifactRole::CueReviewCompletion)
             && (seal.is_none() || coverage.is_none())
@@ -701,6 +842,35 @@ fn map_run_id_error(error: RunIdError) -> ArtifactBundleIdError {
     }
 }
 
+fn map_identity_id_error(
+    error: crate::reference_identity::ReferenceIdentityIdError,
+) -> ArtifactBundleIdError {
+    match error {
+        crate::reference_identity::ReferenceIdentityIdError::Empty => ArtifactBundleIdError::Empty,
+        crate::reference_identity::ReferenceIdentityIdError::TooLong { len, max } => {
+            ArtifactBundleIdError::TooLong { len, max }
+        }
+        crate::reference_identity::ReferenceIdentityIdError::InvalidCharacter { character } => {
+            ArtifactBundleIdError::InvalidCharacter { character }
+        }
+        crate::reference_identity::ReferenceIdentityIdError::PathLikeContent => {
+            ArtifactBundleIdError::PathLikeContent
+        }
+        crate::reference_identity::ReferenceIdentityIdError::AbsolutePathLike => {
+            ArtifactBundleIdError::AbsolutePathLike
+        }
+        crate::reference_identity::ReferenceIdentityIdError::RelativePathLike => {
+            ArtifactBundleIdError::RelativePathLike
+        }
+        crate::reference_identity::ReferenceIdentityIdError::HomeDirectoryFragment => {
+            ArtifactBundleIdError::HomeDirectoryFragment
+        }
+        crate::reference_identity::ReferenceIdentityIdError::GenerationUnavailable => {
+            ArtifactBundleIdError::GenerationUnavailable
+        }
+    }
+}
+
 pub fn bundle_from_json(json: &str) -> Result<ArtifactBundle, serde_json::Error> {
     serde_json::from_str(json)
 }
@@ -727,6 +897,7 @@ mod unit_tests {
             calibration_validity: CalibrationValidityMode::DetectorAssisted,
             reference_seal_id: None,
             reference_coverage_id: None,
+            reference_revision: None,
         }
     }
 

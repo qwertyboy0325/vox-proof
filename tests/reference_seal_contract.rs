@@ -1,3 +1,4 @@
+use vox_proof::reference_identity::ReferenceRevisionId;
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -27,6 +28,8 @@ fn blind_envelope(lifecycle_state: RunLifecycleState) -> RunEnvelope {
     }
 }
 
+const SAMPLE_REFERENCE_REVISION: &str = "ref-rev-001";
+
 fn seal_with_attestations(
     producer_class: ReferenceProducerClass,
     reference_created_before_detector_run: bool,
@@ -42,6 +45,8 @@ fn seal_with_attestations(
         input_identity: InputIdentityReference {
             transcript_revision_id: SAMPLE_REVISION.to_string(),
         },
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         producer_class,
         reference_created_before_detector_run,
         prior_detector_run_on_same_input,
@@ -90,6 +95,7 @@ fn unknown_top_level_field_rejected() {
   "seal_id": "seal-test",
   "run_id": "run-blind-reference",
   "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
+  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
   "producer_class": "human_blind_reviewer",
   "reference_created_before_detector_run": true,
   "prior_detector_run_on_same_input": false,
@@ -477,6 +483,54 @@ fn serialized_seal_contains_no_path_or_content_fields() {
             "serialized seal must not contain path {forbidden:?}"
         );
     }
+}
+
+#[test]
+fn missing_reference_revision_rejected() {
+    let json = format!(
+        r#"{{
+  "schema_revision": "{REFERENCE_SEAL_SCHEMA}",
+  "seal_id": "seal-test",
+  "run_id": "run-blind-reference",
+  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
+  "producer_class": "human_blind_reviewer",
+  "reference_created_before_detector_run": true,
+  "prior_detector_run_on_same_input": false,
+  "prior_knowledge_of_detector_targets": false,
+  "session_terms_visible_during_reference": false,
+  "external_notes_encode_detector_targets": false,
+  "seal_state": "draft",
+  "calibration_classification": "blind_reference_eligible",
+  "calibration_validity_impact": "none"
+}}"#
+    );
+
+    let error = serde_json::from_str::<ReferenceSeal>(&json).expect_err("must fail");
+    assert!(error.to_string().contains("missing field"));
+}
+
+#[test]
+fn invalid_reference_revision_rejected() {
+    assert!(ReferenceRevisionId::new("/Users/example/private/reference.json").is_err());
+}
+
+#[test]
+fn exact_reference_revision_retained_on_round_trip() {
+    let seal = seal_with_attestations(
+        ReferenceProducerClass::HumanBlindReviewer,
+        true,
+        false,
+        false,
+        false,
+        false,
+    );
+    let json = serde_json::to_string(&seal).expect("serialize");
+    assert!(json.contains(SAMPLE_REFERENCE_REVISION));
+    let restored: ReferenceSeal = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(
+        restored.reference_revision.as_str(),
+        SAMPLE_REFERENCE_REVISION
+    );
 }
 
 #[test]

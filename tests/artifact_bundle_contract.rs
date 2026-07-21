@@ -3,11 +3,15 @@ use vox_proof::artifact_bundle::{
     ArtifactBundleId, ArtifactBundleState, ArtifactBundleValidationError, ArtifactContentDigest,
     ArtifactDescriptor, ArtifactId, ArtifactSchemaIdentity,
 };
+use vox_proof::human_final_reference::{
+    HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState,
+};
 use vox_proof::reference_coverage::{
     CueReferenceCoverageRecord, CueReferenceId, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
     ReferenceCueDisposition,
 };
+use vox_proof::reference_identity::ReferenceRevisionId;
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -21,6 +25,7 @@ const SAMPLE_REVISION: &str =
     "rev:sha256-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const SAMPLE_DIGEST: &str =
     "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const SAMPLE_REFERENCE_REVISION: &str = "ref-rev-001";
 
 fn binding_context(mode: CalibrationValidityMode) -> ArtifactBindingContext {
     ArtifactBindingContext {
@@ -31,6 +36,7 @@ fn binding_context(mode: CalibrationValidityMode) -> ArtifactBindingContext {
         calibration_validity: mode,
         reference_seal_id: None,
         reference_coverage_id: None,
+        reference_revision: None,
     }
 }
 
@@ -113,6 +119,8 @@ fn blind_seal() -> ReferenceSeal {
         input_identity: InputIdentityReference {
             transcript_revision_id: SAMPLE_REVISION.to_string(),
         },
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         producer_class: ReferenceProducerClass::HumanBlindReviewer,
         reference_created_before_detector_run: true,
         prior_detector_run_on_same_input: false,
@@ -143,6 +151,7 @@ fn blind_coverage(seal: &ReferenceSeal) -> ReferenceCoverage {
         run_id: seal.run_id.clone(),
         input_identity: seal.input_identity.clone(),
         seal_id: seal.seal_id.clone(),
+        reference_revision: seal.reference_revision.clone(),
         coverage_purpose: ReferenceCoveragePurpose::PrimaryBlindCalibration,
         expected_universe: expected,
         records,
@@ -428,7 +437,8 @@ fn detector_assisted_context_cannot_carry_blind_reference_ids() {
 
     assert!(matches!(
         bundle.validate(),
-        Err(ArtifactBundleValidationError::DetectorAssistedBlindReferenceContext)
+        Err(ArtifactBundleValidationError::SealContextWithoutRevision)
+            | Err(ArtifactBundleValidationError::DetectorAssistedBlindReferenceContext)
     ));
 }
 
@@ -476,7 +486,7 @@ fn early_blind_draft_without_reference_context_validates() {
     let envelope = blind_envelope(vec![ArtifactRole::InputAuthorization]);
 
     bundle
-        .validate_with_reference_context(&envelope, None, None)
+        .validate_with_reference_context(&envelope, None, None, None)
         .expect("early draft without references");
 }
 
@@ -490,7 +500,7 @@ fn reference_seal_role_requires_seal_context() {
     let envelope = blind_envelope(vec![ArtifactRole::ReferenceSeal]);
 
     assert!(matches!(
-        bundle.validate_with_reference_context(&envelope, None, None),
+        bundle.validate_with_reference_context(&envelope, None, None, None),
         Err(ArtifactBundleValidationError::ReferenceSealRequired { .. })
     ));
 }
@@ -500,6 +510,7 @@ fn seal_only_context_passes_when_role_requires_seal() {
     let seal = blind_seal();
     let mut context = binding_context(CalibrationValidityMode::BlindReference);
     context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
     let expected = vec![ArtifactRole::ReferenceSeal];
     let artifacts = vec![descriptor(
         &context,
@@ -510,7 +521,7 @@ fn seal_only_context_passes_when_role_requires_seal() {
     let envelope = blind_envelope(expected);
 
     bundle
-        .validate_with_reference_context(&envelope, Some(&seal), None)
+        .validate_with_reference_context(&envelope, Some(&seal), None, None)
         .expect("seal-only context");
 }
 
@@ -521,6 +532,7 @@ fn seal_and_coverage_context_passes_for_cue_review_role() {
     let mut context = binding_context(CalibrationValidityMode::BlindReference);
     context.reference_seal_id = Some(seal.seal_id.clone());
     context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
 
     let expected = vec![
         ArtifactRole::ReferenceSeal,
@@ -538,7 +550,7 @@ fn seal_and_coverage_context_passes_for_cue_review_role() {
     let envelope = blind_envelope(expected);
 
     bundle
-        .validate_with_reference_context(&envelope, Some(&seal), Some(&coverage))
+        .validate_with_reference_context(&envelope, Some(&seal), Some(&coverage), None)
         .expect("seal and coverage context");
 }
 
@@ -556,7 +568,7 @@ fn structurally_complete_detector_assisted_bundle_validates() {
 
     bundle.validate().expect("valid");
     bundle
-        .validate_with_reference_context(&envelope, None, None)
+        .validate_with_reference_context(&envelope, None, None, None)
         .expect("detector-assisted complete");
 }
 
@@ -616,7 +628,7 @@ fn unexpected_seal_supplied_when_context_has_none_fails() {
     let seal = blind_seal();
 
     assert!(matches!(
-        bundle.validate_with_reference_context(&envelope, Some(&seal), None),
+        bundle.validate_with_reference_context(&envelope, Some(&seal), None, None),
         Err(ArtifactBundleValidationError::UnexpectedSealSupplied)
     ));
 }
@@ -626,6 +638,7 @@ fn seal_context_requires_accepted_envelope_lifecycle() {
     let seal = blind_seal();
     let mut context = binding_context(CalibrationValidityMode::BlindReference);
     context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
     let expected = vec![ArtifactRole::ReferenceSeal];
     let artifacts = vec![descriptor(
         &context,
@@ -648,7 +661,290 @@ fn seal_context_requires_accepted_envelope_lifecycle() {
     };
 
     assert!(matches!(
-        bundle.validate_with_reference_context(&envelope, Some(&seal), None),
+        bundle.validate_with_reference_context(&envelope, Some(&seal), None, None),
         Err(ArtifactBundleValidationError::SealValidation(_))
     ));
+}
+
+fn blind_human_reference(seal: &ReferenceSeal) -> HumanFinalReference {
+    HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: seal.run_id.clone(),
+        input_identity: seal.input_identity.clone(),
+        seal_id: seal.seal_id.clone(),
+        reference_revision: seal.reference_revision.clone(),
+        records: vec![],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: vox_proof::human_final_reference::HumanFinalReferenceAssessment {
+            total_record_count: 0,
+            transcription_error_count: 0,
+            recall_eligible_transcription_error_count: 0,
+            excluded_reference_count: 0,
+            duplicate_reference_error_ids: vec![],
+            duplicate_exact_anchors: vec![],
+            context_consistent: true,
+        },
+    }
+}
+
+#[test]
+fn human_final_reference_role_round_trips() {
+    let json = serde_json::to_string(&ArtifactRole::HumanFinalReference).expect("serialize");
+    assert_eq!(json, "\"human_final_reference\"");
+}
+
+#[test]
+fn reference_revision_context_round_trips() {
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_revision =
+        Some(ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION).expect("revision id"));
+    let json = serde_json::to_string(&context).expect("serialize");
+    assert!(json.contains(SAMPLE_REFERENCE_REVISION));
+}
+
+#[test]
+fn seal_id_without_reference_revision_rejected() {
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(ReferenceSealId::new("seal-blind").expect("seal id"));
+
+    let bundle = ArtifactBundle {
+        schema_revision: ARTIFACT_BUNDLE_SCHEMA.to_string(),
+        bundle_id: ArtifactBundleId::new("bundle-test").expect("bundle id"),
+        binding_context: context,
+        expected_roles: vec![ArtifactRole::ReferenceSeal],
+        artifacts: vec![],
+        bundle_state: ArtifactBundleState::Draft,
+        assessment: ArtifactBundleAssessment {
+            expected_roles: vec![ArtifactRole::ReferenceSeal],
+            present_roles: vec![],
+            missing_roles: vec![ArtifactRole::ReferenceSeal],
+            unexpected_roles: vec![],
+            duplicate_roles: vec![],
+            duplicate_artifact_ids: vec![],
+            context_mismatch_artifact_ids: vec![],
+            inventory_complete: false,
+            context_consistent: true,
+        },
+    };
+
+    assert!(matches!(
+        bundle.validate(),
+        Err(ArtifactBundleValidationError::SealContextWithoutRevision)
+    ));
+}
+
+#[test]
+fn detector_assisted_reference_revision_context_rejected() {
+    let mut context = binding_context(CalibrationValidityMode::DetectorAssisted);
+    context.reference_revision =
+        Some(ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION).expect("revision id"));
+
+    let bundle = ArtifactBundle {
+        schema_revision: ARTIFACT_BUNDLE_SCHEMA.to_string(),
+        bundle_id: ArtifactBundleId::new("bundle-test").expect("bundle id"),
+        binding_context: context,
+        expected_roles: vec![ArtifactRole::DetectorOutput],
+        artifacts: vec![],
+        bundle_state: ArtifactBundleState::Draft,
+        assessment: ArtifactBundleAssessment {
+            expected_roles: vec![ArtifactRole::DetectorOutput],
+            present_roles: vec![],
+            missing_roles: vec![ArtifactRole::DetectorOutput],
+            unexpected_roles: vec![],
+            duplicate_roles: vec![],
+            duplicate_artifact_ids: vec![],
+            context_mismatch_artifact_ids: vec![],
+            inventory_complete: false,
+            context_consistent: true,
+        },
+    };
+
+    assert!(matches!(
+        bundle.validate(),
+        Err(ArtifactBundleValidationError::ReferenceRevisionWithoutContext)
+            | Err(ArtifactBundleValidationError::DetectorAssistedBlindReferenceContext)
+    ));
+}
+
+#[test]
+fn cross_record_reference_revision_mismatch_fails() {
+    let seal = blind_seal();
+    let mut coverage = blind_coverage(&seal);
+    coverage.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let bundle = ArtifactBundle {
+        schema_revision: ARTIFACT_BUNDLE_SCHEMA.to_string(),
+        bundle_id: ArtifactBundleId::new("bundle-test").expect("bundle id"),
+        binding_context: context,
+        expected_roles: expected.clone(),
+        artifacts: vec![],
+        bundle_state: ArtifactBundleState::Draft,
+        assessment: ArtifactBundleAssessment {
+            expected_roles: expected.clone(),
+            present_roles: vec![],
+            missing_roles: expected,
+            unexpected_roles: vec![],
+            duplicate_roles: vec![],
+            duplicate_artifact_ids: vec![],
+            context_mismatch_artifact_ids: vec![],
+            inventory_complete: false,
+            context_consistent: true,
+        },
+    };
+    let envelope = blind_envelope(vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::CueReviewCompletion,
+    ]);
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(&envelope, Some(&seal), Some(&coverage), None),
+        Err(ArtifactBundleValidationError::ReferenceRevisionContextMismatch)
+            | Err(ArtifactBundleValidationError::CoverageValidation(_))
+    ));
+}
+
+#[test]
+fn complete_bundle_with_all_three_reference_roles_passes() {
+    let seal = blind_seal();
+    let coverage = blind_coverage(&seal);
+    let human_reference = blind_human_reference(&seal);
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let artifacts = vec![
+        descriptor(&context, ArtifactRole::ReferenceSeal, "artifact-seal"),
+        descriptor(
+            &context,
+            ArtifactRole::HumanFinalReference,
+            "artifact-human-reference",
+        ),
+        descriptor(
+            &context,
+            ArtifactRole::CueReviewCompletion,
+            "artifact-coverage",
+        ),
+    ];
+    let bundle = complete_bundle(expected.clone(), artifacts, context);
+    let envelope = blind_envelope(expected);
+
+    bundle
+        .validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        )
+        .expect("complete reference bundle");
+}
+
+#[test]
+fn human_final_reference_role_without_supplied_record_fails() {
+    let seal = blind_seal();
+    let coverage = blind_coverage(&seal);
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let artifacts = vec![
+        descriptor(&context, ArtifactRole::ReferenceSeal, "artifact-seal"),
+        descriptor(
+            &context,
+            ArtifactRole::HumanFinalReference,
+            "artifact-human-reference",
+        ),
+        descriptor(
+            &context,
+            ArtifactRole::CueReviewCompletion,
+            "artifact-coverage",
+        ),
+    ];
+    let bundle = complete_bundle(expected.clone(), artifacts, context);
+    let envelope = blind_envelope(expected);
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(&envelope, Some(&seal), Some(&coverage), None),
+        Err(ArtifactBundleValidationError::HumanReferenceContextMissing)
+    ));
+}
+
+#[test]
+fn supplied_human_reference_without_declared_role_fails() {
+    let seal = blind_seal();
+    let coverage = blind_coverage(&seal);
+    let human_reference = blind_human_reference(&seal);
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let bundle = ArtifactBundle {
+        schema_revision: ARTIFACT_BUNDLE_SCHEMA.to_string(),
+        bundle_id: ArtifactBundleId::new("bundle-test").expect("bundle id"),
+        binding_context: context,
+        expected_roles: expected.clone(),
+        artifacts: vec![],
+        bundle_state: ArtifactBundleState::Draft,
+        assessment: ArtifactBundleAssessment {
+            expected_roles: expected.clone(),
+            present_roles: vec![],
+            missing_roles: expected.clone(),
+            unexpected_roles: vec![],
+            duplicate_roles: vec![],
+            duplicate_artifact_ids: vec![],
+            context_mismatch_artifact_ids: vec![],
+            inventory_complete: false,
+            context_consistent: true,
+        },
+    };
+    let envelope = blind_envelope(expected);
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        ),
+        Err(ArtifactBundleValidationError::UnexpectedHumanReferenceSupplied)
+    ));
+}
+
+#[test]
+fn structural_completeness_does_not_imply_semantic_join() {
+    let context = binding_context(CalibrationValidityMode::DetectorAssisted);
+    let expected = vec![ArtifactRole::DetectorOutput];
+    let artifacts = vec![descriptor(
+        &context,
+        ArtifactRole::DetectorOutput,
+        "artifact-detector",
+    )];
+    let assessment =
+        ArtifactBundle::derive_assessment(&expected, &artifacts, &context).expect("derive");
+    assert!(assessment.inventory_complete);
+    assert!(
+        !assessment
+            .present_roles
+            .contains(&ArtifactRole::EvaluationJoin)
+    );
 }

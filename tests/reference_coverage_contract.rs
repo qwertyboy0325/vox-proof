@@ -3,6 +3,7 @@ use vox_proof::reference_coverage::{
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
     ReferenceCoverageValidationError, ReferenceCueDisposition,
 };
+use vox_proof::reference_identity::ReferenceRevisionId;
 use vox_proof::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
     ReferenceProducerClass, ReferenceSeal, ReferenceSealId, ReferenceSealState,
@@ -16,6 +17,7 @@ const SAMPLE_REVISION: &str =
     "rev:sha256-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const OTHER_REVISION: &str =
     "rev:sha256-v1:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+const SAMPLE_REFERENCE_REVISION: &str = "ref-rev-001";
 
 fn universe(cue_ids: &[u32]) -> ExpectedCueUniverse {
     ExpectedCueUniverse {
@@ -53,6 +55,8 @@ fn build_coverage(
             transcript_revision_id: revision.to_string(),
         },
         seal_id: ReferenceSealId::new(seal_id).expect("seal id"),
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         coverage_purpose: purpose,
         expected_universe: expected,
         records,
@@ -81,6 +85,8 @@ fn primary_posture() -> (RunEnvelope, ReferenceSeal) {
         seal_id: ReferenceSealId::new("seal-primary").expect("seal id"),
         run_id: envelope.run_id.clone(),
         input_identity: envelope.input_identity.clone(),
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         producer_class: ReferenceProducerClass::HumanBlindReviewer,
         reference_created_before_detector_run: true,
         prior_detector_run_on_same_input: false,
@@ -101,6 +107,8 @@ fn term_conditioned_seal(envelope: &RunEnvelope) -> ReferenceSeal {
         seal_id: ReferenceSealId::new("seal-diagnostic").expect("seal id"),
         run_id: envelope.run_id.clone(),
         input_identity: envelope.input_identity.clone(),
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         producer_class: ReferenceProducerClass::HumanBlindReviewer,
         reference_created_before_detector_run: true,
         prior_detector_run_on_same_input: false,
@@ -148,6 +156,7 @@ fn unknown_top_level_field_rejected() {
   "run_id": "run-primary",
   "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
   "seal_id": "seal-primary",
+  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
   "coverage_purpose": "primary_blind_calibration",
   "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
   "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
@@ -179,6 +188,7 @@ fn unknown_enum_value_rejected() {
   "run_id": "run-primary",
   "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
   "seal_id": "seal-primary",
+  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
   "coverage_purpose": "primary_blind_calibration",
   "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
   "records": [{{ "cue_id": 1, "disposition": "maybe_error" }}],
@@ -419,6 +429,8 @@ fn synthetic_protocol_seal(envelope: &RunEnvelope) -> ReferenceSeal {
         seal_id: ReferenceSealId::new("seal-synthetic").expect("seal id"),
         run_id: envelope.run_id.clone(),
         input_identity: envelope.input_identity.clone(),
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION)
+            .expect("revision id"),
         producer_class: ReferenceProducerClass::SyntheticFixtureGenerator,
         reference_created_before_detector_run: true,
         prior_detector_run_on_same_input: false,
@@ -738,6 +750,7 @@ fn obsolete_primary_reference_complete_field_rejected() {
   "run_id": "run-primary",
   "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
   "seal_id": "seal-primary",
+  "reference_revision": "{SAMPLE_REFERENCE_REVISION}",
   "coverage_purpose": "primary_blind_calibration",
   "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
   "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
@@ -955,4 +968,63 @@ fn synthetic_protocol_attachment_allows_resolved_protocol_only_seal() {
     coverage
         .validate_against(&envelope, &seal)
         .expect("synthetic protocol attachment");
+}
+
+#[test]
+fn missing_reference_revision_rejected_in_json() {
+    let json = format!(
+        r#"{{
+  "schema_revision": "{REFERENCE_COVERAGE_SCHEMA}",
+  "coverage_id": "coverage-test",
+  "run_id": "run-primary",
+  "input_identity": {{ "transcript_revision_id": "{SAMPLE_REVISION}" }},
+  "seal_id": "seal-primary",
+  "coverage_purpose": "primary_blind_calibration",
+  "expected_universe": {{ "total_cues": 1, "cue_ids": [1] }},
+  "records": [{{ "cue_id": 1, "disposition": "no_transcription_error" }}],
+  "coverage_state": "draft",
+  "assessment": {{
+    "expected_count": 1,
+    "observed_unique_count": 1,
+    "missing_cue_ids": [],
+    "duplicate_cue_ids": [],
+    "unknown_cue_ids": [],
+    "unresolved_cue_ids": [],
+    "inventory_complete": true,
+    "reference_resolved": true
+  }}
+}}"#
+    );
+
+    let error = serde_json::from_str::<ReferenceCoverage>(&json).expect_err("must fail");
+    assert!(error.to_string().contains("missing field"));
+}
+
+#[test]
+fn mismatched_reference_revision_fails_attachment() {
+    let (envelope, seal) = primary_posture();
+    let mut coverage = build_coverage(
+        ReferenceCoveragePurpose::PrimaryBlindCalibration,
+        universe(&[1]),
+        vec![record(1, ReferenceCueDisposition::NoTranscriptionError)],
+        "run-primary",
+        SAMPLE_REVISION,
+        "seal-primary",
+    );
+    coverage.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+    coverage.coverage_state = ReferenceCoverageState::Complete;
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal),
+        Err(ReferenceCoverageValidationError::ReferenceRevisionMismatch)
+    ));
+}
+
+#[test]
+fn reference_revision_does_not_change_structural_assessment() {
+    let expected = universe(&[1]);
+    let records = vec![record(1, ReferenceCueDisposition::Uncertain)];
+    let assessment = ReferenceCoverage::derive_assessment(&expected, &records).expect("derive");
+    assert!(assessment.inventory_complete);
+    assert!(!assessment.reference_resolved);
 }

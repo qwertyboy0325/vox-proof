@@ -12,6 +12,7 @@ pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
 pub mod reference_coverage;
+pub mod reference_identity;
 pub mod reference_seal;
 pub mod review;
 pub mod reviewed_output;

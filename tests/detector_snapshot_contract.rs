@@ -287,6 +287,7 @@ fn binding_context(mode: CalibrationValidityMode) -> ArtifactBindingContext {
         calibration_validity: mode,
         reference_seal_id: None,
         reference_coverage_id: None,
+        reference_revision: None,
     }
 }
 

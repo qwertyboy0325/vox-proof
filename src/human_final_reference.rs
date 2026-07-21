@@ -7,13 +7,16 @@ use crate::reference_coverage::{
     CueReferenceId, CueReferenceIdError, ReferenceCoverage, ReferenceCoverageValidationError,
     ReferenceCueDisposition,
 };
+use crate::reference_identity::validate_identity_value;
 use crate::reference_seal::{
     ReferenceSeal, ReferenceSealId, ReferenceSealState, ReferenceSealValidationError,
 };
 use crate::run_manifest::{
     CalibrationValidityMode, InputIdentityReference, RunEnvelope, RunEnvelopeValidationError,
-    RunId, RunIdError, RunLifecycleState, validate_opaque_identifier,
+    RunId, RunLifecycleState,
 };
+
+pub use crate::reference_identity::{ReferenceIdentityIdError, ReferenceRevisionId};
 
 pub const HUMAN_FINAL_REFERENCE_SCHEMA: &str = "voxproof-human-final-reference-v1";
 
@@ -32,10 +35,6 @@ pub struct HumanFinalReference {
     pub state: HumanFinalReferenceState,
     pub assessment: HumanFinalReferenceAssessment,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ReferenceRevisionId(String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -113,18 +112,6 @@ pub struct HumanFinalReferenceAssessment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReferenceIdentityIdError {
-    Empty,
-    TooLong { len: usize, max: usize },
-    InvalidCharacter { character: char },
-    PathLikeContent,
-    AbsolutePathLike,
-    RelativePathLike,
-    HomeDirectoryFragment,
-    GenerationUnavailable,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReferenceSourceAnchorError {
     EmptyInputIdentity,
     InvalidCueReferenceId(CueReferenceIdError),
@@ -164,6 +151,7 @@ pub enum HumanFinalReferenceValidationError {
     InputIdentityMismatch,
     SealIdMismatch,
     ReferenceRevisionMismatch,
+    CoverageReferenceRevisionMismatch,
     EnvelopeNotBlindReference,
     EnvelopeLifecycleIncompatible {
         lifecycle_state: RunLifecycleState,
@@ -188,28 +176,6 @@ pub enum HumanFinalReferenceValidationError {
     },
 }
 
-impl ReferenceRevisionId {
-    pub fn new(value: impl Into<String>) -> Result<Self, ReferenceIdentityIdError> {
-        let value = value.into();
-        validate_identity_value(&value)?;
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    pub fn generate() -> Result<Self, ReferenceIdentityIdError> {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| ReferenceIdentityIdError::GenerationUnavailable)?
-            .as_nanos();
-        Self::new(format!("ref-rev-{nanos:x}"))
-    }
-}
-
 impl ReferenceErrorId {
     pub fn new(value: impl Into<String>) -> Result<Self, ReferenceIdentityIdError> {
         let value = value.into();
@@ -229,12 +195,6 @@ impl ReferenceErrorId {
             .map_err(|_| ReferenceIdentityIdError::GenerationUnavailable)?
             .as_nanos();
         Self::new(format!("ref-err-{nanos:x}"))
-    }
-}
-
-impl fmt::Display for ReferenceRevisionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
     }
 }
 
@@ -483,6 +443,10 @@ impl HumanFinalReference {
             return Err(HumanFinalReferenceValidationError::SealIdMismatch);
         }
 
+        if self.reference_revision != seal.reference_revision {
+            return Err(HumanFinalReferenceValidationError::ReferenceRevisionMismatch);
+        }
+
         if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
             return Err(HumanFinalReferenceValidationError::EnvelopeNotBlindReference);
         }
@@ -534,6 +498,10 @@ impl HumanFinalReference {
 
         if self.seal_id != coverage.seal_id {
             return Err(HumanFinalReferenceValidationError::SealIdMismatch);
+        }
+
+        if self.reference_revision != coverage.reference_revision {
+            return Err(HumanFinalReferenceValidationError::CoverageReferenceRevisionMismatch);
         }
 
         let expected_cue_ids: HashSet<CueReferenceId> =
@@ -593,10 +561,6 @@ impl HumanFinalReference {
     }
 }
 
-fn validate_identity_value(value: &str) -> Result<(), ReferenceIdentityIdError> {
-    validate_opaque_identifier(value).map_err(map_run_id_error)
-}
-
 fn validate_reference_error_id(value: &str) -> Result<(), ReferenceIdentityIdError> {
     validate_identity_value(value)
 }
@@ -616,21 +580,6 @@ fn anchor_key(anchor: &ReferenceSourceAnchor) -> String {
         anchor.start_byte,
         anchor.end_byte
     )
-}
-
-fn map_run_id_error(error: RunIdError) -> ReferenceIdentityIdError {
-    match error {
-        RunIdError::Empty => ReferenceIdentityIdError::Empty,
-        RunIdError::TooLong { len, max } => ReferenceIdentityIdError::TooLong { len, max },
-        RunIdError::InvalidCharacter { character } => {
-            ReferenceIdentityIdError::InvalidCharacter { character }
-        }
-        RunIdError::PathLikeContent => ReferenceIdentityIdError::PathLikeContent,
-        RunIdError::AbsolutePathLike => ReferenceIdentityIdError::AbsolutePathLike,
-        RunIdError::RelativePathLike => ReferenceIdentityIdError::RelativePathLike,
-        RunIdError::HomeDirectoryFragment => ReferenceIdentityIdError::HomeDirectoryFragment,
-        RunIdError::GenerationUnavailable => ReferenceIdentityIdError::GenerationUnavailable,
-    }
 }
 
 pub fn human_final_reference_from_json(

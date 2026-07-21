@@ -3,6 +3,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::reference_identity::{
+    ReferenceIdentityIdError, ReferenceRevisionId, validate_identity_value,
+};
 use crate::reference_seal::{
     CalibrationValidityImpact, ReferenceCalibrationValidity, ReferenceSeal, ReferenceSealId,
     ReferenceSealState, ReferenceSealValidationError,
@@ -22,6 +25,7 @@ pub struct ReferenceCoverage {
     pub run_id: RunId,
     pub input_identity: InputIdentityReference,
     pub seal_id: ReferenceSealId,
+    pub reference_revision: ReferenceRevisionId,
     pub coverage_purpose: ReferenceCoveragePurpose,
     pub expected_universe: ExpectedCueUniverse,
     pub records: Vec<CueReferenceCoverageRecord>,
@@ -114,6 +118,7 @@ pub enum ReferenceCoverageValidationError {
         expected: String,
     },
     InvalidCoverageId(ReferenceCoverageIdError),
+    InvalidReferenceRevisionId(ReferenceIdentityIdError),
     InvalidCueReferenceId(CueReferenceIdError),
     EmptyExpectedUniverse,
     DuplicateExpectedCueId {
@@ -144,6 +149,7 @@ pub enum ReferenceCoverageValidationError {
     RunIdMismatch,
     InputIdentityMismatch,
     SealIdMismatch,
+    ReferenceRevisionMismatch,
     EnvelopeNotBlindReference,
     EnvelopeLifecycleIncompatible {
         lifecycle_state: RunLifecycleState,
@@ -296,6 +302,9 @@ impl ReferenceCoverage {
         validate_coverage_id_value(self.coverage_id.as_str())
             .map_err(ReferenceCoverageValidationError::InvalidCoverageId)?;
 
+        validate_identity_value(self.reference_revision.as_str())
+            .map_err(ReferenceCoverageValidationError::InvalidReferenceRevisionId)?;
+
         validate_expected_universe(&self.expected_universe)?;
 
         let derived = Self::derive_assessment(&self.expected_universe, &self.records)?;
@@ -344,6 +353,10 @@ impl ReferenceCoverage {
 
         if self.seal_id != seal.seal_id {
             return Err(ReferenceCoverageValidationError::SealIdMismatch);
+        }
+
+        if self.reference_revision != seal.reference_revision {
+            return Err(ReferenceCoverageValidationError::ReferenceRevisionMismatch);
         }
 
         if envelope.calibration_validity != CalibrationValidityMode::BlindReference {
@@ -574,6 +587,7 @@ mod unit_tests {
             seal_state: ReferenceSealState::Sealed,
             calibration_classification: ReferenceCalibrationValidity::BlindReferenceEligible,
             calibration_validity_impact: CalibrationValidityImpact::None,
+            reference_revision: ReferenceRevisionId::new("ref-rev-primary").expect("revision id"),
         };
 
         (envelope, seal)
@@ -610,6 +624,7 @@ mod unit_tests {
             run_id: envelope.run_id.clone(),
             input_identity: envelope.input_identity.clone(),
             seal_id: seal.seal_id.clone(),
+            reference_revision: ReferenceRevisionId::new("ref-rev-primary").expect("revision id"),
             coverage_purpose: ReferenceCoveragePurpose::PrimaryBlindCalibration,
             expected_universe: ExpectedCueUniverse {
                 total_cues: 1,

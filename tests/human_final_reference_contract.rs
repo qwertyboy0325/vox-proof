@@ -106,6 +106,7 @@ fn primary_posture() -> (RunEnvelope, ReferenceSeal) {
         seal_id: ReferenceSealId::new("seal-primary").expect("seal id"),
         run_id: envelope.run_id.clone(),
         input_identity: envelope.input_identity.clone(),
+        reference_revision: revision_id(),
         producer_class: ReferenceProducerClass::HumanBlindReviewer,
         reference_created_before_detector_run: true,
         prior_detector_run_on_same_input: false,
@@ -149,6 +150,7 @@ fn coverage_for(
         run_id: RunId::new("run-reference").expect("run id"),
         input_identity: input_identity(),
         seal_id: ReferenceSealId::new("seal-primary").expect("seal id"),
+        reference_revision: revision_id(),
         coverage_purpose: ReferenceCoveragePurpose::PrimaryBlindCalibration,
         expected_universe: expected,
         records,
@@ -787,6 +789,69 @@ fn caller_cannot_force_assessment_fields() {
     assert!(matches!(
         reference.validate(),
         Err(HumanFinalReferenceValidationError::AssessmentMismatch { .. })
+    ));
+}
+
+#[test]
+fn mismatched_seal_reference_revision_fails() {
+    let reference = build_reference(vec![], HumanFinalReferenceState::Sealed);
+    let (envelope, mut seal) = primary_posture();
+    seal.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+
+    assert!(matches!(
+        reference.validate_against(&envelope, &seal),
+        Err(HumanFinalReferenceValidationError::ReferenceRevisionMismatch)
+    ));
+}
+
+#[test]
+fn mismatched_coverage_reference_revision_fails() {
+    let reference = build_reference(vec![], HumanFinalReferenceState::Sealed);
+    let mut coverage = coverage_for(
+        &[(1, ReferenceCueDisposition::NoTranscriptionError)],
+        ReferenceCoverageState::Complete,
+    );
+    coverage.reference_revision = ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+
+    assert!(matches!(
+        reference.validate_against_coverage(&coverage),
+        Err(HumanFinalReferenceValidationError::CoverageReferenceRevisionMismatch)
+    ));
+}
+
+#[test]
+fn post_seal_new_revision_cannot_reuse_old_coverage() {
+    let records = vec![record(
+        "ref-err-001",
+        1,
+        0,
+        0,
+        4,
+        "wrng",
+        "wrong",
+        ReferenceClass::TranscriptionError,
+        VerificationBasis::AudioListened,
+    )];
+    let mut reference = build_reference(records, HumanFinalReferenceState::Sealed);
+    reference.reference_revision = ReferenceRevisionId::new("ref-rev-next").expect("revision id");
+    for record in &mut reference.records {
+        record.reference_revision = reference.reference_revision.clone();
+    }
+    reference.assessment = HumanFinalReference::derive_assessment(
+        &reference.reference_revision,
+        &reference.input_identity,
+        &reference.records,
+    )
+    .expect("derive assessment");
+
+    let coverage = coverage_for(
+        &[(1, ReferenceCueDisposition::TranscriptionError)],
+        ReferenceCoverageState::Complete,
+    );
+
+    assert!(matches!(
+        reference.validate_against_coverage(&coverage),
+        Err(HumanFinalReferenceValidationError::CoverageReferenceRevisionMismatch)
     ));
 }
 

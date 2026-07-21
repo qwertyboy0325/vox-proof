@@ -2,6 +2,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::reference_identity::{
+    ReferenceIdentityIdError, ReferenceRevisionId, validate_identity_value,
+};
 use crate::run_manifest::{
     CalibrationValidityMode, InputIdentityReference, RunEnvelope, RunEnvelopeValidationError,
     RunId, RunIdError, RunLifecycleState, validate_opaque_identifier,
@@ -18,6 +21,7 @@ pub struct ReferenceSeal {
     pub seal_id: ReferenceSealId,
     pub run_id: RunId,
     pub input_identity: InputIdentityReference,
+    pub reference_revision: ReferenceRevisionId,
     pub producer_class: ReferenceProducerClass,
     pub reference_created_before_detector_run: bool,
     pub prior_detector_run_on_same_input: bool,
@@ -88,6 +92,7 @@ pub enum ReferenceSealValidationError {
         expected: String,
     },
     InvalidSealId(ReferenceSealIdError),
+    InvalidReferenceRevisionId(ReferenceIdentityIdError),
     ClassificationMismatch {
         stored: ReferenceCalibrationValidity,
         derived: ReferenceCalibrationValidity,
@@ -225,6 +230,9 @@ impl ReferenceSeal {
 
         validate_seal_id_value(self.seal_id.as_str())
             .map_err(ReferenceSealValidationError::InvalidSealId)?;
+
+        validate_identity_value(self.reference_revision.as_str())
+            .map_err(ReferenceSealValidationError::InvalidReferenceRevisionId)?;
 
         validate_opaque_identifier(self.run_id.as_str()).map_err(|error| {
             ReferenceSealValidationError::InvalidSealId(map_run_id_error(error))
@@ -384,6 +392,7 @@ mod unit_tests {
                     "rev:sha256-v1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
                         .to_string(),
             },
+            reference_revision: ReferenceRevisionId::new("ref-rev-unit").expect("revision id"),
             producer_class: ReferenceProducerClass::HumanBlindReviewer,
             reference_created_before_detector_run: true,
             prior_detector_run_on_same_input: false,

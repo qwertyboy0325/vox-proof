@@ -70,6 +70,7 @@ pub enum RunLifecycleState {
 pub enum ArtifactRole {
     InputAuthorization,
     ReferenceSeal,
+    HumanFinalReference,
     CueReviewCompletion,
     DetectorOutput,
     ReviewLedger,
