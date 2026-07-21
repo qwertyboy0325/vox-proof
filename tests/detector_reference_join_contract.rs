@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use vox_proof::artifact_bundle::{
     ARTIFACT_BUNDLE_SCHEMA, ArtifactBindingContext, ArtifactBundle, ArtifactBundleId,
     ArtifactBundleState, ArtifactContentDigest, ArtifactDescriptor, ArtifactId,
@@ -3735,4 +3737,752 @@ fn fc02_valid_overlap_wrong_correction_topology_passes_local_validation() {
     let join = derive_assisted_overlap_wrong_correction_join();
     join.validate()
         .expect("overlap wrong correction topology valid");
+}
+
+// --- VP-V02-JOIN-PARTIAL-ADJUDICATION-COMPONENT-CORRECTION-01 regressions ---
+
+fn shared_detector_overlap_stack(
+    adjudications: Vec<OverlapAdjudicationRecord>,
+) -> DetectorReferenceJoin {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 6, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 4, 8, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 6, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 4, 8, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-d1",
+            1,
+            0,
+            2,
+            6,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(adjudications);
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive shared-detector join")
+}
+
+fn shared_reference_overlap_stack(
+    adjudications: Vec<OverlapAdjudicationRecord>,
+) -> DetectorReferenceJoin {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![reference_error_record("ref-err-1", 1, 0, 2, 8, "wrong")],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[reference_error_record("ref-err-1", 1, 0, 2, 8, "wrong")],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-d1", 1, 0, 0, 4, "wrng", "wrong"),
+            glossary_proposal("det-prop-d2", 1, 0, 4, 8, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(adjudications);
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive shared-reference join")
+}
+
+fn overlap_edges_for_pair<'a>(
+    join: &'a DetectorReferenceJoin,
+    detector: &str,
+    reference: &str,
+) -> Vec<&'a DetectorReferenceJoinEdge> {
+    join.edges
+        .iter()
+        .filter(|edge| {
+            edge.anchor_relation == JoinAnchorRelation::Overlap
+                && edge.detector_proposal_id.as_str() == detector
+                && edge.reference_error_id.as_str() == reference
+        })
+        .collect()
+}
+
+#[test]
+fn partial_shared_detector_one_positive_one_missing_materializes_both_edges() {
+    let join = shared_detector_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1").len(),
+        1
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-2").len(),
+        1
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::Ambiguous
+    );
+    assert!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0]
+            .adjudication_id
+            .is_some()
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-2")[0].resolution,
+        JoinEdgeResolution::OverlapCandidate
+    );
+    assert_eq!(join.state, DetectorReferenceJoinState::RequiresAdjudication);
+    assert_eq!(join.assessment.unresolved_overlap_edge_count, 1);
+    assert_eq!(join.assessment.accepted_overlap_count, 0);
+    assert!(
+        join.detector_dispositions[0]
+            .primary_reference_error_id
+            .is_none()
+    );
+}
+
+#[test]
+fn partial_shared_detector_positive_and_different_error_resolves_primary() {
+    let join = shared_detector_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d1",
+            "ref-err-2",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::PrimaryAssignment
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-2")[0].resolution,
+        JoinEdgeResolution::RejectedDifferentError
+    );
+    assert_eq!(join.state, DetectorReferenceJoinState::Resolved);
+    assert_eq!(
+        join.detector_dispositions[0]
+            .primary_reference_error_id
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "ref-err-1"
+    );
+}
+
+#[test]
+fn partial_shared_detector_two_positive_records_become_ambiguous() {
+    let join = shared_detector_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d1",
+            "ref-err-2",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+    ]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::Ambiguous
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-2")[0].resolution,
+        JoinEdgeResolution::Ambiguous
+    );
+    assert!(
+        join.detector_dispositions[0]
+            .primary_reference_error_id
+            .is_none()
+    );
+}
+
+#[test]
+fn partial_shared_detector_positive_and_ambiguous_become_ambiguous() {
+    let join = shared_detector_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d1",
+            "ref-err-2",
+            OverlapAdjudicationResult::Ambiguous,
+        ),
+    ]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::Ambiguous
+    );
+    assert!(
+        join.detector_dispositions[0]
+            .primary_reference_error_id
+            .is_none()
+    );
+}
+
+#[test]
+fn partial_shared_reference_one_positive_one_missing_materializes_both_edges() {
+    let join = shared_reference_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1").len(),
+        1
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d2", "ref-err-1").len(),
+        1
+    );
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d2", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::OverlapCandidate
+    );
+    assert_eq!(join.state, DetectorReferenceJoinState::RequiresAdjudication);
+    assert!(
+        join.reference_dispositions[0]
+            .primary_detector_proposal_id
+            .is_none()
+    );
+}
+
+#[test]
+fn partial_shared_reference_positive_and_different_error_selects_primary() {
+    let join = shared_reference_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d2",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    assert_eq!(
+        overlap_edges_for_pair(&join, "det-prop-d1", "ref-err-1")[0].resolution,
+        JoinEdgeResolution::PrimaryAssignment
+    );
+    assert_eq!(
+        join.reference_dispositions[0]
+            .primary_detector_proposal_id
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "det-prop-d1"
+    );
+    assert_eq!(
+        join.detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id.as_str() == "det-prop-d2")
+            .expect("second detector")
+            .disposition,
+        DetectorReferenceMatchDisposition::UnmatchedDetector
+    );
+}
+
+#[test]
+fn partial_shared_reference_two_positive_detectors_select_lowest_id() {
+    let join = shared_reference_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d2",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+    ]);
+    assert_eq!(
+        join.reference_dispositions[0]
+            .primary_detector_proposal_id
+            .as_ref()
+            .unwrap()
+            .as_str(),
+        "det-prop-d1"
+    );
+    assert_eq!(
+        join.detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id.as_str() == "det-prop-d2")
+            .expect("duplicate detector")
+            .disposition,
+        DetectorReferenceMatchDisposition::DuplicateProposal
+    );
+}
+
+#[test]
+fn partial_shared_reference_shuffled_adjudication_order_is_identical() {
+    let forward = shared_reference_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d2",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    let reverse = shared_reference_overlap_stack(vec![
+        adjudication_record(
+            "adj-002",
+            "det-prop-d2",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+    ]);
+    assert_eq!(forward.edges, reverse.edges);
+    assert_eq!(forward.detector_dispositions, reverse.detector_dispositions);
+    assert_eq!(
+        forward.reference_dispositions,
+        reverse.reference_dispositions
+    );
+}
+
+#[test]
+fn partial_independent_resolved_and_unresolved_components_coexist() {
+    let join = fc01_partial_adjudication_materializes_consumed_records_only_join();
+    assert_eq!(join.state, DetectorReferenceJoinState::RequiresAdjudication);
+    assert_eq!(join.assessment.accepted_overlap_count, 1);
+    assert_eq!(join.assessment.unresolved_overlap_edge_count, 1);
+    assert_eq!(
+        join.detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id.as_str() == "det-prop-a")
+            .expect("resolved detector")
+            .disposition,
+        DetectorReferenceMatchDisposition::AcceptedOverlap
+    );
+    assert_eq!(
+        join.detector_dispositions
+            .iter()
+            .find(|record| record.detector_proposal_id.as_str() == "det-prop-b")
+            .expect("unresolved detector")
+            .disposition,
+        DetectorReferenceMatchDisposition::OverlapCandidate
+    );
+}
+
+fn fc01_partial_adjudication_materializes_consumed_records_only_join() -> DetectorReferenceJoin {
+    let (envelope, seal, mut coverage, _human_reference, bundle, context) = assisted_review_stack();
+    coverage.records = vec![record(1, ReferenceCueDisposition::TranscriptionError)];
+    coverage.expected_universe = universe(&[1]);
+    coverage.assessment =
+        ReferenceCoverage::derive_assessment(&coverage.expected_universe, &coverage.records)
+            .expect("derive assessment");
+    let human_reference = HumanFinalReference {
+        schema_revision: HUMAN_FINAL_REFERENCE_SCHEMA.to_string(),
+        run_id: coverage.run_id.clone(),
+        input_identity: coverage.input_identity.clone(),
+        seal_id: coverage.seal_id.clone(),
+        reference_revision: coverage.reference_revision.clone(),
+        records: vec![
+            reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+            reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+        ],
+        state: HumanFinalReferenceState::Sealed,
+        assessment: HumanFinalReference::derive_assessment(
+            &coverage.reference_revision,
+            &coverage.input_identity,
+            &[
+                reference_error_record("ref-err-1", 1, 0, 0, 4, "wrong"),
+                reference_error_record("ref-err-2", 1, 0, 8, 12, "wrong"),
+            ],
+        )
+        .expect("derive assessment"),
+    };
+    coverage.assessment.total_eligible_transcription_errors = human_reference
+        .assessment
+        .recall_eligible_transcription_error_count;
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-a", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-b", 1, 0, 10, 14, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-a",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    DetectorReferenceJoin::derive(
+        &context,
+        &envelope,
+        &seal,
+        &coverage,
+        &human_reference,
+        &snapshot,
+        &bundle,
+        &adjudication,
+    )
+    .expect("derive partial adjudication join")
+}
+
+#[test]
+fn partial_exact_assigned_units_remain_excluded_from_phase3() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![glossary_proposal(
+            "det-prop-exact",
+            1,
+            0,
+            0,
+            4,
+            "wrng",
+            "wrong",
+        )],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-001",
+        "det-prop-exact",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::DetectorAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn partial_stale_adjudication_on_exact_assigned_units_fails_closed() {
+    let (envelope, seal, coverage, human_reference, bundle, context) = assisted_review_stack();
+    let snapshot = build_snapshot(
+        vec![
+            glossary_proposal("det-prop-overlap", 1, 0, 2, 6, "wrng", "wrong"),
+            glossary_proposal("det-prop-exact", 1, 0, 0, 4, "wrng", "wrong"),
+        ],
+        DetectorProposalSnapshotState::Frozen,
+    );
+    let adjudication = frozen_adjudication_set(vec![adjudication_record(
+        "adj-stale",
+        "det-prop-overlap",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(matches!(
+        DetectorReferenceJoin::derive(
+            &context,
+            &envelope,
+            &seal,
+            &coverage,
+            &human_reference,
+            &snapshot,
+            &bundle,
+            &adjudication,
+        ),
+        Err(
+            DetectorReferenceJoinError::AdjudicationPairNotAdmissiblePhase3Edge {
+                reason: Phase3AdjudicationRejectionReason::ReferenceAssignedByExactPhase,
+                ..
+            }
+        )
+    ));
+}
+
+#[test]
+fn partial_every_admissible_pair_materializes_exactly_once() {
+    let join = shared_detector_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    let overlap_edges: Vec<_> = join
+        .edges
+        .iter()
+        .filter(|edge| edge.anchor_relation == JoinAnchorRelation::Overlap)
+        .collect();
+    assert_eq!(overlap_edges.len(), 2);
+    let pairs: HashSet<_> = overlap_edges
+        .iter()
+        .map(|edge| {
+            (
+                edge.detector_proposal_id.as_str(),
+                edge.reference_error_id.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        pairs,
+        HashSet::from([("det-prop-d1", "ref-err-1"), ("det-prop-d1", "ref-err-2")])
+    );
+}
+
+#[test]
+fn partial_positive_on_one_edge_does_not_remove_other_admissible_pair() {
+    let join = shared_detector_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    assert!(
+        join.edges.iter().any(|edge| {
+            edge.anchor_relation == JoinAnchorRelation::Overlap
+                && edge.detector_proposal_id.as_str() == "det-prop-d1"
+                && edge.reference_error_id.as_str() == "ref-err-2"
+                && edge.resolution == JoinEdgeResolution::OverlapCandidate
+        }),
+        "sibling admissible pair must remain materialized after partial positive adjudication"
+    );
+}
+
+#[test]
+fn partial_no_duplicate_phase3_edge_pairs() {
+    let join = shared_reference_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d2",
+            "ref-err-1",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    let mut pair_counts: HashMap<(&str, &str), u32> = HashMap::new();
+    for edge in join
+        .edges
+        .iter()
+        .filter(|edge| edge.anchor_relation == JoinAnchorRelation::Overlap)
+    {
+        *pair_counts
+            .entry((
+                edge.detector_proposal_id.as_str(),
+                edge.reference_error_id.as_str(),
+            ))
+            .or_insert(0) += 1;
+    }
+    assert!(pair_counts.values().all(|count| *count == 1));
+}
+
+#[test]
+fn partial_local_validation_primary_sharing_detector_with_unresolved_fails() {
+    let mut join = shared_detector_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    if let Some(edge) = join.edges.iter_mut().find(|edge| {
+        edge.detector_proposal_id.as_str() == "det-prop-d1"
+            && edge.reference_error_id.as_str() == "ref-err-1"
+    }) {
+        edge.resolution = JoinEdgeResolution::PrimaryAssignment;
+    }
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::PrimaryAssignmentCoexistsWithUnresolvedOverlap,
+    );
+}
+
+#[test]
+fn partial_local_validation_primary_sharing_reference_with_unresolved_fails() {
+    let mut join = shared_reference_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    if let Some(edge) = join.edges.iter_mut().find(|edge| {
+        edge.detector_proposal_id.as_str() == "det-prop-d1"
+            && edge.reference_error_id.as_str() == "ref-err-1"
+    }) {
+        edge.resolution = JoinEdgeResolution::PrimaryAssignment;
+    }
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::PrimaryAssignmentCoexistsWithUnresolvedOverlap,
+    );
+}
+
+#[test]
+fn partial_local_validation_overlap_candidate_with_adjudication_metadata_fails() {
+    let mut join = shared_detector_overlap_stack(vec![]);
+    let edge = join
+        .edges
+        .iter_mut()
+        .find(|edge| edge.reference_error_id.as_str() == "ref-err-2")
+        .expect("candidate edge");
+    edge.adjudication_id = Some(OverlapAdjudicationId::new("adj-bad").expect("adjudication id"));
+    edge.adjudication_result = Some(OverlapAdjudicationResult::SameErrorSameCorrection);
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::OverlapCandidateCarriesAdjudicationMetadata,
+    );
+}
+
+#[test]
+fn partial_local_validation_adjudicated_overlap_missing_metadata_fails() {
+    let mut join = shared_detector_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d1",
+            "ref-err-2",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    let edge = join
+        .edges
+        .iter_mut()
+        .find(|edge| edge.resolution == JoinEdgeResolution::RejectedDifferentError)
+        .expect("rejected different-error edge");
+    edge.adjudication_result = None;
+    assert_primary_topology_violation(
+        &join,
+        PrimaryTopologyViolation::AdjudicatedOverlapEdgeMissingMetadata,
+    );
+}
+
+#[test]
+fn partial_local_validation_valid_unresolved_component_passes() {
+    let join = shared_detector_overlap_stack(vec![adjudication_record(
+        "adj-001",
+        "det-prop-d1",
+        "ref-err-1",
+        OverlapAdjudicationResult::SameErrorSameCorrection,
+    )]);
+    join.validate()
+        .expect("valid partially adjudicated unresolved component");
+}
+
+#[test]
+fn partial_local_validation_valid_fully_resolved_component_passes() {
+    let join = shared_detector_overlap_stack(vec![
+        adjudication_record(
+            "adj-001",
+            "det-prop-d1",
+            "ref-err-1",
+            OverlapAdjudicationResult::SameErrorSameCorrection,
+        ),
+        adjudication_record(
+            "adj-002",
+            "det-prop-d1",
+            "ref-err-2",
+            OverlapAdjudicationResult::DifferentError,
+        ),
+    ]);
+    join.validate()
+        .expect("valid fully resolved shared-detector component");
 }

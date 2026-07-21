@@ -124,6 +124,9 @@ pub enum PrimaryTopologyViolation {
     PrimaryDispositionSideMismatch,
     OverlapPrimaryMissingAdjudication,
     OverlapPrimaryAdjudicationInconsistent,
+    PrimaryAssignmentCoexistsWithUnresolvedOverlap,
+    OverlapCandidateCarriesAdjudicationMetadata,
+    AdjudicatedOverlapEdgeMissingMetadata,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -337,6 +340,10 @@ pub enum DetectorReferenceJoinError {
         reason: Phase3AdjudicationRejectionReason,
     },
     AdjudicationRecordNotMaterialized {
+        detector_proposal_id: DetectorProposalId,
+        reference_error_id: ReferenceErrorId,
+    },
+    Phase3PairNotMaterialized {
         detector_proposal_id: DetectorProposalId,
         reference_error_id: ReferenceErrorId,
     },
@@ -811,6 +818,51 @@ fn validate_local_primary_topology(
         if disposition_forbids_primary_id(record.disposition) && has_primary {
             return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
                 violation: PrimaryTopologyViolation::DispositionForbidsPrimaryId,
+            });
+        }
+    }
+
+    for edge in &join.edges {
+        if edge.anchor_relation != JoinAnchorRelation::Overlap {
+            continue;
+        }
+        if edge.resolution == JoinEdgeResolution::OverlapCandidate
+            && (edge.adjudication_id.is_some() || edge.adjudication_result.is_some())
+        {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::OverlapCandidateCarriesAdjudicationMetadata,
+            });
+        } else if edge.resolution == JoinEdgeResolution::PrimaryAssignment {
+            if edge.adjudication_id.is_none() || edge.adjudication_result.is_none() {
+                return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                    violation: PrimaryTopologyViolation::OverlapPrimaryMissingAdjudication,
+                });
+            }
+            let shares_unresolved_detector = join.edges.iter().any(|other| {
+                other.anchor_relation == JoinAnchorRelation::Overlap
+                    && other.detector_proposal_id == edge.detector_proposal_id
+                    && other.resolution == JoinEdgeResolution::OverlapCandidate
+            });
+            let shares_unresolved_reference = join.edges.iter().any(|other| {
+                other.anchor_relation == JoinAnchorRelation::Overlap
+                    && other.reference_error_id == edge.reference_error_id
+                    && other.resolution == JoinEdgeResolution::OverlapCandidate
+            });
+            if shares_unresolved_detector || shares_unresolved_reference {
+                return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                    violation:
+                        PrimaryTopologyViolation::PrimaryAssignmentCoexistsWithUnresolvedOverlap,
+                });
+            }
+        } else if matches!(
+            edge.resolution,
+            JoinEdgeResolution::RejectedDifferentError
+                | JoinEdgeResolution::Ambiguous
+                | JoinEdgeResolution::DuplicateProposal
+        ) && (edge.adjudication_id.is_none() || edge.adjudication_result.is_none())
+        {
+            return Err(DetectorReferenceJoinError::PrimaryTopologyViolation {
+                violation: PrimaryTopologyViolation::AdjudicatedOverlapEdgeMissingMetadata,
             });
         }
     }
@@ -1848,140 +1900,28 @@ fn derive_join_body(
         }
     }
 
-    // Phase 3: non-exact overlap
+    // Phase 3: non-exact overlap — materialize every admissible pair once
     let admissible_pairs =
         compute_phase3_admissible_overlap_pairs(detector_snapshot, human_reference);
-    let mut unresolved_overlap_pairs = HashSet::new();
-    let mut consumed_adjudication_pairs = HashSet::new();
     let mut materialized_phase3_pairs = HashSet::new();
+    let mut consumed_adjudication_pairs = HashSet::new();
 
-    let mut adjudication_records = adjudication_set.records.clone();
-    adjudication_records.sort_by(|left, right| {
-        left.detector_proposal_id
-            .as_str()
-            .cmp(right.detector_proposal_id.as_str())
-            .then_with(|| {
-                left.reference_error_id
-                    .as_str()
-                    .cmp(right.reference_error_id.as_str())
-            })
-    });
-
-    for record in &adjudication_records {
-        let pair = (
-            record.detector_proposal_id.clone(),
-            record.reference_error_id.clone(),
-        );
-        if !admissible_pairs.contains(&pair) {
-            continue;
-        }
-        let Some(proposal) = proposals
-            .iter()
-            .find(|proposal| proposal.detector_proposal_id == record.detector_proposal_id)
-        else {
-            continue;
-        };
-        let Some(reference) = references
-            .iter()
-            .find(|reference| reference.reference_error_id == record.reference_error_id)
-        else {
-            continue;
-        };
-        validate_adjudication_for_overlap(
+    let mut adjudication_by_pair: HashMap<
+        (DetectorProposalId, ReferenceErrorId),
+        &crate::join_adjudication::OverlapAdjudicationRecord,
+    > = HashMap::new();
+    for record in &adjudication_set.records {
+        adjudication_by_pair.insert(
+            (
+                record.detector_proposal_id.clone(),
+                record.reference_error_id.clone(),
+            ),
             record,
-            &proposal.source_anchor,
-            &reference.source_anchor,
-        )?;
-        let correction_equal = nfc_correction_equal(
-            proposal_correction(proposal),
-            &reference.human_final_surface,
         );
-        let (mut resolution, adjudication_id, adjudication_result) =
-            match record.adjudication_result {
-                OverlapAdjudicationResult::SameErrorSameCorrection => {
-                    if !correction_equal {
-                        return Err(
-                            DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
-                                detector_proposal_id: proposal.detector_proposal_id.clone(),
-                                reference_error_id: reference.reference_error_id.clone(),
-                            },
-                        );
-                    }
-                    (
-                        JoinEdgeResolution::PrimaryAssignment,
-                        Some(record.adjudication_id.clone()),
-                        Some(record.adjudication_result),
-                    )
-                }
-                OverlapAdjudicationResult::SameErrorWrongCorrection => {
-                    if correction_equal {
-                        return Err(
-                            DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
-                                detector_proposal_id: proposal.detector_proposal_id.clone(),
-                                reference_error_id: reference.reference_error_id.clone(),
-                            },
-                        );
-                    }
-                    (
-                        JoinEdgeResolution::PrimaryAssignment,
-                        Some(record.adjudication_id.clone()),
-                        Some(record.adjudication_result),
-                    )
-                }
-                OverlapAdjudicationResult::DifferentError => (
-                    JoinEdgeResolution::RejectedDifferentError,
-                    Some(record.adjudication_id.clone()),
-                    Some(record.adjudication_result),
-                ),
-                OverlapAdjudicationResult::Ambiguous => (
-                    JoinEdgeResolution::Ambiguous,
-                    Some(record.adjudication_id.clone()),
-                    Some(record.adjudication_result),
-                ),
-            };
-        if resolution == JoinEdgeResolution::PrimaryAssignment {
-            if assigned_references.contains(&reference.reference_error_id) {
-                resolution = JoinEdgeResolution::DuplicateProposal;
-            } else if assigned_detectors.contains(&proposal.detector_proposal_id) {
-                resolution = JoinEdgeResolution::Ambiguous;
-            }
-        }
-        push_edge(DetectorReferenceJoinEdge {
-            join_record_id: make_edge_id(&mut join_record_counter),
-            detector_proposal_id: proposal.detector_proposal_id.clone(),
-            reference_error_id: reference.reference_error_id.clone(),
-            anchor_relation: JoinAnchorRelation::Overlap,
-            correction_relation: if correction_equal {
-                JoinCorrectionRelation::NfcEqual
-            } else {
-                JoinCorrectionRelation::Different
-            },
-            reference_eligibility: reference_eligibility(reference),
-            adjudication_id,
-            adjudication_result,
-            resolution,
-        });
-        consumed_adjudication_pairs.insert(pair.clone());
-        materialized_phase3_pairs.insert(pair);
-        if resolution == JoinEdgeResolution::PrimaryAssignment
-            && !assigned_detectors.contains(&proposal.detector_proposal_id)
-            && !assigned_references.contains(&reference.reference_error_id)
-        {
-            primary_detector.insert(
-                proposal.detector_proposal_id.clone(),
-                reference.reference_error_id.clone(),
-            );
-            primary_reference.insert(
-                reference.reference_error_id.clone(),
-                proposal.detector_proposal_id.clone(),
-            );
-            assigned_detectors.insert(proposal.detector_proposal_id.clone());
-            assigned_references.insert(reference.reference_error_id.clone());
-        }
     }
 
     let mut admissible_sorted: Vec<(DetectorProposalId, ReferenceErrorId)> =
-        admissible_pairs.into_iter().collect();
+        admissible_pairs.iter().cloned().collect();
     admissible_sorted.sort_by(|left, right| {
         left.0
             .as_str()
@@ -1991,45 +1931,124 @@ fn derive_join_body(
 
     for (detector_proposal_id, reference_error_id) in admissible_sorted {
         let pair = (detector_proposal_id.clone(), reference_error_id.clone());
-        if materialized_phase3_pairs.contains(&pair) {
-            continue;
-        }
-        if assigned_detectors.contains(&detector_proposal_id)
-            || assigned_references.contains(&reference_error_id)
-        {
-            continue;
-        }
         let Some(proposal) = proposals
             .iter()
             .find(|proposal| proposal.detector_proposal_id == detector_proposal_id)
         else {
-            continue;
+            return Err(DetectorReferenceJoinError::Phase3PairNotMaterialized {
+                detector_proposal_id,
+                reference_error_id,
+            });
         };
         let Some(reference) = references
             .iter()
             .find(|reference| reference.reference_error_id == reference_error_id)
         else {
-            continue;
+            return Err(DetectorReferenceJoinError::Phase3PairNotMaterialized {
+                detector_proposal_id,
+                reference_error_id,
+            });
         };
+
         let correction_equal = nfc_correction_equal(
             proposal_correction(proposal),
             &reference.human_final_surface,
         );
-        unresolved_overlap_pairs.insert(pair);
-        push_edge(DetectorReferenceJoinEdge {
-            join_record_id: make_edge_id(&mut join_record_counter),
-            detector_proposal_id: proposal.detector_proposal_id.clone(),
-            reference_error_id: reference.reference_error_id.clone(),
-            anchor_relation: JoinAnchorRelation::Overlap,
-            correction_relation: if correction_equal {
-                JoinCorrectionRelation::NfcEqual
-            } else {
-                JoinCorrectionRelation::Different
-            },
-            reference_eligibility: reference_eligibility(reference),
-            adjudication_id: None,
-            adjudication_result: None,
-            resolution: JoinEdgeResolution::OverlapCandidate,
+
+        if let Some(record) = adjudication_by_pair.get(&pair) {
+            validate_adjudication_for_overlap(
+                record,
+                &proposal.source_anchor,
+                &reference.source_anchor,
+            )?;
+            let (resolution, adjudication_id, adjudication_result) =
+                match record.adjudication_result {
+                    OverlapAdjudicationResult::SameErrorSameCorrection => {
+                        if !correction_equal {
+                            return Err(
+                                DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
+                                    detector_proposal_id: proposal.detector_proposal_id.clone(),
+                                    reference_error_id: reference.reference_error_id.clone(),
+                                },
+                            );
+                        }
+                        (
+                            JoinEdgeResolution::PrimaryAssignment,
+                            Some(record.adjudication_id.clone()),
+                            Some(record.adjudication_result),
+                        )
+                    }
+                    OverlapAdjudicationResult::SameErrorWrongCorrection => {
+                        if correction_equal {
+                            return Err(
+                                DetectorReferenceJoinError::AdjudicationCorrectionResultMismatch {
+                                    detector_proposal_id: proposal.detector_proposal_id.clone(),
+                                    reference_error_id: reference.reference_error_id.clone(),
+                                },
+                            );
+                        }
+                        (
+                            JoinEdgeResolution::PrimaryAssignment,
+                            Some(record.adjudication_id.clone()),
+                            Some(record.adjudication_result),
+                        )
+                    }
+                    OverlapAdjudicationResult::DifferentError => (
+                        JoinEdgeResolution::RejectedDifferentError,
+                        Some(record.adjudication_id.clone()),
+                        Some(record.adjudication_result),
+                    ),
+                    OverlapAdjudicationResult::Ambiguous => (
+                        JoinEdgeResolution::Ambiguous,
+                        Some(record.adjudication_id.clone()),
+                        Some(record.adjudication_result),
+                    ),
+                };
+            push_edge(DetectorReferenceJoinEdge {
+                join_record_id: make_edge_id(&mut join_record_counter),
+                detector_proposal_id: proposal.detector_proposal_id.clone(),
+                reference_error_id: reference.reference_error_id.clone(),
+                anchor_relation: JoinAnchorRelation::Overlap,
+                correction_relation: if correction_equal {
+                    JoinCorrectionRelation::NfcEqual
+                } else {
+                    JoinCorrectionRelation::Different
+                },
+                reference_eligibility: reference_eligibility(reference),
+                adjudication_id,
+                adjudication_result,
+                resolution,
+            });
+            consumed_adjudication_pairs.insert(pair.clone());
+        } else {
+            push_edge(DetectorReferenceJoinEdge {
+                join_record_id: make_edge_id(&mut join_record_counter),
+                detector_proposal_id: proposal.detector_proposal_id.clone(),
+                reference_error_id: reference.reference_error_id.clone(),
+                anchor_relation: JoinAnchorRelation::Overlap,
+                correction_relation: if correction_equal {
+                    JoinCorrectionRelation::NfcEqual
+                } else {
+                    JoinCorrectionRelation::Different
+                },
+                reference_eligibility: reference_eligibility(reference),
+                adjudication_id: None,
+                adjudication_result: None,
+                resolution: JoinEdgeResolution::OverlapCandidate,
+            });
+        }
+        materialized_phase3_pairs.insert(pair);
+    }
+
+    if materialized_phase3_pairs != admissible_pairs
+        && let Some((detector_proposal_id, reference_error_id)) = admissible_pairs
+            .difference(&materialized_phase3_pairs)
+            .next()
+            .cloned()
+    {
+        return Err(DetectorReferenceJoinError::Phase3PairNotMaterialized {
+            detector_proposal_id,
+            reference_error_id,
         });
     }
 
@@ -2056,8 +2075,8 @@ fn derive_join_body(
         );
     }
 
-    // Phase 4: primary uniqueness, duplicate selection, and multi-reference ambiguity
-    demote_multi_reference_overlap_adjudications(&mut edges, adjudication_set);
+    // Phase 4: overlap-component resolution, then cross-phase primary uniqueness
+    let unresolved_component_units = resolve_overlap_component_topology(&mut edges);
     resolve_primary_assignment_conflicts(&mut edges);
     primary_detector.clear();
     primary_reference.clear();
@@ -2113,9 +2132,9 @@ fn derive_join_body(
                     }
                     _ => DetectorReferenceMatchDisposition::AmbiguousMatch,
                 }
-            } else if unresolved_overlap_pairs
-                .iter()
-                .any(|(detector, _)| detector == &proposal.detector_proposal_id)
+            } else if unresolved_component_units
+                .detectors
+                .contains(&proposal.detector_proposal_id)
             {
                 DetectorReferenceMatchDisposition::OverlapCandidate
             } else if edges.iter().any(|edge| {
@@ -2166,9 +2185,9 @@ fn derive_join_body(
                     }
                     _ => DetectorReferenceMatchDisposition::AmbiguousMatch,
                 }
-            } else if unresolved_overlap_pairs
-                .iter()
-                .any(|(_, reference_id)| reference_id == &reference.reference_error_id)
+            } else if unresolved_component_units
+                .references
+                .contains(&reference.reference_error_id)
             {
                 DetectorReferenceMatchDisposition::OverlapCandidate
             } else if !is_te_reference(reference)
@@ -2254,37 +2273,199 @@ fn derive_join_body(
     })
 }
 
-fn demote_multi_reference_overlap_adjudications(
+struct UnresolvedOverlapComponentUnits {
+    detectors: HashSet<DetectorProposalId>,
+    references: HashSet<ReferenceErrorId>,
+}
+
+fn build_overlap_edge_components(edges: &[DetectorReferenceJoinEdge]) -> Vec<Vec<usize>> {
+    let overlap_indices: Vec<usize> = edges
+        .iter()
+        .enumerate()
+        .filter(|(_, edge)| edge.anchor_relation == JoinAnchorRelation::Overlap)
+        .map(|(index, _)| index)
+        .collect();
+
+    let mut detector_to_edges: HashMap<DetectorProposalId, Vec<usize>> = HashMap::new();
+    let mut reference_to_edges: HashMap<ReferenceErrorId, Vec<usize>> = HashMap::new();
+    for &index in &overlap_indices {
+        let edge = &edges[index];
+        detector_to_edges
+            .entry(edge.detector_proposal_id.clone())
+            .or_default()
+            .push(index);
+        reference_to_edges
+            .entry(edge.reference_error_id.clone())
+            .or_default()
+            .push(index);
+    }
+
+    let mut visited = HashSet::new();
+    let mut components = Vec::new();
+    for &start in &overlap_indices {
+        if visited.contains(&start) {
+            continue;
+        }
+        let mut component = Vec::new();
+        let mut queue = vec![start];
+        while let Some(index) = queue.pop() {
+            if !visited.insert(index) {
+                continue;
+            }
+            component.push(index);
+            let edge = &edges[index];
+            if let Some(neighbors) = detector_to_edges.get(&edge.detector_proposal_id) {
+                for &neighbor in neighbors {
+                    if !visited.contains(&neighbor) {
+                        queue.push(neighbor);
+                    }
+                }
+            }
+            if let Some(neighbors) = reference_to_edges.get(&edge.reference_error_id) {
+                for &neighbor in neighbors {
+                    if !visited.contains(&neighbor) {
+                        queue.push(neighbor);
+                    }
+                }
+            }
+        }
+        components.push(component);
+    }
+
+    components.sort_by(|left, right| {
+        let left_min = left
+            .iter()
+            .map(|index| edges[*index].join_record_id.as_str())
+            .min()
+            .unwrap_or("");
+        let right_min = right
+            .iter()
+            .map(|index| edges[*index].join_record_id.as_str())
+            .min()
+            .unwrap_or("");
+        left_min.cmp(right_min)
+    });
+    components
+}
+
+fn resolve_overlap_component_topology(
     edges: &mut [DetectorReferenceJoinEdge],
-    adjudication_set: &OverlapAdjudicationSet,
-) {
-    let mut detector_positive_overlap: HashMap<DetectorProposalId, HashSet<ReferenceErrorId>> =
-        HashMap::new();
-    for record in &adjudication_set.records {
-        if matches!(
-            record.adjudication_result,
-            OverlapAdjudicationResult::SameErrorSameCorrection
-                | OverlapAdjudicationResult::SameErrorWrongCorrection
-        ) {
-            detector_positive_overlap
-                .entry(record.detector_proposal_id.clone())
+) -> UnresolvedOverlapComponentUnits {
+    let mut unresolved_detectors = HashSet::new();
+    let mut unresolved_references = HashSet::new();
+    let components = build_overlap_edge_components(edges);
+
+    for component in components {
+        let has_unresolved_candidate = component
+            .iter()
+            .any(|&index| edges[index].resolution == JoinEdgeResolution::OverlapCandidate);
+
+        if has_unresolved_candidate {
+            for &index in &component {
+                let edge = &edges[index];
+                unresolved_detectors.insert(edge.detector_proposal_id.clone());
+                unresolved_references.insert(edge.reference_error_id.clone());
+                if edges[index].resolution == JoinEdgeResolution::PrimaryAssignment {
+                    edges[index].resolution = JoinEdgeResolution::Ambiguous;
+                }
+            }
+            continue;
+        }
+
+        let has_ambiguous_adjudication = component.iter().any(|&index| {
+            matches!(
+                edges[index].adjudication_result,
+                Some(OverlapAdjudicationResult::Ambiguous)
+            )
+        });
+        if has_ambiguous_adjudication {
+            for &index in &component {
+                if edges[index].resolution == JoinEdgeResolution::PrimaryAssignment {
+                    edges[index].resolution = JoinEdgeResolution::Ambiguous;
+                }
+            }
+            continue;
+        }
+
+        let positive_indices: Vec<usize> = component
+            .iter()
+            .copied()
+            .filter(|&index| {
+                matches!(
+                    edges[index].adjudication_result,
+                    Some(OverlapAdjudicationResult::SameErrorSameCorrection)
+                        | Some(OverlapAdjudicationResult::SameErrorWrongCorrection)
+                )
+            })
+            .collect();
+
+        if positive_indices.is_empty() {
+            continue;
+        }
+
+        let mut detector_positive_refs: HashMap<DetectorProposalId, HashSet<ReferenceErrorId>> =
+            HashMap::new();
+        for &index in &positive_indices {
+            let edge = &edges[index];
+            detector_positive_refs
+                .entry(edge.detector_proposal_id.clone())
                 .or_default()
-                .insert(record.reference_error_id.clone());
+                .insert(edge.reference_error_id.clone());
+        }
+
+        let mut multi_reference_positive_detector = false;
+        for references in detector_positive_refs.values() {
+            if references.len() > 1 {
+                for &index in &component {
+                    if edges[index].resolution == JoinEdgeResolution::PrimaryAssignment {
+                        edges[index].resolution = JoinEdgeResolution::Ambiguous;
+                    }
+                }
+                multi_reference_positive_detector = true;
+                break;
+            }
+        }
+        if multi_reference_positive_detector {
+            continue;
+        }
+
+        let mut reference_positive_detectors: HashMap<ReferenceErrorId, Vec<usize>> =
+            HashMap::new();
+        for &index in &positive_indices {
+            let edge = &edges[index];
+            reference_positive_detectors
+                .entry(edge.reference_error_id.clone())
+                .or_default()
+                .push(index);
+        }
+
+        for (reference_error_id, mut indices) in reference_positive_detectors {
+            if indices.len() <= 1 {
+                continue;
+            }
+            indices.sort_by(|left, right| {
+                edges[*left]
+                    .detector_proposal_id
+                    .as_str()
+                    .cmp(edges[*right].detector_proposal_id.as_str())
+            });
+            let keep = indices[0];
+            for index in indices.into_iter().skip(1) {
+                if edges[index].reference_error_id == reference_error_id
+                    && edges[index].resolution == JoinEdgeResolution::PrimaryAssignment
+                {
+                    edges[index].resolution = JoinEdgeResolution::DuplicateProposal;
+                }
+            }
+            if edges[keep].resolution != JoinEdgeResolution::PrimaryAssignment {
+                edges[keep].resolution = JoinEdgeResolution::PrimaryAssignment;
+            }
         }
     }
 
-    for (detector, references) in detector_positive_overlap {
-        if references.len() <= 1 {
-            continue;
-        }
-        for edge in edges.iter_mut() {
-            if edge.detector_proposal_id == detector
-                && edge.anchor_relation == JoinAnchorRelation::Overlap
-                && references.contains(&edge.reference_error_id)
-            {
-                edge.resolution = JoinEdgeResolution::Ambiguous;
-            }
-        }
+    UnresolvedOverlapComponentUnits {
+        detectors: unresolved_detectors,
+        references: unresolved_references,
     }
 }
 
