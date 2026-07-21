@@ -3,7 +3,7 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::human_final_reference::HumanFinalReference;
+use crate::human_final_reference::{HumanFinalReference, HumanFinalReferenceValidationError};
 use crate::reference_alignment::{
     cue_id_for_segment_position, validate_completion_record_mapping,
     validate_coverage_against_human_reference,
@@ -223,6 +223,7 @@ pub enum ReferenceCoverageValidationError {
     },
     EnvelopeValidation(RunEnvelopeValidationError),
     SealValidation(ReferenceSealValidationError),
+    HumanReferenceValidation(Box<HumanFinalReferenceValidationError>),
 }
 
 impl CueReferenceId {
@@ -519,6 +520,11 @@ impl ReferenceCoverage {
         }
 
         if let Some(human_reference) = human_reference {
+            human_reference
+                .validate_against(envelope, seal)
+                .map_err(|error| {
+                    ReferenceCoverageValidationError::HumanReferenceValidation(Box::new(error))
+                })?;
             validate_coverage_against_human_reference(self, human_reference)?;
         } else if self.assessment.total_eligible_transcription_errors != 0 {
             return Err(

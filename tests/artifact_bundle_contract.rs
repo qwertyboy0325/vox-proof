@@ -9,7 +9,7 @@ use vox_proof::human_final_reference::{
 use vox_proof::reference_coverage::{
     CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
     ReferenceCoverage, ReferenceCoverageId, ReferenceCoveragePurpose, ReferenceCoverageState,
-    ReferenceCueDisposition,
+    ReferenceCoverageValidationError, ReferenceCueDisposition,
 };
 use vox_proof::reference_identity::{CueSourceTextDigest, ReferenceRevisionId};
 use vox_proof::reference_seal::{
@@ -868,6 +868,50 @@ fn complete_bundle_with_all_three_reference_roles_passes() {
             Some(&human_reference),
         )
         .expect("complete reference bundle");
+}
+
+#[test]
+fn draft_human_reference_fails_bundle_coverage_validation() {
+    let seal = blind_seal();
+    let coverage = blind_coverage(&seal);
+    let mut human_reference = blind_human_reference(&seal);
+    human_reference.state = HumanFinalReferenceState::Draft;
+    let mut context = binding_context(CalibrationValidityMode::BlindReference);
+    context.reference_seal_id = Some(seal.seal_id.clone());
+    context.reference_coverage_id = Some(coverage.coverage_id.clone());
+    context.reference_revision = Some(seal.reference_revision.clone());
+    let expected = vec![
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+    ];
+    let artifacts = vec![
+        descriptor(&context, ArtifactRole::ReferenceSeal, "artifact-seal"),
+        descriptor(
+            &context,
+            ArtifactRole::HumanFinalReference,
+            "artifact-human-reference",
+        ),
+        descriptor(
+            &context,
+            ArtifactRole::CueReviewCompletion,
+            "artifact-coverage",
+        ),
+    ];
+    let bundle = complete_bundle(expected.clone(), artifacts, context);
+    let envelope = blind_envelope(expected);
+
+    assert!(matches!(
+        bundle.validate_with_reference_context(
+            &envelope,
+            Some(&seal),
+            Some(&coverage),
+            Some(&human_reference),
+        ),
+        Err(ArtifactBundleValidationError::CoverageValidation(
+            ReferenceCoverageValidationError::HumanReferenceValidation(_)
+        )) | Err(ArtifactBundleValidationError::HumanReferenceValidation(_))
+    ));
 }
 
 #[test]

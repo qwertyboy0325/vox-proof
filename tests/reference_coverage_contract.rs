@@ -1,7 +1,7 @@
 use vox_proof::human_final_reference::{
-    HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState, ReferenceClass,
-    ReferenceErrorId, ReferenceErrorRecord, ReferenceReviewerIdentityClass, ReferenceSourceAnchor,
-    VerificationBasis,
+    HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceState,
+    HumanFinalReferenceValidationError, ReferenceClass, ReferenceErrorId, ReferenceErrorRecord,
+    ReferenceReviewerIdentityClass, ReferenceSourceAnchor, VerificationBasis,
 };
 use vox_proof::reference_coverage::{
     CueReferenceId, CueReviewCompletionRecord, ExpectedCueUniverse, REFERENCE_COVERAGE_SCHEMA,
@@ -522,6 +522,63 @@ fn primary_coverage_for_attachment(records: Vec<CueReviewCompletionRecord>) -> R
         .recall_eligible_transcription_error_count;
     coverage.coverage_state = ReferenceCoverageState::Complete;
     coverage
+}
+
+fn reference_error_record(
+    error_id: &str,
+    cue_id: u32,
+    segment_position: u32,
+    start: u32,
+    end: u32,
+) -> ReferenceErrorRecord {
+    ReferenceErrorRecord {
+        reference_error_id: ReferenceErrorId::new(error_id).expect("error id"),
+        reference_revision: ReferenceRevisionId::new(SAMPLE_REFERENCE_REVISION).expect("revision"),
+        input_identity: InputIdentityReference {
+            transcript_revision_id: SAMPLE_REVISION.to_string(),
+        },
+        source_anchor: ReferenceSourceAnchor {
+            input_identity: InputIdentityReference {
+                transcript_revision_id: SAMPLE_REVISION.to_string(),
+            },
+            cue_id: CueReferenceId::new(cue_id).expect("cue id"),
+            segment_position,
+            start_byte: start,
+            end_byte: end,
+        },
+        original_surface: "wrng".to_string(),
+        human_final_surface: "wrong".to_string(),
+        reference_class: ReferenceClass::TranscriptionError,
+        verification_basis: VerificationBasis::AudioListened,
+        reviewer_identity_class: ReferenceReviewerIdentityClass::OwnerBlindReviewer,
+        reviewed_at_unix_ms: 1_700_000_000_000,
+    }
+}
+
+fn valid_primary_attachment() -> (
+    RunEnvelope,
+    ReferenceSeal,
+    ReferenceCoverage,
+    HumanFinalReference,
+) {
+    let (envelope, seal) = primary_posture();
+    let coverage = primary_coverage_for_attachment(vec![
+        record(1, ReferenceCueDisposition::NoTranscriptionError),
+        record(2, ReferenceCueDisposition::TranscriptionError),
+    ]);
+    let human_reference = human_reference_for_coverage(&coverage);
+    (envelope, seal, coverage, human_reference)
+}
+
+fn assert_human_reference_validation_failure(
+    result: Result<(), ReferenceCoverageValidationError>,
+    expected: HumanFinalReferenceValidationError,
+) {
+    assert!(matches!(
+        result,
+        Err(ReferenceCoverageValidationError::HumanReferenceValidation(inner))
+        if *inner == expected
+    ));
 }
 
 #[test]
@@ -1229,4 +1286,161 @@ fn primary_complete_coverage_requires_human_reference_for_attachment() {
         coverage.validate_against(&envelope, &seal, None),
         Err(ReferenceCoverageValidationError::HumanReferenceRequiredForCompleteCoverage)
     ));
+}
+
+#[test]
+fn coverage_and_reference_validation_agree_for_valid_primary_set() {
+    let (envelope, seal, coverage, human_reference) = valid_primary_attachment();
+
+    coverage
+        .validate_against(&envelope, &seal, Some(&human_reference))
+        .expect("coverage validates with human reference");
+    human_reference
+        .validate_against_coverage(&coverage)
+        .expect("human reference validates against coverage");
+}
+
+#[test]
+fn draft_human_reference_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference.state = HumanFinalReferenceState::Draft;
+
+    assert_human_reference_validation_failure(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        HumanFinalReferenceValidationError::ReferenceStateMismatch {
+            state: HumanFinalReferenceState::Draft,
+            assessment: Box::new(human_reference.assessment.clone()),
+        },
+    );
+}
+
+#[test]
+fn unsupported_human_reference_schema_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference.schema_revision = "voxproof-human-final-reference-v0".to_string();
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::HumanReferenceValidation(
+            _
+        ))
+    ));
+}
+
+#[test]
+fn duplicate_human_reference_error_ids_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference
+        .records
+        .push(reference_error_record("ref-err-2", 2, 1, 10, 14));
+    human_reference
+        .records
+        .push(reference_error_record("ref-err-2", 2, 1, 15, 19));
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::HumanReferenceValidation(
+            inner
+        )) if matches!(*inner, HumanFinalReferenceValidationError::ReferenceStateMismatch { .. })
+    ));
+}
+
+#[test]
+fn duplicate_human_reference_anchors_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference
+        .records
+        .push(reference_error_record("ref-err-extra", 2, 1, 0, 4));
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::HumanReferenceValidation(
+            inner
+        )) if matches!(*inner, HumanFinalReferenceValidationError::ReferenceStateMismatch { .. })
+    ));
+}
+
+#[test]
+fn mismatched_human_reference_assessment_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference
+        .assessment
+        .recall_eligible_transcription_error_count = 0;
+
+    assert_human_reference_validation_failure(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        HumanFinalReferenceValidationError::AssessmentMismatch {
+            stored: Box::new(human_reference.assessment.clone()),
+            derived: Box::new(
+                HumanFinalReference::derive_assessment(
+                    &human_reference.reference_revision,
+                    &human_reference.input_identity,
+                    &human_reference.records,
+                )
+                .expect("derive assessment"),
+            ),
+        },
+    );
+}
+
+#[test]
+fn invalid_human_reference_record_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference.records[0].source_anchor.start_byte = 4;
+    human_reference.records[0].source_anchor.end_byte = 0;
+
+    assert!(matches!(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        Err(ReferenceCoverageValidationError::HumanReferenceValidation(
+            inner
+        )) if matches!(
+            *inner,
+            HumanFinalReferenceValidationError::RecordValidation(_)
+                | HumanFinalReferenceValidationError::InvalidSourceAnchor(_)
+        )
+    ));
+}
+
+#[test]
+fn mismatched_human_reference_run_id_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference.run_id = RunId::new("run-other").expect("run id");
+
+    assert_human_reference_validation_failure(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        HumanFinalReferenceValidationError::RunIdMismatch,
+    );
+}
+
+#[test]
+fn mismatched_human_reference_revision_rejected_before_coverage_alignment() {
+    let (envelope, seal, coverage, mut human_reference) = valid_primary_attachment();
+    human_reference.reference_revision =
+        ReferenceRevisionId::new("ref-rev-other").expect("revision id");
+    for record in &mut human_reference.records {
+        record.reference_revision = human_reference.reference_revision.clone();
+    }
+    human_reference.assessment = HumanFinalReference::derive_assessment(
+        &human_reference.reference_revision,
+        &human_reference.input_identity,
+        &human_reference.records,
+    )
+    .expect("derive assessment");
+
+    assert_human_reference_validation_failure(
+        coverage.validate_against(&envelope, &seal, Some(&human_reference)),
+        HumanFinalReferenceValidationError::ReferenceRevisionMismatch,
+    );
 }
