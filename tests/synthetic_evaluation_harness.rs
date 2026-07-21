@@ -7,6 +7,7 @@ use fixtures::{
     FixtureMutation, exact_only_multi_disposition_fixture, mutate_fixture,
     overlap_pending_then_resolved_fixture, zero_population_fixture,
 };
+use vox_proof::artifact_bundle::ArtifactContentDigest;
 use vox_proof::detector_reference_join::{
     DetectorReferenceJoinState, DetectorReferenceMatchDisposition,
 };
@@ -642,3 +643,383 @@ fn synthetic_seal_posture_fields_on_fixture() {
 
 // re-export for trait method above - use MetricAggregateSetState
 use vox_proof::join_metric_aggregation::MetricAggregateSetState;
+
+fn recompute_payload_descriptor(
+    payload: &mut vox_proof::synthetic_evaluation_harness::SyntheticSerializedArtifact,
+) {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(&payload.payload_bytes);
+    let hex = hash
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    payload.content_digest = ArtifactContentDigest::new(format!("sha256:{hex}")).expect("digest");
+    payload.byte_length = payload.payload_bytes.len() as u64;
+}
+
+fn sync_bundle_descriptor(
+    result: &mut vox_proof::synthetic_evaluation_harness::SyntheticEvaluationHarnessResult,
+    role: ArtifactRole,
+) {
+    let payload = result
+        .serialized_payloads
+        .iter()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    let descriptor = result
+        .final_bundle
+        .artifacts
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("descriptor");
+    descriptor.content_digest = payload.content_digest.clone();
+    descriptor.byte_length = payload.byte_length;
+}
+
+// --- Typed payload round-trip ---
+
+#[test]
+fn all_eight_roles_typed_round_trip() {
+    let roles = [
+        ArtifactRole::ReferenceSeal,
+        ArtifactRole::HumanFinalReference,
+        ArtifactRole::CueReviewCompletion,
+        ArtifactRole::DetectorOutput,
+        ArtifactRole::EvaluationJoin,
+        ArtifactRole::JoinAdjudication,
+        ArtifactRole::MetricContributions,
+        ArtifactRole::Metrics,
+    ];
+
+    for fixture in [
+        exact_only_multi_disposition_fixture(),
+        overlap_pending_then_resolved_fixture(),
+        zero_population_fixture(),
+    ] {
+        let result = SyntheticEvaluationHarness::execute(&fixture).expect("execute");
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result)
+            .expect("typed round trip");
+        for role in roles {
+            assert!(
+                result
+                    .serialized_payloads
+                    .iter()
+                    .any(|payload| payload.role == role),
+                "missing role {role:?} for fixture {}",
+                fixture.fixture_id
+            );
+        }
+    }
+}
+
+#[test]
+fn decoded_historical_replay_exact_only() {
+    let result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result).expect("decoded replay");
+}
+
+#[test]
+fn decoded_historical_replay_overlap_resolved() {
+    let result = SyntheticEvaluationHarness::execute(&overlap_pending_then_resolved_fixture())
+        .expect("execute");
+    SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result).expect("decoded replay");
+}
+
+#[test]
+fn decoded_historical_replay_zero_population() {
+    let result = SyntheticEvaluationHarness::execute(&zero_population_fixture()).expect("execute");
+    SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result).expect("decoded replay");
+}
+
+#[test]
+fn malformed_json_with_matching_digest_fails_typed_decode() {
+    let mut result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    let role = ArtifactRole::ReferenceSeal;
+    let payload = result
+        .serialized_payloads
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    payload.payload_bytes = br#"{"not":"valid seal"#.to_vec();
+    recompute_payload_descriptor(payload);
+    sync_bundle_descriptor(&mut result, role);
+
+    SyntheticEvaluationHarness::verify_payload_integrity(&result).expect("digest integrity");
+    assert!(matches!(
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result),
+        Err(
+            SyntheticEvaluationHarnessError::PayloadDeserializationFailure {
+                role: ArtifactRole::ReferenceSeal
+            }
+        )
+    ));
+}
+
+#[test]
+fn tampered_source_json_passes_digest_but_fails_typed_verification() {
+    let mut result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    let role = ArtifactRole::ReferenceSeal;
+    let payload = result
+        .serialized_payloads
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&payload.payload_bytes).expect("json");
+    value["reference_revision"] = serde_json::Value::String("tampered-revision".to_string());
+    payload.payload_bytes = serde_json::to_vec(&value).expect("serialize");
+    recompute_payload_descriptor(payload);
+    sync_bundle_descriptor(&mut result, role);
+
+    SyntheticEvaluationHarness::verify_payload_integrity(&result).expect("digest integrity");
+    assert!(matches!(
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result),
+        Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::ReferenceSeal
+        }) | Err(
+            SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+                role: ArtifactRole::ReferenceSeal
+            }
+        ) | Err(SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure { .. })
+    ));
+}
+
+#[test]
+fn tampered_derived_json_passes_digest_but_fails_typed_verification() {
+    let mut result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    let role = ArtifactRole::EvaluationJoin;
+    let payload = result
+        .serialized_payloads
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&payload.payload_bytes).expect("json");
+    value["join_revision"] = serde_json::Value::String("tampered-join-revision".to_string());
+    payload.payload_bytes = serde_json::to_vec(&value).expect("serialize");
+    recompute_payload_descriptor(payload);
+    sync_bundle_descriptor(&mut result, role);
+
+    SyntheticEvaluationHarness::verify_payload_integrity(&result).expect("digest integrity");
+    assert!(matches!(
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result),
+        Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::EvaluationJoin
+        }) | Err(
+            SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+                role: ArtifactRole::EvaluationJoin
+            }
+        ) | Err(SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure { .. })
+    ));
+}
+
+#[test]
+fn unknown_field_with_matching_digest_fails_typed_decode() {
+    let mut result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    let role = ArtifactRole::ReferenceSeal;
+    let payload = result
+        .serialized_payloads
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&payload.payload_bytes).expect("json");
+    value["unexpected_field"] = serde_json::Value::String("not allowed".to_string());
+    payload.payload_bytes = serde_json::to_vec(&value).expect("serialize");
+    recompute_payload_descriptor(payload);
+    sync_bundle_descriptor(&mut result, role);
+
+    SyntheticEvaluationHarness::verify_payload_integrity(&result).expect("digest integrity");
+    assert!(matches!(
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result),
+        Err(
+            SyntheticEvaluationHarnessError::PayloadDeserializationFailure {
+                role: ArtifactRole::ReferenceSeal
+            }
+        )
+    ));
+}
+
+#[test]
+fn role_type_mismatch_with_matching_digest_fails_typed_decode() {
+    let mut result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    let join_payload = result
+        .serialized_payloads
+        .iter()
+        .find(|entry| entry.role == ArtifactRole::EvaluationJoin)
+        .expect("join payload")
+        .payload_bytes
+        .clone();
+    let role = ArtifactRole::ReferenceSeal;
+    let payload = result
+        .serialized_payloads
+        .iter_mut()
+        .find(|entry| entry.role == role)
+        .expect("payload");
+    payload.payload_bytes = join_payload;
+    recompute_payload_descriptor(payload);
+    sync_bundle_descriptor(&mut result, role);
+
+    SyntheticEvaluationHarness::verify_payload_integrity(&result).expect("digest integrity");
+    assert!(matches!(
+        SyntheticEvaluationHarness::verify_typed_payload_round_trip(&result),
+        Err(
+            SyntheticEvaluationHarnessError::PayloadDeserializationFailure {
+                role: ArtifactRole::ReferenceSeal
+            }
+        ) | Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::ReferenceSeal
+        }) | Err(
+            SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+                role: ArtifactRole::ReferenceSeal
+            }
+        )
+    ));
+}
+
+#[test]
+fn decoded_values_reserialize_to_exact_original_bytes() {
+    let result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    for payload in &result.serialized_payloads {
+        let reserialized = match payload.role {
+            ArtifactRole::ReferenceSeal => serde_json::to_vec(
+                &vox_proof::reference_seal::seal_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::HumanFinalReference => serde_json::to_vec(
+                &vox_proof::human_final_reference::human_final_reference_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::CueReviewCompletion => serde_json::to_vec(
+                &vox_proof::reference_coverage::coverage_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::DetectorOutput => serde_json::to_vec(
+                &vox_proof::detector_snapshot::detector_proposal_snapshot_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::EvaluationJoin => serde_json::to_vec(
+                &vox_proof::detector_reference_join::join_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::JoinAdjudication => serde_json::to_vec(
+                &vox_proof::join_adjudication::overlap_adjudication_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::MetricContributions => serde_json::to_vec(
+                &vox_proof::join_metric_contribution::contribution_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            ArtifactRole::Metrics => serde_json::to_vec(
+                &vox_proof::join_metric_aggregation::aggregate_from_json(
+                    std::str::from_utf8(&payload.payload_bytes).expect("utf8"),
+                )
+                .expect("decode"),
+            ),
+            other => panic!("unexpected role {other:?}"),
+        }
+        .expect("reserialize");
+        assert_eq!(
+            reserialized, payload.payload_bytes,
+            "byte mismatch for role {:?}",
+            payload.role
+        );
+    }
+}
+
+// --- AssistedReview lifecycle semantics ---
+
+#[test]
+fn exact_only_assisted_review_transition_envelope_present_without_derivation() {
+    let result = SyntheticEvaluationHarness::execute(&exact_only_multi_disposition_fixture())
+        .expect("execute");
+    assert_eq!(
+        result.completion_stage,
+        SyntheticEvaluationCompletionStage::DetectorExecution
+    );
+    assert_eq!(
+        result.assisted_review_transition_envelope.lifecycle_state,
+        RunLifecycleState::AssistedReview
+    );
+    assert!(result.final_adjudication_set.records.is_empty());
+
+    for record in &result.execution_trace {
+        if matches!(
+            record.stage,
+            SyntheticEvaluationStage::JoinResolved
+                | SyntheticEvaluationStage::ContributionsComplete
+                | SyntheticEvaluationStage::AggregatesComplete
+        ) {
+            assert_eq!(
+                record.lifecycle_state,
+                RunLifecycleState::DetectorExecution,
+                "exact-only must not claim derivation at AssistedReview for stage {:?}",
+                record.stage
+            );
+        }
+    }
+}
+
+#[test]
+fn overlap_records_derivation_at_assisted_review() {
+    let result = SyntheticEvaluationHarness::execute(&overlap_pending_then_resolved_fixture())
+        .expect("execute");
+    assert_eq!(
+        result.completion_stage,
+        SyntheticEvaluationCompletionStage::AssistedReview
+    );
+    assert_eq!(
+        result.assisted_review_transition_envelope.lifecycle_state,
+        RunLifecycleState::AssistedReview
+    );
+    assert!(!result.final_adjudication_set.records.is_empty());
+
+    assert!(result.execution_trace.iter().any(|record| {
+        record.stage == SyntheticEvaluationStage::JoinResolved
+            && record.lifecycle_state == RunLifecycleState::AssistedReview
+    }));
+}
+
+#[test]
+fn both_paths_reach_finalized_and_detector_to_finalized_remains_illegal() {
+    for fixture in [
+        exact_only_multi_disposition_fixture(),
+        overlap_pending_then_resolved_fixture(),
+    ] {
+        let result = SyntheticEvaluationHarness::execute(&fixture).expect("execute");
+        assert_eq!(
+            result.finalized_envelope.lifecycle_state,
+            RunLifecycleState::Finalized
+        );
+    }
+
+    assert!(
+        RunEnvelope::validate_transition(
+            RunLifecycleState::DetectorExecution,
+            RunLifecycleState::Finalized,
+            vox_proof::run_manifest::CalibrationValidityMode::BlindReference,
+        )
+        .is_err()
+    );
+}

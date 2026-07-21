@@ -320,7 +320,10 @@ Boundary:
 - orchestrates the blind-reference lifecycle (`Declared` → `ReferencePreparation` → `ReferenceSealed` → `DetectorExecution` → `AssistedReview` → `Finalized`) via `RunEnvelope::validate_transition`;
 - exact-only fixtures may derive resolved join, complete contributions, and complete aggregates at `DetectorExecution`; overlap fixtures stop pending at detector stage and complete only after frozen synthetic adjudication at `AssistedReview`;
 - serializes eight typed artifact payloads with compact UTF-8 JSON (`serde-json-compact-utf8-v1`), computes `sha256:` payload digests (`sha256-payload-bytes-v1`), assembles a complete `ArtifactBundle`, and performs two-pass bootstrap/final derivation equality checks;
+- verifies every final payload through role-specific typed deserialization, authoritative typed equality, local contract validation, exact deterministic reserialization, and descriptor-bound digest/length checks; raw SHA-256 integrity alone is not equivalent to typed semantic validity;
+- performs `Finalized` historical revalidation from the decoded final artifact set, not from retained in-memory originals;
 - `Finalized` performs historical revalidation only; it does not authorize new derivation;
+- exact-only fixtures derive resolved join, complete contributions, and complete aggregates at `DetectorExecution`, but the blind-reference lifecycle still requires an `AssistedReview` transition context before `Finalized`; that transition envelope is not an executed review operation and does not consume adjudication or derive artifacts for exact-only fixtures;
 - repeated execution of the same fixture must be byte-deterministic across envelopes, typed artifacts, serialized payloads, digests, bundle, and execution trace.
 
 The harness does not reimplement join, overlap, NFC, contribution mapping, aggregation formulas, or primary eligibility rules. Those remain owned by the individual contracts.

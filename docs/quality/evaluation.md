@@ -356,7 +356,7 @@ Boundary:
 
 ## v0.2 Synthetic Evaluation Harness Boundary
 
-The in-memory synthetic evaluation harness exercises the accepted v0.2 contract chain on deterministic synthetic fixtures only. It validates synthetic posture fail-closed, executes legal lifecycle transitions, derives join/contribution/aggregate artifacts through the public contract APIs, serializes eight typed payloads in memory, assembles a self-consistent final artifact bundle, and revalidates historically at `Finalized`.
+The in-memory synthetic evaluation harness exercises the accepted v0.2 contract chain on deterministic synthetic fixtures only. It validates synthetic posture fail-closed, executes legal lifecycle transitions, derives join/contribution/aggregate artifacts through the public contract APIs, serializes eight typed payloads in memory, verifies role-specific typed deserialization and exact reserialization against descriptor-bound bytes, assembles a self-consistent final artifact bundle, and revalidates historically at `Finalized` from the decoded artifact set.
 
 It does not:
 
@@ -366,6 +366,10 @@ It does not:
 - replace the semantic authority of the individual contracts.
 
 Exact-only synthetic runs may complete derivation at `DetectorExecution`. Overlap runs remain pending until `AssistedReview` consumes frozen `SyntheticFixtureAdjudicator` records. Unresolved overlap blocks aggregation. Repeated runs must be byte-deterministic.
+
+Compact Serde JSON is bounded deterministic serialization for harness verification; it is not RFC 8785 canonical JSON. Raw payload digest integrity and typed semantic validity are separately enforced.
+
+Exact-only runs still pass through the required blind-reference `AssistedReview` lifecycle transition before `Finalized`. That transition context is present in the result envelope but does not consume adjudication or derive artifacts for exact-only fixtures.
 
 ## Future Evaluation Areas
 

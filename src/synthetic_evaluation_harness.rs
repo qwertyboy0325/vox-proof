@@ -12,34 +12,35 @@ use crate::artifact_bundle::{
 };
 use crate::detector_reference_join::{
     DETECTOR_REFERENCE_JOIN_SCHEMA, DetectorReferenceJoin, DetectorReferenceJoinContext,
-    DetectorReferenceJoinError, DetectorReferenceJoinState,
+    DetectorReferenceJoinError, DetectorReferenceJoinState, join_from_json,
 };
 use crate::detector_snapshot::{
     DETECTOR_PROPOSAL_SNAPSHOT_SCHEMA, DetectorProposalSnapshot,
-    DetectorProposalSnapshotValidationError,
+    DetectorProposalSnapshotValidationError, detector_proposal_snapshot_from_json,
 };
 use crate::human_final_reference::{
     HUMAN_FINAL_REFERENCE_SCHEMA, HumanFinalReference, HumanFinalReferenceValidationError,
+    human_final_reference_from_json,
 };
 use crate::join_adjudication::{
     OVERLAP_ADJUDICATION_SCHEMA, OverlapAdjudicationSet, OverlapAdjudicationValidationError,
-    OverlapAdjudicatorRole,
+    OverlapAdjudicatorRole, overlap_adjudication_from_json,
 };
 use crate::join_metric_aggregation::{
     JOIN_METRIC_AGGREGATION_SCHEMA, JoinMetricAggregateContext, JoinMetricAggregateSet,
-    JoinMetricAggregationError,
+    JoinMetricAggregationError, aggregate_from_json,
 };
 use crate::join_metric_contribution::{
     JOIN_METRIC_CONTRIBUTION_SCHEMA, JoinMetricContributionContext, JoinMetricContributionError,
-    JoinMetricContributionSet, MetricContributionSetState,
+    JoinMetricContributionSet, MetricContributionSetState, contribution_from_json,
 };
 use crate::reference_coverage::{
     REFERENCE_COVERAGE_SCHEMA, ReferenceCoverage, ReferenceCoveragePurpose,
-    ReferenceCoverageValidationError,
+    ReferenceCoverageValidationError, coverage_from_json,
 };
 use crate::reference_seal::{
     CalibrationValidityImpact, REFERENCE_SEAL_SCHEMA, ReferenceCalibrationValidity,
-    ReferenceProducerClass, ReferenceSeal, ReferenceSealValidationError,
+    ReferenceProducerClass, ReferenceSeal, ReferenceSealValidationError, seal_from_json,
 };
 use crate::run_manifest::{
     ArtifactRole, CalibrationValidityMode, InputClass, InputIdentityReference, RUN_ENVELOPE_SCHEMA,
@@ -162,8 +163,12 @@ pub struct SyntheticEvaluationHarnessResult {
     pub fixture_id: SyntheticEvaluationFixtureId,
     pub completion_stage: SyntheticEvaluationCompletionStage,
     pub detector_execution_envelope: RunEnvelope,
-    pub assisted_review_envelope: RunEnvelope,
+    pub assisted_review_transition_envelope: RunEnvelope,
     pub finalized_envelope: RunEnvelope,
+    pub final_reference_seal: ReferenceSeal,
+    pub final_reference_coverage: ReferenceCoverage,
+    pub final_human_final_reference: HumanFinalReference,
+    pub final_detector_snapshot: DetectorProposalSnapshot,
     pub final_adjudication_set: OverlapAdjudicationSet,
     pub final_join: DetectorReferenceJoin,
     pub final_contributions: JoinMetricContributionSet,
@@ -255,7 +260,19 @@ pub enum SyntheticEvaluationHarnessError {
     RoundTripMismatch {
         role: ArtifactRole,
     },
-    HistoricalReplayValidationFailure {
+    PayloadDeserializationFailure {
+        role: ArtifactRole,
+    },
+    TypedPayloadMismatch {
+        role: ArtifactRole,
+    },
+    DecodedPayloadValidationFailure {
+        role: ArtifactRole,
+    },
+    DecodedPayloadReserializationMismatch {
+        role: ArtifactRole,
+    },
+    DecodedHistoricalReplayValidationFailure {
         component: &'static str,
     },
     NonDeterministicReplay,
@@ -296,7 +313,8 @@ impl SyntheticEvaluationHarness {
 
         let detector_execution_envelope =
             build_envelope(fixture, RunLifecycleState::DetectorExecution)?;
-        let assisted_review_envelope = build_envelope(fixture, RunLifecycleState::AssistedReview)?;
+        let assisted_review_transition_envelope =
+            build_envelope(fixture, RunLifecycleState::AssistedReview)?;
         let finalized_envelope = build_envelope(fixture, RunLifecycleState::Finalized)?;
 
         let binding_context = binding_context_from_fixture(fixture);
@@ -336,30 +354,18 @@ impl SyntheticEvaluationHarness {
             &mut trace,
         )?;
 
-        historical_replay_validate(
-            fixture,
-            &finalized_envelope,
-            &final_adjudication,
-            &final_join,
-            &final_contributions,
-            &final_aggregates,
-            &final_bundle,
-        )?;
-        push_trace(
-            &mut trace,
-            SyntheticEvaluationStage::HistoricalReplayValidated,
-            RunLifecycleState::Finalized,
-            &fixture.artifact_ids,
-        );
-
         verify_source_unchanged(fixture, &source_snapshot)?;
 
-        let result = SyntheticEvaluationHarnessResult {
+        let mut result = SyntheticEvaluationHarnessResult {
             fixture_id: fixture.fixture_id.clone(),
             completion_stage,
             detector_execution_envelope,
-            assisted_review_envelope,
+            assisted_review_transition_envelope,
             finalized_envelope,
+            final_reference_seal: fixture.reference_seal.clone(),
+            final_reference_coverage: fixture.reference_coverage.clone(),
+            final_human_final_reference: fixture.human_final_reference.clone(),
+            final_detector_snapshot: fixture.detector_snapshot.clone(),
             final_adjudication_set: final_adjudication,
             final_join,
             final_contributions,
@@ -370,6 +376,14 @@ impl SyntheticEvaluationHarness {
         };
 
         Self::verify_payload_integrity(&result)?;
+        Self::verify_typed_payload_round_trip(&result)?;
+        push_trace(
+            &mut result.execution_trace,
+            SyntheticEvaluationStage::HistoricalReplayValidated,
+            RunLifecycleState::Finalized,
+            &fixture.artifact_ids,
+        );
+
         Ok(result)
     }
 
@@ -599,6 +613,24 @@ impl SyntheticEvaluationHarness {
         Ok(())
     }
 
+    pub fn verify_typed_payload_round_trip(
+        result: &SyntheticEvaluationHarnessResult,
+    ) -> Result<(), SyntheticEvaluationHarnessError> {
+        let decoded = decode_synthetic_artifact_set(&result.serialized_payloads)?;
+        let authoritative = authoritative_artifact_set_from_result(result);
+
+        verify_decoded_authoritative_equality(&decoded, &authoritative)?;
+        validate_decoded_local(&decoded)?;
+        verify_decoded_reserialization(&result.serialized_payloads, &decoded)?;
+        decoded_historical_replay_validate(
+            &result.finalized_envelope,
+            &decoded,
+            &result.final_bundle,
+        )?;
+
+        Ok(())
+    }
+
     pub fn verify_deterministic_replay(
         fixture: &SyntheticEvaluationFixture,
     ) -> Result<SyntheticEvaluationHarnessResult, SyntheticEvaluationHarnessError> {
@@ -609,6 +641,418 @@ impl SyntheticEvaluationHarness {
         }
         Ok(first)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DecodedSyntheticArtifactSet {
+    reference_seal: ReferenceSeal,
+    human_final_reference: HumanFinalReference,
+    reference_coverage: ReferenceCoverage,
+    detector_snapshot: DetectorProposalSnapshot,
+    join: DetectorReferenceJoin,
+    adjudication: OverlapAdjudicationSet,
+    contributions: JoinMetricContributionSet,
+    aggregates: JoinMetricAggregateSet,
+}
+
+fn authoritative_artifact_set_from_result(
+    result: &SyntheticEvaluationHarnessResult,
+) -> DecodedSyntheticArtifactSet {
+    DecodedSyntheticArtifactSet {
+        reference_seal: result.final_reference_seal.clone(),
+        human_final_reference: result.final_human_final_reference.clone(),
+        reference_coverage: result.final_reference_coverage.clone(),
+        detector_snapshot: result.final_detector_snapshot.clone(),
+        join: result.final_join.clone(),
+        adjudication: result.final_adjudication_set.clone(),
+        contributions: result.final_contributions.clone(),
+        aggregates: result.final_aggregates.clone(),
+    }
+}
+
+fn payload_for_role(
+    payloads: &[SyntheticSerializedArtifact],
+    role: ArtifactRole,
+) -> Result<&SyntheticSerializedArtifact, SyntheticEvaluationHarnessError> {
+    payloads
+        .iter()
+        .find(|payload| payload.role == role)
+        .ok_or(SyntheticEvaluationHarnessError::MissingPayload { role })
+}
+
+fn decode_json_text(
+    bytes: &[u8],
+    role: ArtifactRole,
+) -> Result<&str, SyntheticEvaluationHarnessError> {
+    std::str::from_utf8(bytes)
+        .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })
+}
+
+fn decode_synthetic_artifact_set(
+    payloads: &[SyntheticSerializedArtifact],
+) -> Result<DecodedSyntheticArtifactSet, SyntheticEvaluationHarnessError> {
+    let reference_seal_payload = payload_for_role(payloads, ArtifactRole::ReferenceSeal)?
+        .payload_bytes
+        .as_slice();
+    let human_final_reference_payload =
+        payload_for_role(payloads, ArtifactRole::HumanFinalReference)?
+            .payload_bytes
+            .as_slice();
+    let reference_coverage_payload = payload_for_role(payloads, ArtifactRole::CueReviewCompletion)?
+        .payload_bytes
+        .as_slice();
+    let detector_snapshot_payload = payload_for_role(payloads, ArtifactRole::DetectorOutput)?
+        .payload_bytes
+        .as_slice();
+    let join_payload = payload_for_role(payloads, ArtifactRole::EvaluationJoin)?
+        .payload_bytes
+        .as_slice();
+    let adjudication_payload = payload_for_role(payloads, ArtifactRole::JoinAdjudication)?
+        .payload_bytes
+        .as_slice();
+    let contributions_payload = payload_for_role(payloads, ArtifactRole::MetricContributions)?
+        .payload_bytes
+        .as_slice();
+    let aggregates_payload = payload_for_role(payloads, ArtifactRole::Metrics)?
+        .payload_bytes
+        .as_slice();
+
+    let reference_seal = {
+        let role = ArtifactRole::ReferenceSeal;
+        let json = decode_json_text(reference_seal_payload, role)?;
+        seal_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let human_final_reference = {
+        let role = ArtifactRole::HumanFinalReference;
+        let json = decode_json_text(human_final_reference_payload, role)?;
+        human_final_reference_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let reference_coverage = {
+        let role = ArtifactRole::CueReviewCompletion;
+        let json = decode_json_text(reference_coverage_payload, role)?;
+        coverage_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let detector_snapshot = {
+        let role = ArtifactRole::DetectorOutput;
+        let json = decode_json_text(detector_snapshot_payload, role)?;
+        detector_proposal_snapshot_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let join = {
+        let role = ArtifactRole::EvaluationJoin;
+        let json = decode_json_text(join_payload, role)?;
+        join_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let adjudication = {
+        let role = ArtifactRole::JoinAdjudication;
+        let json = decode_json_text(adjudication_payload, role)?;
+        overlap_adjudication_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let contributions = {
+        let role = ArtifactRole::MetricContributions;
+        let json = decode_json_text(contributions_payload, role)?;
+        contribution_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+    let aggregates = {
+        let role = ArtifactRole::Metrics;
+        let json = decode_json_text(aggregates_payload, role)?;
+        aggregate_from_json(json)
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadDeserializationFailure { role })?
+    };
+
+    Ok(DecodedSyntheticArtifactSet {
+        reference_seal,
+        human_final_reference,
+        reference_coverage,
+        detector_snapshot,
+        join,
+        adjudication,
+        contributions,
+        aggregates,
+    })
+}
+
+fn verify_decoded_authoritative_equality(
+    decoded: &DecodedSyntheticArtifactSet,
+    authoritative: &DecodedSyntheticArtifactSet,
+) -> Result<(), SyntheticEvaluationHarnessError> {
+    if decoded.reference_seal != authoritative.reference_seal {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::ReferenceSeal,
+        });
+    }
+    if decoded.human_final_reference != authoritative.human_final_reference {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::HumanFinalReference,
+        });
+    }
+    if decoded.reference_coverage != authoritative.reference_coverage {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::CueReviewCompletion,
+        });
+    }
+    if decoded.detector_snapshot != authoritative.detector_snapshot {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::DetectorOutput,
+        });
+    }
+    if decoded.join != authoritative.join {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::EvaluationJoin,
+        });
+    }
+    if decoded.adjudication != authoritative.adjudication {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::JoinAdjudication,
+        });
+    }
+    if decoded.contributions != authoritative.contributions {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::MetricContributions,
+        });
+    }
+    if decoded.aggregates != authoritative.aggregates {
+        return Err(SyntheticEvaluationHarnessError::TypedPayloadMismatch {
+            role: ArtifactRole::Metrics,
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_decoded_local(
+    decoded: &DecodedSyntheticArtifactSet,
+) -> Result<(), SyntheticEvaluationHarnessError> {
+    decoded.reference_seal.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::ReferenceSeal,
+        }
+    })?;
+    decoded.human_final_reference.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::HumanFinalReference,
+        }
+    })?;
+    decoded.reference_coverage.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::CueReviewCompletion,
+        }
+    })?;
+    decoded.detector_snapshot.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::DetectorOutput,
+        }
+    })?;
+    decoded.join.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::EvaluationJoin,
+        }
+    })?;
+    decoded.adjudication.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::JoinAdjudication,
+        }
+    })?;
+    decoded.contributions.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::MetricContributions,
+        }
+    })?;
+    decoded.aggregates.validate().map_err(|_| {
+        SyntheticEvaluationHarnessError::DecodedPayloadValidationFailure {
+            role: ArtifactRole::Metrics,
+        }
+    })?;
+
+    Ok(())
+}
+
+fn verify_decoded_reserialization(
+    payloads: &[SyntheticSerializedArtifact],
+    decoded: &DecodedSyntheticArtifactSet,
+) -> Result<(), SyntheticEvaluationHarnessError> {
+    let role_payloads = [
+        (
+            ArtifactRole::ReferenceSeal,
+            serde_json::to_vec(&decoded.reference_seal),
+        ),
+        (
+            ArtifactRole::HumanFinalReference,
+            serde_json::to_vec(&decoded.human_final_reference),
+        ),
+        (
+            ArtifactRole::CueReviewCompletion,
+            serde_json::to_vec(&decoded.reference_coverage),
+        ),
+        (
+            ArtifactRole::DetectorOutput,
+            serde_json::to_vec(&decoded.detector_snapshot),
+        ),
+        (
+            ArtifactRole::EvaluationJoin,
+            serde_json::to_vec(&decoded.join),
+        ),
+        (
+            ArtifactRole::JoinAdjudication,
+            serde_json::to_vec(&decoded.adjudication),
+        ),
+        (
+            ArtifactRole::MetricContributions,
+            serde_json::to_vec(&decoded.contributions),
+        ),
+        (
+            ArtifactRole::Metrics,
+            serde_json::to_vec(&decoded.aggregates),
+        ),
+    ];
+
+    for (role, reserialized) in role_payloads {
+        let reserialized = reserialized
+            .map_err(|_| SyntheticEvaluationHarnessError::PayloadSerializationFailure)?;
+        let payload = payload_for_role(payloads, role)?;
+        if reserialized != payload.payload_bytes {
+            return Err(
+                SyntheticEvaluationHarnessError::DecodedPayloadReserializationMismatch { role },
+            );
+        }
+
+        let digest = compute_payload_digest(&reserialized)?;
+        if digest != payload.content_digest {
+            return Err(
+                SyntheticEvaluationHarnessError::DecodedPayloadReserializationMismatch { role },
+            );
+        }
+
+        let byte_length = payload_byte_length(&reserialized)?;
+        if byte_length != payload.byte_length {
+            return Err(
+                SyntheticEvaluationHarnessError::DecodedPayloadReserializationMismatch { role },
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn decoded_historical_replay_validate(
+    finalized_envelope: &RunEnvelope,
+    decoded: &DecodedSyntheticArtifactSet,
+    bundle: &ArtifactBundle,
+) -> Result<(), SyntheticEvaluationHarnessError> {
+    decoded
+        .reference_seal
+        .validate_historical_context(finalized_envelope)
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "reference_seal",
+            },
+        )?;
+    decoded
+        .reference_coverage
+        .validate_historical_context(
+            finalized_envelope,
+            &decoded.reference_seal,
+            Some(&decoded.human_final_reference),
+        )
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "reference_coverage",
+            },
+        )?;
+    decoded
+        .human_final_reference
+        .validate_historical_context(finalized_envelope, &decoded.reference_seal)
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "human_final_reference",
+            },
+        )?;
+    decoded
+        .detector_snapshot
+        .validate_against_bundle(finalized_envelope, bundle)
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "detector_snapshot",
+            },
+        )?;
+    decoded
+        .adjudication
+        .validate_against_envelope(finalized_envelope)
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "adjudication_set",
+            },
+        )?;
+    decoded
+        .join
+        .validate_against(
+            finalized_envelope,
+            &decoded.reference_seal,
+            &decoded.reference_coverage,
+            &decoded.human_final_reference,
+            &decoded.detector_snapshot,
+            bundle,
+            &decoded.adjudication,
+        )
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "join",
+            },
+        )?;
+    decoded
+        .contributions
+        .validate_against(
+            finalized_envelope,
+            &decoded.reference_seal,
+            &decoded.reference_coverage,
+            &decoded.human_final_reference,
+            &decoded.detector_snapshot,
+            &decoded.join,
+            &decoded.adjudication,
+            bundle,
+        )
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "contributions",
+            },
+        )?;
+    decoded
+        .aggregates
+        .validate_against(
+            finalized_envelope,
+            &decoded.reference_seal,
+            &decoded.reference_coverage,
+            &decoded.human_final_reference,
+            &decoded.detector_snapshot,
+            &decoded.join,
+            &decoded.adjudication,
+            &decoded.contributions,
+            bundle,
+        )
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "aggregates",
+            },
+        )?;
+    bundle
+        .validate_with_reference_context(
+            finalized_envelope,
+            Some(&decoded.reference_seal),
+            Some(&decoded.reference_coverage),
+            Some(&decoded.human_final_reference),
+        )
+        .map_err(
+            |_| SyntheticEvaluationHarnessError::DecodedHistoricalReplayValidationFailure {
+                component: "artifact_bundle",
+            },
+        )?;
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1303,120 +1747,6 @@ fn finalize_bundle_two_pass(
     );
 
     Ok((final_payloads, final_bundle))
-}
-
-fn historical_replay_validate(
-    fixture: &SyntheticEvaluationFixture,
-    finalized_envelope: &RunEnvelope,
-    adjudication: &OverlapAdjudicationSet,
-    join: &DetectorReferenceJoin,
-    contributions: &JoinMetricContributionSet,
-    aggregates: &JoinMetricAggregateSet,
-    bundle: &ArtifactBundle,
-) -> Result<(), SyntheticEvaluationHarnessError> {
-    fixture
-        .reference_seal
-        .validate_historical_context(finalized_envelope)
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "reference_seal",
-            },
-        )?;
-    fixture
-        .reference_coverage
-        .validate_historical_context(
-            finalized_envelope,
-            &fixture.reference_seal,
-            Some(&fixture.human_final_reference),
-        )
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "reference_coverage",
-            },
-        )?;
-    fixture
-        .human_final_reference
-        .validate_historical_context(finalized_envelope, &fixture.reference_seal)
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "human_final_reference",
-            },
-        )?;
-    fixture
-        .detector_snapshot
-        .validate_against_bundle(finalized_envelope, bundle)
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "detector_snapshot",
-            },
-        )?;
-    adjudication
-        .validate_against_envelope(finalized_envelope)
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "adjudication_set",
-            },
-        )?;
-    join.validate_against(
-        finalized_envelope,
-        &fixture.reference_seal,
-        &fixture.reference_coverage,
-        &fixture.human_final_reference,
-        &fixture.detector_snapshot,
-        bundle,
-        adjudication,
-    )
-    .map_err(
-        |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-            component: "join",
-        },
-    )?;
-    contributions
-        .validate_against(
-            finalized_envelope,
-            &fixture.reference_seal,
-            &fixture.reference_coverage,
-            &fixture.human_final_reference,
-            &fixture.detector_snapshot,
-            join,
-            adjudication,
-            bundle,
-        )
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "contributions",
-            },
-        )?;
-    aggregates
-        .validate_against(
-            finalized_envelope,
-            &fixture.reference_seal,
-            &fixture.reference_coverage,
-            &fixture.human_final_reference,
-            &fixture.detector_snapshot,
-            join,
-            adjudication,
-            contributions,
-            bundle,
-        )
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "aggregates",
-            },
-        )?;
-    bundle
-        .validate_with_reference_context(
-            finalized_envelope,
-            Some(&fixture.reference_seal),
-            Some(&fixture.reference_coverage),
-            Some(&fixture.human_final_reference),
-        )
-        .map_err(
-            |_| SyntheticEvaluationHarnessError::HistoricalReplayValidationFailure {
-                component: "artifact_bundle",
-            },
-        )?;
-    Ok(())
 }
 
 fn binding_context_from_fixture(fixture: &SyntheticEvaluationFixture) -> ArtifactBindingContext {
