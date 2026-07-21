@@ -309,3 +309,18 @@ Authority layers remain separate: validated join → contribution set → aggreg
 Each aggregate record uses `defined_exact_ratio` when `denominator_count > 0` and `numerator_count <= denominator_count`, or `undefined_zero_denominator` when both counts are zero. Zero denominator is never interpreted as zero score, perfect score, pass, or fail. Cross-metric invariants are enforced: proposal-precision and duplicate-burden denominators match; correction-exactness denominator equals localization numerator; end-to-end denominator equals localization denominator; end-to-end numerator equals correction-exactness numerator.
 
 Report posture and primary eligibility are copied and independently validated from the contribution set. `qualifies_as_primary_metric_evidence` is derived from contribution eligibility, complete contribution and aggregate state, and structural validity; it does not require non-zero denominators. `qualifies_as_real_material_evidence` remains separate from calibration eligibility and mathematical definition status. Diagnostic and synthetic aggregates remain non-primary. This slice does not execute protocols, apply thresholds, or establish detector effectiveness.
+
+## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
+
+`synthetic_evaluation_harness` (`voxproof-synthetic-evaluation-harness-v1`) is a pure deterministic in-memory orchestration layer over the accepted v0.2 contracts. It is not a real evaluation runner, product CLI, detector executor, human adjudication collector, or persistence writer.
+
+Boundary:
+
+- accepts typed synthetic source fixtures only (`InputClass::SyntheticProtocolFixture`, `qualifies_as_real_material_evidence == false`, synthetic seal/coverage/join posture, `SyntheticFixtureAdjudicator` only);
+- orchestrates the blind-reference lifecycle (`Declared` → `ReferencePreparation` → `ReferenceSealed` → `DetectorExecution` → `AssistedReview` → `Finalized`) via `RunEnvelope::validate_transition`;
+- exact-only fixtures may derive resolved join, complete contributions, and complete aggregates at `DetectorExecution`; overlap fixtures stop pending at detector stage and complete only after frozen synthetic adjudication at `AssistedReview`;
+- serializes eight typed artifact payloads with compact UTF-8 JSON (`serde-json-compact-utf8-v1`), computes `sha256:` payload digests (`sha256-payload-bytes-v1`), assembles a complete `ArtifactBundle`, and performs two-pass bootstrap/final derivation equality checks;
+- `Finalized` performs historical revalidation only; it does not authorize new derivation;
+- repeated execution of the same fixture must be byte-deterministic across envelopes, typed artifacts, serialized payloads, digests, bundle, and execution trace.
+
+The harness does not reimplement join, overlap, NFC, contribution mapping, aggregation formulas, or primary eligibility rules. Those remain owned by the individual contracts.

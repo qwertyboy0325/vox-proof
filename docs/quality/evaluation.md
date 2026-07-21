@@ -354,6 +354,19 @@ Boundary:
 - no decimal rendering, percentages, TP/FP/FN, thresholds, pass/fail, protocol execution, or detector-effectiveness claims
 - Metrics artifacts remain private unless separately authorized
 
+## v0.2 Synthetic Evaluation Harness Boundary
+
+The in-memory synthetic evaluation harness exercises the accepted v0.2 contract chain on deterministic synthetic fixtures only. It validates synthetic posture fail-closed, executes legal lifecycle transitions, derives join/contribution/aggregate artifacts through the public contract APIs, serializes eight typed payloads in memory, assembles a self-consistent final artifact bundle, and revalidates historically at `Finalized`.
+
+It does not:
+
+- execute the real detector or read real transcripts/audio;
+- collect human adjudication or emit filesystem artifact files;
+- establish primary metric evidence, thresholds, pass/fail, or detector-effectiveness claims;
+- replace the semantic authority of the individual contracts.
+
+Exact-only synthetic runs may complete derivation at `DetectorExecution`. Overlap runs remain pending until `AssistedReview` consumes frozen `SyntheticFixtureAdjudicator` records. Unresolved overlap blocks aggregation. Repeated runs must be byte-deterministic.
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:

@@ -26,6 +26,7 @@ pub mod session_log;
 pub mod session_summary;
 pub mod session_terms;
 pub mod srt;
+pub mod synthetic_evaluation_harness;
 pub mod transcript;
 
 #[cfg(test)]
