@@ -136,6 +136,7 @@ pub enum RealTranscriptEvaluationRunnerContractError {
         to: RunLifecycleState,
     },
     ExpectedArtifactInventoryMismatch,
+    RequestEnvelopeArtifactInventoryMismatch,
     DuplicateExpectedArtifactRole {
         role: ArtifactRole,
     },
@@ -187,21 +188,23 @@ pub fn validate_real_transcript_evaluation_run_request(
         RealTranscriptEvaluationRunnerContractError::InputAuthorizationValidationFailure,
     )?;
 
-    validate_lifecycle_envelopes(request)?;
+    validate_lifecycle_envelope_states(request)?;
     validate_immutable_envelope_posture(request)?;
 
-    let posture = &request.declared_envelope;
-    validate_real_run_posture(posture)?;
+    let common_posture = &request.declared_envelope;
+    validate_real_run_posture(common_posture)?;
+    validate_lifecycle_transitions(request, common_posture.calibration_validity)?;
     validate_artifact_inventory(&request.expected_artifact_roles)?;
-    validate_authorization_binding(request, posture)?;
+    validate_request_envelope_inventory_binding(request)?;
+    validate_authorization_binding(request, common_posture)?;
     validate_reference_readiness(request)?;
-    validate_detector_analysis_readiness(request, posture)?;
+    validate_detector_analysis_readiness(request, common_posture)?;
 
     Ok(ValidatedRealTranscriptEvaluationRunPlan {
-        run_id: posture.run_id.clone(),
-        input_identity: posture.input_identity.clone(),
-        input_class: posture.input_class,
-        workflow_observation: posture.workflow_observation,
+        run_id: common_posture.run_id.clone(),
+        input_identity: common_posture.input_identity.clone(),
+        input_class: common_posture.input_class,
+        workflow_observation: common_posture.workflow_observation,
         authorization_id: request.input_authorization.authorization_id.clone(),
         reference_seal_id: request.reference_seal.seal_id.clone(),
         reference_revision: request.reference_seal.reference_revision.clone(),
@@ -274,11 +277,10 @@ fn lifecycle_envelopes(
     ]
 }
 
-fn validate_lifecycle_envelopes(
+fn validate_lifecycle_envelope_states(
     request: &RealTranscriptEvaluationRunRequest,
 ) -> Result<(), RealTranscriptEvaluationRunnerContractError> {
     let envelopes = lifecycle_envelopes(request);
-    let calibration = CalibrationValidityMode::BlindReference;
 
     for (expected_state, envelope) in &envelopes {
         envelope
@@ -294,16 +296,29 @@ fn validate_lifecycle_envelopes(
         }
     }
 
+    Ok(())
+}
+
+fn validate_lifecycle_transitions(
+    request: &RealTranscriptEvaluationRunRequest,
+    calibration_validity: CalibrationValidityMode,
+) -> Result<(), RealTranscriptEvaluationRunnerContractError> {
+    let envelopes = lifecycle_envelopes(request);
+
     for window in envelopes.windows(2) {
         let (from_state, _) = window[0];
         let (_, to_envelope) = window[1];
-        RunEnvelope::validate_transition(from_state, to_envelope.lifecycle_state, calibration)
-            .map_err(|_| {
-                RealTranscriptEvaluationRunnerContractError::IllegalLifecycleTransition {
-                    from: from_state,
-                    to: to_envelope.lifecycle_state,
-                }
-            })?;
+        RunEnvelope::validate_transition(
+            from_state,
+            to_envelope.lifecycle_state,
+            calibration_validity,
+        )
+        .map_err(|_| {
+            RealTranscriptEvaluationRunnerContractError::IllegalLifecycleTransition {
+                from: from_state,
+                to: to_envelope.lifecycle_state,
+            }
+        })?;
     }
 
     Ok(())
@@ -416,11 +431,6 @@ fn validate_real_run_posture(
 fn validate_artifact_inventory(
     roles: &[ArtifactRole],
 ) -> Result<(), RealTranscriptEvaluationRunnerContractError> {
-    let canonical = canonical_real_evaluation_artifact_roles();
-    if roles != canonical.as_slice() {
-        return Err(RealTranscriptEvaluationRunnerContractError::ExpectedArtifactInventoryMismatch);
-    }
-
     let mut seen = std::collections::HashSet::new();
     for role in roles {
         if !seen.insert(*role) {
@@ -430,6 +440,23 @@ fn validate_artifact_inventory(
                 },
             );
         }
+    }
+
+    let canonical = canonical_real_evaluation_artifact_roles();
+    if roles != canonical.as_slice() {
+        return Err(RealTranscriptEvaluationRunnerContractError::ExpectedArtifactInventoryMismatch);
+    }
+
+    Ok(())
+}
+
+fn validate_request_envelope_inventory_binding(
+    request: &RealTranscriptEvaluationRunRequest,
+) -> Result<(), RealTranscriptEvaluationRunnerContractError> {
+    if request.expected_artifact_roles != request.declared_envelope.expected_artifact_roles {
+        return Err(
+            RealTranscriptEvaluationRunnerContractError::RequestEnvelopeArtifactInventoryMismatch,
+        );
     }
 
     Ok(())
@@ -625,6 +652,20 @@ mod unit_tests {
         assert_eq!(roles.len(), 9);
         assert_eq!(roles[0], ArtifactRole::InputAuthorization);
         assert_eq!(roles[8], ArtifactRole::Metrics);
+    }
+
+    #[test]
+    fn duplicate_inventory_role_detected_before_canonical_mismatch() {
+        let mut roles = canonical_real_evaluation_artifact_roles();
+        roles.push(ArtifactRole::Metrics);
+        assert_eq!(
+            validate_artifact_inventory(&roles),
+            Err(
+                RealTranscriptEvaluationRunnerContractError::DuplicateExpectedArtifactRole {
+                    role: ArtifactRole::Metrics,
+                }
+            )
+        );
     }
 
     #[test]

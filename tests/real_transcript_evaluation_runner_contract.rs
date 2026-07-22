@@ -29,7 +29,7 @@ use vox_proof::reference_seal::{
 };
 use vox_proof::run_manifest::{
     ArtifactRole, CalibrationValidityMode, InputClass, InputIdentityReference, RUN_ENVELOPE_SCHEMA,
-    RunEnvelope, RunId, RunLifecycleState, WorkflowObservationMode,
+    RunEnvelope, RunEnvelopeValidationError, RunId, RunLifecycleState, WorkflowObservationMode,
 };
 
 const SAMPLE_REVISION: &str =
@@ -54,6 +54,22 @@ fn input_identity() -> InputIdentityReference {
 
 fn artifact_roles() -> Vec<ArtifactRole> {
     canonical_real_evaluation_artifact_roles()
+}
+
+fn set_all_envelope_roles(
+    request: &mut RealTranscriptEvaluationRunRequest,
+    roles: Vec<ArtifactRole>,
+) {
+    for envelope in [
+        &mut request.declared_envelope,
+        &mut request.reference_preparation_envelope,
+        &mut request.reference_sealed_envelope,
+        &mut request.detector_execution_envelope,
+        &mut request.assisted_review_transition_envelope,
+        &mut request.finalized_envelope,
+    ] {
+        envelope.expected_artifact_roles = roles.clone();
+    }
 }
 
 fn envelope_at(lifecycle_state: RunLifecycleState, input_class: InputClass) -> RunEnvelope {
@@ -368,6 +384,7 @@ fn declared_to_detector_execution_bypass_rejected() {
 #[test]
 fn detector_assisted_posture_rejected() {
     let mut request = valid_request(InputClass::SelfOwnedReal);
+    set_all_envelope_roles(&mut request, artifact_roles());
     for envelope in [
         &mut request.declared_envelope,
         &mut request.reference_preparation_envelope,
@@ -381,8 +398,14 @@ fn detector_assisted_posture_rejected() {
 
     assert!(matches!(
         validate_real_transcript_evaluation_run_request(&request),
-        Err(RealTranscriptEvaluationRunnerContractError::RunnerNotBlindReference)
-            | Err(RealTranscriptEvaluationRunnerContractError::EnvelopeValidation(_))
+        Err(
+            RealTranscriptEvaluationRunnerContractError::EnvelopeValidation(
+                RunEnvelopeValidationError::ForbiddenCalibrationLifecycleCombination {
+                    calibration_validity: CalibrationValidityMode::DetectorAssisted,
+                    lifecycle_state: RunLifecycleState::ReferencePreparation,
+                }
+            )
+        )
     ));
 }
 
@@ -551,16 +574,7 @@ fn missing_input_authorization_role_rejected() {
     let mut roles = artifact_roles();
     roles.remove(0);
     request.expected_artifact_roles = roles.clone();
-    for envelope in [
-        &mut request.declared_envelope,
-        &mut request.reference_preparation_envelope,
-        &mut request.reference_sealed_envelope,
-        &mut request.detector_execution_envelope,
-        &mut request.assisted_review_transition_envelope,
-        &mut request.finalized_envelope,
-    ] {
-        envelope.expected_artifact_roles = roles.clone();
-    }
+    set_all_envelope_roles(&mut request, roles);
 
     assert!(matches!(
         validate_real_transcript_evaluation_run_request(&request),
@@ -574,16 +588,7 @@ fn unexpected_review_ledger_role_rejected() {
     let mut roles = artifact_roles();
     roles.push(ArtifactRole::ReviewLedger);
     request.expected_artifact_roles = roles.clone();
-    for envelope in [
-        &mut request.declared_envelope,
-        &mut request.reference_preparation_envelope,
-        &mut request.reference_sealed_envelope,
-        &mut request.detector_execution_envelope,
-        &mut request.assisted_review_transition_envelope,
-        &mut request.finalized_envelope,
-    ] {
-        envelope.expected_artifact_roles = roles.clone();
-    }
+    set_all_envelope_roles(&mut request, roles);
 
     assert!(matches!(
         validate_real_transcript_evaluation_run_request(&request),
@@ -597,21 +602,54 @@ fn wrong_role_order_rejected() {
     let mut roles = artifact_roles();
     roles.swap(0, 1);
     request.expected_artifact_roles = roles.clone();
-    for envelope in [
-        &mut request.declared_envelope,
-        &mut request.reference_preparation_envelope,
-        &mut request.reference_sealed_envelope,
-        &mut request.detector_execution_envelope,
-        &mut request.assisted_review_transition_envelope,
-        &mut request.finalized_envelope,
-    ] {
-        envelope.expected_artifact_roles = roles.clone();
-    }
+    set_all_envelope_roles(&mut request, roles);
 
     assert!(matches!(
         validate_real_transcript_evaluation_run_request(&request),
         Err(RealTranscriptEvaluationRunnerContractError::ExpectedArtifactInventoryMismatch)
     ));
+}
+
+#[test]
+fn synchronized_envelope_inventory_only_input_authorization_rejected() {
+    let mut request = valid_request(InputClass::SelfOwnedReal);
+    set_all_envelope_roles(&mut request, vec![ArtifactRole::InputAuthorization]);
+
+    assert_eq!(
+        validate_real_transcript_evaluation_run_request(&request),
+        Err(RealTranscriptEvaluationRunnerContractError::RequestEnvelopeArtifactInventoryMismatch)
+    );
+}
+
+#[test]
+fn synchronized_envelope_inventory_with_review_ledger_rejected() {
+    let mut request = valid_request(InputClass::SelfOwnedReal);
+    let mut roles = artifact_roles();
+    roles.push(ArtifactRole::ReviewLedger);
+    set_all_envelope_roles(&mut request, roles);
+
+    assert_eq!(
+        validate_real_transcript_evaluation_run_request(&request),
+        Err(RealTranscriptEvaluationRunnerContractError::RequestEnvelopeArtifactInventoryMismatch)
+    );
+}
+
+#[test]
+fn duplicate_metrics_role_rejected() {
+    let mut request = valid_request(InputClass::SelfOwnedReal);
+    let mut roles = artifact_roles();
+    roles.push(ArtifactRole::Metrics);
+    request.expected_artifact_roles = roles.clone();
+    set_all_envelope_roles(&mut request, roles);
+
+    assert_eq!(
+        validate_real_transcript_evaluation_run_request(&request),
+        Err(
+            RealTranscriptEvaluationRunnerContractError::DuplicateExpectedArtifactRole {
+                role: ArtifactRole::Metrics,
+            }
+        )
+    );
 }
 
 #[test]
