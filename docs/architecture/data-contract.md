@@ -339,6 +339,11 @@ Boundary:
 - completes exact-only joins at `DetectorExecution`; overlap completion requires assisted-review adjudication;
 - serializes the exact nine-role artifact set in memory using repository-internal compact UTF-8 JSON (`serde-json-compact-utf8-v1`) and `sha256-payload-bytes-v1` digests; these policies are implementation behavior only and do not define a stable public file or packet format;
 - constructs a complete nine-role `ArtifactBundle`, performs final-bundle rederivation equality checks, typed payload replay, and `Finalized` historical revalidation;
+- public completed-result replay re-enforces real human adjudicator authority (`OwnerAdjudicator` / `AuthorizedDomainAdjudicator` only; `SyntheticFixtureAdjudicator` rejected even when hash-synchronized);
+- `completion_stage` is bound to the adjudication set and resolved join path: `DetectorExecution` requires an empty frozen adjudication set with no assisted-adjudication join evidence; `AssistedReview` requires non-empty authorized-human adjudication tied to an accepted overlap resolution; relabeling is rejected;
+- `execution_trace` is an exact deterministic verified surface with canonical nine-role artifact-id order; empty, reordered, duplicated, lifecycle-mutated, and artifact-id-mutated traces fail;
+- bundle descriptor role, artifact id, payload schema, digest, and byte length are directly bound to each payload; missing, duplicate, extra, and ordering payload inventory failures are distinguishable;
+- hash-synchronized semantic tampering of derived artifacts remains rejected through typed validation, rederivation, or historical replay;
 - internal bootstrap bundles and typed stubs satisfy derivation dependencies only and never escape as evidence outputs;
 - payload bytes remain in memory; no packet write, filesystem I/O, CLI, or persistence occurs;
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence;

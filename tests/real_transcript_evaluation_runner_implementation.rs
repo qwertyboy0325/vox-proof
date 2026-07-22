@@ -7,6 +7,7 @@ use fixtures::{
     overlap_assisted_record, overlap_explicit_permission_fixture, revision_ids,
     zero_population_fixture,
 };
+use vox_proof::artifact_bundle::{ArtifactContentDigest, ArtifactSchemaIdentity};
 use vox_proof::detector_reference_join::DetectorReferenceJoinState;
 use vox_proof::detector_snapshot::{
     DetectorAnalysisIdentity, DetectorComponentIdentity, DetectorProposalSnapshotState,
@@ -18,8 +19,9 @@ use vox_proof::join_adjudication::{
 use vox_proof::join_metric_aggregation::MetricAggregateValueState;
 use vox_proof::join_metric_contribution::MetricContributionSetState;
 use vox_proof::real_transcript_evaluation_execution::{
-    RealTranscriptEvaluationCompletionStage, RealTranscriptEvaluationExecutionError,
-    RealTranscriptEvaluationExecutionOutcome, execute_real_transcript_evaluation,
+    RealTranscriptEvaluationCompletedResult, RealTranscriptEvaluationCompletionStage,
+    RealTranscriptEvaluationExecutionError, RealTranscriptEvaluationExecutionOutcome,
+    RealTranscriptEvaluationStage, execute_real_transcript_evaluation,
     verify_real_transcript_evaluation_completed_result,
 };
 use vox_proof::real_transcript_evaluation_runner::{
@@ -577,4 +579,489 @@ fn invalid_overlap_pair_rejected() {
         ),
         "unexpected error: {error:?}"
     );
+}
+
+mod replay_authority_correction {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use vox_proof::artifact_bundle::ArtifactId;
+    use vox_proof::real_transcript_evaluation_execution::RealTranscriptEvaluationSerializedArtifact;
+
+    fn compute_payload_digest(bytes: &[u8]) -> ArtifactContentDigest {
+        let hash = Sha256::digest(bytes);
+        let hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        ArtifactContentDigest::new(format!("sha256:{hex}")).expect("digest")
+    }
+
+    fn completed_exact_result() -> RealTranscriptEvaluationCompletedResult {
+        let fixture = exact_only_self_owned_fixture();
+        let RealTranscriptEvaluationExecutionOutcome::Completed(result) =
+            execute_real_transcript_evaluation(&fixture.request, &fixture.input).expect("exact")
+        else {
+            panic!("expected completion");
+        };
+        result
+    }
+
+    fn completed_assisted_result() -> RealTranscriptEvaluationCompletedResult {
+        let assisted = vec![overlap_assisted_record(
+            OverlapAdjudicatorRole::OwnerAdjudicator,
+        )];
+        let fixture = overlap_explicit_permission_fixture(Some(assisted));
+        let RealTranscriptEvaluationExecutionOutcome::Completed(result) =
+            execute_real_transcript_evaluation(&fixture.request, &fixture.input).expect("assisted")
+        else {
+            panic!("expected completion");
+        };
+        result
+    }
+
+    fn sync_role_payload(
+        result: &mut RealTranscriptEvaluationCompletedResult,
+        role: ArtifactRole,
+        bytes: Vec<u8>,
+    ) {
+        let digest = compute_payload_digest(&bytes);
+        let byte_length = bytes.len() as u64;
+        let payload = result
+            .serialized_payloads
+            .iter_mut()
+            .find(|payload| payload.role == role)
+            .expect("payload role");
+        payload.payload_bytes = bytes;
+        payload.content_digest = digest.clone();
+        payload.byte_length = byte_length;
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == role)
+            .expect("descriptor role");
+        descriptor.content_digest = digest;
+        descriptor.byte_length = byte_length;
+    }
+
+    fn assert_verifier_err(result: &RealTranscriptEvaluationCompletedResult) {
+        assert!(
+            verify_real_transcript_evaluation_completed_result(result).is_err(),
+            "verifier should reject tampered result"
+        );
+    }
+
+    #[test]
+    fn hash_synchronized_synthetic_adjudicator_rejected_on_replay() {
+        let mut result = completed_assisted_result();
+        result.final_adjudication_set.records[0].adjudicator_role =
+            OverlapAdjudicatorRole::SyntheticFixtureAdjudicator;
+
+        let adjudication_bytes =
+            serde_json::to_vec(&result.final_adjudication_set).expect("serialize adjudication");
+        sync_role_payload(
+            &mut result,
+            ArtifactRole::JoinAdjudication,
+            adjudication_bytes,
+        );
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("synthetic adjudicator on replay");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::UnsupportedRealAdjudicatorRole {
+                role: OverlapAdjudicatorRole::SyntheticFixtureAdjudicator,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn exact_completion_stage_relabel_to_assisted_review_rejected() {
+        let mut result = completed_exact_result();
+        result.completion_stage = RealTranscriptEvaluationCompletionStage::AssistedReview;
+        let error =
+            verify_real_transcript_evaluation_completed_result(&result).expect_err("stage relabel");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                completion_stage: RealTranscriptEvaluationCompletionStage::AssistedReview,
+            }
+        ));
+    }
+
+    #[test]
+    fn assisted_completion_stage_relabel_to_detector_execution_rejected() {
+        let mut result = completed_assisted_result();
+        result.completion_stage = RealTranscriptEvaluationCompletionStage::DetectorExecution;
+        let error =
+            verify_real_transcript_evaluation_completed_result(&result).expect_err("stage relabel");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                completion_stage: RealTranscriptEvaluationCompletionStage::DetectorExecution,
+            }
+        ));
+    }
+
+    #[test]
+    fn input_authorization_payload_bytes_tampered_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads[0].payload_bytes.push(b'x');
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn hash_synchronized_evaluation_join_semantic_tamper_rejected() {
+        let mut result = completed_exact_result();
+        result.final_join.assessment.exact_match_count = result
+            .final_join
+            .assessment
+            .exact_match_count
+            .saturating_add(1);
+        let join_bytes = serde_json::to_vec(&result.final_join).expect("join bytes");
+        sync_role_payload(&mut result, ArtifactRole::EvaluationJoin, join_bytes);
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn hash_synchronized_metric_aggregate_semantic_tamper_rejected() {
+        let mut result = completed_exact_result();
+        result
+            .final_aggregates
+            .assessment
+            .all_required_metrics_present = false;
+        let aggregate_bytes =
+            serde_json::to_vec(&result.final_aggregates).expect("aggregate bytes");
+        sync_role_payload(&mut result, ArtifactRole::Metrics, aggregate_bytes);
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn payload_digest_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads[0].content_digest =
+            compute_payload_digest(b"tampered-digest-only");
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn payload_byte_length_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads[0].byte_length += 1;
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn bundle_descriptor_artifact_id_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == ArtifactRole::InputAuthorization)
+            .expect("descriptor");
+        descriptor.artifact_id = ArtifactId::new("tampered-artifact-id").expect("id");
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn bundle_descriptor_digest_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == ArtifactRole::InputAuthorization)
+            .expect("descriptor");
+        descriptor.content_digest = compute_payload_digest(b"descriptor-digest-tamper");
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn bundle_descriptor_byte_length_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == ArtifactRole::InputAuthorization)
+            .expect("descriptor");
+        descriptor.byte_length += 1;
+        assert_verifier_err(&result);
+    }
+
+    #[test]
+    fn bundle_descriptor_schema_only_tampered_rejected() {
+        let mut result = completed_exact_result();
+        let alternate_schema =
+            ArtifactSchemaIdentity::new("voxproof-artifact-bundle-v1", "v1").expect("schema");
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == ArtifactRole::InputAuthorization)
+            .expect("descriptor");
+        descriptor.payload_schema = alternate_schema;
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("descriptor schema tamper");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::BundleDescriptorSchemaMismatch {
+                role: ArtifactRole::InputAuthorization,
+            }
+        ));
+    }
+
+    #[test]
+    fn trace_cleared_rejected() {
+        let mut result = completed_exact_result();
+        result.execution_trace.clear();
+        let error =
+            verify_real_transcript_evaluation_completed_result(&result).expect_err("empty trace");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceLengthMismatch
+        ));
+    }
+
+    #[test]
+    fn trace_reordered_rejected() {
+        let mut result = completed_exact_result();
+        result.execution_trace.swap(2, 3);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("reordered trace");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceStageMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn trace_missing_stage_rejected() {
+        let mut result = completed_exact_result();
+        result.execution_trace.remove(2);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("missing trace stage");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceLengthMismatch
+                | RealTranscriptEvaluationExecutionError::ExecutionTraceStageMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn trace_duplicate_stage_rejected() {
+        let mut result = completed_exact_result();
+        let duplicate = result.execution_trace[2].clone();
+        result.execution_trace.insert(3, duplicate);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("duplicate trace stage");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceLengthMismatch
+                | RealTranscriptEvaluationExecutionError::ExecutionTraceStageMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn trace_lifecycle_state_changed_rejected() {
+        let mut result = completed_exact_result();
+        result.execution_trace[2].lifecycle_state = RunLifecycleState::AssistedReview;
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("trace lifecycle tamper");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceLifecycleMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn trace_artifact_ids_changed_rejected() {
+        let mut result = completed_exact_result();
+        result.execution_trace[0].related_artifact_ids.reverse();
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("trace artifact ids tamper");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceArtifactIdsMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn canonical_payload_omitted_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads.remove(0);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("missing payload");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::MissingPayload {
+                role: ArtifactRole::InputAuthorization,
+            }
+        ));
+    }
+
+    #[test]
+    fn duplicate_payload_role_rejected() {
+        let mut result = completed_exact_result();
+        let duplicate = result.serialized_payloads[8].clone();
+        result.serialized_payloads.push(duplicate);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("duplicate payload role");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DuplicatePayloadRole {
+                role: ArtifactRole::Metrics,
+            }
+        ));
+    }
+
+    #[test]
+    fn extra_payload_role_rejected() {
+        let mut result = completed_exact_result();
+        let extra = RealTranscriptEvaluationSerializedArtifact {
+            artifact_id: ArtifactId::new("extra-review-ledger").expect("id"),
+            role: ArtifactRole::ReviewLedger,
+            payload_schema: ArtifactSchemaIdentity::new("voxproof-review-ledger-v1", "v1")
+                .expect("schema"),
+            payload_bytes: br#"{"review_ledger_id":"extra"}"#.to_vec(),
+            content_digest: compute_payload_digest(br#"{"review_ledger_id":"extra"}"#),
+            byte_length: br#"{"review_ledger_id":"extra"}"#.len() as u64,
+        };
+        result.serialized_payloads.push(extra);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("extra payload role");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExtraPayload { .. }
+        ));
+    }
+
+    #[test]
+    fn duplicate_payload_artifact_id_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads[8].artifact_id =
+            result.serialized_payloads[5].artifact_id.clone();
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("duplicate artifact id");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DuplicatePayloadArtifactId { .. }
+        ));
+    }
+
+    #[test]
+    fn payload_order_changed_rejected() {
+        let mut result = completed_exact_result();
+        result.serialized_payloads.swap(0, 1);
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("payload order tamper");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::PayloadOrderMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn exact_trace_has_expected_stage_sequence() {
+        let result = completed_exact_result();
+        let stages = result
+            .execution_trace
+            .iter()
+            .map(|record| record.stage)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            stages,
+            vec![
+                RealTranscriptEvaluationStage::RequestValidated,
+                RealTranscriptEvaluationStage::DetectorSnapshotValidated,
+                RealTranscriptEvaluationStage::JoinResolved,
+                RealTranscriptEvaluationStage::ContributionsComplete,
+                RealTranscriptEvaluationStage::AggregatesComplete,
+                RealTranscriptEvaluationStage::FinalBundleComplete,
+                RealTranscriptEvaluationStage::FinalBundleRederivationValidated,
+                RealTranscriptEvaluationStage::TypedPayloadReplayValidated,
+                RealTranscriptEvaluationStage::HistoricalReplayValidated,
+            ]
+        );
+    }
+
+    #[test]
+    fn assisted_trace_has_expected_stage_sequence() {
+        let result = completed_assisted_result();
+        let stages = result
+            .execution_trace
+            .iter()
+            .map(|record| record.stage)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            stages,
+            vec![
+                RealTranscriptEvaluationStage::RequestValidated,
+                RealTranscriptEvaluationStage::DetectorSnapshotValidated,
+                RealTranscriptEvaluationStage::JoinRequiresAdjudication,
+                RealTranscriptEvaluationStage::ContributionsPending,
+                RealTranscriptEvaluationStage::HumanAdjudicationValidated,
+                RealTranscriptEvaluationStage::JoinResolved,
+                RealTranscriptEvaluationStage::ContributionsComplete,
+                RealTranscriptEvaluationStage::AggregatesComplete,
+                RealTranscriptEvaluationStage::FinalBundleComplete,
+                RealTranscriptEvaluationStage::FinalBundleRederivationValidated,
+                RealTranscriptEvaluationStage::TypedPayloadReplayValidated,
+                RealTranscriptEvaluationStage::HistoricalReplayValidated,
+            ]
+        );
+    }
+
+    #[test]
+    fn trace_records_carry_canonical_artifact_id_order() {
+        let result = completed_exact_result();
+        let expected_ids = result
+            .serialized_payloads
+            .iter()
+            .map(|payload| payload.artifact_id.clone())
+            .collect::<Vec<_>>();
+        for record in &result.execution_trace {
+            assert_eq!(record.related_artifact_ids, expected_ids);
+        }
+    }
+
+    #[test]
+    fn trace_detector_execution_relabel_in_lifecycle_rejected() {
+        let mut result = completed_exact_result();
+        if let Some(record) = result
+            .execution_trace
+            .iter_mut()
+            .find(|record| record.stage == RealTranscriptEvaluationStage::JoinResolved)
+        {
+            record.lifecycle_state = RunLifecycleState::AssistedReview;
+        }
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("trace lifecycle relabel");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::ExecutionTraceLifecycleMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn join_adjudication_role_hash_sync_tamper_rejected() {
+        let mut result = completed_assisted_result();
+        result.final_adjudication_set.records[0].adjudicator_role =
+            OverlapAdjudicatorRole::SyntheticFixtureAdjudicator;
+        let adjudication_bytes =
+            serde_json::to_vec(&result.final_adjudication_set).expect("adjudication bytes");
+        sync_role_payload(
+            &mut result,
+            ArtifactRole::JoinAdjudication,
+            adjudication_bytes,
+        );
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("join adjudication role tamper");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::UnsupportedRealAdjudicatorRole {
+                role: OverlapAdjudicatorRole::SyntheticFixtureAdjudicator,
+                ..
+            }
+        ));
+    }
 }

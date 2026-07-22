@@ -26,8 +26,9 @@ use crate::input_authorization::{
     INPUT_AUTHORIZATION_SCHEMA, InputAuthorization, input_authorization_from_json,
 };
 use crate::join_adjudication::{
-    OVERLAP_ADJUDICATION_SCHEMA, OverlapAdjudicationSet, OverlapAdjudicationValidationError,
-    OverlapAdjudicatorRole, overlap_adjudication_from_json,
+    OVERLAP_ADJUDICATION_SCHEMA, OverlapAdjudicationRecord, OverlapAdjudicationSet,
+    OverlapAdjudicationSetState, OverlapAdjudicationValidationError, OverlapAdjudicatorRole,
+    overlap_adjudication_from_json,
 };
 use crate::join_metric_aggregation::{
     JOIN_METRIC_AGGREGATION_SCHEMA, JoinMetricAggregateContext, JoinMetricAggregateSet,
@@ -221,6 +222,27 @@ pub enum RealTranscriptEvaluationExecutionError {
     PayloadSerializationFailure,
     PayloadDeserializationFailure {
         role: ArtifactRole,
+    },
+    CompletionStageAdjudicationMismatch {
+        completion_stage: RealTranscriptEvaluationCompletionStage,
+    },
+    ExecutionTraceLengthMismatch,
+    ExecutionTraceStageMismatch {
+        index: usize,
+    },
+    ExecutionTraceLifecycleMismatch {
+        index: usize,
+    },
+    ExecutionTraceArtifactIdsMismatch {
+        index: usize,
+    },
+    BundleDescriptorSchemaMismatch {
+        role: ArtifactRole,
+    },
+    PayloadOrderMismatch {
+        index: usize,
+        expected: ArtifactRole,
+        actual: ArtifactRole,
     },
     PayloadSchemaMismatch {
         role: ArtifactRole,
@@ -542,9 +564,269 @@ pub fn verify_real_transcript_evaluation_completed_result(
         return Err(RealTranscriptEvaluationExecutionError::ValidatedPlanMismatch);
     }
 
+    verify_completed_result_core(result, &recomputed_plan)?;
+    validate_completed_execution_trace(result)?;
+    Ok(())
+}
+
+fn verify_completed_result_core(
+    result: &RealTranscriptEvaluationCompletedResult,
+    validated_plan: &ValidatedRealTranscriptEvaluationRunPlan,
+) -> Result<(), RealTranscriptEvaluationExecutionError> {
+    validate_completed_execution_semantics(result, validated_plan)?;
     verify_payload_integrity(result)?;
     verify_typed_payload_round_trip(result)?;
     verify_final_bundle_rederivation(result)?;
+    Ok(())
+}
+
+fn validate_completed_execution_semantics(
+    result: &RealTranscriptEvaluationCompletedResult,
+    _validated_plan: &ValidatedRealTranscriptEvaluationRunPlan,
+) -> Result<(), RealTranscriptEvaluationExecutionError> {
+    if result.final_adjudication_set.state != OverlapAdjudicationSetState::Frozen {
+        return Err(
+            RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                completion_stage: result.completion_stage,
+            },
+        );
+    }
+
+    if result.final_join.state != DetectorReferenceJoinState::Resolved
+        || !result.final_join.assessment.fully_resolved
+        || result.final_join.assessment.unresolved_overlap_edge_count != 0
+    {
+        return Err(
+            RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                completion_stage: result.completion_stage,
+            },
+        );
+    }
+
+    match result.completion_stage {
+        RealTranscriptEvaluationCompletionStage::DetectorExecution => {
+            if !result.final_adjudication_set.records.is_empty() {
+                return Err(
+                    RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                        completion_stage: result.completion_stage,
+                    },
+                );
+            }
+            if join_has_assisted_adjudication_evidence(&result.final_join) {
+                return Err(
+                    RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                        completion_stage: result.completion_stage,
+                    },
+                );
+            }
+        }
+        RealTranscriptEvaluationCompletionStage::AssistedReview => {
+            if result.final_adjudication_set.records.is_empty() {
+                return Err(
+                    RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                        completion_stage: result.completion_stage,
+                    },
+                );
+            }
+
+            for record in &result.final_adjudication_set.records {
+                match record.adjudicator_role {
+                    OverlapAdjudicatorRole::OwnerAdjudicator
+                    | OverlapAdjudicatorRole::AuthorizedDomainAdjudicator => {}
+                    role => {
+                        return Err(
+                            RealTranscriptEvaluationExecutionError::UnsupportedRealAdjudicatorRole {
+                                adjudication_id: record.adjudication_id.clone(),
+                                role,
+                            },
+                        );
+                    }
+                }
+            }
+
+            let has_accepted_overlap_resolution =
+                result.final_adjudication_set.records.iter().any(|record| {
+                    adjudication_record_resolves_accepted_overlap(&result.final_join, record)
+                });
+            if !has_accepted_overlap_resolution {
+                return Err(
+                    RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
+                        completion_stage: result.completion_stage,
+                    },
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn join_has_assisted_adjudication_evidence(join: &DetectorReferenceJoin) -> bool {
+    join.edges
+        .iter()
+        .any(|edge| edge.adjudication_id.is_some() || edge.adjudication_result.is_some())
+}
+
+fn adjudication_record_resolves_accepted_overlap(
+    join: &DetectorReferenceJoin,
+    record: &OverlapAdjudicationRecord,
+) -> bool {
+    join.edges.iter().any(|edge| {
+        edge.adjudication_id.as_ref() == Some(&record.adjudication_id)
+            && edge.anchor_relation == JoinAnchorRelation::Overlap
+            && edge.resolution == JoinEdgeResolution::PrimaryAssignment
+    })
+}
+
+fn artifact_ids_from_completed_result(
+    result: &RealTranscriptEvaluationCompletedResult,
+) -> Result<Vec<ArtifactId>, RealTranscriptEvaluationExecutionError> {
+    FINAL_ARTIFACT_ROLES
+        .iter()
+        .map(|role| artifact_id_for_role_in_bundle(&result.final_bundle, *role))
+        .collect()
+}
+
+fn expected_completed_execution_trace(
+    result: &RealTranscriptEvaluationCompletedResult,
+) -> Result<Vec<RealTranscriptEvaluationStageRecord>, RealTranscriptEvaluationExecutionError> {
+    let artifact_ids = artifact_ids_from_completed_result(result)?;
+    let mut trace = Vec::new();
+
+    let push = |trace: &mut Vec<RealTranscriptEvaluationStageRecord>,
+                stage: RealTranscriptEvaluationStage,
+                lifecycle_state: RunLifecycleState| {
+        push_trace(trace, stage, lifecycle_state, artifact_ids.clone());
+    };
+
+    push(
+        &mut trace,
+        RealTranscriptEvaluationStage::RequestValidated,
+        RunLifecycleState::Declared,
+    );
+    push(
+        &mut trace,
+        RealTranscriptEvaluationStage::DetectorSnapshotValidated,
+        RunLifecycleState::DetectorExecution,
+    );
+
+    match result.completion_stage {
+        RealTranscriptEvaluationCompletionStage::DetectorExecution => {
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::JoinResolved,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::ContributionsComplete,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::AggregatesComplete,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::FinalBundleComplete,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::FinalBundleRederivationValidated,
+                RunLifecycleState::DetectorExecution,
+            );
+        }
+        RealTranscriptEvaluationCompletionStage::AssistedReview => {
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::JoinRequiresAdjudication,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::ContributionsPending,
+                RunLifecycleState::DetectorExecution,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::HumanAdjudicationValidated,
+                RunLifecycleState::AssistedReview,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::JoinResolved,
+                RunLifecycleState::AssistedReview,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::ContributionsComplete,
+                RunLifecycleState::AssistedReview,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::AggregatesComplete,
+                RunLifecycleState::AssistedReview,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::FinalBundleComplete,
+                RunLifecycleState::AssistedReview,
+            );
+            push(
+                &mut trace,
+                RealTranscriptEvaluationStage::FinalBundleRederivationValidated,
+                RunLifecycleState::AssistedReview,
+            );
+        }
+    }
+
+    push(
+        &mut trace,
+        RealTranscriptEvaluationStage::TypedPayloadReplayValidated,
+        RunLifecycleState::Finalized,
+    );
+    push(
+        &mut trace,
+        RealTranscriptEvaluationStage::HistoricalReplayValidated,
+        RunLifecycleState::Finalized,
+    );
+
+    Ok(trace)
+}
+
+fn validate_completed_execution_trace(
+    result: &RealTranscriptEvaluationCompletedResult,
+) -> Result<(), RealTranscriptEvaluationExecutionError> {
+    let expected = expected_completed_execution_trace(result)?;
+    if result.execution_trace.len() != expected.len() {
+        return Err(RealTranscriptEvaluationExecutionError::ExecutionTraceLengthMismatch);
+    }
+
+    for (index, (actual, expected_record)) in result
+        .execution_trace
+        .iter()
+        .zip(expected.iter())
+        .enumerate()
+    {
+        if actual.stage != expected_record.stage {
+            return Err(
+                RealTranscriptEvaluationExecutionError::ExecutionTraceStageMismatch { index },
+            );
+        }
+        if actual.lifecycle_state != expected_record.lifecycle_state {
+            return Err(
+                RealTranscriptEvaluationExecutionError::ExecutionTraceLifecycleMismatch { index },
+            );
+        }
+        if actual.related_artifact_ids != expected_record.related_artifact_ids {
+            return Err(
+                RealTranscriptEvaluationExecutionError::ExecutionTraceArtifactIdsMismatch { index },
+            );
+        }
+    }
+
     Ok(())
 }
 
@@ -1045,14 +1327,21 @@ fn complete_execution(
         execution_trace: trace.clone(),
     };
 
-    verify_real_transcript_evaluation_completed_result(&result)?;
+    verify_completed_result_core(&result, validated_plan)?;
 
+    push_trace(
+        &mut result.execution_trace,
+        RealTranscriptEvaluationStage::TypedPayloadReplayValidated,
+        RunLifecycleState::Finalized,
+        artifact_ids_from_input(input),
+    );
     push_trace(
         &mut result.execution_trace,
         RealTranscriptEvaluationStage::HistoricalReplayValidated,
         RunLifecycleState::Finalized,
         artifact_ids_from_input(input),
     );
+    validate_completed_execution_trace(&result)?;
 
     Ok(result)
 }
@@ -1400,12 +1689,6 @@ fn finalize_bundle_two_pass(
         lifecycle,
         artifact_ids_from_input(input),
     );
-    push_trace(
-        trace,
-        RealTranscriptEvaluationStage::TypedPayloadReplayValidated,
-        RunLifecycleState::Finalized,
-        artifact_ids_from_input(input),
-    );
 
     Ok((final_payloads, final_bundle))
 }
@@ -1720,33 +2003,69 @@ fn build_bundle_from_payloads(
 fn verify_payload_integrity(
     result: &RealTranscriptEvaluationCompletedResult,
 ) -> Result<(), RealTranscriptEvaluationExecutionError> {
-    if result.serialized_payloads.len() != FINAL_ARTIFACT_ROLES.len() {
-        return Err(RealTranscriptEvaluationExecutionError::MissingPayload {
-            role: ArtifactRole::InputAuthorization,
-        });
+    for payload in &result.serialized_payloads {
+        if !FINAL_ARTIFACT_ROLES.contains(&payload.role) {
+            return Err(RealTranscriptEvaluationExecutionError::ExtraPayload {
+                artifact_id: payload.artifact_id.clone(),
+            });
+        }
     }
 
-    let mut seen_roles = std::collections::BTreeSet::new();
+    let mut role_counts = std::collections::BTreeMap::<ArtifactRole, usize>::new();
+    for payload in &result.serialized_payloads {
+        *role_counts.entry(payload.role).or_insert(0) += 1;
+    }
+    for (role, count) in role_counts {
+        if count > 1 {
+            return Err(RealTranscriptEvaluationExecutionError::DuplicatePayloadRole { role });
+        }
+    }
+
     let mut seen_ids = std::collections::HashSet::new();
+    for payload in &result.serialized_payloads {
+        if !seen_ids.insert(payload.artifact_id.clone()) {
+            return Err(
+                RealTranscriptEvaluationExecutionError::DuplicatePayloadArtifactId {
+                    artifact_id: payload.artifact_id.clone(),
+                },
+            );
+        }
+    }
+
+    for expected_role in FINAL_ARTIFACT_ROLES {
+        if !result
+            .serialized_payloads
+            .iter()
+            .any(|payload| payload.role == expected_role)
+        {
+            return Err(RealTranscriptEvaluationExecutionError::MissingPayload {
+                role: expected_role,
+            });
+        }
+    }
+
+    if result.serialized_payloads.len() != FINAL_ARTIFACT_ROLES.len() {
+        for expected_role in FINAL_ARTIFACT_ROLES {
+            if !result
+                .serialized_payloads
+                .iter()
+                .any(|payload| payload.role == expected_role)
+            {
+                return Err(RealTranscriptEvaluationExecutionError::MissingPayload {
+                    role: expected_role,
+                });
+            }
+        }
+    }
 
     for (index, expected_role) in FINAL_ARTIFACT_ROLES.iter().enumerate() {
         let payload = &result.serialized_payloads[index];
         if payload.role != *expected_role {
             return Err(
-                RealTranscriptEvaluationExecutionError::PayloadSchemaMismatch {
-                    role: *expected_role,
-                },
-            );
-        }
-        if !seen_roles.insert(payload.role) {
-            return Err(
-                RealTranscriptEvaluationExecutionError::DuplicatePayloadRole { role: payload.role },
-            );
-        }
-        if !seen_ids.insert(payload.artifact_id.clone()) {
-            return Err(
-                RealTranscriptEvaluationExecutionError::DuplicatePayloadArtifactId {
-                    artifact_id: payload.artifact_id.clone(),
+                RealTranscriptEvaluationExecutionError::PayloadOrderMismatch {
+                    index,
+                    expected: *expected_role,
+                    actual: payload.role,
                 },
             );
         }
@@ -1794,6 +2113,34 @@ fn verify_payload_integrity(
             .find(|entry| entry.role == payload.role)
             .ok_or(RealTranscriptEvaluationExecutionError::MissingPayload { role: payload.role })?;
 
+        if descriptor.role != payload.role {
+            return Err(
+                RealTranscriptEvaluationExecutionError::BundleDescriptorSchemaMismatch {
+                    role: payload.role,
+                },
+            );
+        }
+        if descriptor.artifact_id != payload.artifact_id {
+            return Err(
+                RealTranscriptEvaluationExecutionError::PayloadArtifactIdMismatch {
+                    role: payload.role,
+                },
+            );
+        }
+        if descriptor.payload_schema != payload.payload_schema {
+            return Err(
+                RealTranscriptEvaluationExecutionError::BundleDescriptorSchemaMismatch {
+                    role: payload.role,
+                },
+            );
+        }
+        if descriptor.payload_schema != expected_schema {
+            return Err(
+                RealTranscriptEvaluationExecutionError::BundleDescriptorSchemaMismatch {
+                    role: payload.role,
+                },
+            );
+        }
         if descriptor.content_digest != payload.content_digest {
             return Err(
                 RealTranscriptEvaluationExecutionError::PayloadDigestMismatch {
