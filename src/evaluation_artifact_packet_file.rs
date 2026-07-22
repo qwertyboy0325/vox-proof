@@ -9,19 +9,45 @@ use crate::evaluation_artifact_packet::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EvaluationArtifactPacketFileLimits {
-    pub max_packet_bytes: u64,
+    max_packet_bytes: u64,
 }
 
 impl EvaluationArtifactPacketFileLimits {
     pub fn new(max_packet_bytes: u64) -> Result<Self, EvaluationArtifactPacketFileError> {
-        if max_packet_bytes == 0 {
-            return Err(EvaluationArtifactPacketFileError::InvalidFileLimit);
-        }
-        if max_packet_bytes > usize::MAX as u64 {
-            return Err(EvaluationArtifactPacketFileError::InvalidFileLimit);
-        }
-        Ok(Self { max_packet_bytes })
+        let limits = Self { max_packet_bytes };
+        limits.validate()?;
+        Ok(limits)
     }
+
+    pub fn max_packet_bytes(self) -> u64 {
+        self.max_packet_bytes
+    }
+
+    fn validate(self) -> Result<(), EvaluationArtifactPacketFileError> {
+        validate_limit_value(self.max_packet_bytes)
+    }
+
+    fn max_read_bytes(self) -> Result<u64, EvaluationArtifactPacketFileError> {
+        self.max_packet_bytes
+            .checked_add(1)
+            .ok_or(EvaluationArtifactPacketFileError::InvalidFileLimit)
+    }
+
+    fn max_read_usize(self) -> Result<usize, EvaluationArtifactPacketFileError> {
+        usize::try_from(self.max_read_bytes()?)
+            .map_err(|_| EvaluationArtifactPacketFileError::InvalidFileLimit)
+    }
+}
+
+fn validate_limit_value(max_packet_bytes: u64) -> Result<(), EvaluationArtifactPacketFileError> {
+    if max_packet_bytes == 0 {
+        return Err(EvaluationArtifactPacketFileError::InvalidFileLimit);
+    }
+    let max_read = max_packet_bytes
+        .checked_add(1)
+        .ok_or(EvaluationArtifactPacketFileError::InvalidFileLimit)?;
+    usize::try_from(max_read).map_err(|_| EvaluationArtifactPacketFileError::InvalidFileLimit)?;
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,6 +92,7 @@ pub fn write_encoded_packet_file_create_new(
     limits: EvaluationArtifactPacketFileLimits,
 ) -> Result<EvaluationArtifactPacketFileWriteReceipt, EvaluationArtifactPacketFileError> {
     let path = path.as_ref();
+    limits.validate()?;
     validate_encoded_packet_preflight(encoded, limits)?;
     validate_destination_absent(path)?;
 
@@ -116,6 +143,7 @@ pub fn read_and_verify_packet_file(
     expected_digest: Option<&EvaluationArtifactPacketDigest>,
     limits: EvaluationArtifactPacketFileLimits,
 ) -> Result<VerifiedEvaluationArtifactPacketFile, EvaluationArtifactPacketFileError> {
+    limits.validate()?;
     let path = path.as_ref();
     let bytes = read_regular_file_bytes_bounded(path, limits)?;
     let verified = decode_and_verify_packet(&bytes, expected_digest)
@@ -140,7 +168,7 @@ fn validate_encoded_packet_preflight(
     if encoded.byte_length != actual_len {
         return Err(EvaluationArtifactPacketFileError::EncodedPacketLengthMismatch);
     }
-    if encoded.byte_length > limits.max_packet_bytes {
+    if encoded.byte_length > limits.max_packet_bytes() {
         return Err(EvaluationArtifactPacketFileError::EncodedPacketExceedsLimit);
     }
 
@@ -185,6 +213,8 @@ fn read_regular_file_bytes_bounded(
     path: &Path,
     limits: EvaluationArtifactPacketFileLimits,
 ) -> Result<Vec<u8>, EvaluationArtifactPacketFileError> {
+    limits.validate()?;
+
     let metadata = fs::symlink_metadata(path).map_err(|error| {
         EvaluationArtifactPacketFileError::FileMetadataFailure { kind: error.kind() }
     })?;
@@ -196,16 +226,12 @@ fn read_regular_file_bytes_bounded(
         return Err(EvaluationArtifactPacketFileError::UnsupportedFileType);
     }
 
-    if metadata.len() > limits.max_packet_bytes {
+    if metadata.len() > limits.max_packet_bytes() {
         return Err(EvaluationArtifactPacketFileError::FileExceedsLimit);
     }
 
-    let max_read = limits
-        .max_packet_bytes
-        .checked_add(1)
-        .ok_or(EvaluationArtifactPacketFileError::FileLengthConversionOverflow)?;
-    let max_read_usize = usize::try_from(max_read)
-        .map_err(|_| EvaluationArtifactPacketFileError::FileLengthConversionOverflow)?;
+    let max_read = limits.max_read_bytes()?;
+    let _max_read_usize = limits.max_read_usize()?;
 
     let file = File::open(path).map_err(|error| {
         EvaluationArtifactPacketFileError::FileOpenFailure { kind: error.kind() }
@@ -217,11 +243,20 @@ fn read_regular_file_bytes_bounded(
             kind: error.kind(),
         })?;
 
-    if buffer.len() > max_read_usize.saturating_sub(1) {
+    if read_len_exceeds_packet_limit(buffer.len(), limits)? {
         return Err(EvaluationArtifactPacketFileError::FileExceedsLimit);
     }
 
     Ok(buffer)
+}
+
+fn read_len_exceeds_packet_limit(
+    read_len: usize,
+    limits: EvaluationArtifactPacketFileLimits,
+) -> Result<bool, EvaluationArtifactPacketFileError> {
+    let read_len_u64 = u64::try_from(read_len)
+        .map_err(|_| EvaluationArtifactPacketFileError::FileLengthConversionOverflow)?;
+    Ok(read_len_u64 > limits.max_packet_bytes())
 }
 
 fn compute_file_content_digest(
@@ -251,7 +286,13 @@ fn cleanup_created_file(
 
 #[cfg(test)]
 mod unit_tests {
+    use std::path::Path;
+
     use super::*;
+
+    fn forged(max_packet_bytes: u64) -> EvaluationArtifactPacketFileLimits {
+        EvaluationArtifactPacketFileLimits { max_packet_bytes }
+    }
 
     #[test]
     fn zero_limit_rejected() {
@@ -259,5 +300,56 @@ mod unit_tests {
             EvaluationArtifactPacketFileLimits::new(0),
             Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
         );
+    }
+
+    #[test]
+    fn max_plus_one_representability_boundary() {
+        let usize_max_u64 =
+            u64::try_from(usize::MAX).expect("usize::MAX must fit in u64 for this test");
+        if usize_max_u64 > 0 {
+            assert!(EvaluationArtifactPacketFileLimits::new(usize_max_u64 - 1).is_ok());
+        }
+        assert_eq!(
+            EvaluationArtifactPacketFileLimits::new(usize_max_u64),
+            Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
+        );
+        assert_eq!(
+            EvaluationArtifactPacketFileLimits::new(u64::MAX),
+            Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
+        );
+    }
+
+    #[test]
+    fn forged_invalid_write_limit_fails_before_destination_creation() {
+        let encoded = EncodedEvaluationArtifactPacket {
+            packet_bytes: vec![b'{', b'}'],
+            content_digest: EvaluationArtifactPacketDigest::new(
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .expect("digest"),
+            byte_length: 2,
+        };
+        let path = Path::new("/tmp/voxproof-forged-limit-write-should-not-exist.packet");
+        assert!(matches!(
+            write_encoded_packet_file_create_new(path, &encoded, forged(0)),
+            Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
+        ));
+    }
+
+    #[test]
+    fn forged_invalid_read_limit_fails_before_file_access() {
+        let path = Path::new("/tmp/voxproof-forged-limit-read-should-not-exist.packet");
+        assert!(matches!(
+            read_and_verify_packet_file(path, None, forged(0)),
+            Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
+        ));
+    }
+
+    #[test]
+    fn stream_length_equal_to_max_plus_one_exceeds_limit() {
+        let limits = EvaluationArtifactPacketFileLimits::new(100).expect("limits");
+        assert!(read_len_exceeds_packet_limit(101, limits).expect("compare"));
+        assert!(!read_len_exceeds_packet_limit(100, limits).expect("compare"));
+        assert!(!read_len_exceeds_packet_limit(99, limits).expect("compare"));
     }
 }

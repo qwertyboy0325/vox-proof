@@ -381,7 +381,7 @@ The packet document carries four in-band policy fields; detached packet digest p
 
 ## v0.2 Evaluation Artifact Packet File Adapter Boundary
 
-The file adapter writes and reads one local regular file containing the accepted packet byte document. The caller supplies the destination path and maximum byte count. Create-new semantics prevent overwriting an existing destination. Write success requires post-write exact-byte readback and full packet verification. Read success delegates to the accepted bytes-only verifier with an optional out-of-band detached digest. No sidecar, filename convention, atomic replacement protocol, or product persistence integration exists. File-level sync is requested but crash recovery and power-loss resilience are not established.
+The file adapter writes and reads one local regular file containing the accepted packet byte document. The caller supplies the destination path and maximum byte count through a closed validated `EvaluationArtifactPacketFileLimits` value. Create-new semantics prevent overwriting an existing destination. Write success requires post-write exact-byte readback and full packet verification. Read success delegates to the accepted bytes-only verifier with an optional out-of-band detached digest. Existing files larger than the selected limit fail directly with `FileExceedsLimit`. No sidecar, filename convention, atomic replacement protocol, or product persistence integration exists. File-level sync is requested but crash recovery and power-loss resilience are not established.
 
 ## Future Evaluation Areas
 

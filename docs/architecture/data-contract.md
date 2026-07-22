@@ -368,6 +368,8 @@ Boundary:
 - pre-write validation requires encoded byte length, caller size limit, canonical detached digest syntax, and full bytes-only packet verification before any filesystem mutation;
 - write success requires `write_all`, flush, file-level `sync_all`, close, exact-byte readback, and full packet verification on reopened bytes;
 - read success accepts only a regular file under an explicit caller-supplied maximum byte count, optionally checks an out-of-band detached digest, and delegates semantic verification to the accepted packet verifier;
+- `EvaluationArtifactPacketFileLimits` is a closed validated value type; the caller chooses the limit; zero and values whose `max + 1` sentinel read cannot fit in `usize` are rejected; both public file APIs defensively validate the supplied limit;
+- metadata provides an early size rejection for existing files; the stream read remains bounded to `max + 1`; oversized existing files fail with `FileExceedsLimit`; this does not establish a universal product packet-size policy;
 - no digest sidecar, filename convention, directory layout, or archive container exists;
 - file-level `sync_all()` is requested but atomicity, directory-entry durability, crash recovery, and power-loss resilience are not established;
 - process failure may leave a partial file that normal packet read verification must reject and that requires caller-directed cleanup;

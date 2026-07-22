@@ -269,11 +269,59 @@ fn encoded_packet_exceeding_limit_fails_before_creation() {
 }
 
 #[test]
-fn zero_limit_rejected() {
-    assert!(matches!(
-        EvaluationArtifactPacketFileLimits::new(0),
-        Err(EvaluationArtifactPacketFileError::InvalidFileLimit)
-    ));
+fn existing_file_one_byte_below_limit_rejected() {
+    let dir = TestDir::new();
+    let encoded = build_encoded(exact_only_multi_disposition_fixture());
+    let write_limits = default_limits(&encoded);
+    let path = dir.file("one-byte-below-limit.packet");
+
+    write_encoded_packet_file_create_new(&path, &encoded, write_limits).expect("write");
+    let read_limits =
+        EvaluationArtifactPacketFileLimits::new(encoded.byte_length.saturating_sub(1))
+            .expect("limits");
+
+    assert_eq!(
+        read_and_verify_packet_file(&path, Some(&encoded.content_digest), read_limits),
+        Err(EvaluationArtifactPacketFileError::FileExceedsLimit)
+    );
+}
+
+#[test]
+fn valid_prefix_plus_extra_bytes_at_original_limit_rejected() {
+    let dir = TestDir::new();
+    let encoded = build_encoded(exact_only_multi_disposition_fixture());
+    let write_limits = default_limits(&encoded);
+    let path = dir.file("prefix-plus-extra.packet");
+
+    write_encoded_packet_file_create_new(&path, &encoded, write_limits).expect("write");
+    let mut bytes = fs::read(&path).expect("read");
+    bytes.extend_from_slice(b"EXTRA");
+    write_raw(&path, &bytes);
+
+    let read_limits = EvaluationArtifactPacketFileLimits::new(encoded.byte_length).expect("limits");
+    assert_eq!(
+        read_and_verify_packet_file(&path, Some(&encoded.content_digest), read_limits),
+        Err(EvaluationArtifactPacketFileError::FileExceedsLimit)
+    );
+}
+
+#[test]
+fn oversized_file_with_valid_prefix_rejected() {
+    let dir = TestDir::new();
+    let encoded = build_encoded(exact_only_multi_disposition_fixture());
+    let write_limits = default_limits(&encoded);
+    let path = dir.file("oversized.packet");
+
+    write_encoded_packet_file_create_new(&path, &encoded, write_limits).expect("write");
+    let mut bytes = fs::read(&path).expect("read");
+    bytes.push(b'x');
+    write_raw(&path, &bytes);
+
+    let read_limits = EvaluationArtifactPacketFileLimits::new(encoded.byte_length).expect("limits");
+    assert_eq!(
+        read_and_verify_packet_file(&path, Some(&encoded.content_digest), read_limits),
+        Err(EvaluationArtifactPacketFileError::FileExceedsLimit)
+    );
 }
 
 #[test]
@@ -298,25 +346,6 @@ fn limit_one_byte_below_packet_rejected() {
     assert!(matches!(
         write_encoded_packet_file_create_new(&path, &encoded, limits),
         Err(EvaluationArtifactPacketFileError::EncodedPacketExceedsLimit)
-    ));
-}
-
-#[test]
-fn oversized_file_with_valid_prefix_rejected() {
-    let dir = TestDir::new();
-    let encoded = build_encoded(exact_only_multi_disposition_fixture());
-    let limits = default_limits(&encoded);
-    let path = dir.file("oversized.packet");
-
-    write_encoded_packet_file_create_new(&path, &encoded, limits).expect("write");
-    let mut bytes = fs::read(&path).expect("read");
-    bytes.push(b'x');
-    write_raw(&path, &bytes);
-
-    assert!(matches!(
-        read_and_verify_packet_file(&path, Some(&encoded.content_digest), limits),
-        Err(EvaluationArtifactPacketFileError::FileExceedsLimit)
-            | Err(EvaluationArtifactPacketFileError::PacketFileVerificationFailure(_))
     ));
 }
 
