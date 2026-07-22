@@ -334,16 +334,23 @@ The harness does not reimplement join, overlap, NFC, contribution mapping, aggre
 
 Policies:
 
-- packet serialization: `serde-json-compact-utf8-v1`
-- embedded payload encoding: `exact-utf8-json-text-v1`
-- embedded payload serialization: `serde-json-compact-utf8-v1`
-- embedded payload digest: `sha256-payload-bytes-v1`
-- detached packet digest: `sha256-packet-bytes-v1`
+- in-band packet policy fields (serialized in the packet document):
+  - packet serialization: `serde-json-compact-utf8-v1`
+  - embedded payload encoding: `exact-utf8-json-text-v1`
+  - embedded payload serialization: `serde-json-compact-utf8-v1`
+  - embedded payload digest: `sha256-payload-bytes-v1`
+- detached API policy constant (not serialized in the packet document):
+  - detached packet digest: `sha256-packet-bytes-v1` (`DETACHED_PACKET_DIGEST_POLICY`)
 
 Boundary:
 
 - construction may consume an accepted `SyntheticEvaluationHarnessResult` after harness integrity and typed round-trip verification;
 - verification accepts only packet bytes and an optional detached packet digest; it does not accept harness originals, fixtures, filesystem paths, or out-of-band source records;
+- all three lifecycle envelopes must share one immutable non-lifecycle run posture (`run_id`, `input_identity`, `calibration_validity`, `workflow_observation`, `input_class`, `qualifies_as_real_material_evidence`, `expected_artifact_roles`); only `lifecycle_state` may differ;
+- envelope posture is bound directly to `ArtifactBundle.binding_context` (`run_id`, `input_identity`, `calibration_validity`) and the fixed eight-role inventory;
+- packet v1 accepts only synthetic blind-reference posture (`BlindReference`, `SyntheticProtocolFixture`, `qualifies_as_real_material_evidence: false`); lifecycle transitions use the validated packet calibration mode;
+- recomputing packet or payload hashes cannot legalize contradictory lifecycle contexts or bundle binding mismatches;
+- detached packet digest syntax requires lowercase hexadecimal (`sha256:` + 64 chars `[0-9a-f]`);
 - embedded JSON bytes are recovered exactly and checked against bundle descriptors before role-specific typed deserialization, local validation, exact reserialization, source-backed join/contribution/aggregate rederivation, stored-vs-rederived equality, and decoded `Finalized` historical replay;
 - raw SHA-256 integrity at either packet or payload layer is not equivalent to typed semantic validity;
 - packet contents are private by default and may contain unredacted reference surfaces; no public-export, redaction, encryption, signature, authenticity, persistence, durability, or cross-platform claim exists;

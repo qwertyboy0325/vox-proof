@@ -375,9 +375,9 @@ Exact-only runs still pass through the required blind-reference `AssistedReview`
 
 The evaluation artifact packet is a self-contained compact UTF-8 JSON transport for the accepted synthetic evaluation chain. It carries three lifecycle envelopes, the final bundle, and eight descriptor-bound embedded payloads.
 
-Verification from packet bytes alone performs structural checks, embedded digest and length validation, exact typed decoding, local contract validation, exact payload reserialization, independent join/contribution/aggregate rederivation from decoded source artifacts, stored-vs-rederived equality, and decoded `Finalized` historical replay.
+Verification from packet bytes alone performs structural checks, immutable three-envelope posture validation, bundle binding-context validation, packet-v1 synthetic blind-reference posture enforcement, embedded digest and length validation, exact typed decoding, local contract validation, exact payload reserialization, independent join/contribution/aggregate rederivation from decoded source artifacts, stored-vs-rederived equality, and decoded `Finalized` historical replay.
 
-The detached packet SHA-256 digest proves transport-byte identity only when an expected digest is supplied independently. Recomputed hashes cannot establish semantic validity. No filesystem write, CLI, public export, signing, encryption, durability, cross-platform determinism, or detector-effectiveness claim exists for this slice.
+The packet document carries four in-band policy fields; detached packet digest policy is an out-of-band API constant. Detached packet SHA-256 syntax requires canonical lowercase hexadecimal and proves transport-byte identity only when an expected digest is supplied independently. Recomputed hashes cannot establish semantic validity or legalize contradictory lifecycle contexts. No filesystem write, CLI, public export, signing, encryption, durability, cross-platform determinism, or detector-effectiveness claim exists for this slice.
 
 ## Future Evaluation Areas
 

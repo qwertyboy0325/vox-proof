@@ -11,12 +11,16 @@ use fixtures::{
 use sha2::{Digest, Sha256};
 use vox_proof::artifact_bundle::ArtifactContentDigest;
 use vox_proof::evaluation_artifact_packet::{
-    EVALUATION_ARTIFACT_PACKET_SCHEMA, EvaluationArtifactPacket, EvaluationArtifactPacketDigest,
-    EvaluationArtifactPacketError, PACKET_SERIALIZATION_POLICY,
-    build_from_synthetic_harness_result, decode_and_verify_packet, decode_packet, encode_packet,
+    DetachedPacketDigestValidationError, EVALUATION_ARTIFACT_PACKET_SCHEMA,
+    EvaluationArtifactPacket, EvaluationArtifactPacketDigest, EvaluationArtifactPacketError,
+    PACKET_SERIALIZATION_POLICY, build_from_synthetic_harness_result, decode_and_verify_packet,
+    decode_packet, encode_packet,
 };
 use vox_proof::join_metric_aggregation::MetricAggregateValueState;
-use vox_proof::run_manifest::{ArtifactRole, RunEnvelope, RunLifecycleState};
+use vox_proof::run_manifest::{
+    ArtifactRole, CalibrationValidityMode, InputClass, RunEnvelope, RunId, RunLifecycleState,
+    WorkflowObservationMode,
+};
 use vox_proof::synthetic_evaluation_harness::{
     SyntheticEvaluationCompletionStage, SyntheticEvaluationHarness,
 };
@@ -32,6 +36,17 @@ const OVERLAP_PACKET_DIGEST: &str =
 const ZERO_POPULATION_PACKET_BYTE_LENGTH: u64 = 19_393;
 const ZERO_POPULATION_PACKET_DIGEST: &str =
     "sha256:09620f8c3bbe0a8a8339f8ab99a9074ac982894052b6c7052816e3f37c2575c8";
+
+const EXPECTED_PACKET_ROLES: [ArtifactRole; 8] = [
+    ArtifactRole::ReferenceSeal,
+    ArtifactRole::HumanFinalReference,
+    ArtifactRole::CueReviewCompletion,
+    ArtifactRole::DetectorOutput,
+    ArtifactRole::EvaluationJoin,
+    ArtifactRole::JoinAdjudication,
+    ArtifactRole::MetricContributions,
+    ArtifactRole::Metrics,
+];
 
 fn build_and_encode(
     fixture: vox_proof::synthetic_evaluation_harness::SyntheticEvaluationFixture,
@@ -120,6 +135,75 @@ fn tamper_payload_via_value(
 
 fn reencode_packet(packet: &EvaluationArtifactPacket) -> Vec<u8> {
     encode_packet(packet).expect("encode").packet_bytes
+}
+
+fn exact_only_decoded_packet() -> EvaluationArtifactPacket {
+    let encoded = build_and_encode(exact_only_multi_disposition_fixture());
+    decode_packet(&encoded.packet_bytes).expect("decode")
+}
+
+fn verify_reencoded_packet(
+    packet: &EvaluationArtifactPacket,
+) -> Result<
+    vox_proof::evaluation_artifact_packet::VerifiedEvaluationArtifactPacket,
+    EvaluationArtifactPacketError,
+> {
+    let encoded = encode_packet(packet).expect("encode");
+    decode_and_verify_packet(&encoded.packet_bytes, Some(&encoded.content_digest))
+}
+
+fn assert_envelopes_share_posture(packet: &EvaluationArtifactPacket) {
+    let detector = &packet.detector_execution_envelope;
+    for (label, envelope) in [
+        (
+            "assisted_review",
+            &packet.assisted_review_transition_envelope,
+        ),
+        ("finalized", &packet.finalized_envelope),
+    ] {
+        assert_eq!(envelope.run_id, detector.run_id, "{label} run_id");
+        assert_eq!(
+            envelope.input_identity, detector.input_identity,
+            "{label} input_identity"
+        );
+        assert_eq!(
+            envelope.calibration_validity, detector.calibration_validity,
+            "{label} calibration_validity"
+        );
+        assert_eq!(
+            envelope.workflow_observation, detector.workflow_observation,
+            "{label} workflow_observation"
+        );
+        assert_eq!(
+            envelope.input_class, detector.input_class,
+            "{label} input_class"
+        );
+        assert_eq!(
+            envelope.qualifies_as_real_material_evidence,
+            detector.qualifies_as_real_material_evidence,
+            "{label} qualifies_as_real_material_evidence"
+        );
+        assert_eq!(
+            envelope.expected_artifact_roles, detector.expected_artifact_roles,
+            "{label} expected_artifact_roles"
+        );
+    }
+    assert_eq!(
+        packet.artifact_bundle.expected_roles,
+        detector.expected_artifact_roles
+    );
+    assert_eq!(
+        packet.artifact_bundle.binding_context.run_id,
+        detector.run_id
+    );
+    assert_eq!(
+        packet.artifact_bundle.binding_context.input_identity,
+        detector.input_identity
+    );
+    assert_eq!(
+        packet.artifact_bundle.binding_context.calibration_validity,
+        detector.calibration_validity
+    );
 }
 
 #[test]
@@ -575,4 +659,370 @@ fn packet_schema_constant_matches() {
         packet.packet_serialization_policy,
         PACKET_SERIALIZATION_POLICY
     );
+}
+
+#[test]
+fn exact_only_envelopes_share_full_posture() {
+    let packet = exact_only_decoded_packet();
+    assert_envelopes_share_posture(&packet);
+    assert_eq!(
+        packet.detector_execution_envelope.calibration_validity,
+        CalibrationValidityMode::BlindReference
+    );
+    assert_eq!(
+        packet.detector_execution_envelope.input_class,
+        InputClass::SyntheticProtocolFixture
+    );
+    assert!(
+        !packet
+            .detector_execution_envelope
+            .qualifies_as_real_material_evidence
+    );
+}
+
+#[test]
+fn overlap_envelopes_share_full_posture() {
+    let encoded = build_and_encode(overlap_pending_then_resolved_fixture());
+    let packet = decode_packet(&encoded.packet_bytes).expect("decode");
+    assert_envelopes_share_posture(&packet);
+}
+
+#[test]
+fn role_inventory_matches_canonical_order() {
+    let packet = exact_only_decoded_packet();
+    for envelope in [
+        &packet.detector_execution_envelope,
+        &packet.assisted_review_transition_envelope,
+        &packet.finalized_envelope,
+    ] {
+        assert_eq!(
+            envelope.expected_artifact_roles.as_slice(),
+            EXPECTED_PACKET_ROLES
+        );
+    }
+    assert_eq!(
+        packet.artifact_bundle.expected_roles.as_slice(),
+        EXPECTED_PACKET_ROLES
+    );
+}
+
+#[test]
+fn tampered_assisted_review_calibration_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    packet
+        .assisted_review_transition_envelope
+        .calibration_validity = CalibrationValidityMode::DetectorAssisted;
+    packet
+        .assisted_review_transition_envelope
+        .validate()
+        .expect("assisted envelope remains valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "calibration_validity",
+                lifecycle_state: RunLifecycleState::AssistedReview,
+            }
+        )
+    ));
+}
+
+#[test]
+fn tampered_assisted_review_input_class_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    packet.assisted_review_transition_envelope.input_class = InputClass::SelfOwnedReal;
+    packet
+        .assisted_review_transition_envelope
+        .validate()
+        .expect("assisted envelope remains valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "input_class",
+                lifecycle_state: RunLifecycleState::AssistedReview,
+            }
+        ) | Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture { .. })
+    ));
+}
+
+#[test]
+fn tampered_assisted_review_real_material_flag_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    for envelope in [
+        &mut packet.detector_execution_envelope,
+        &mut packet.assisted_review_transition_envelope,
+        &mut packet.finalized_envelope,
+    ] {
+        envelope.input_class = InputClass::SelfOwnedReal;
+        envelope.qualifies_as_real_material_evidence = true;
+        envelope.validate().expect("envelope valid");
+    }
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture {
+            qualifies_as_real_material_evidence: true,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn tampered_assisted_review_workflow_observation_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    let flipped = match packet.detector_execution_envelope.workflow_observation {
+        WorkflowObservationMode::Enabled => WorkflowObservationMode::Disabled,
+        WorkflowObservationMode::Disabled => WorkflowObservationMode::Enabled,
+    };
+    packet
+        .assisted_review_transition_envelope
+        .workflow_observation = flipped;
+    packet
+        .assisted_review_transition_envelope
+        .validate()
+        .expect("assisted envelope remains valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "workflow_observation",
+                lifecycle_state: RunLifecycleState::AssistedReview,
+            }
+        )
+    ));
+}
+
+#[test]
+fn tampered_finalized_calibration_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    packet.finalized_envelope.calibration_validity = CalibrationValidityMode::DetectorAssisted;
+    packet
+        .finalized_envelope
+        .validate()
+        .expect("finalized valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "calibration_validity",
+                lifecycle_state: RunLifecycleState::Finalized,
+            }
+        )
+    ));
+}
+
+#[test]
+fn tampered_finalized_input_class_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    packet.finalized_envelope.input_class = InputClass::SelfOwnedReal;
+    packet
+        .finalized_envelope
+        .validate()
+        .expect("finalized valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "input_class",
+                lifecycle_state: RunLifecycleState::Finalized,
+            }
+        ) | Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture { .. })
+    ));
+}
+
+#[test]
+fn tampered_finalized_workflow_observation_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    let flipped = match packet.detector_execution_envelope.workflow_observation {
+        WorkflowObservationMode::Enabled => WorkflowObservationMode::Disabled,
+        WorkflowObservationMode::Disabled => WorkflowObservationMode::Enabled,
+    };
+    packet.finalized_envelope.workflow_observation = flipped;
+    packet
+        .finalized_envelope
+        .validate()
+        .expect("finalized valid");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field: "workflow_observation",
+                lifecycle_state: RunLifecycleState::Finalized,
+            }
+        )
+    ));
+}
+
+#[test]
+fn tampered_finalized_real_material_flag_rejected_after_digest_recompute() {
+    let mut packet = exact_only_decoded_packet();
+    for envelope in [
+        &mut packet.detector_execution_envelope,
+        &mut packet.assisted_review_transition_envelope,
+        &mut packet.finalized_envelope,
+    ] {
+        envelope.input_class = InputClass::SelfOwnedReal;
+        envelope.qualifies_as_real_material_evidence = true;
+        envelope.validate().expect("envelope valid");
+    }
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture {
+            qualifies_as_real_material_evidence: true,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn unsupported_detector_assisted_posture_rejected() {
+    let mut packet = exact_only_decoded_packet();
+    for envelope in [
+        &mut packet.detector_execution_envelope,
+        &mut packet.assisted_review_transition_envelope,
+        &mut packet.finalized_envelope,
+    ] {
+        envelope.calibration_validity = CalibrationValidityMode::DetectorAssisted;
+        envelope.validate().expect("envelope valid");
+    }
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture {
+            calibration_validity: CalibrationValidityMode::DetectorAssisted,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn bundle_binding_run_id_mismatch_rejected() {
+    let mut packet = exact_only_decoded_packet();
+    packet.artifact_bundle.binding_context.run_id =
+        RunId::new("run-id-tampered-001").expect("run id");
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(EvaluationArtifactPacketError::PacketBundleBindingContextMismatch { field: "run_id" })
+    ));
+}
+
+#[test]
+fn bundle_binding_input_identity_mismatch_rejected() {
+    let mut packet = exact_only_decoded_packet();
+    packet
+        .artifact_bundle
+        .binding_context
+        .input_identity
+        .transcript_revision_id =
+        "rev:sha256-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            .to_string();
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch {
+                field: "input_identity"
+            }
+        )
+    ));
+}
+
+#[test]
+fn bundle_binding_calibration_mismatch_rejected() {
+    let mut packet = exact_only_decoded_packet();
+    packet.artifact_bundle.binding_context.calibration_validity =
+        CalibrationValidityMode::DetectorAssisted;
+    let result = verify_reencoded_packet(&packet);
+    assert!(matches!(
+        result,
+        Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch {
+                field: "calibration_validity"
+            }
+        )
+    ));
+}
+
+#[test]
+fn detached_digest_lowercase_accepted() {
+    EvaluationArtifactPacketDigest::new(EXACT_ONLY_PACKET_DIGEST).expect("lowercase digest");
+}
+
+#[test]
+fn detached_digest_uppercase_hex_rejected() {
+    let uppercase = format!(
+        "sha256:{}",
+        EXACT_ONLY_PACKET_DIGEST[7..]
+            .chars()
+            .map(|ch| {
+                if ('a'..='f').contains(&ch) {
+                    ch.to_ascii_uppercase()
+                } else {
+                    ch
+                }
+            })
+            .collect::<String>()
+    );
+    assert!(matches!(
+        EvaluationArtifactPacketDigest::new(uppercase),
+        Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+            reason: DetachedPacketDigestValidationError::UppercaseHexNotCanonical
+        })
+    ));
+}
+
+#[test]
+fn detached_digest_wrong_prefix_rejected() {
+    assert!(matches!(
+        EvaluationArtifactPacketDigest::new(
+            "md5:427204f744b36a39958c4cc0dffd63f95bf6aba720984f8e32a2a519307f1d17"
+        ),
+        Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+            reason: DetachedPacketDigestValidationError::MissingPrefix
+        })
+    ));
+}
+
+#[test]
+fn detached_digest_short_rejected() {
+    assert!(matches!(
+        EvaluationArtifactPacketDigest::new("sha256:abc"),
+        Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+            reason: DetachedPacketDigestValidationError::InvalidLength
+        })
+    ));
+}
+
+#[test]
+fn detached_digest_long_rejected() {
+    assert!(matches!(
+        EvaluationArtifactPacketDigest::new(format!(
+            "sha256:{}0",
+            "427204f744b36a39958c4cc0dffd63f95bf6aba720984f8e32a2a519307f1d17"
+        )),
+        Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+            reason: DetachedPacketDigestValidationError::InvalidLength
+        })
+    ));
+}
+
+#[test]
+fn detached_digest_non_hex_rejected() {
+    assert!(matches!(
+        EvaluationArtifactPacketDigest::new(
+            "sha256:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        ),
+        Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+            reason: DetachedPacketDigestValidationError::InvalidHexCharacter
+        })
+    ));
 }

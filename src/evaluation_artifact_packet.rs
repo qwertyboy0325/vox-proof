@@ -35,8 +35,8 @@ use crate::reference_coverage::{
 };
 use crate::reference_seal::{ReferenceSeal, ReferenceSealValidationError, seal_from_json};
 use crate::run_manifest::{
-    ArtifactRole, CalibrationValidityMode, RunEnvelope, RunEnvelopeValidationError,
-    RunLifecycleState,
+    ArtifactRole, CalibrationValidityMode, InputClass, InputIdentityReference, RunEnvelope,
+    RunEnvelopeValidationError, RunId, RunLifecycleState, WorkflowObservationMode,
 };
 use crate::synthetic_evaluation_harness::{
     SyntheticEvaluationCompletionStage, SyntheticEvaluationHarness,
@@ -64,6 +64,14 @@ const PACKET_ARTIFACT_ROLES: [ArtifactRole; 8] = [
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct EvaluationArtifactPacketDigest(String);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DetachedPacketDigestValidationError {
+    MissingPrefix,
+    InvalidLength,
+    InvalidHexCharacter,
+    UppercaseHexNotCanonical,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -111,6 +119,9 @@ pub enum EvaluationArtifactPacketError {
     UnsupportedPacketPolicy,
     NonCanonicalPacketEncoding,
     DetachedPacketDigestMismatch,
+    InvalidDetachedPacketDigest {
+        reason: DetachedPacketDigestValidationError,
+    },
     PacketByteLengthMismatch,
     InvalidLifecycleEnvelope {
         lifecycle_state: RunLifecycleState,
@@ -121,6 +132,18 @@ pub enum EvaluationArtifactPacketError {
     },
     PacketCompletionStageMismatch,
     PacketEnvelopeIdentityMismatch,
+    PacketEnvelopePostureMismatch {
+        field: &'static str,
+        lifecycle_state: RunLifecycleState,
+    },
+    PacketBundleBindingContextMismatch {
+        field: &'static str,
+    },
+    UnsupportedPacketRunPosture {
+        calibration_validity: CalibrationValidityMode,
+        input_class: InputClass,
+        qualifies_as_real_material_evidence: bool,
+    },
     PacketBundleValidation(ArtifactBundleValidationError),
     PacketInventoryMismatch,
     MissingPacketPayload {
@@ -184,11 +207,28 @@ struct DecodedPacketArtifacts {
 impl EvaluationArtifactPacketDigest {
     pub fn new(value: impl Into<String>) -> Result<Self, EvaluationArtifactPacketError> {
         let value = value.into();
-        if !value.starts_with("sha256:") || value.len() != 71 {
-            return Err(EvaluationArtifactPacketError::DetachedPacketDigestMismatch);
+        if !value.starts_with("sha256:") {
+            return Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+                reason: DetachedPacketDigestValidationError::MissingPrefix,
+            });
         }
-        if !value[7..].chars().all(|ch| ch.is_ascii_hexdigit()) {
-            return Err(EvaluationArtifactPacketError::DetachedPacketDigestMismatch);
+        if value.len() != 71 {
+            return Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+                reason: DetachedPacketDigestValidationError::InvalidLength,
+            });
+        }
+        for character in value[7..].chars() {
+            if character.is_ascii_digit() || matches!(character, 'a'..='f') {
+                continue;
+            }
+            if character.is_ascii_hexdigit() {
+                return Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+                    reason: DetachedPacketDigestValidationError::UppercaseHexNotCanonical,
+                });
+            }
+            return Err(EvaluationArtifactPacketError::InvalidDetachedPacketDigest {
+                reason: DetachedPacketDigestValidationError::InvalidHexCharacter,
+            });
         }
         Ok(Self(value))
     }
@@ -338,6 +378,121 @@ fn validate_packet_policies(
     Ok(())
 }
 
+struct PacketRunPosture<'a> {
+    schema_revision: &'a str,
+    run_id: &'a RunId,
+    input_identity: &'a InputIdentityReference,
+    calibration_validity: CalibrationValidityMode,
+    workflow_observation: WorkflowObservationMode,
+    input_class: InputClass,
+    qualifies_as_real_material_evidence: bool,
+    expected_artifact_roles: &'a [ArtifactRole],
+}
+
+impl<'a> PacketRunPosture<'a> {
+    fn from_envelope(envelope: &'a RunEnvelope) -> Self {
+        Self {
+            schema_revision: envelope.schema_revision.as_str(),
+            run_id: &envelope.run_id,
+            input_identity: &envelope.input_identity,
+            calibration_validity: envelope.calibration_validity,
+            workflow_observation: envelope.workflow_observation,
+            input_class: envelope.input_class,
+            qualifies_as_real_material_evidence: envelope.qualifies_as_real_material_evidence,
+            expected_artifact_roles: envelope.expected_artifact_roles.as_slice(),
+        }
+    }
+
+    fn compare_except_lifecycle(
+        &self,
+        other: &Self,
+        other_lifecycle_state: RunLifecycleState,
+    ) -> Result<(), EvaluationArtifactPacketError> {
+        let mismatch =
+            |field: &'static str| EvaluationArtifactPacketError::PacketEnvelopePostureMismatch {
+                field,
+                lifecycle_state: other_lifecycle_state,
+            };
+
+        if self.schema_revision != other.schema_revision {
+            return Err(mismatch("schema_revision"));
+        }
+        if self.run_id != other.run_id {
+            return Err(mismatch("run_id"));
+        }
+        if self.input_identity != other.input_identity {
+            return Err(mismatch("input_identity"));
+        }
+        if self.calibration_validity != other.calibration_validity {
+            return Err(mismatch("calibration_validity"));
+        }
+        if self.workflow_observation != other.workflow_observation {
+            return Err(mismatch("workflow_observation"));
+        }
+        if self.input_class != other.input_class {
+            return Err(mismatch("input_class"));
+        }
+        if self.qualifies_as_real_material_evidence != other.qualifies_as_real_material_evidence {
+            return Err(mismatch("qualifies_as_real_material_evidence"));
+        }
+        if self.expected_artifact_roles != other.expected_artifact_roles {
+            return Err(mismatch("expected_artifact_roles"));
+        }
+
+        Ok(())
+    }
+}
+
+fn validate_packet_v1_posture(
+    posture: &PacketRunPosture<'_>,
+) -> Result<(), EvaluationArtifactPacketError> {
+    if posture.calibration_validity != CalibrationValidityMode::BlindReference
+        || posture.input_class != InputClass::SyntheticProtocolFixture
+        || posture.qualifies_as_real_material_evidence
+    {
+        return Err(EvaluationArtifactPacketError::UnsupportedPacketRunPosture {
+            calibration_validity: posture.calibration_validity,
+            input_class: posture.input_class,
+            qualifies_as_real_material_evidence: posture.qualifies_as_real_material_evidence,
+        });
+    }
+    Ok(())
+}
+
+fn validate_envelope_bundle_binding(
+    packet: &EvaluationArtifactPacket,
+    posture: &PacketRunPosture<'_>,
+) -> Result<(), EvaluationArtifactPacketError> {
+    let binding = &packet.artifact_bundle.binding_context;
+    if binding.run_id != *posture.run_id {
+        return Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch { field: "run_id" },
+        );
+    }
+    if binding.input_identity != *posture.input_identity {
+        return Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch {
+                field: "input_identity",
+            },
+        );
+    }
+    if binding.calibration_validity != posture.calibration_validity {
+        return Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch {
+                field: "calibration_validity",
+            },
+        );
+    }
+    if posture.expected_artifact_roles != packet.artifact_bundle.expected_roles.as_slice() {
+        return Err(
+            EvaluationArtifactPacketError::PacketBundleBindingContextMismatch {
+                field: "expected_artifact_roles",
+            },
+        );
+    }
+    Ok(())
+}
+
 fn validate_packet_envelopes(
     packet: &EvaluationArtifactPacket,
 ) -> Result<(), EvaluationArtifactPacketError> {
@@ -367,10 +522,29 @@ fn validate_packet_envelopes(
         });
     }
 
+    let reference_posture = PacketRunPosture::from_envelope(detector);
+    reference_posture.compare_except_lifecycle(
+        &PacketRunPosture::from_envelope(assisted),
+        RunLifecycleState::AssistedReview,
+    )?;
+    reference_posture.compare_except_lifecycle(
+        &PacketRunPosture::from_envelope(finalized),
+        RunLifecycleState::Finalized,
+    )?;
+
+    validate_packet_v1_posture(&reference_posture)?;
+    validate_envelope_bundle_binding(packet, &reference_posture)?;
+
+    if packet.artifact_bundle.expected_roles != PACKET_ARTIFACT_ROLES.to_vec() {
+        return Err(EvaluationArtifactPacketError::PacketInventoryMismatch);
+    }
+
+    let calibration_validity = reference_posture.calibration_validity;
+
     RunEnvelope::validate_transition(
         RunLifecycleState::DetectorExecution,
         RunLifecycleState::AssistedReview,
-        CalibrationValidityMode::BlindReference,
+        calibration_validity,
     )
     .map_err(
         |_| EvaluationArtifactPacketError::IllegalPacketLifecycleTransition {
@@ -382,7 +556,7 @@ fn validate_packet_envelopes(
     RunEnvelope::validate_transition(
         RunLifecycleState::AssistedReview,
         RunLifecycleState::Finalized,
-        CalibrationValidityMode::BlindReference,
+        calibration_validity,
     )
     .map_err(
         |_| EvaluationArtifactPacketError::IllegalPacketLifecycleTransition {
@@ -390,19 +564,6 @@ fn validate_packet_envelopes(
             to: RunLifecycleState::Finalized,
         },
     )?;
-
-    for envelope in [detector, assisted, finalized] {
-        if envelope.run_id != detector.run_id
-            || envelope.input_identity != detector.input_identity
-            || envelope.expected_artifact_roles != packet.artifact_bundle.expected_roles
-        {
-            return Err(EvaluationArtifactPacketError::PacketEnvelopeIdentityMismatch);
-        }
-    }
-
-    if packet.artifact_bundle.expected_roles != PACKET_ARTIFACT_ROLES.to_vec() {
-        return Err(EvaluationArtifactPacketError::PacketInventoryMismatch);
-    }
 
     Ok(())
 }
