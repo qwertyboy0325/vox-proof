@@ -18,6 +18,7 @@ pub mod join_metric_contribution;
 pub mod persistence_evidence;
 pub mod phonetic;
 pub mod pipeline;
+pub mod real_transcript_detector_snapshot_adapter;
 pub mod real_transcript_evaluation_execution;
 pub mod real_transcript_evaluation_runner;
 pub mod reference_alignment;

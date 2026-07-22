@@ -350,6 +350,24 @@ Boundary:
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence;
 - derived primary-eligibility flags reflect accepted typed declarations and contract derivation only; they do not independently prove legal sufficiency, detector effectiveness, or threshold pass/fail.
 
+## v0.2 Real-Transcript Detector Snapshot Adapter Contract (Readiness Only)
+
+`real_transcript_detector_snapshot_adapter` (`voxproof-real-transcript-detector-snapshot-adapter-request-v1`) defines a pure, deterministic, fail-closed readiness contract that binds an accepted real-run request, one in-memory `Transcript`, one pipeline-minted `CanonicalTermReviewRun`, and explicit caller-supplied snapshot/proposal identities. Adapter policy is `voxproof-canonical-term-review-snapshot-adapter-v1`; proposal-id order policy is `voxproof-explicit-proposal-id-order-v1`.
+
+Boundary:
+
+- begins from an already-completed `CanonicalTermReviewRun`; arbitrary `Vec<ReviewCase>` or `Vec<CandidateSpan>` are not accepted as authority;
+- production adapter-contract code does not call the canonical detector pipeline or execute detectors;
+- revalidates the accepted real-run request and requires `ReadyForDetectorExecution` with blind-reference posture;
+- binds transcript revision to the validated input identity and `AnalysisRun` source revision to the same transcript;
+- derives detector analysis identity from `AnalysisRun` and requires exact equality with the validated plan, preserving detector-set order;
+- preserves canonical review-case order without re-sorting; explicit proposal IDs must be complete, unique, and index-aligned;
+- uses the transcript only in memory for revision binding, cue resolution via `Segment.index()`, anchor resolution, and observed-surface derivation;
+- preflights lossless candidate-to-proposal convertibility only; it does not return or materialize `DetectorProposalRecord` or `DetectorProposalSnapshot`;
+- snapshot revision, detector-output artifact ID, and frozen timestamp are explicit caller assertions; the frozen timestamp is not independently authenticated;
+- successful validation yields `ReadyForSnapshotMaterialization` only; no snapshot materialization, real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
+- artificial real-posture fixtures establish contract behavior only and are not real-material evidence.
+
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 
 `synthetic_evaluation_harness` (`voxproof-synthetic-evaluation-harness-v1`) is a pure deterministic in-memory orchestration layer over the accepted v0.2 contracts. It is not a real evaluation runner, product CLI, detector executor, human adjudication collector, or persistence writer.
