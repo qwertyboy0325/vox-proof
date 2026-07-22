@@ -356,3 +356,20 @@ Boundary:
 - packet contents are private by default and may contain unredacted reference surfaces; no public-export, redaction, encryption, signature, authenticity, persistence, durability, or cross-platform claim exists;
 - exact-only packets retain a required `AssistedReview` transition envelope without review activity; overlap-resolved packets derive at `AssistedReview`;
 - compatibility or migration policy is deferred.
+
+## v0.2 Evaluation Artifact Packet File Adapter
+
+The packet file adapter is a bounded synchronous local wrapper around the accepted deterministic packet bytes.
+
+Boundary:
+
+- writes exactly one already-verified encoded packet byte document to a caller-selected destination path;
+- uses `create_new` and never overwrites an existing destination;
+- pre-write validation requires encoded byte length, caller size limit, canonical detached digest syntax, and full bytes-only packet verification before any filesystem mutation;
+- write success requires `write_all`, flush, file-level `sync_all`, close, exact-byte readback, and full packet verification on reopened bytes;
+- read success accepts only a regular file under an explicit caller-supplied maximum byte count, optionally checks an out-of-band detached digest, and delegates semantic verification to the accepted packet verifier;
+- no digest sidecar, filename convention, directory layout, or archive container exists;
+- file-level `sync_all()` is requested but atomicity, directory-entry durability, crash recovery, and power-loss resilience are not established;
+- process failure may leave a partial file that normal packet read verification must reject and that requires caller-directed cleanup;
+- packet files may contain unredacted private content; Unix creation uses owner-only mode (`0600`) where implemented;
+- no uniform cross-platform ACL, encryption, authenticity, public export, product persistence selection, or stable file compatibility claim exists.
