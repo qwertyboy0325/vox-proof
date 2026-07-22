@@ -371,6 +371,14 @@ Compact Serde JSON is bounded deterministic serialization for harness verificati
 
 Exact-only runs still pass through the required blind-reference `AssistedReview` lifecycle transition before `Finalized`. That transition context is present in the result envelope but does not consume adjudication or derive artifacts for exact-only fixtures.
 
+## v0.2 Evaluation Artifact Packet Boundary
+
+The evaluation artifact packet is a self-contained compact UTF-8 JSON transport for the accepted synthetic evaluation chain. It carries three lifecycle envelopes, the final bundle, and eight descriptor-bound embedded payloads.
+
+Verification from packet bytes alone performs structural checks, embedded digest and length validation, exact typed decoding, local contract validation, exact payload reserialization, independent join/contribution/aggregate rederivation from decoded source artifacts, stored-vs-rederived equality, and decoded `Finalized` historical replay.
+
+The detached packet SHA-256 digest proves transport-byte identity only when an expected digest is supplied independently. Recomputed hashes cannot establish semantic validity. No filesystem write, CLI, public export, signing, encryption, durability, cross-platform determinism, or detector-effectiveness claim exists for this slice.
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:

@@ -6,6 +6,7 @@ pub mod calibration_join;
 pub mod candidate;
 pub mod detector_reference_join;
 pub mod detector_snapshot;
+pub mod evaluation_artifact_packet;
 pub mod experimental_ranking;
 pub mod experimental_retrieval;
 pub mod human_final_reference;

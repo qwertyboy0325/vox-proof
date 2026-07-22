@@ -327,3 +327,25 @@ Boundary:
 - repeated execution of the same fixture must be byte-deterministic across envelopes, typed artifacts, serialized payloads, digests, bundle, and execution trace.
 
 The harness does not reimplement join, overlap, NFC, contribution mapping, aggregation formulas, or primary eligibility rules. Those remain owned by the individual contracts.
+
+## v0.2 Evaluation Artifact Packet (Deterministic Transport)
+
+`evaluation_artifact_packet` (`voxproof-evaluation-artifact-packet-v1`) is a bounded repository-internal transport contract for the accepted eight-artifact synthetic evaluation chain. It encodes three lifecycle envelopes, the final `ArtifactBundle`, and eight embedded UTF-8 JSON payloads as one compact deterministic Serde JSON document. This is not RFC 8785 canonical JSON.
+
+Policies:
+
+- packet serialization: `serde-json-compact-utf8-v1`
+- embedded payload encoding: `exact-utf8-json-text-v1`
+- embedded payload serialization: `serde-json-compact-utf8-v1`
+- embedded payload digest: `sha256-payload-bytes-v1`
+- detached packet digest: `sha256-packet-bytes-v1`
+
+Boundary:
+
+- construction may consume an accepted `SyntheticEvaluationHarnessResult` after harness integrity and typed round-trip verification;
+- verification accepts only packet bytes and an optional detached packet digest; it does not accept harness originals, fixtures, filesystem paths, or out-of-band source records;
+- embedded JSON bytes are recovered exactly and checked against bundle descriptors before role-specific typed deserialization, local validation, exact reserialization, source-backed join/contribution/aggregate rederivation, stored-vs-rederived equality, and decoded `Finalized` historical replay;
+- raw SHA-256 integrity at either packet or payload layer is not equivalent to typed semantic validity;
+- packet contents are private by default and may contain unredacted reference surfaces; no public-export, redaction, encryption, signature, authenticity, persistence, durability, or cross-platform claim exists;
+- exact-only packets retain a required `AssistedReview` transition envelope without review activity; overlap-resolved packets derive at `AssistedReview`;
+- compatibility or migration policy is deferred.
