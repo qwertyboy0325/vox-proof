@@ -1,5 +1,5 @@
 use vox_proof::artifact_bundle::ArtifactId;
-use vox_proof::candidate::{DetectionKind, SessionTermEntry};
+use vox_proof::candidate::{DetectionKind, Evidence, SessionTermEntry};
 use vox_proof::detector_snapshot::{
     DetectorAnalysisIdentity, DetectorComponentIdentity, DetectorProposalId,
     DetectorSnapshotRevisionId,
@@ -430,6 +430,146 @@ fn explicit_permission_real_fixture_succeeds() {
         &canonical_run,
     )
     .expect("explicit permission");
+}
+
+#[test]
+fn detector_set_reorder_rejected() {
+    let (transcript, canonical_run, mut run_request, adapter_request) =
+        validate_fixture(InputClass::SelfOwnedReal);
+    let derived = detector_analysis_identity_for_transcript(&transcript, &canonical_run);
+    let mut reordered = derived.detector_set.clone();
+    assert!(reordered.len() >= 2);
+    reordered.swap(0, 1);
+    run_request.detector_analysis_identity.detector_set = reordered;
+    assert!(matches!(
+        validate_real_transcript_detector_snapshot_adapter_request(
+            &run_request,
+            &adapter_request,
+            &transcript,
+            &canonical_run,
+        ),
+        Err(
+            RealTranscriptDetectorSnapshotAdapterContractError::AnalysisIdentityMismatch {
+                field: DetectorSnapshotAdapterAnalysisField::DetectorSet,
+            }
+        )
+    ));
+}
+
+#[test]
+fn glossary_alias_mapping_explicitly_accepted() {
+    let (transcript, canonical_run, run_request, adapter_request) =
+        validate_fixture(InputClass::SelfOwnedReal);
+    let review_case = canonical_run
+        .review_cases()
+        .iter()
+        .find(|case| matches!(case.candidate_span().evidence(), Evidence::GlossaryAlias(_)))
+        .expect("glossary case");
+    let candidate = review_case.candidate_span();
+    let resolved = transcript
+        .resolve(candidate.anchor())
+        .expect("resolved surface");
+    assert_eq!(candidate.kind(), DetectionKind::GlossaryAliasMatch);
+    if let Evidence::GlossaryAlias(evidence) = candidate.evidence() {
+        assert_eq!(evidence.matched_form, resolved);
+    } else {
+        panic!("expected glossary evidence");
+    }
+    let plan = validate_real_transcript_detector_snapshot_adapter_request(
+        &run_request,
+        &adapter_request,
+        &transcript,
+        &canonical_run,
+    )
+    .expect("glossary mapping ready");
+    assert_eq!(
+        plan.readiness,
+        RealTranscriptDetectorSnapshotAdapterReadiness::ReadyForSnapshotMaterialization
+    );
+}
+
+#[test]
+fn observed_error_form_mapping_explicitly_accepted() {
+    let (transcript, canonical_run, run_request, adapter_request) =
+        validate_fixture(InputClass::SelfOwnedReal);
+    let review_case = canonical_run
+        .review_cases()
+        .iter()
+        .find(|case| {
+            matches!(
+                case.candidate_span().evidence(),
+                Evidence::ObservedErrorForm(_)
+            )
+        })
+        .expect("observed error form case");
+    let candidate = review_case.candidate_span();
+    let resolved = transcript
+        .resolve(candidate.anchor())
+        .expect("resolved surface");
+    assert_eq!(candidate.kind(), DetectionKind::GlossaryAliasMatch);
+    if let Evidence::ObservedErrorForm(evidence) = candidate.evidence() {
+        assert_eq!(evidence.matched_form, resolved);
+    } else {
+        panic!("expected observed error form evidence");
+    }
+    assert!(
+        run_request
+            .detector_analysis_identity
+            .detector_set
+            .iter()
+            .any(|detector| {
+                detector.id == candidate.provenance().detector_id()
+                    && detector.version == candidate.provenance().detector_version()
+            })
+    );
+    let plan = validate_real_transcript_detector_snapshot_adapter_request(
+        &run_request,
+        &adapter_request,
+        &transcript,
+        &canonical_run,
+    )
+    .expect("observed error form mapping ready");
+    assert_eq!(
+        plan.readiness,
+        RealTranscriptDetectorSnapshotAdapterReadiness::ReadyForSnapshotMaterialization
+    );
+}
+
+#[test]
+fn phonetic_similarity_mapping_explicitly_accepted() {
+    let (transcript, canonical_run, run_request, adapter_request) =
+        validate_fixture(InputClass::SelfOwnedReal);
+    let review_case = canonical_run
+        .review_cases()
+        .iter()
+        .find(|case| {
+            matches!(
+                case.candidate_span().evidence(),
+                Evidence::PhoneticSimilarity(_)
+            )
+        })
+        .expect("phonetic case");
+    let candidate = review_case.candidate_span();
+    let resolved = transcript
+        .resolve(candidate.anchor())
+        .expect("resolved surface");
+    assert_eq!(candidate.kind(), DetectionKind::PhoneticSimilarity);
+    if let Evidence::PhoneticSimilarity(evidence) = candidate.evidence() {
+        assert_eq!(evidence.observed_surface, resolved);
+    } else {
+        panic!("expected phonetic evidence");
+    }
+    let plan = validate_real_transcript_detector_snapshot_adapter_request(
+        &run_request,
+        &adapter_request,
+        &transcript,
+        &canonical_run,
+    )
+    .expect("phonetic mapping ready");
+    assert_eq!(
+        plan.readiness,
+        RealTranscriptDetectorSnapshotAdapterReadiness::ReadyForSnapshotMaterialization
+    );
 }
 
 #[test]

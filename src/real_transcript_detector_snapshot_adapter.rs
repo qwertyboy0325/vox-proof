@@ -162,6 +162,18 @@ pub enum RealTranscriptDetectorSnapshotAdapterContractError {
         review_case_index: usize,
         field: &'static str,
     },
+    PhoneticZeroRatioDenominator {
+        review_case_index: usize,
+    },
+    PhoneticInconsistentRatioPermille {
+        review_case_index: usize,
+        expected: u32,
+        found: u32,
+    },
+    DuplicateFutureProposalSemanticKey {
+        first_review_case_index: usize,
+        duplicate_review_case_index: usize,
+    },
     AlternativeIndexConversionOverflow {
         review_case_index: usize,
         alternative_index: usize,
@@ -225,7 +237,7 @@ pub fn validate_real_transcript_detector_snapshot_adapter_request(
     Ok(ValidatedRealTranscriptDetectorSnapshotAdapterPlan {
         run_id: validated_plan.run_id,
         input_identity: validated_plan.input_identity,
-        calibration_validity: CalibrationValidityMode::BlindReference,
+        calibration_validity: run_request.detector_execution_envelope.calibration_validity,
         snapshot_revision: adapter_request.snapshot_revision.clone(),
         detector_output_artifact_id: adapter_request.detector_output_artifact_id.clone(),
         frozen_at_unix_ms: adapter_request.frozen_at_unix_ms,
@@ -439,18 +451,42 @@ fn validate_proposal_id_inventory(
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FutureDetectorProposalSemanticKey {
+    detector_id: String,
+    detection_kind: DetectionKind,
+    input_identity: InputIdentityReference,
+    cue_id: CueReferenceId,
+    segment_position: u32,
+    start_byte: u32,
+    end_byte: u32,
+}
+
 fn validate_review_case_mappings(
     transcript: &Transcript,
     canonical_run: &CanonicalTermReviewRun,
     validated_analysis_identity: &DetectorAnalysisIdentity,
 ) -> Result<(), RealTranscriptDetectorSnapshotAdapterContractError> {
+    let mut seen_semantic_keys: Vec<(FutureDetectorProposalSemanticKey, usize)> = Vec::new();
     for (index, review_case) in canonical_run.review_cases().iter().enumerate() {
-        validate_single_review_case_mapping(
+        let semantic_key = validate_single_review_case_mapping(
             transcript,
             review_case,
             index,
             validated_analysis_identity,
         )?;
+        if let Some((_, first_review_case_index)) = seen_semantic_keys
+            .iter()
+            .find(|(key, _)| key == &semantic_key)
+        {
+            return Err(
+                RealTranscriptDetectorSnapshotAdapterContractError::DuplicateFutureProposalSemanticKey {
+                    first_review_case_index: *first_review_case_index,
+                    duplicate_review_case_index: index,
+                },
+            );
+        }
+        seen_semantic_keys.push((semantic_key, index));
     }
     Ok(())
 }
@@ -460,7 +496,7 @@ fn validate_single_review_case_mapping(
     review_case: &ReviewCase,
     review_case_index: usize,
     validated_analysis_identity: &DetectorAnalysisIdentity,
-) -> Result<(), RealTranscriptDetectorSnapshotAdapterContractError> {
+) -> Result<FutureDetectorProposalSemanticKey, RealTranscriptDetectorSnapshotAdapterContractError> {
     let candidate = review_case.candidate_span();
     let anchor = candidate.anchor();
 
@@ -483,16 +519,17 @@ fn validate_single_review_case_mapping(
     }
 
     let cue_index = transcript.segments()[segment_position].index();
-    CueReferenceId::new(cue_index).map_err(|_| {
+    let cue_id = CueReferenceId::new(cue_index).map_err(|_| {
         RealTranscriptDetectorSnapshotAdapterContractError::CueReferenceIdInvalid {
             review_case_index,
             cue_index,
         }
     })?;
 
-    u32_from_usize(segment_position, review_case_index, "segment_position")?;
-    u32_from_usize(anchor.start_byte, review_case_index, "start_byte")?;
-    u32_from_usize(anchor.end_byte, review_case_index, "end_byte")?;
+    let segment_position_u32 =
+        u32_from_usize(segment_position, review_case_index, "segment_position")?;
+    let start_byte_u32 = u32_from_usize(anchor.start_byte, review_case_index, "start_byte")?;
+    let end_byte_u32 = u32_from_usize(anchor.end_byte, review_case_index, "end_byte")?;
     if anchor.start_byte >= anchor.end_byte {
         return Err(
             RealTranscriptDetectorSnapshotAdapterContractError::EmptyObservedSurface {
@@ -553,7 +590,15 @@ fn validate_single_review_case_mapping(
         })?;
     }
 
-    Ok(())
+    Ok(FutureDetectorProposalSemanticKey {
+        detector_id: detector_component.id,
+        detection_kind: candidate.kind(),
+        input_identity: validated_analysis_identity.input_identity.clone(),
+        cue_id,
+        segment_position: segment_position_u32,
+        start_byte: start_byte_u32,
+        end_byte: end_byte_u32,
+    })
 }
 
 fn validate_candidate_evidence_mapping(
@@ -659,7 +704,7 @@ fn validate_phonetic_evidence_mapping(
             field: "edit_distance",
         }
     })?;
-    u32_from_usize(
+    let ratio_numerator = u32_from_usize(
         phonetic.comparison.ratio_numerator,
         review_case_index,
         "ratio_numerator",
@@ -670,7 +715,7 @@ fn validate_phonetic_evidence_mapping(
             field: "ratio_numerator",
         }
     })?;
-    u32_from_usize(
+    let ratio_denominator = u32_from_usize(
         phonetic.comparison.ratio_denominator,
         review_case_index,
         "ratio_denominator",
@@ -681,7 +726,7 @@ fn validate_phonetic_evidence_mapping(
             field: "ratio_denominator",
         }
     })?;
-    u32_from_usize(
+    let ratio_permille = u32_from_usize(
         phonetic.comparison.ratio_permille,
         review_case_index,
         "ratio_permille",
@@ -692,6 +737,31 @@ fn validate_phonetic_evidence_mapping(
             field: "ratio_permille",
         }
     })?;
+
+    if ratio_denominator == 0 {
+        return Err(
+            RealTranscriptDetectorSnapshotAdapterContractError::PhoneticZeroRatioDenominator {
+                review_case_index,
+            },
+        );
+    }
+
+    let expected_permille = ratio_numerator as u64 * 1000 / ratio_denominator as u64;
+    let expected_permille_u32 = u32::try_from(expected_permille).map_err(|_| {
+        RealTranscriptDetectorSnapshotAdapterContractError::PhoneticComparisonConversionOverflow {
+            review_case_index,
+            field: "expected_ratio_permille",
+        }
+    })?;
+    if ratio_permille != expected_permille_u32 {
+        return Err(
+            RealTranscriptDetectorSnapshotAdapterContractError::PhoneticInconsistentRatioPermille {
+                review_case_index,
+                expected: expected_permille_u32,
+                found: ratio_permille,
+            },
+        );
+    }
 
     Ok(())
 }
@@ -731,7 +801,7 @@ mod unit_tests {
     use crate::candidate::{
         AsciiLatinPhoneticRepresentation, CANONICAL_SESSION_TERM_ALGORITHM,
         CANONICAL_SESSION_TERM_DETECTOR_CONFIG, CandidateAlternative, CandidateSpan,
-        DetectorProvenance, Evidence, GLOSSARY_DETECTOR, GlossaryAliasEvidence,
+        DetectorProvenance, Evidence, GLOSSARY_DETECTOR, GlossaryAliasEvidence, PHONETIC_DETECTOR,
         PhoneticComparisonFacts, PhoneticSimilarityEvidence, PhoneticTargetKind, SessionTermEntry,
     };
     use crate::pipeline::CanonicalTermReviewRun;
@@ -1079,5 +1149,226 @@ mod unit_tests {
                 }
             )
         ));
+    }
+
+    fn valid_phonetic_candidate(
+        transcript: &Transcript,
+        comparison: PhoneticComparisonFacts,
+    ) -> CandidateSpan {
+        let anchor = transcript.anchor(0, 0, 5).expect("anchor");
+        let resolved = transcript.resolve(&anchor).expect("surface");
+        CandidateSpan::new(
+            DetectionKind::PhoneticSimilarity,
+            DetectorProvenance::from_detector_identity(PHONETIC_DETECTOR),
+            anchor,
+            Evidence::PhoneticSimilarity(PhoneticSimilarityEvidence {
+                observed_surface: resolved.to_string(),
+                target_surface: "Postgres".to_string(),
+                target_kind: PhoneticTargetKind::Alias,
+                canonical_term: "PostgreSQL".to_string(),
+                source_representation: AsciiLatinPhoneticRepresentation {
+                    normalized_letters: "PSTR".to_string(),
+                    primary_key: "PSTR".to_string(),
+                    alternate_key: "PSTR".to_string(),
+                },
+                target_representation: AsciiLatinPhoneticRepresentation {
+                    normalized_letters: "PSTR".to_string(),
+                    primary_key: "PSTR".to_string(),
+                    alternate_key: "PSTR".to_string(),
+                },
+                comparison,
+                detector_config: CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
+                algorithm: CANONICAL_SESSION_TERM_ALGORITHM,
+            }),
+            vec![],
+        )
+    }
+
+    #[test]
+    fn phonetic_zero_ratio_denominator_rejected() {
+        let transcript = Transcript::from_segments(vec![Segment {
+            index: 1,
+            start_ms: 0,
+            end_ms: 1_000,
+            text: "Postgre SQL".to_string(),
+        }]);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &[]);
+        let candidate = valid_phonetic_candidate(
+            &transcript,
+            PhoneticComparisonFacts {
+                edit_distance: 0,
+                ratio_numerator: 1,
+                ratio_denominator: 0,
+                ratio_permille: 0,
+                matched_key: "PSTR".to_string(),
+            },
+        );
+        let canonical_run = CanonicalTermReviewRun::new(
+            run,
+            vec![ReviewCase::detector_raised(
+                ReviewCaseId::local(0),
+                candidate,
+            )],
+        );
+        let analysis_identity = validated_analysis_identity_for(&canonical_run);
+        assert!(matches!(
+            validate_review_case_mappings(&transcript, &canonical_run, &analysis_identity),
+            Err(
+                RealTranscriptDetectorSnapshotAdapterContractError::PhoneticZeroRatioDenominator {
+                    review_case_index: 0,
+                }
+            )
+        ));
+    }
+
+    #[test]
+    fn phonetic_inconsistent_ratio_permille_rejected() {
+        let transcript = Transcript::from_segments(vec![Segment {
+            index: 1,
+            start_ms: 0,
+            end_ms: 1_000,
+            text: "Postgre SQL".to_string(),
+        }]);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &[]);
+        let candidate = valid_phonetic_candidate(
+            &transcript,
+            PhoneticComparisonFacts {
+                edit_distance: 0,
+                ratio_numerator: 1,
+                ratio_denominator: 2,
+                ratio_permille: 999,
+                matched_key: "PSTR".to_string(),
+            },
+        );
+        let canonical_run = CanonicalTermReviewRun::new(
+            run,
+            vec![ReviewCase::detector_raised(
+                ReviewCaseId::local(0),
+                candidate,
+            )],
+        );
+        let analysis_identity = validated_analysis_identity_for(&canonical_run);
+        assert!(matches!(
+            validate_review_case_mappings(&transcript, &canonical_run, &analysis_identity),
+            Err(
+                RealTranscriptDetectorSnapshotAdapterContractError::PhoneticInconsistentRatioPermille {
+                    review_case_index: 0,
+                    expected: 500,
+                    found: 999,
+                }
+            )
+        ));
+    }
+
+    #[test]
+    fn duplicate_future_semantic_key_rejected() {
+        let transcript = Transcript::from_segments(vec![Segment {
+            index: 1,
+            start_ms: 0,
+            end_ms: 1_000,
+            text: "Postgres".to_string(),
+        }]);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &[]);
+        let anchor = transcript.anchor(0, 0, 8).expect("anchor");
+        let first = CandidateSpan::new(
+            DetectionKind::GlossaryAliasMatch,
+            DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR),
+            anchor,
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
+                entry: SessionTermEntry::new("PostgreSQL", vec!["Postgres".to_string()], vec![]),
+                matched_form: "Postgres".to_string(),
+            }),
+            vec![],
+        );
+        let second = CandidateSpan::new(
+            DetectionKind::GlossaryAliasMatch,
+            DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR),
+            anchor,
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
+                entry: SessionTermEntry::new("PostgreSQL", vec!["Postgres".to_string()], vec![]),
+                matched_form: "Postgres".to_string(),
+            }),
+            vec![CandidateAlternative::new("PostgreSQL")],
+        );
+        let canonical_run = CanonicalTermReviewRun::new(
+            run,
+            vec![
+                ReviewCase::detector_raised(ReviewCaseId::local(0), first),
+                ReviewCase::detector_raised(ReviewCaseId::local(1), second),
+            ],
+        );
+        let analysis_identity = validated_analysis_identity_for(&canonical_run);
+        assert!(matches!(
+            validate_review_case_mappings(&transcript, &canonical_run, &analysis_identity),
+            Err(
+                RealTranscriptDetectorSnapshotAdapterContractError::DuplicateFutureProposalSemanticKey {
+                    first_review_case_index: 0,
+                    duplicate_review_case_index: 1,
+                }
+            )
+        ));
+        let adapter_request = adapter_request_for_case_count(2);
+        validate_proposal_id_inventory(&adapter_request, &canonical_run)
+            .expect("distinct explicit proposal ids");
+        assert!(matches!(
+            validate_review_case_mappings(&transcript, &canonical_run, &analysis_identity),
+            Err(
+                RealTranscriptDetectorSnapshotAdapterContractError::DuplicateFutureProposalSemanticKey {
+                    first_review_case_index: 0,
+                    duplicate_review_case_index: 1,
+                }
+            )
+        ));
+    }
+
+    #[test]
+    fn distinct_future_semantic_keys_accepted() {
+        let transcript = Transcript::from_segments(vec![
+            Segment {
+                index: 1,
+                start_ms: 0,
+                end_ms: 1_000,
+                text: "Postgres".to_string(),
+            },
+            Segment {
+                index: 2,
+                start_ms: 1_000,
+                end_ms: 2_000,
+                text: "Kafka".to_string(),
+            },
+        ]);
+        let run = AnalysisRun::for_canonical_session_terms(&transcript, &[]);
+        let anchor_a = transcript.anchor(0, 0, 8).expect("anchor a");
+        let anchor_b = transcript.anchor(1, 0, 5).expect("anchor b");
+        let first = CandidateSpan::new(
+            DetectionKind::GlossaryAliasMatch,
+            DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR),
+            anchor_a,
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
+                entry: SessionTermEntry::new("PostgreSQL", vec!["Postgres".to_string()], vec![]),
+                matched_form: "Postgres".to_string(),
+            }),
+            vec![],
+        );
+        let second = CandidateSpan::new(
+            DetectionKind::GlossaryAliasMatch,
+            DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR),
+            anchor_b,
+            Evidence::GlossaryAlias(GlossaryAliasEvidence {
+                entry: SessionTermEntry::new("Kafka", vec![], vec![]),
+                matched_form: "Kafka".to_string(),
+            }),
+            vec![],
+        );
+        let canonical_run = CanonicalTermReviewRun::new(
+            run,
+            vec![
+                ReviewCase::detector_raised(ReviewCaseId::local(0), first),
+                ReviewCase::detector_raised(ReviewCaseId::local(1), second),
+            ],
+        );
+        let analysis_identity = validated_analysis_identity_for(&canonical_run);
+        validate_review_case_mappings(&transcript, &canonical_run, &analysis_identity)
+            .expect("distinct semantic keys");
     }
 }

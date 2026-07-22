@@ -364,6 +364,10 @@ Boundary:
 - preserves canonical review-case order without re-sorting; explicit proposal IDs must be complete, unique, and index-aligned;
 - uses the transcript only in memory for revision binding, cue resolution via `Segment.index()`, anchor resolution, and observed-surface derivation;
 - preflights lossless candidate-to-proposal convertibility only; it does not return or materialize `DetectorProposalRecord` or `DetectorProposalSnapshot`;
+- phonetic comparison preflight rejects zero denominators and requires exact integer `ratio_permille` consistency with the accepted snapshot evidence contract;
+- duplicate future `DetectorProposalSemanticKey` values are rejected before materialization readiness is claimed;
+- detector-set order is authority-significant through ordered vector equality, not set equality;
+- all three supported candidate evidence variants (`GlossaryAlias`, `ObservedErrorForm`, `PhoneticSimilarity`) have explicit mapping coverage in contract tests;
 - snapshot revision, detector-output artifact ID, and frozen timestamp are explicit caller assertions; the frozen timestamp is not independently authenticated;
 - successful validation yields `ReadyForSnapshotMaterialization` only; no snapshot materialization, real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
 - artificial real-posture fixtures establish contract behavior only and are not real-material evidence.
