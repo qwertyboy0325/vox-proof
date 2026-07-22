@@ -350,27 +350,29 @@ Boundary:
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence;
 - derived primary-eligibility flags reflect accepted typed declarations and contract derivation only; they do not independently prove legal sufficiency, detector effectiveness, or threshold pass/fail.
 
-## v0.2 Real-Transcript Detector Snapshot Adapter Contract (Readiness Only)
+## v0.2 Real-Transcript Detector Snapshot Adapter (Readiness + Materialization)
 
-`real_transcript_detector_snapshot_adapter` (`voxproof-real-transcript-detector-snapshot-adapter-request-v1`) defines a pure, deterministic, fail-closed readiness contract that binds an accepted real-run request, one in-memory `Transcript`, one pipeline-minted `CanonicalTermReviewRun`, and explicit caller-supplied snapshot/proposal identities. Adapter policy is `voxproof-canonical-term-review-snapshot-adapter-v1`; proposal-id order policy is `voxproof-explicit-proposal-id-order-v1`.
+`real_transcript_detector_snapshot_adapter` (`voxproof-real-transcript-detector-snapshot-adapter-request-v1`) defines a pure, deterministic, fail-closed contract that binds an accepted real-run request, one in-memory `Transcript`, one pipeline-minted `CanonicalTermReviewRun`, and explicit caller-supplied snapshot/proposal identities. Adapter policy is `voxproof-canonical-term-review-snapshot-adapter-v1`; proposal-id order policy is `voxproof-explicit-proposal-id-order-v1`.
+
+`real_transcript_detector_snapshot_materialization` implements the accepted in-memory materialization operation. It reruns the adapter validator within the same call, maps each canonical `ReviewCase` to one validated `DetectorProposalRecord` in stored order, derives semantic keys and snapshot assessment through existing snapshot APIs, constructs one `DetectorProposalSnapshot` in `Frozen` state, validates every record and the final snapshot against the `DetectorExecution` envelope, and returns the validated plan plus snapshot. A stored validated plan alone is not sufficient authority; the source run request, adapter request, transcript, and canonical run must be present and revalidated.
 
 Boundary:
 
 - begins from an already-completed `CanonicalTermReviewRun`; arbitrary `Vec<ReviewCase>` or `Vec<CandidateSpan>` are not accepted as authority;
-- production adapter-contract code does not call the canonical detector pipeline or execute detectors;
+- production adapter implementation does not call the canonical detector pipeline or execute detectors;
 - revalidates the accepted real-run request and requires `ReadyForDetectorExecution` with blind-reference posture;
 - binds transcript revision to the validated input identity and `AnalysisRun` source revision to the same transcript;
 - derives detector analysis identity from `AnalysisRun` and requires exact equality with the validated plan, preserving detector-set order;
 - preserves canonical review-case order without re-sorting; explicit proposal IDs must be complete, unique, and index-aligned;
 - uses the transcript only in memory for revision binding, cue resolution via `Segment.index()`, anchor resolution, and observed-surface derivation;
-- preflights lossless candidate-to-proposal convertibility only; it does not return or materialize `DetectorProposalRecord` or `DetectorProposalSnapshot`;
-- phonetic comparison preflight rejects zero denominators and requires exact integer `ratio_permille` consistency with the accepted snapshot evidence contract;
-- duplicate future `DetectorProposalSemanticKey` values are rejected before materialization readiness is claimed;
-- detector-set order is authority-significant through ordered vector equality, not set equality;
-- all three supported candidate evidence variants (`GlossaryAlias`, `ObservedErrorForm`, `PhoneticSimilarity`) have explicit mapping coverage in contract tests;
+- maps all three supported candidate evidence variants field-for-field into `DetectorProposalEvidence`;
+- phonetic comparison mapping uses checked integer conversions and preserves accepted comparison semantics;
+- duplicate future `DetectorProposalSemanticKey` values are rejected before materialization;
+- zero-candidate canonical runs produce valid empty frozen snapshots;
 - snapshot revision, detector-output artifact ID, and frozen timestamp are explicit caller assertions; the frozen timestamp is not independently authenticated;
-- successful validation yields `ReadyForSnapshotMaterialization` only; no snapshot materialization, real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
-- artificial real-posture fixtures establish contract behavior only and are not real-material evidence.
+- successful validation yields `ReadyForSnapshotMaterialization`; successful materialization yields one frozen in-memory snapshot only;
+- no real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
+- artificial real-posture fixtures establish implementation behavior only and are not real-material evidence.
 
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 

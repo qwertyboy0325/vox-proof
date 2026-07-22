@@ -793,6 +793,10 @@ fn u32_from_usize(
     })
 }
 
+#[path = "real_transcript_detector_snapshot_materialization.rs"]
+mod real_transcript_detector_snapshot_materialization;
+pub use real_transcript_detector_snapshot_materialization::*;
+
 #[cfg(test)]
 mod unit_tests {
     use super::*;
