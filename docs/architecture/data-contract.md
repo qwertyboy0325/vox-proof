@@ -326,6 +326,24 @@ Successful validation yields `ValidatedRealTranscriptEvaluationRunPlan` with rea
 
 Existing `EvaluationArtifactPacket` v1 and the packet file adapter remain synthetic-only. A future real-material packet revision or separately authorized generalized packet contract is required before a real evaluation evidence chain can use the packet or file adapter.
 
+## v0.2 Real-Transcript Evaluation Execution (In-Memory Orchestration)
+
+`real_transcript_evaluation_execution` (`voxproof-real-transcript-evaluation-execution-v1`) is a pure deterministic in-memory orchestration layer that begins from an accepted `RealTranscriptEvaluationRunRequest` plus a caller-supplied frozen `DetectorProposalSnapshot`. It revalidates the request, validates artifact and revision identity bindings, and derives join, contribution, and aggregate artifacts through the accepted contract APIs only.
+
+Boundary:
+
+- does not execute detector algorithms, parse transcripts, load audio, or collect human adjudication;
+- requires a frozen empty `DetectorExecution` adjudication set;
+- returns a typed `RequiresHumanAdjudication` outcome when admissible overlap pairs remain unresolved and no assisted-review set was supplied;
+- accepts only caller-supplied frozen `OwnerAdjudicator` or `AuthorizedDomainAdjudicator` records for overlap resolution; `SyntheticFixtureAdjudicator` is rejected directly;
+- completes exact-only joins at `DetectorExecution`; overlap completion requires assisted-review adjudication;
+- serializes the exact nine-role artifact set in memory using repository-internal compact UTF-8 JSON (`serde-json-compact-utf8-v1`) and `sha256-payload-bytes-v1` digests; these policies are implementation behavior only and do not define a stable public file or packet format;
+- constructs a complete nine-role `ArtifactBundle`, performs final-bundle rederivation equality checks, typed payload replay, and `Finalized` historical revalidation;
+- internal bootstrap bundles and typed stubs satisfy derivation dependencies only and never escape as evidence outputs;
+- payload bytes remain in memory; no packet write, filesystem I/O, CLI, or persistence occurs;
+- artificial real-posture fixtures establish implementation behavior only and are not real-material evidence;
+- derived primary-eligibility flags reflect accepted typed declarations and contract derivation only; they do not independently prove legal sufficiency, detector effectiveness, or threshold pass/fail.
+
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 
 `synthetic_evaluation_harness` (`voxproof-synthetic-evaluation-harness-v1`) is a pure deterministic in-memory orchestration layer over the accepted v0.2 contracts. It is not a real evaluation runner, product CLI, detector executor, human adjudication collector, or persistence writer.
