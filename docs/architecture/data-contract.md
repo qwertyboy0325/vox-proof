@@ -310,6 +310,22 @@ Each aggregate record uses `defined_exact_ratio` when `denominator_count > 0` an
 
 Report posture and primary eligibility are copied and independently validated from the contribution set. `qualifies_as_primary_metric_evidence` is derived from contribution eligibility, complete contribution and aggregate state, and structural validity; it does not require non-zero denominators. `qualifies_as_real_material_evidence` remains separate from calibration eligibility and mathematical definition status. Diagnostic and synthetic aggregates remain non-primary. This slice does not execute protocols, apply thresholds, or establish detector effectiveness.
 
+## v0.2 Input Authorization (Local Evaluation Assertion)
+
+`InputAuthorization` (`voxproof-input-authorization-v1`) is a typed local-evaluation authorization assertion bound to one `RunId`, one `InputIdentityReference`, one `InputClass`, one `InputAuthorizationBasis`, and scope policy `voxproof-local-evaluation-authorization-v1`. It is a caller or owner assertion only; it does not independently establish legal rights, contract validity, copyright status, consent, or legal sufficiency. It grants no implied training, public-distribution, or publication rights. The artifact carries no permission correspondence, personal identifiers, filesystem paths, URLs, transcript surfaces, audio, or secrets.
+
+`SelfOwnedReal` requires `SelfOwned` basis; `ExplicitPermissionReal` requires `ExplicitPermission` basis. `SyntheticProtocolFixture` is rejected. `Confirmed` is required for runner readiness; `Withdrawn` and `Invalidated` remain structurally valid but block readiness.
+
+## v0.2 Real-Transcript Evaluation Runner Contract (Readiness Only)
+
+`real_transcript_evaluation_runner` (`voxproof-real-transcript-evaluation-runner-request-v1`) defines a fail-closed, deterministic, repository-internal readiness contract for a future real-transcript evaluation run. Runner policy is `voxproof-real-transcript-evaluation-runner-v1`; future overlap adjudication requires `voxproof-human-overlap-authority-required-v1`, permitting only `OwnerAdjudicator` and `AuthorizedDomainAdjudicator` and forbidding `SyntheticFixtureAdjudicator`.
+
+The request binds one confirmed `InputAuthorization`, six lifecycle `RunEnvelope` stages sharing one immutable non-lifecycle posture, a sealed blind-eligible complete human-reference stack, one frozen `DetectorAnalysisIdentity`, and the exact nine-role artifact inventory (`InputAuthorization`, `ReferenceSeal`, `HumanFinalReference`, `CueReviewCompletion`, `DetectorOutput`, `EvaluationJoin`, `JoinAdjudication`, `MetricContributions`, `Metrics`). Runner request v1 accepts only `BlindReference` calibration and `SelfOwnedReal` or `ExplicitPermissionReal` input classes with `qualifies_as_real_material_evidence == true`.
+
+Successful validation yields `ValidatedRealTranscriptEvaluationRunPlan` with readiness `ReadyForDetectorExecution` only. It does not establish legal sufficiency, actual real-material presence, detector execution, human adjudication, primary metric evidence, packet serialization, filesystem persistence, CLI orchestration, or product validation. Contract fixtures are synthetic metadata/content-shaped fixtures and are not real-material evidence.
+
+Existing `EvaluationArtifactPacket` v1 and the packet file adapter remain synthetic-only. A future real-material packet revision or separately authorized generalized packet contract is required before a real evaluation evidence chain can use the packet or file adapter.
+
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 
 `synthetic_evaluation_harness` (`voxproof-synthetic-evaluation-harness-v1`) is a pure deterministic in-memory orchestration layer over the accepted v0.2 contracts. It is not a real evaluation runner, product CLI, detector executor, human adjudication collector, or persistence writer.

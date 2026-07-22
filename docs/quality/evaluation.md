@@ -383,6 +383,14 @@ The packet document carries four in-band policy fields; detached packet digest p
 
 The file adapter writes and reads one local regular file containing the accepted packet byte document. The caller supplies the destination path and maximum byte count through a closed validated `EvaluationArtifactPacketFileLimits` value. Create-new semantics prevent overwriting an existing destination. Write success requires post-write exact-byte readback and full packet verification. Read success delegates to the accepted bytes-only verifier with an optional out-of-band detached digest. Existing files larger than the selected limit fail directly with `FileExceedsLimit`. No sidecar, filename convention, atomic replacement protocol, or product persistence integration exists. File-level sync is requested but crash recovery and power-loss resilience are not established.
 
+## v0.2 Real-Transcript Runner Readiness Boundary
+
+`InputAuthorization` is a typed local-evaluation authorization assertion under scope policy `voxproof-local-evaluation-authorization-v1`. It does not independently prove ownership, permission legality, or data rights and grants no implied training or publication rights.
+
+The real-transcript runner request contract validates only protocol readiness for a future detector-execution implementation. It requires confirmed authorization, six immutable blind-reference lifecycle envelopes, a sealed blind-eligible complete human-reference stack, a frozen detector-analysis identity, and the exact nine-role artifact inventory including `InputAuthorization`. Future overlap adjudication must use owner or authorized-domain human authority; `SyntheticFixtureAdjudicator` is forbidden for real overlap resolution.
+
+Readiness means `ReadyForDetectorExecution` only. No detector execution, human adjudication, metric derivation, packet construction, filesystem write, CLI, or real-run execution occurs in this slice. Existing packet v1 and the file adapter remain synthetic-only; real packet transport remains deferred. Contract tests use artificial deterministic fixtures and do not establish real-material evidence.
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:
