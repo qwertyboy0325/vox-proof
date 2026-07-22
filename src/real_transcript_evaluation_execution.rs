@@ -313,7 +313,11 @@ pub fn execute_real_transcript_evaluation(
     );
 
     validate_artifact_and_revision_identity(request, input)?;
-    validate_detector_snapshot_authority(request, &validated_plan, input)?;
+    validate_detector_snapshot_authority(
+        &input.detector_snapshot,
+        &request.detector_execution_envelope,
+        &validated_plan,
+    )?;
     push_trace(
         &mut trace,
         RealTranscriptEvaluationStage::DetectorSnapshotValidated,
@@ -582,8 +586,14 @@ fn verify_completed_result_core(
 
 fn validate_completed_execution_semantics(
     result: &RealTranscriptEvaluationCompletedResult,
-    _validated_plan: &ValidatedRealTranscriptEvaluationRunPlan,
+    validated_plan: &ValidatedRealTranscriptEvaluationRunPlan,
 ) -> Result<(), RealTranscriptEvaluationExecutionError> {
+    validate_detector_snapshot_authority(
+        &result.detector_snapshot,
+        &result.request.detector_execution_envelope,
+        validated_plan,
+    )?;
+
     if result.final_adjudication_set.state != OverlapAdjudicationSetState::Frozen {
         return Err(
             RealTranscriptEvaluationExecutionError::CompletionStageAdjudicationMismatch {
@@ -1104,11 +1114,10 @@ fn validate_artifact_and_revision_identity(
 }
 
 fn validate_detector_snapshot_authority(
-    request: &RealTranscriptEvaluationRunRequest,
-    plan: &ValidatedRealTranscriptEvaluationRunPlan,
-    input: &RealTranscriptEvaluationExecutionInput,
+    snapshot: &DetectorProposalSnapshot,
+    detector_execution_envelope: &RunEnvelope,
+    validated_plan: &ValidatedRealTranscriptEvaluationRunPlan,
 ) -> Result<(), RealTranscriptEvaluationExecutionError> {
-    let snapshot = &input.detector_snapshot;
     if snapshot.state != crate::detector_snapshot::DetectorProposalSnapshotState::Frozen
         || snapshot.frozen_at_unix_ms == 0
     {
@@ -1127,10 +1136,10 @@ fn validate_detector_snapshot_authority(
     }
 
     snapshot
-        .validate_for_freeze_against(&request.detector_execution_envelope)
+        .validate_for_freeze_against(detector_execution_envelope)
         .map_err(RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure)?;
 
-    if snapshot.analysis_identity != plan.detector_analysis_identity {
+    if snapshot.analysis_identity != validated_plan.detector_analysis_identity {
         return Err(
             RealTranscriptEvaluationExecutionError::DetectorSnapshotAnalysisIdentityMismatch,
         );

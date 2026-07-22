@@ -1065,3 +1065,198 @@ mod replay_authority_correction {
         ));
     }
 }
+
+mod replay_snapshot_authority_correction {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use vox_proof::detector_snapshot::{
+        DetectorAnalysisIdentity, DetectorComponentIdentity, DetectorProposalSnapshotState,
+        DetectorProposalSnapshotValidationError,
+    };
+    use vox_proof::run_manifest::{InputIdentityReference, RunId};
+
+    fn compute_payload_digest(bytes: &[u8]) -> ArtifactContentDigest {
+        let hash = Sha256::digest(bytes);
+        let hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        ArtifactContentDigest::new(format!("sha256:{hex}")).expect("digest")
+    }
+
+    fn completed_exact_result() -> RealTranscriptEvaluationCompletedResult {
+        let fixture = exact_only_self_owned_fixture();
+        let RealTranscriptEvaluationExecutionOutcome::Completed(result) =
+            execute_real_transcript_evaluation(&fixture.request, &fixture.input).expect("exact")
+        else {
+            panic!("expected completion");
+        };
+        result
+    }
+
+    fn sync_detector_output_payload(result: &mut RealTranscriptEvaluationCompletedResult) {
+        let snapshot_bytes =
+            serde_json::to_vec(&result.detector_snapshot).expect("serialize snapshot");
+        let digest = compute_payload_digest(&snapshot_bytes);
+        let byte_length = snapshot_bytes.len() as u64;
+        let payload = result
+            .serialized_payloads
+            .iter_mut()
+            .find(|payload| payload.role == ArtifactRole::DetectorOutput)
+            .expect("detector output payload");
+        payload.payload_bytes = snapshot_bytes;
+        payload.content_digest = digest.clone();
+        payload.byte_length = byte_length;
+        let descriptor = result
+            .final_bundle
+            .artifacts
+            .iter_mut()
+            .find(|entry| entry.role == ArtifactRole::DetectorOutput)
+            .expect("detector output descriptor");
+        descriptor.content_digest = digest;
+        descriptor.byte_length = byte_length;
+    }
+
+    fn alternate_valid_analysis_identity(
+        base: &DetectorAnalysisIdentity,
+    ) -> DetectorAnalysisIdentity {
+        let mut alternate = base.clone();
+        alternate.detector_set.push(DetectorComponentIdentity {
+            id: "unused-extra-detector".to_string(),
+            version: "0.1.0".to_string(),
+        });
+        alternate
+    }
+
+    #[test]
+    fn direct_analysis_identity_mismatch_rejected_on_replay() {
+        let mut result = completed_exact_result();
+        result
+            .detector_snapshot
+            .analysis_identity
+            .detector_config
+            .id = "tampered-detector-config".to_string();
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("analysis identity mismatch");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotAnalysisIdentityMismatch
+        ));
+    }
+
+    #[test]
+    fn hash_synchronized_valid_analysis_identity_substitution_rejected() {
+        let mut result = completed_exact_result();
+        let alternate =
+            alternate_valid_analysis_identity(&result.detector_snapshot.analysis_identity);
+        assert_ne!(
+            alternate, result.validated_plan.detector_analysis_identity,
+            "alternate identity must differ from validated plan"
+        );
+        assert!(
+            alternate
+                .validate(&result.detector_snapshot.input_identity)
+                .is_ok(),
+            "alternate identity must remain structurally valid"
+        );
+
+        result.detector_snapshot.analysis_identity = alternate;
+        assert!(
+            result.detector_snapshot.validate().is_ok(),
+            "modified snapshot must remain locally structurally valid"
+        );
+
+        sync_detector_output_payload(&mut result);
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("hash-sync identity substitution");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotAnalysisIdentityMismatch
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_snapshot_draft_state() {
+        let mut result = completed_exact_result();
+        result.detector_snapshot.state = DetectorProposalSnapshotState::Draft;
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("draft snapshot");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                DetectorProposalSnapshotValidationError::SnapshotStateMismatch { .. }
+            )
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_zero_frozen_timestamp() {
+        let mut result = completed_exact_result();
+        result.detector_snapshot.frozen_at_unix_ms = 0;
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("zero timestamp");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                DetectorProposalSnapshotValidationError::ZeroFrozenTimestamp
+            )
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_snapshot_run_id_mismatch() {
+        let mut result = completed_exact_result();
+        result.detector_snapshot.run_id = RunId::new("run-tampered-replay-001").expect("run id");
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("run id mismatch");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                DetectorProposalSnapshotValidationError::RunIdMismatch
+            )
+        ));
+    }
+
+    #[test]
+    fn replay_rejects_snapshot_input_identity_mismatch() {
+        let mut result = completed_exact_result();
+        result.detector_snapshot.input_identity = InputIdentityReference {
+            transcript_revision_id:
+                "rev:sha256-v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                    .to_string(),
+        };
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("input identity mismatch");
+        assert!(
+            matches!(
+                error,
+                RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                    DetectorProposalSnapshotValidationError::InputIdentityMismatch
+                ) | RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                    DetectorProposalSnapshotValidationError::AnalysisIdentityValidation(
+                        vox_proof::detector_snapshot::DetectorAnalysisIdentityValidationError::InputIdentityMismatch
+                    )
+                )
+            ),
+            "unexpected error: {error:?}"
+        );
+    }
+
+    #[test]
+    fn replay_rejects_snapshot_calibration_mismatch() {
+        let mut result = completed_exact_result();
+        result.detector_snapshot.calibration_validity = CalibrationValidityMode::DetectorAssisted;
+
+        let error = verify_real_transcript_evaluation_completed_result(&result)
+            .expect_err("calibration mismatch");
+        assert!(matches!(
+            error,
+            RealTranscriptEvaluationExecutionError::DetectorSnapshotValidationFailure(
+                DetectorProposalSnapshotValidationError::CalibrationModeMismatch
+            )
+        ));
+    }
+}
