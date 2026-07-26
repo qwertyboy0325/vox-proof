@@ -27,6 +27,18 @@ Keep generated changes inspectable and bounded, but do not force a beginner tuto
 4. The applicable rules under `.cursor/rules/`
 5. The applicable skills under `.cursor/skills/`
 
+## Open Research Gate
+
+Before proposing or implementing changes involving architecture, inference, candidate generation, review semantics, decisions, canonical projection, temporal state, conflict handling, supersession, revocation, expiry, or persistence:
+
+1. read `docs/research/README.md`;
+2. inspect every active research item relevant to the proposed change;
+3. preserve each item's stated non-authoritative boundary.
+
+Research items are not accepted architecture and are not implementation authorization.
+
+If a proposed change implicitly resolves, assumes, or bypasses an open research question, stop and request an explicit owner decision. Do not silently choose an answer through code, schema changes, renaming, documentation wording, or persistence design.
+
 ## Canonical Topic Map
 
 - v0.1 scope: `docs/product/v0.1.md`
@@ -35,6 +47,7 @@ Keep generated changes inspectable and bounded, but do not force a beginner tuto
 - Architecture: `docs/architecture/overview.md`
 - Conceptual data contracts: `docs/architecture/data-contract.md`
 - Quality and regression expectations: `docs/quality/evaluation.md`
+- Active non-authoritative research: `docs/research/README.md`
 
 ## Proof Of Behavior
 
