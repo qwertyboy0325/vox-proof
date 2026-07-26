@@ -7,6 +7,10 @@ Last reviewed against code: v0.1 Track 1 code closed loop exists; qualifying rea
 
 This index points to the active canonical documents for VoxProof. Each durable claim should have one owning document.
 
+## Start Here
+
+- [VoxProof for Everyone / 給每個人的 VoxProof](product/voxproof-for-everyone.md): bilingual, non-technical explanation of what the product does today and the long-term goal of becoming a governance and evidence layer between probabilistic AI and authoritative records.
+
 ## Canonical Documents
 
 - [product/correction-system-boundaries.md](product/correction-system-boundaries.md): cross-version correction taxonomy and evidence, context, policy, transformation, projection, authorization, and Domain Collection boundaries.
