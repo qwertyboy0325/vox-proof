@@ -20,6 +20,13 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [architecture/v0.2-c4-architecture.md](architecture/v0.2-c4-architecture.md): **draft / proposed** v0.2 C4 architecture views, trust boundaries, and open decisions (not approved architecture; companion DSL: `architecture/v0.2-c4.dsl`).
 - [quality/evaluation.md](quality/evaluation.md): fixtures, ground truth, metrics, and regression expectations.
 
+## Active Research
+
+- [Research register](research/README.md): mandatory discovery point for active non-authoritative research items and their lifecycle.
+- [VP-ARCH-001: Loose Inference / Strict Commitment](research/VP-ARCH-001-loose-inference-strict-commitment.md): **exploratory / non-canonical** investigation of high-recall probabilistic synthesis behind a strict governed commitment boundary. Tracking issue: [#1](https://github.com/qwertyboy0325/vox-proof/issues/1).
+
+Active research is not accepted architecture. It must not be implemented or treated as a Material Decision without a separate owner decision.
+
 ## Governance
 
 - [Material Decisions](governance/material-decisions.md)
