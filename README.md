@@ -5,7 +5,7 @@ Does not own: Installation, technical stack details, benchmarks, detailed roadma
 Last reviewed against code/evidence:
 - v0.1 bounded core: exact/phonetic review loop, compare/evaluate calibration, FLEURS human-review gates (MD-007)
 - Persistence Packages 2A–2D merged to main; mechanism selection remains none
-- v0.2 authoritative loop branch ready; implementation not started
+- v0.2 authoritative runner and detector-snapshot materialization implemented on the active branch; broader integration and actual real-material execution remain pending
 - Product and external-user validation remain deferred
 -->
 
@@ -20,6 +20,8 @@ Last reviewed against code/evidence:
 
 VoxProof reviews an existing transcript—initially SRT—with provisional session-scoped terminology. It surfaces bounded, evidence-backed candidate corrections, requires human decisions before any reviewed output, and keeps experimental sidecar results outside canonical authority.
 
+**New to the project or not a programmer? Read [VoxProof for Everyone / 給每個人的 VoxProof](docs/product/voxproof-for-everyone.md) for a bilingual explanation of the product and its ultimate goal.**
+
 > VoxProof is under active development. Current evidence establishes bounded mechanisms and engineering behavior—not production readiness, product validation, filesystem durability, or hardware power-loss resilience.
 
 ## Project Status
@@ -30,7 +32,7 @@ VoxProof reviews an existing transcript—initially SRT—with provisional sessi
 | Authoritative review path | Deterministic and human-governed |
 | Main persistence CI | Passing on Windows GitHub Actions |
 | Persistence evidence | Packages 2A–2D merged; mechanism selection remains `none` |
-| v0.2 authoritative loop | Branch ready; implementation not started |
+| v0.2 authoritative loop | In-memory runner and detector-snapshot materialization implemented on the active branch; integration and actual real-material execution pending |
 | Product validation | Deferred |
 
 ## Current Focus
@@ -112,6 +114,8 @@ Experimental candidates do not become canonical Evidence, ReviewCases, ReviewLed
 v0.1 deliberately establishes an evidence-backed human-review foundation before formalizing model-dependent behavior. Current experimentation may use bounded candidate retrieval and external contextual ranking, but it does not establish production provider, policy, automation, or non-exact Evidence semantics.
 
 Future exploration may use multiple local models for semantic and contextual interpretation, with scoped adaptation to recurring speaker, project, team, or domain language patterns and review preferences.
+
+The long-term product vision is broader: VoxProof aims to become the governance, evidence, and commitment layer between probabilistic AI and authoritative records. See [VoxProof for Everyone / 給每個人的 VoxProof](docs/product/voxproof-for-everyone.md).
 
 These remain research directions rather than delivery commitments. See [Product Hypotheses](docs/product/hypotheses.md) for the assumptions that would need validation.
 
