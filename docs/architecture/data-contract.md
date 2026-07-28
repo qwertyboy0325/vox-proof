@@ -374,6 +374,83 @@ Boundary:
 - no real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence.
 
+## v0.2 Adapter-to-Runner Initial Integration (Accepted Contract; Implementation Deferred)
+
+The accepted `materialize_and_begin_real_transcript_evaluation` contract covers initial evaluation execution through the `DetectorExecution` lifecycle stage only:
+
+```text
+canonical run
+→ detector snapshot materialization
+→ initial evaluation execution (`DetectorExecution` lifecycle stage)
+→ Completed or RequiresHumanAdjudication
+```
+
+The accepted signature direction is:
+
+```rust
+pub struct RealTranscriptInitialExecutionBindings {
+    pub input_authorization_artifact_id: ArtifactId,
+    pub reference_seal_artifact_id: ArtifactId,
+    pub human_final_reference_artifact_id: ArtifactId,
+    pub cue_review_completion_artifact_id: ArtifactId,
+    pub join_context: DetectorReferenceJoinContext,
+    pub contribution_context: JoinMetricContributionContext,
+    pub aggregate_context: JoinMetricAggregateContext,
+    pub bundle_id: ArtifactBundleId,
+    pub detector_execution_adjudication_set_id: OverlapAdjudicationSetId,
+}
+
+pub enum RealTranscriptInitialExecutionOutcome {
+    RequiresHumanAdjudication {
+        detector_snapshot: DetectorProposalSnapshot,
+        pending: RealTranscriptEvaluationPendingResult,
+    },
+    Completed(RealTranscriptEvaluationCompletedResult),
+}
+
+pub enum RealTranscriptInitialExecutionError {
+    Materialization(
+        RealTranscriptDetectorSnapshotMaterializationError,
+    ),
+    Execution(
+        RealTranscriptEvaluationExecutionError,
+    ),
+}
+
+pub fn materialize_and_begin_real_transcript_evaluation(
+    run_request: &RealTranscriptEvaluationRunRequest,
+    adapter_request: &RealTranscriptDetectorSnapshotAdapterRequest,
+    transcript: &Transcript,
+    canonical_run: &CanonicalTermReviewRun,
+    bindings: &RealTranscriptInitialExecutionBindings,
+) -> Result<
+    RealTranscriptInitialExecutionOutcome,
+    RealTranscriptInitialExecutionError,
+>;
+```
+
+Exact module placement and private construction helpers remain deferred to the implementation work package. `RealTranscriptInitialExecutionBindings` contains only independently authoritative execution IDs and contexts that cannot be derived from the run request, adapter request, transcript, canonical run, or existing contexts. It must not duplicate identities already owned by those inputs.
+
+The snapshot value supplied to evaluation execution must be the exact immutable value returned by `materialize_real_transcript_detector_snapshot` in the same call, either moved directly or cloned without transformation. The integration API exposes no snapshot parameter, execution-input parameter, snapshot factory, callback replacement hook, deserialization seam, or other caller-controlled snapshot substitution point.
+
+The future integration implementation must construct the exact materialized `DetectorProposalSnapshot`, the frozen empty initial detector adjudication set, and `RealTranscriptEvaluationExecutionInput` internally, with `assisted_review_adjudication_set` set to `None`. The caller supplies only `RealTranscriptEvaluationRunRequest`, `RealTranscriptDetectorSnapshotAdapterRequest`, `Transcript`, `CanonicalTermReviewRun`, and the independently authoritative execution bindings.
+
+The integration function derives existing execution structures from the accepted authoritative inputs and bindings, then relies on the existing materialization and execution validators for cross-field consistency and lifecycle enforcement. Construction-time routing and binding checks required to call those APIs do not define parallel identity, authority, ordering, validation, or lifecycle semantics.
+
+Outcome and failure semantics:
+
+- zero-proposal and non-overlapping proposal runs may complete successfully;
+- unresolved overlapping proposals return `RequiresHumanAdjudication` with the exact materialized snapshot and the pending execution result;
+- the pending branch carries the snapshot because `RealTranscriptEvaluationPendingResult` does not; the completed branch does not duplicate the snapshot already carried by `RealTranscriptEvaluationCompletedResult`;
+- materialization failure returns `Materialization(error)`, does not invoke execution, and exposes no partial public result;
+- execution failure returns `Execution(error)` and exposes no materialization result separately;
+- pending human adjudication is a successful typed outcome, not an error;
+- no persistence transaction or rollback guarantee is implied.
+
+Assisted-review continuation is a separate future authority stage and requires a separately owner-accepted contract. This initial operation does not accept assisted-review adjudication and does not execute detector algorithms, perform transcript rewriting or human-decision inference, or access persistence, filesystems, packet construction, networks, or GUI state.
+
+This accepted contract establishes no implementation, implementation verification, owner acceptance of an implementation, actual real-material execution, detector effectiveness, product behavior, production readiness, GUI completion, or merge readiness.
+
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 
 `synthetic_evaluation_harness` (`voxproof-synthetic-evaluation-harness-v1`) is a pure deterministic in-memory orchestration layer over the accepted v0.2 contracts. It is not a real evaluation runner, product CLI, detector executor, human adjudication collector, or persistence writer.
