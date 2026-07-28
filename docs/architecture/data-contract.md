@@ -374,7 +374,7 @@ Boundary:
 - no real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence.
 
-## v0.2 Adapter-to-Runner Initial Integration (Accepted Contract; Implementation Prepared; Acceptance Deferred)
+## v0.2 Adapter-to-Runner Initial Integration (Accepted Contract; Implementation Owner-Accepted)
 
 The accepted `materialize_and_begin_real_transcript_evaluation` contract covers initial evaluation execution through the `DetectorExecution` lifecycle stage only:
 
@@ -449,7 +449,21 @@ Outcome and failure semantics:
 
 Assisted-review continuation is a separate future authority stage and requires a separately owner-accepted contract. This initial operation does not accept assisted-review adjudication and does not execute detector algorithms, perform transcript rewriting or human-decision inference, or access persistence, filesystems, packet construction, networks, or GUI state.
 
-The initial integration implementation is prepared with artificial-fixture verification. This establishes neither independent nor owner acceptance of the implementation, actual real-material execution, detector effectiveness, product behavior, production readiness, GUI completion, nor merge readiness.
+The initial integration implementation passed strong-final review and was owner-accepted at commit `6d6699ded4b8e5620e20274bb158394077f891cf`. Artificial-fixture evidence establishes implementation behavior only; it does not establish actual real-material execution, detector effectiveness, product validation, production readiness, GUI completion, or merge readiness.
+
+## v0.2 Application Service Boundary (Accepted Contract; Implementation Prepared; Acceptance Deferred)
+
+The owner-accepted application service contract defines a pure typed in-memory product session over one session-owned `Transcript`, the ordered `SessionTermEntry` values, one pipeline-minted `CanonicalTermReviewRun`, and one append-only `ReviewLedger`. Canonical review cases remain non-authoritative proposals. Human decision authority enters only through an explicit application command and is recorded through the existing ledger; the service does not automatically accept proposals or duplicate detector, anchor, revision, ledger, or reviewed-output semantics.
+
+`ApplicationReviewTarget` is a semantic command target consisting of the canonical `AnalysisSnapshot` and one run-local `ReviewCaseId`. A target is admissible when its snapshot equals the receiving session's canonical snapshot and the case ID resolves inside that session's canonical ordered review-case set. Targets are minted only from the session's review items. They contain no instance nonce, clock, random identity, memory-address identity, GUI identity, serialization, or hydration authority; independently created analysis-equivalent sessions are intentionally indistinguishable through the target.
+
+Decision coverage and resolution are separate derived states. `AcceptAlternative`, `Reject`, `Defer`, and `NeedsManualCorrection` all count as explicit decisions; only absence of an effective ledger decision is undecided. Coverage is complete when every canonical case has an effective decision. Resolution is unresolved when any effective decision is `Defer` or `NeedsManualCorrection`, independently of coverage. Current projection is available in every valid session state. Reviewed output requires complete decision coverage only, so coverage-complete unresolved output is permitted; defer and manual decisions preserve source text, and the output retains typed progress and the effective decision summary.
+
+The caller supplies an `ApplicationMaterialUseDeclaration` whose declared basis is `SelfOwned` or `ExplicitPermission`. The session binds that declaration internally to the source revision derived from its transcript. This is a caller assertion only and does not independently establish legal sufficiency, ownership, consent, publication rights, training rights, human-decision authority, evaluation eligibility, or primary-metric eligibility.
+
+Replay verification reruns canonical analysis from the same session-owned typed source and ordered terms by immutable reference, replays the exact append-only decision sequence through existing ledger validation, and compares analysis identity, ordered cases, effective status, progress, summary, current projection, and reviewed-output result. This is deterministic same-process in-memory re-execution only. It is not persistence, serialization, restart recovery, cross-process replay, transport, or hydration.
+
+The application service imports no blind-reference runner, detector snapshot, reference, metric, artifact-packet, persistence, filesystem, network, or GUI authority. It does not represent normal product review as evaluation evidence. The prepared implementation and artificial-fixture validation do not establish implementation owner acceptance, real-material product-path execution, GUI completion, persistence, transport, production readiness, or merge readiness.
 
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 
