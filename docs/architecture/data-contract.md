@@ -374,7 +374,7 @@ Boundary:
 - no real evaluation execution, packet transport, filesystem I/O, metrics, or CLI exists in this slice;
 - artificial real-posture fixtures establish implementation behavior only and are not real-material evidence.
 
-## v0.2 Adapter-to-Runner Initial Integration (Accepted Contract; Implementation Deferred)
+## v0.2 Adapter-to-Runner Initial Integration (Accepted Contract; Implementation Prepared; Acceptance Deferred)
 
 The accepted `materialize_and_begin_real_transcript_evaluation` contract covers initial evaluation execution through the `DetectorExecution` lifecycle stage only:
 
@@ -449,7 +449,7 @@ Outcome and failure semantics:
 
 Assisted-review continuation is a separate future authority stage and requires a separately owner-accepted contract. This initial operation does not accept assisted-review adjudication and does not execute detector algorithms, perform transcript rewriting or human-decision inference, or access persistence, filesystems, packet construction, networks, or GUI state.
 
-This accepted contract establishes no implementation, implementation verification, owner acceptance of an implementation, actual real-material execution, detector effectiveness, product behavior, production readiness, GUI completion, or merge readiness.
+The initial integration implementation is prepared with artificial-fixture verification. This establishes neither independent nor owner acceptance of the implementation, actual real-material execution, detector effectiveness, product behavior, production readiness, GUI completion, nor merge readiness.
 
 ## v0.2 Synthetic Evaluation Harness (Contract Chain Orchestration)
 

@@ -21,6 +21,7 @@ pub mod pipeline;
 pub mod real_transcript_detector_snapshot_adapter;
 pub mod real_transcript_evaluation_execution;
 pub mod real_transcript_evaluation_runner;
+pub mod real_transcript_initial_execution;
 pub mod reference_alignment;
 pub mod reference_coverage;
 pub mod reference_identity;

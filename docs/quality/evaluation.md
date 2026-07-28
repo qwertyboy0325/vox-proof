@@ -403,6 +403,25 @@ Completed results derive join, contribution, and aggregate artifacts, serialize 
 
 `materialize_real_transcript_detector_snapshot` reruns that validator in the same operation, maps canonical review cases to validated `DetectorProposalRecord` values in stored order with caller-supplied proposal IDs bound by index, derives semantic keys and snapshot assessment through existing snapshot APIs, constructs one `DetectorProposalSnapshot` in `Frozen` state, validates each record and the final snapshot against the `DetectorExecution` envelope, and returns the validated plan plus snapshot. A stored validated plan alone cannot materialize a snapshot. Production adapter code does not execute detectors or call the canonical pipeline. Zero-candidate runs produce valid empty frozen snapshots. Artificial integration tests prove structural compatibility with the in-memory evaluation runner only; they do not establish actual real-material execution, detector effectiveness, or product behavior. Caller-supplied frozen timestamps are not independently authenticated. No packet, filesystem, CLI, persistence, clock, or randomness behavior exists in this slice.
 
+## v0.2 Adapter-to-Runner Initial Integration Evidence
+
+`real_transcript_initial_execution` implements the accepted initial integration contract with an API that accepts no caller-supplied snapshot, execution input, or adjudication set. It materializes the detector snapshot and passes that same immutable value directly into an internally constructed initial execution input. The empty detector-stage adjudication set is constructed internally in `Frozen` state, and assisted-review adjudication is always `None`.
+
+`cargo test --locked --test real_transcript_initial_execution_implementation` passes these 8 artificial-fixture tests:
+
+- `artificial_zero_proposal_initial_execution_completes_at_detector_stage`
+- `artificial_non_empty_exact_initial_execution_completes_with_materialized_snapshot`
+- `artificial_overlap_pending_returns_the_snapshot_used_by_execution`
+- `artificial_repeated_execution_is_deterministic_and_leaves_sources_unchanged`
+- `artificial_invalid_adapter_input_returns_materialization_stage_error`
+- `artificial_duplicate_artifact_binding_returns_existing_execution_error`
+- `artificial_duplicate_context_artifact_returns_existing_execution_error`
+- `artificial_fixture_target_proves_no_forbidden_operations_or_substitution_hooks`
+
+The fixture transcript content is constructed from inline artificial strings. Its requests deliberately carry the real-posture metadata required to traverse the accepted runner contract (`SelfOwnedReal` or `ExplicitPermissionReal`, with the declared real-evidence qualification flag); those metadata assertions do not turn the artificial content into real material or evidence. The directly affected adapter, runner, detector-snapshot, and input-authorization suites also pass.
+
+This is implementation evidence from artificial repository fixtures only. It does not establish independent or owner acceptance of the implementation, assisted-review continuation, durable pending resume, actual real-material execution, detector effectiveness, persistence or filesystem transport, GUI behavior, production readiness, or merge readiness.
+
 ## Future Evaluation Areas
 
 Future evaluation should consider:
