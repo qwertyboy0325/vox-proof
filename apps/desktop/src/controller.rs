@@ -379,6 +379,7 @@ impl DesktopController {
             }
         }
         session.record_human_decision(item.target, decision)?;
+        self.exported_paths = None;
         let _ = session.derive_current_projection()?;
 
         let refreshed = session.review_items();

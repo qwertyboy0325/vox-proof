@@ -77,7 +77,7 @@ impl ReviewApp {
             Self::ime_composing(ctx),
             false,
         );
-        if suppress_review_shortcuts || self.controller.phase() != DesktopPhase::ActiveReview {
+        if suppress_review_shortcuts || self.controller.phase() == DesktopPhase::Setup {
             return;
         }
 
@@ -127,10 +127,17 @@ impl ReviewApp {
 
     fn apply_decision(&mut self, decision: CorrectionDecision) {
         let generation = self.controller.generation();
+        let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
         match self.controller.record_decision(generation, decision) {
             Ok(()) => {
                 self.error = None;
-                self.status = "Human decision recorded in the in-memory session.".to_owned();
+                self.status = if invalidates_prior_export {
+                    "Session changed after export. The prior files remain on disk but do not \
+                     represent the current session; export again to produce current outputs."
+                        .to_owned()
+                } else {
+                    "Human decision recorded in the in-memory session.".to_owned()
+                };
                 self.selected_alternative = 0;
             }
             Err(error) => self.error = Some(error.to_string()),

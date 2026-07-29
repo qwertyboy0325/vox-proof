@@ -68,6 +68,12 @@ write failure it best-effort removes only files created by that attempt,
 preserves the original error, and separately reports cleanup failures. This
 is bounded cleanup, not a transactional or crash-safe guarantee.
 
+A successful decision revision after export clears the in-app
+export-complete indicator and requires a fresh export for the current session
+state. The previously exported files remain untouched on disk and represent
+the earlier exported state. This is transient UI-state coherence, not
+versioning, persistence, or export history.
+
 ## Limitations and non-goals
 
 Sessions are memory-only: reset or process exit discards them. There is no

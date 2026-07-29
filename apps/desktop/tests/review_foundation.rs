@@ -287,6 +287,108 @@ fn complete_unresolved_export_requires_explicit_source_retention_confirmation() 
 }
 
 #[test]
+fn successful_post_export_revision_invalidates_only_the_in_app_export_state() {
+    let directory = tempdir().unwrap();
+    let mut controller = DesktopController::default();
+    start(&mut controller, PathBuf::from("revision.srt"));
+    let generation = controller.generation();
+    controller
+        .record_decision(
+            generation,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .unwrap();
+    let paths = controller
+        .export(generation, directory.path(), false)
+        .unwrap();
+    let original_reviewed_srt = fs::read(&paths.reviewed_srt).unwrap();
+    let original_decision_log = fs::read(&paths.decision_log).unwrap();
+    let original_session_summary = fs::read(&paths.session_summary).unwrap();
+    assert_eq!(controller.phase(), DesktopPhase::ExportCompleted);
+
+    controller
+        .record_decision(generation, CorrectionDecision::Reject)
+        .unwrap();
+
+    assert_eq!(controller.phase(), DesktopPhase::ActiveReview);
+    assert!(controller.exported_paths().is_none());
+    assert_eq!(controller.header().unwrap().total_recorded_events, 2);
+    let projection = controller.projection().unwrap();
+    assert!(projection.srt.contains("這是華說的新產品"));
+    assert!(!projection.srt.contains("這是華碩的新產品"));
+    assert_eq!(
+        fs::read(&paths.reviewed_srt).unwrap(),
+        original_reviewed_srt
+    );
+    assert_eq!(
+        fs::read(&paths.decision_log).unwrap(),
+        original_decision_log
+    );
+    assert_eq!(
+        fs::read(&paths.session_summary).unwrap(),
+        original_session_summary
+    );
+
+    assert!(matches!(
+        controller.export(generation, directory.path(), false),
+        Err(ControllerError::Export(_))
+    ));
+    assert!(controller.exported_paths().is_none());
+    assert_eq!(
+        fs::read(&paths.reviewed_srt).unwrap(),
+        original_reviewed_srt
+    );
+    assert_eq!(
+        fs::read(&paths.decision_log).unwrap(),
+        original_decision_log
+    );
+    assert_eq!(
+        fs::read(&paths.session_summary).unwrap(),
+        original_session_summary
+    );
+}
+
+#[test]
+fn failed_stale_post_export_decision_preserves_export_completion_state() {
+    let directory = tempdir().unwrap();
+    let mut controller = DesktopController::default();
+    start(&mut controller, PathBuf::from("stale.srt"));
+    let generation = controller.generation();
+    controller
+        .record_decision(generation, CorrectionDecision::Reject)
+        .unwrap();
+    let paths = controller
+        .export(generation, directory.path(), false)
+        .unwrap();
+    let original_reviewed_srt = fs::read(&paths.reviewed_srt).unwrap();
+    let original_decision_log = fs::read(&paths.decision_log).unwrap();
+    let original_session_summary = fs::read(&paths.session_summary).unwrap();
+
+    let error = controller
+        .record_decision(generation.wrapping_sub(1), CorrectionDecision::Defer)
+        .unwrap_err();
+
+    assert!(matches!(error, ControllerError::StaleGeneration { .. }));
+    assert_eq!(controller.phase(), DesktopPhase::ExportCompleted);
+    assert_eq!(controller.exported_paths(), Some(&paths));
+    assert_eq!(controller.header().unwrap().total_recorded_events, 1);
+    assert_eq!(
+        fs::read(&paths.reviewed_srt).unwrap(),
+        original_reviewed_srt
+    );
+    assert_eq!(
+        fs::read(&paths.decision_log).unwrap(),
+        original_decision_log
+    );
+    assert_eq!(
+        fs::read(&paths.session_summary).unwrap(),
+        original_session_summary
+    );
+}
+
+#[test]
 fn collision_preflight_writes_none_of_the_other_outputs() {
     let directory = tempdir().unwrap();
     let mut controller = DesktopController::default();
