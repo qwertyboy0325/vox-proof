@@ -451,9 +451,9 @@ Assisted-review continuation is a separate future authority stage and requires a
 
 The initial integration implementation passed strong-final review and was owner-accepted at commit `6d6699ded4b8e5620e20274bb158394077f891cf`. Artificial-fixture evidence establishes implementation behavior only; it does not establish actual real-material execution, detector effectiveness, product validation, production readiness, GUI completion, or merge readiness.
 
-## v0.2 Application Service Boundary (Accepted Contract; Implementation Prepared; Acceptance Deferred)
+## v0.2 Application Service Boundary (Accepted Contract and Owner-Accepted Implementation)
 
-**Status:** The authority/export contract is owner-accepted. Its implementation is prepared but has not yet passed strong-final review or owner acceptance. The base Application Service implementation was owner-accepted at `aa26a29c11e173b63ef8c4edd6dfa4fe3f89fb59`.
+**Status:** The authority/export contract and implementation are owner-accepted at `3dbcb235eff601112ba9af958dd58c217429eabd`. The base Application Service implementation was previously owner-accepted at `aa26a29c11e173b63ef8c4edd6dfa4fe3f89fb59`. This acceptance does not establish authentication, durable sessions, product persistence, GUI implementation, desktop filesystem export integration, external validation, or production readiness.
 
 The owner-accepted application service contract defines a pure typed in-memory product session over one session-owned `Transcript`, the ordered `SessionTermEntry` values, one pipeline-minted `CanonicalTermReviewRun`, and one append-only `ReviewLedger`. Canonical review cases remain non-authoritative proposals. Human decision authority enters only through an explicit application command and is recorded through the existing ledger; the service does not automatically accept proposals or duplicate detector, anchor, revision, ledger, or reviewed-output semantics.
 

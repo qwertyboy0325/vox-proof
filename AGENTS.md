@@ -5,7 +5,8 @@ Cross-agent entry point for VoxProof. This file orients an agent; it does not du
 ## What VoxProof Is
 
 - VoxProof is a local-first, evidence-backed transcript QA tool.
-- Current scope is post-ASR review, not ASR generation.
+- Current implemented scope is post-ASR review.
+- Built-in ASR is a planned non-authoritative product input capability, not transcript authority and not yet implemented.
 - No transcript text may be silently rewritten.
 - Human decisions are canonical.
 
@@ -42,7 +43,8 @@ If a proposed change implicitly resolves, assumes, or bypasses an open research 
 ## Canonical Topic Map
 
 - v0.1 scope: `docs/product/v0.1.md`
-- Current global execution goal and order: `docs/product/v0.1-execution-order.md`
+- Current global execution goal and order: `docs/product/v0.2-execution-order.md`
+- v0.1 historical execution and establishment context: `docs/product/v0.1-execution-order.md`
 - Hypotheses: `docs/product/hypotheses.md`
 - Architecture: `docs/architecture/overview.md`
 - Conceptual data contracts: `docs/architecture/data-contract.md`

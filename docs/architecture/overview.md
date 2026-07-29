@@ -1,7 +1,7 @@
 Status: current
 Owns: Architecture principles and the current fixed conceptual processing shape.
 Does not own: Cross-version correction-system semantics (owned by `product/correction-system-boundaries.md`), product acceptance criteria, field-level schemas, storage paths, implementation tasks, or future orchestration commitments.
-Last reviewed against code: Track 1 local code loop exists. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code/evidence: v0.1 is established by MD-008 only as the bounded deterministic core mechanism defined by MD-007 and MD-008. Product effectiveness, external usability, workflow value, adoption, time savings, and product-market fit remain unproven.
 
 # Architecture Overview
 

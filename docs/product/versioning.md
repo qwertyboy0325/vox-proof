@@ -1,7 +1,7 @@
 Status: current
 Owns: Pre-1.0 version semantics — what a VoxProof version number means, the pre-1.0 version ladder, what it takes for a version to be established, and the claims each version allows and forbids.
 Does not own: The scope of any individual version (owned by that version's scope document, e.g. `v0.1.md`), execution order, hypotheses, data contracts, or material decisions.
-Last reviewed against code: Track 1 code closed loop exists; v0.1 is established by MD-008; local annotated tag pending recreation (see Current Version Status).
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation while desktop implementation remains pending (see Current Version Status).
 
 # VoxProof Pre-1.0 Version Semantics
 
@@ -43,6 +43,10 @@ A capability may appear in a version without being the evidence required to esta
 For v0.2, supporting capabilities may exist to make a credible external pilot possible — for example desktop delivery, local media review, durable sessions, human-raised cases, manual replacements, bounded Session knowledge, or bounded Project or Domain Collection knowledge. Their presence does not make reusable knowledge the primary v0.2 establishment claim, and none of them need to be accepted or implemented before the Lead A establishment criterion is satisfied.
 
 For v0.3, reusable correction and domain knowledge assets themselves become a principal establishment target.
+
+MD-016 selects eframe/egui `0.35.0`, a single native Rust process, and direct `ApplicationReviewSession` integration as the native desktop foundation. Framework selection does not establish desktop implementation or v0.2. Built-in ASR may support the v0.2 external-testability workflow and is required by the current fundraising-demonstration delivery target, but its runtime, model, backend, and distribution mechanism remain unresolved. External SRT import remains a supported path.
+
+The current durable execution order and the distinction between assisted-pilot and fundraising-demo readiness are owned by `v0.2-execution-order.md`. Delivery targets do not alter the validation questions or establishment evidence defined here.
 
 ## The pre-1.0 ladder
 
@@ -124,4 +128,5 @@ Anything not assigned to a version by its scope document does not silently belon
 ## Current Version Status
 
 - v0.1: established; local annotated tag pending recreation on the documentation-synchronized replacement tag target. The bounded core mechanism is established by MD-008 at implementation baseline `05b7a2f`; historical tag-target validation passed at MD-008 establishment commit `cde7fd9` (2026-07-18T04:09:43Z). A prior unpublished local annotated tag was deleted before push to synchronize canonical release-state documentation. Product and external-user validation remain pending beyond v0.1.
-- v0.2 and later: not started.
+- v0.2: in progress. MD-016 has selected the native desktop foundation, but desktop implementation and external-user validation remain pending. Built-in ASR is a planned supporting capability and a requirement of the current fundraising-demo delivery target, not transcript authority or version-establishment evidence by itself.
+- v0.3 and later: not established. Governed correction reuse remains a v0.3 validation target and is unproven. A fundraising demonstration may include v0.3-oriented reuse capabilities without establishing v0.3.

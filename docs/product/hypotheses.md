@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: Unvalidated market, user, and future-product hypotheses.
 Does not own: Current v0.1 scope, architecture commitments, implementation tasks, roadmap promises, or validated claims.
-Last reviewed against code: Track 1 local code loop exists. v0.1 is not established; real-material validation remains pending.
+Last reviewed against code/evidence: v0.1 is established by MD-008 only as the bounded deterministic core mechanism defined by MD-007 and MD-008. Product effectiveness, external usability, workflow value, adoption, time savings, product-market fit, and every hypothesis below remain unproven.
 
 # Product Hypotheses
 

@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: v0.1 Track 1 code closed loop exists; qualifying real-material mechanism evidence exists; v0.1 is established by MD-008; local annotated tag pending recreation; product and external-user validation remain pending.
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; desktop implementation and external-user validation remain pending.
 
 # VoxProof Documentation
 
@@ -17,7 +17,8 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [product/versioning.md](product/versioning.md): pre-1.0 version semantics, the version ladder, and per-version allowed claims.
 - [product/v0.1.md](product/v0.1.md): current v0.1 product scope and acceptance boundary.
 - [product/v0.1.0-release-preparation.md](product/v0.1.0-release-preparation.md): v0.1.0 gate matrix, release-notes draft, validation records, retag note, and remaining release actions (v0.1 established; local annotated tag pending recreation).
-- [product/v0.1-execution-order.md](product/v0.1-execution-order.md): current global execution goal, parallel completion-and-validation posture, and near-term order toward a testable v0.1 loop.
+- [product/v0.2-execution-order.md](product/v0.2-execution-order.md): current global execution goal, delivery profiles, and ordered product gates during v0.2.
+- [product/v0.1-execution-order.md](product/v0.1-execution-order.md): retained v0.1 historical execution, implementation, calibration, and establishment-evidence context.
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
 - [architecture/overview.md](architecture/overview.md): architecture principles and fixed v0.1 processing shape.
 - [architecture/data-contract.md](architecture/data-contract.md): conceptual domain entities and data ownership boundaries.
