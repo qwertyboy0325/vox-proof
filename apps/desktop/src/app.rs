@@ -24,6 +24,7 @@ pub struct ReviewApp {
     operator_label: String,
     search: String,
     selected_alternative: usize,
+    manual_replacement_draft: String,
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
     error: Option<String>,
@@ -44,6 +45,7 @@ impl ReviewApp {
             operator_label: String::new(),
             search: String::new(),
             selected_alternative: 0,
+            manual_replacement_draft: String::new(),
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
             error: None,
@@ -84,10 +86,12 @@ impl ReviewApp {
         if ctx.input(|input| input.key_pressed(egui::Key::ArrowUp)) {
             self.controller.select_relative(-1);
             self.selected_alternative = 0;
+            self.manual_replacement_draft.clear();
         }
         if ctx.input(|input| input.key_pressed(egui::Key::ArrowDown)) {
             self.controller.select_relative(1);
             self.selected_alternative = 0;
+            self.manual_replacement_draft.clear();
         }
         for (index, key) in [
             (0, egui::Key::Num1),
@@ -139,6 +143,30 @@ impl ReviewApp {
                     "Human decision recorded in the in-memory session.".to_owned()
                 };
                 self.selected_alternative = 0;
+                self.manual_replacement_draft.clear();
+            }
+            Err(error) => self.error = Some(error.to_string()),
+        }
+    }
+
+    fn apply_manual_replacement(&mut self) {
+        let generation = self.controller.generation();
+        let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
+        match self
+            .controller
+            .record_manual_replacement(generation, self.manual_replacement_draft.clone())
+        {
+            Ok(()) => {
+                self.error = None;
+                self.status = if invalidates_prior_export {
+                    "Session changed after export. The prior files remain on disk but do not \
+                     represent the current session; export again to produce current outputs."
+                        .to_owned()
+                } else {
+                    "Manual Replacement recorded in the in-memory session.".to_owned()
+                };
+                self.selected_alternative = 0;
+                self.manual_replacement_draft.clear();
             }
             Err(error) => self.error = Some(error.to_string()),
         }
@@ -153,6 +181,7 @@ impl ReviewApp {
         self.role = DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator;
         self.search.clear();
         self.selected_alternative = 0;
+        self.manual_replacement_draft.clear();
         self.bottom_tab = BottomTab::CurrentPreview;
         self.confirm_unresolved_source_retained = false;
         self.error = None;
@@ -397,6 +426,7 @@ impl ReviewApp {
                     {
                         self.controller.select(index);
                         self.selected_alternative = 0;
+                        self.manual_replacement_draft.clear();
                     }
                 }
             });
@@ -438,6 +468,10 @@ impl ReviewApp {
             ui.label(format!("Cases: {}", header.total_review_cases));
             ui.label(format!("Events: {}", header.total_recorded_events));
             ui.label(format!("Accepted: {}", header.accepted));
+            ui.label(format!(
+                "Manual replacements: {}",
+                header.manual_replacements
+            ));
             ui.label(format!("Rejected: {}", header.rejected));
             ui.label(format!("Deferred: {}", header.deferred));
             ui.label(format!(
@@ -490,6 +524,26 @@ impl ReviewApp {
             );
         }
         ui.add_space(8.0);
+        ui.group(|ui| {
+            ui.label(RichText::new("Governed Manual Replacement").strong());
+            ui.label(
+                "Single-line, exact UTF-8 payload for this existing ReviewCase anchor. \
+                 Empty, whitespace-only, control-character, identical, and over-4096-byte \
+                 values are refused.",
+            );
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.manual_replacement_draft)
+                        .id(egui::Id::new("manual-replacement-field"))
+                        .desired_width(420.0)
+                        .hint_text("Enter exact replacement text"),
+                );
+                if ui.button("Record Manual Replacement").clicked() {
+                    self.apply_manual_replacement();
+                }
+            });
+        });
+        ui.add_space(8.0);
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(
@@ -511,7 +565,7 @@ impl ReviewApp {
             if ui
                 .button("Needs manual correction (M)")
                 .on_hover_text(
-                    "Records only a signal; this foundation captures no replacement text",
+                    "Records only an unresolved signal; use the governed field above to record text",
                 )
                 .clicked()
             {

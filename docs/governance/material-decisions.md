@@ -84,6 +84,8 @@ Accepted v0.2 persistence-evidence decision: `decisions/MD-015-proposed-persiste
 
 Accepted v0.2 native-desktop decision: `decisions/MD-016-native-desktop-framework-and-in-process-integration.md` — eframe/egui `0.35.0`, one native Rust process, direct in-process integration, `ApplicationReviewSession` as canonical application state, and non-authoritative GUI state. IME composition and accessibility inspection remain open risks. Acceptance records the durable foundation choices; implementation still requires a bounded owner-authorized work package.
 
+Accepted bounded v0.2 Manual Replacement decision: `decisions/MD-017-governed-manual-replacement-on-existing-review-case.md` — exact validated single-line Manual Replacement payloads on existing detector-raised `ReviewCase` values, append-only `DecisionRecorded` authority, last-decision-wins effective status, shared canonical materialization and overlap refusal, replay closure, frozen application export v2 renderers, and explicit exclusion of deletion, HumanRaised cases, persistence, and Correction Memory authority.
+
 ## Decision record shape
 
 Each Material Decision should include:

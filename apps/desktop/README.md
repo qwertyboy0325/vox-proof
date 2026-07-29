@@ -38,6 +38,10 @@ provide legal authorization.
 - `R`: reject.
 - `D`: defer.
 - `M`: mark as needing manual correction (signal only; no text is captured).
+- The single-line “Governed Manual Replacement” field records an MD-017 exact
+  replacement for the selected existing ReviewCase through
+  `ApplicationReviewSession`. Its widget draft is non-authoritative until the
+  command succeeds.
 - `Cmd+L` on macOS or `Ctrl+L` on other supported egui platforms: focus
   non-authoritative search.
 - `Escape`: release search focus or dismiss a non-destructive native picker.
@@ -83,8 +87,9 @@ claimed. Traditional Chinese glyph rendering passed the local native smoke;
 IME commit/cancel and shortcut-suppression evidence is classified separately
 in that smoke report because candidate/pre-edit inspection may be incomplete.
 
-This foundation does not add manual replacement text, human-raised cases,
-persistence, ASR, media playback, Correction Memory, cross-material reuse,
-authentication, telemetry, network access, packaging, an installer, updater,
-cross-platform support claims, production readiness, or version
-establishment.
+The bounded MD-017 extension adds Manual Replacement text only for existing
+detector-raised ReviewCases. It does not add human-raised cases, arbitrary
+ranges, deletion, multiline editing, persistence, ASR, media playback,
+Correction Memory, cross-material reuse, authentication, telemetry, network
+access, packaging, an installer, updater, cross-platform support claims,
+production readiness, or version establishment.

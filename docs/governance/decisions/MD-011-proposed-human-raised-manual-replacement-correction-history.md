@@ -8,6 +8,11 @@ Decision authority: Ezra
 
 Classification: review-case origin, correction-decision semantics, review-ledger history, and reviewed-output materialization extension (not accepted)
 
+Relationship update: accepted MD-017 now owns the bounded Manual Replacement
+slice for existing detector-raised ReviewCases. This proposed decision remains
+unaccepted for HumanRaised cases, withdrawal, explicit supersession event
+identity, undo/reapplication, and its broader history fold.
+
 ## Context
 
 MD-002 established `ReviewCase` as the unit of review, append-only `ReviewLedger` events, and the v0.1 detector-raised decision slice.
@@ -297,6 +302,7 @@ This proposed decision does not authorize persistence implementation, desktop UI
 
 ## Related proposed decisions
 
-MD-011 remains authoritative for correction-history semantics.
+MD-011 remains a proposed, non-authoritative source for the broader
+correction-history questions not accepted by MD-017.
 
 If accepted, `decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md` would require durable acknowledgement, stale-write rejection, and preservation through recovery and compaction. MD-014 would not redefine correction actions.

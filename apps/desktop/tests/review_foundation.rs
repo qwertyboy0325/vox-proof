@@ -3,10 +3,11 @@ use std::path::PathBuf;
 
 use tempfile::tempdir;
 use vox_proof::application_service::{
-    ApplicationDecisionCoverage, ApplicationResolutionStatus, DeclaredApplicationMaterialUseBasis,
-    DeclaredSessionOperatorRole,
+    ApplicationDecisionCoverage, ApplicationResolutionStatus, ApplicationServiceError,
+    DeclaredApplicationMaterialUseBasis, DeclaredSessionOperatorRole,
 };
-use vox_proof::review::CorrectionDecision;
+use vox_proof::review::{CorrectionDecision, ManualReplacementTextError};
+use vox_proof::reviewed_output::ReviewedOutputError;
 use voxproof_desktop::controller::{ControllerError, DesktopController, DesktopPhase};
 
 const SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\n歡迎使用轉錄校對工具\n\n\
@@ -16,6 +17,8 @@ const TERMS: &str = "華碩 | alias:華說\n";
 const TWO_CASE_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\n華說\n\n\
 2\n00:00:01,000 --> 00:00:02,000\n台彎\n";
 const TWO_CASE_TERMS: &str = "華碩 | alias:華說\n臺灣 | alias:台彎\n";
+const OVERLAPPING_CASE_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\nKafaka\n";
+const OVERLAPPING_CASE_TERMS: &str = "Kafka | alias:Kafak\nFACA | alias:faka\n";
 
 fn start(controller: &mut DesktopController, source_path: PathBuf) {
     controller
@@ -111,6 +114,61 @@ fn accept_uses_current_generation_and_recomputes_read_only_projection() {
     assert_eq!(
         controller.progress().unwrap().decision_coverage,
         ApplicationDecisionCoverage::Complete
+    );
+}
+
+#[test]
+fn manual_replacement_flows_through_controller_and_preserves_exact_text() {
+    let mut controller = DesktopController::default();
+    start(&mut controller, PathBuf::from("manual.srt"));
+    let generation = controller.generation();
+
+    controller
+        .record_manual_replacement(generation, "  華碩正式版  ")
+        .expect("manual replacement");
+
+    assert!(
+        controller
+            .projection()
+            .unwrap()
+            .srt
+            .contains("這是  華碩正式版  的新產品")
+    );
+    let header = controller.header().unwrap();
+    assert_eq!(header.manual_replacements, 1);
+    assert_eq!(header.total_recorded_events, 1);
+    assert_eq!(
+        controller.progress().unwrap().resolution_status,
+        ApplicationResolutionStatus::Resolved
+    );
+}
+
+#[test]
+fn invalid_manual_replacement_does_not_change_authoritative_session() {
+    let mut controller = DesktopController::default();
+    start(&mut controller, PathBuf::from("manual-invalid.srt"));
+    let generation = controller.generation();
+
+    let error = controller
+        .record_manual_replacement(generation, " \u{3000}")
+        .expect_err("whitespace-only replacement must fail");
+    assert!(matches!(
+        error,
+        ControllerError::Service(ApplicationServiceError::ManualReplacement(
+            ManualReplacementTextError::WhitespaceOnly
+        ))
+    ));
+    assert_eq!(controller.header().unwrap().total_recorded_events, 0);
+    assert_eq!(
+        controller.progress().unwrap().decision_coverage,
+        ApplicationDecisionCoverage::Incomplete { undecided: 1 }
+    );
+    assert!(
+        controller
+            .projection()
+            .unwrap()
+            .srt
+            .contains("這是華說的新產品")
     );
 }
 
@@ -351,6 +409,42 @@ fn successful_post_export_revision_invalidates_only_the_in_app_export_state() {
 }
 
 #[test]
+fn successful_post_export_manual_replacement_invalidates_export_completion_state() {
+    let directory = tempdir().unwrap();
+    let mut controller = DesktopController::default();
+    start(&mut controller, PathBuf::from("manual-revision.srt"));
+    let generation = controller.generation();
+    controller
+        .record_decision(generation, CorrectionDecision::Reject)
+        .unwrap();
+    let paths = controller
+        .export(generation, directory.path(), false)
+        .unwrap();
+    let original_decision_log = fs::read(&paths.decision_log).unwrap();
+    assert_eq!(controller.phase(), DesktopPhase::ExportCompleted);
+
+    controller
+        .record_manual_replacement(generation, "華碩手動版")
+        .expect("manual revision");
+
+    assert_eq!(controller.phase(), DesktopPhase::ActiveReview);
+    assert!(controller.exported_paths().is_none());
+    assert_eq!(controller.header().unwrap().total_recorded_events, 2);
+    assert_eq!(controller.header().unwrap().manual_replacements, 1);
+    assert!(
+        controller
+            .projection()
+            .unwrap()
+            .srt
+            .contains("這是華碩手動版的新產品")
+    );
+    assert_eq!(
+        fs::read(&paths.decision_log).unwrap(),
+        original_decision_log
+    );
+}
+
+#[test]
 fn failed_stale_post_export_decision_preserves_export_completion_state() {
     let directory = tempdir().unwrap();
     let mut controller = DesktopController::default();
@@ -433,6 +527,62 @@ fn incomplete_coverage_rejects_final_projection_and_filesystem_export() {
         controller.export(controller.generation(), directory.path(), false),
         Err(ControllerError::ReviewIncomplete { undecided: 1 })
     ));
+    assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn overlapping_manual_and_alternative_decisions_succeed_but_projection_and_export_fail_closed() {
+    let directory = tempdir().unwrap();
+    let mut controller = DesktopController::default();
+    controller
+        .start_from_text(
+            OVERLAPPING_CASE_SRT,
+            OVERLAPPING_CASE_TERMS,
+            PathBuf::from("overlap.srt"),
+            DeclaredApplicationMaterialUseBasis::SelfOwned,
+            DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+            "Reviewer",
+        )
+        .unwrap();
+
+    let generation = controller.generation();
+    controller
+        .record_manual_replacement(generation, "Manual Kafka")
+        .expect("authoritative manual decision succeeds");
+    assert_eq!(controller.header().unwrap().total_recorded_events, 1);
+    controller
+        .record_decision(
+            generation,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .expect("authoritative alternative decision succeeds");
+
+    assert_eq!(controller.header().unwrap().total_recorded_events, 2);
+    assert!(matches!(
+        controller.projection(),
+        Err(ControllerError::Service(
+            ApplicationServiceError::ReviewedOutput(ReviewedOutputError::OverlappingEdits { .. })
+        ))
+    ));
+    controller
+        .record_decision(generation, CorrectionDecision::Reject)
+        .expect("remaining non-materializing decision succeeds");
+    assert_eq!(controller.header().unwrap().total_recorded_events, 3);
+    let export_result = controller.export(generation, directory.path(), false);
+    assert!(
+        matches!(
+            export_result,
+            Err(ControllerError::Service(
+                ApplicationServiceError::ReviewedOutput(
+                    ReviewedOutputError::OverlappingEdits { .. }
+                )
+            ))
+        ),
+        "unexpected export result: {export_result:?}"
+    );
+    assert!(controller.exported_paths().is_none());
     assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 0);
 }
 

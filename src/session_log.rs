@@ -28,12 +28,12 @@ fn render_event(event: &ReviewLedgerEvent, output: &mut String) {
                 "observed_revision: {}\n",
                 observed_revision.to_tagged_string()
             ));
-            render_decision(*decision, output);
+            render_decision(decision, output);
         }
     }
 }
 
-fn render_decision(decision: CorrectionDecision, output: &mut String) {
+fn render_decision(decision: &CorrectionDecision, output: &mut String) {
     match decision {
         CorrectionDecision::Reject => output.push_str("decision: reject\n"),
         CorrectionDecision::Defer => output.push_str("decision: defer\n"),
@@ -44,7 +44,31 @@ fn render_decision(decision: CorrectionDecision, output: &mut String) {
         CorrectionDecision::NeedsManualCorrection => {
             output.push_str("decision: needs_manual_correction\n");
         }
+        CorrectionDecision::ManualReplacement { replacement } => {
+            output.push_str("decision: manual_replacement\n");
+            output.push_str(&format!(
+                "replacement_text: {}\n",
+                escape_decision_text(replacement.as_str())
+            ));
+        }
     }
+}
+
+fn escape_decision_text(value: &str) -> String {
+    let mut escaped = String::new();
+    for character in value.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            character if character.is_control() => {
+                escaped.push_str(&format!("\\u{{{:x}}}", character as u32));
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]

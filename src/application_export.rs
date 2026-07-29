@@ -6,8 +6,8 @@ use crate::application_service::{
 };
 use crate::candidate::DetectionKind;
 
-const DECISION_LOG_HEADER: &str = "voxproof application decision log v1";
-const SESSION_SUMMARY_HEADER: &str = "voxproof application session summary v1";
+const DECISION_LOG_HEADER: &str = "voxproof application decision log v2";
+const SESSION_SUMMARY_HEADER: &str = "voxproof application session summary v2";
 const EXPORT_DISCLAIMER: &str = "Human-readable export; not machine re-import; not persistence; \
 not authenticated identity; not legal authorization; not validation evidence by itself.";
 
@@ -45,7 +45,7 @@ pub fn render_application_decision_log(bundle: &ApplicationReviewExportBundle) -
             "observed_revision: {}\n",
             record.observed_revision.to_tagged_string()
         ));
-        render_decision_lines(record.decision, &mut output);
+        render_decision_lines(&record.decision, &mut output);
     }
 
     output
@@ -125,6 +125,10 @@ pub fn render_application_session_summary(bundle: &ApplicationReviewExportBundle
     output.push_str(&format!(
         "accepted_alternatives: {}\n",
         bundle.decision_summary.accepted_alternatives
+    ));
+    output.push_str(&format!(
+        "manual_replacements: {}\n",
+        bundle.decision_summary.manual_replacements
     ));
     output.push_str(&format!("rejected: {}\n", bundle.decision_summary.rejected));
     output.push_str(&format!("deferred: {}\n", bundle.decision_summary.deferred));
@@ -298,7 +302,7 @@ fn detection_kind_name(kind: DetectionKind) -> &'static str {
     }
 }
 
-fn render_decision_lines(decision: crate::review::CorrectionDecision, output: &mut String) {
+fn render_decision_lines(decision: &crate::review::CorrectionDecision, output: &mut String) {
     match decision {
         crate::review::CorrectionDecision::Reject => output.push_str("decision: reject\n"),
         crate::review::CorrectionDecision::Defer => output.push_str("decision: defer\n"),
@@ -308,6 +312,13 @@ fn render_decision_lines(decision: crate::review::CorrectionDecision, output: &m
         }
         crate::review::CorrectionDecision::NeedsManualCorrection => {
             output.push_str("decision: needs_manual_correction\n");
+        }
+        crate::review::CorrectionDecision::ManualReplacement { replacement } => {
+            output.push_str("decision: manual_replacement\n");
+            output.push_str(&format!(
+                "replacement_text: {}\n",
+                escape_export_text(replacement.as_str())
+            ));
         }
     }
 }

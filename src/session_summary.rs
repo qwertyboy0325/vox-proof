@@ -41,6 +41,7 @@ pub struct DetectorCount {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DecisionCounts {
     pub accepted_alternatives: usize,
+    pub manual_replacements: usize,
     pub rejected: usize,
     pub deferred: usize,
     pub needs_manual_correction: usize,
@@ -144,6 +145,14 @@ pub fn collect_session_summary(completed: CompletedSession<'_>) -> SessionSummar
                             .or_default() += 1;
                     }
                 }
+                CorrectionDecision::ManualReplacement { replacement } => {
+                    decisions.manual_replacements += 1;
+                    affected_segments
+                        .insert(review_case.candidate_span().anchor().segment_position());
+                    *accepted_replacements
+                        .entry(replacement.as_str().to_string())
+                        .or_default() += 1;
+                }
                 CorrectionDecision::Reject => decisions.rejected += 1,
                 CorrectionDecision::Defer => decisions.deferred += 1,
                 CorrectionDecision::NeedsManualCorrection => {
@@ -170,7 +179,8 @@ pub fn collect_session_summary(completed: CompletedSession<'_>) -> SessionSummar
         cases_by_detection_kind,
         cases_by_detector,
         outcomes: SessionOutcomeCounts {
-            accepted_replacements_materialized: decisions.accepted_alternatives,
+            accepted_replacements_materialized: decisions.accepted_alternatives
+                + decisions.manual_replacements,
             source_segments_affected: affected_segments.len(),
         },
         decisions,
@@ -258,6 +268,10 @@ pub fn render_session_summary(summary: &SessionSummary) -> String {
     output.push_str(&format!(
         "accepted_alternatives: {}\n",
         summary.decisions.accepted_alternatives
+    ));
+    output.push_str(&format!(
+        "manual_replacements: {}\n",
+        summary.decisions.manual_replacements
     ));
     output.push_str(&format!("rejected: {}\n", summary.decisions.rejected));
     output.push_str(&format!("deferred: {}\n", summary.decisions.deferred));
@@ -470,6 +484,7 @@ mod tests {
             summary.decisions,
             DecisionCounts {
                 accepted_alternatives: 1,
+                manual_replacements: 0,
                 rejected: 1,
                 deferred: 1,
                 needs_manual_correction: 1,

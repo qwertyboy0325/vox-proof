@@ -453,7 +453,7 @@ The initial integration implementation passed strong-final review and was owner-
 
 ## v0.2 Application Service Boundary (Accepted Contract and Owner-Accepted Implementation)
 
-**Status:** The authority/export contract and implementation are owner-accepted at `3dbcb235eff601112ba9af958dd58c217429eabd`. The base Application Service implementation was previously owner-accepted at `aa26a29c11e173b63ef8c4edd6dfa4fe3f89fb59`. This acceptance does not establish authentication, durable sessions, product persistence, GUI implementation, desktop filesystem export integration, external validation, or production readiness.
+**Status:** The authority/export contract and implementation are owner-accepted at `3dbcb235eff601112ba9af958dd58c217429eabd`. The base Application Service implementation was previously owner-accepted at `aa26a29c11e173b63ef8c4edd6dfa4fe3f89fb59`. MD-017 accepts bounded Manual Replacement semantics on existing detector-raised ReviewCases; the current branch implements that Gate 2 extension for remote milestone review. This does not establish authentication, durable sessions, product persistence, HumanRaised cases, Correction Memory, external validation, or production readiness.
 
 The owner-accepted application service contract defines a pure typed in-memory product session over one session-owned `Transcript`, the ordered `SessionTermEntry` values, one pipeline-minted `CanonicalTermReviewRun`, and one append-only `ReviewLedger`. Canonical review cases remain non-authoritative proposals. Human decision authority enters only through an explicit application command and is recorded through the existing ledger; the service does not automatically accept proposals or duplicate detector, anchor, revision, ledger, or reviewed-output semantics.
 
@@ -461,7 +461,9 @@ The owner-accepted application service contract defines a pure typed in-memory p
 
 `ApplicationReviewTarget` is a semantic command target consisting of the canonical `AnalysisSnapshot` and one run-local `ReviewCaseId`. A target is admissible when its snapshot equals the receiving session's canonical snapshot and the case ID resolves inside that session's canonical ordered review-case set. Targets are minted only from the session's review items. They contain no instance nonce, clock, random identity, memory-address identity, GUI identity, serialization, hydration authority, or declared operator identity; independently created analysis-equivalent sessions are intentionally indistinguishable through the target.
 
-Decision coverage and resolution are separate derived states. `AcceptAlternative`, `Reject`, `Defer`, and `NeedsManualCorrection` all count as explicit decisions; only absence of an effective ledger decision is undecided. Coverage is complete when every canonical case has an effective decision. Resolution is unresolved when any effective decision is `Defer` or `NeedsManualCorrection`, independently of coverage. Current projection is available in every valid session state.
+Decision coverage and resolution are separate derived states. `AcceptAlternative`, `ManualReplacement`, `Reject`, `Defer`, and `NeedsManualCorrection` all count as explicit decisions; only absence of an effective ledger decision is undecided. Coverage is complete when every canonical case has an effective decision. Resolution is unresolved when any effective decision is `Defer` or `NeedsManualCorrection`, independently of coverage. Effective `ManualReplacement` is resolved and materializable. Current projection is available in every valid session state.
+
+MD-017 represents Manual Replacement as `CorrectionDecision::ManualReplacement { replacement: ManualReplacementText }` inside the existing `DecisionRecorded` event. The payload preserves exact UTF-8 bytes and rejects empty, all-whitespace, Unicode-control, U+2028, U+2029, source-identical, and over-4096-byte values. It is revalidated against the selected source text at command intake and replay. It uses the existing ReviewCase anchor, observed revision, application target, canonical materializer, and overlap refusal. It does not mean deletion and does not authorize HumanRaised cases or Correction Memory.
 
 `materialize_reviewed_output` is the coverage-gated reviewed-text projection. It is not authority-complete and is not the GUI final-export artifact. It returns reviewed SRT, progress, and the effective decision summary only after complete decision coverage.
 
@@ -470,15 +472,15 @@ Decision coverage and resolution are separate derived states. `AcceptAlternative
 Human-readable export format identities are exactly:
 
 ```text
-voxproof application decision log v1
-voxproof application session summary v1
+voxproof application decision log v2
+voxproof application session summary v2
 ```
 
-Application projections contain no filesystem paths and no wall-clock timing. A filesystem adapter may not inject timing into rendered output. Timing remains deferred to a separate future contract.
+The prior v1 identities are frozen historical outputs and are not silently reinterpreted. v2 renders append-ordered Manual Replacement events with their exact escaped payloads and reports effective Manual Replacement counts separately from accepted alternatives. Application projections contain no filesystem paths and no wall-clock timing. A filesystem adapter may not inject timing into rendered output. Timing remains deferred to a separate future contract.
 
 The caller supplies an `ApplicationMaterialUseDeclaration` whose declared basis is `SelfOwned` or `ExplicitPermission`. The session binds that declaration internally to the source revision derived from its transcript. This is a caller assertion only and does not independently establish legal sufficiency, ownership, consent, publication rights, training rights, human-decision authority, evaluation eligibility, or primary-metric eligibility.
 
-Replay verification reruns canonical analysis from the same session-owned typed source and ordered terms by immutable reference, replays the exact append-only decision sequence through existing ledger validation, verifies bound session-authority consistency with source revision and analysis snapshot, and compares analysis identity, ordered cases, effective status, progress, summary, current projection, reviewed-output result, and export-bundle equality. This is deterministic same-process in-memory re-execution only. It is not persistence, serialization, restart recovery, cross-process replay, transport, or hydration.
+Replay verification reruns canonical analysis from the same session-owned typed source and ordered terms by immutable reference, revalidates each exact Manual Replacement payload against the selected source text, replays the exact append-only decision sequence through existing ledger validation, verifies bound session-authority consistency with source revision and analysis snapshot, and compares analysis identity, ordered cases, ledger events, effective status, progress, summary, current projection, reviewed-output result, and export-bundle equality. This is deterministic same-process in-memory re-execution only. It is not persistence, serialization, restart recovery, cross-process replay, transport, or hydration.
 
 The application service imports no blind-reference runner, detector snapshot, reference, metric, artifact-packet, persistence, filesystem, network, or GUI authority. It does not represent normal product review as evaluation evidence. This extension does not establish GUI implementation, persistence, transport, merge readiness, real-material product-path execution, or production readiness.
 

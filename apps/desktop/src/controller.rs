@@ -47,6 +47,7 @@ pub struct SessionHeaderView {
     pub total_review_cases: usize,
     pub total_recorded_events: usize,
     pub accepted: usize,
+    pub manual_replacements: usize,
     pub rejected: usize,
     pub deferred: usize,
     pub needs_manual_correction: usize,
@@ -324,6 +325,7 @@ impl DesktopController {
             total_review_cases: summary.total_review_cases,
             total_recorded_events: summary.total_recorded_events,
             accepted: summary.accepted_alternatives,
+            manual_replacements: summary.manual_replacements,
             rejected: summary.rejected,
             deferred: summary.deferred,
             needs_manual_correction: summary.needs_manual_correction,
@@ -380,7 +382,39 @@ impl DesktopController {
         }
         session.record_human_decision(item.target, decision)?;
         self.exported_paths = None;
-        let _ = session.derive_current_projection()?;
+
+        let refreshed = session.review_items();
+        if let Some(next) = refreshed
+            .iter()
+            .position(|item| matches!(item.status, ReviewCaseStatus::Undecided))
+        {
+            self.selected_index = next;
+        }
+        Ok(())
+    }
+
+    pub fn record_manual_replacement(
+        &mut self,
+        expected_generation: u64,
+        replacement: impl Into<String>,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+
+        let items = session.review_items();
+        let item = items
+            .get(self.selected_index)
+            .ok_or(ControllerError::NoSelectedCase)?;
+        session.record_manual_replacement(item.target, replacement)?;
+        self.exported_paths = None;
 
         let refreshed = session.review_items();
         if let Some(next) = refreshed
@@ -483,6 +517,9 @@ fn status_label(status: ReviewCaseStatus) -> String {
                 format!("Accepted alternative {}", alternative_index + 1)
             }
             CorrectionDecision::NeedsManualCorrection => "Needs manual correction".to_owned(),
+            CorrectionDecision::ManualReplacement { .. } => {
+                "Manual replacement recorded".to_owned()
+            }
         },
     }
 }

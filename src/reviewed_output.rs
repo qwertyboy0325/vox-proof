@@ -69,10 +69,30 @@ fn materializing_edits(
         let case_id = review_case.id();
         let ReviewCaseStatus::Decided {
             observed_revision,
-            decision: CorrectionDecision::AcceptAlternative { alternative_index },
+            decision,
         } = ledger.status_for(case_id)
         else {
             continue;
+        };
+
+        let replacement_text = match decision {
+            CorrectionDecision::AcceptAlternative { alternative_index } => {
+                let alternatives = review_case.candidate_span().alternatives();
+                let alternative = alternatives.get(alternative_index).ok_or(
+                    ReviewedOutputError::InvalidAlternativeIndex {
+                        case_id,
+                        alternative_index,
+                        alternative_count: alternatives.len(),
+                    },
+                )?;
+                alternative.replacement_text().to_string()
+            }
+            CorrectionDecision::ManualReplacement { replacement } => {
+                replacement.as_str().to_string()
+            }
+            CorrectionDecision::Reject
+            | CorrectionDecision::Defer
+            | CorrectionDecision::NeedsManualCorrection => continue,
         };
 
         if observed_revision != transcript.revision_id() {
@@ -80,15 +100,6 @@ fn materializing_edits(
         }
 
         let candidate = review_case.candidate_span();
-        let alternatives = candidate.alternatives();
-        let alternative = alternatives.get(alternative_index).ok_or(
-            ReviewedOutputError::InvalidAlternativeIndex {
-                case_id,
-                alternative_index,
-                alternative_count: alternatives.len(),
-            },
-        )?;
-
         let anchor = candidate.anchor();
         if transcript.resolve(anchor).is_none() {
             return Err(ReviewedOutputError::AnchorResolutionFailed { case_id });
@@ -99,7 +110,7 @@ fn materializing_edits(
             segment_position: anchor.segment_position,
             start_byte: anchor.start_byte,
             end_byte: anchor.end_byte,
-            replacement_text: alternative.replacement_text().to_string(),
+            replacement_text,
         });
     }
 

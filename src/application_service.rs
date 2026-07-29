@@ -6,8 +6,8 @@ use crate::anchor::TranscriptRevisionId;
 use crate::candidate::{DetectionError, DetectionKind, SessionTermEntry};
 use crate::pipeline::{CanonicalTermReviewRun, run_canonical_term_review};
 use crate::review::{
-    CorrectionDecision, ReviewCase, ReviewCaseId, ReviewCaseStatus, ReviewLedger,
-    ReviewLedgerError, ReviewLedgerEvent,
+    CorrectionDecision, ManualReplacementText, ManualReplacementTextError, ReviewCase,
+    ReviewCaseId, ReviewCaseStatus, ReviewLedger, ReviewLedgerError, ReviewLedgerEvent,
 };
 use crate::reviewed_output::{ReviewedOutputError, derive_reviewed_srt};
 use crate::transcript::Transcript;
@@ -140,6 +140,7 @@ pub struct ApplicationDecisionSummary {
     pub total_review_cases: usize,
     pub total_recorded_events: usize,
     pub accepted_alternatives: usize,
+    pub manual_replacements: usize,
     pub rejected: usize,
     pub deferred: usize,
     pub needs_manual_correction: usize,
@@ -231,6 +232,7 @@ pub enum ApplicationServiceError {
     TargetAnalysisMismatch,
     UnknownReviewCase { case_id: ReviewCaseId },
     Decision(ReviewLedgerError),
+    ManualReplacement(ManualReplacementTextError),
     DecisionCoverageIncomplete { undecided: usize },
     ReviewedOutput(ReviewedOutputError),
 }
@@ -251,6 +253,7 @@ pub enum ApplicationReplayField {
     EffectiveStatuses,
     Progress,
     DecisionSummary,
+    SessionSummary,
     CurrentProjection,
     ReviewedOutput,
     ExportBundle,
@@ -343,10 +346,42 @@ impl ApplicationReviewSession {
                 case_id: target.case_id,
             },
         )?;
+        let decision = revalidate_decision_for_case(&self.transcript, review_case, decision)?;
 
         self.ledger
             .record_decision(review_case, self.transcript.revision_id(), decision)
             .map_err(ApplicationServiceError::Decision)
+    }
+
+    pub fn record_manual_replacement(
+        &mut self,
+        target: ApplicationReviewTarget,
+        replacement: impl Into<String>,
+    ) -> Result<(), ApplicationServiceError> {
+        if target.analysis_snapshot != self.canonical_run.analysis_run().snapshot() {
+            return Err(ApplicationServiceError::TargetAnalysisMismatch);
+        }
+
+        let review_case = resolve_case(&self.canonical_run, target.case_id).ok_or(
+            ApplicationServiceError::UnknownReviewCase {
+                case_id: target.case_id,
+            },
+        )?;
+        let selected_source_text = self
+            .transcript
+            .resolve(review_case.candidate_span().anchor())
+            .ok_or(ApplicationServiceError::ReviewedOutput(
+                ReviewedOutputError::AnchorResolutionFailed {
+                    case_id: review_case.id(),
+                },
+            ))?;
+        let replacement = ManualReplacementText::new(replacement, selected_source_text)
+            .map_err(ApplicationServiceError::ManualReplacement)?;
+
+        self.record_human_decision(
+            target,
+            CorrectionDecision::ManualReplacement { replacement },
+        )
     }
 
     pub fn progress(&self) -> ApplicationReviewProgress {
@@ -422,20 +457,23 @@ impl ApplicationReviewSession {
                 case_id,
                 observed_revision,
                 decision,
-            } = *event;
+            } = event;
 
-            if observed_revision != self.transcript.revision_id() {
+            if *observed_revision != self.transcript.revision_id() {
                 return Err(ApplicationReplayError::Mismatch {
                     field: ApplicationReplayField::LedgerEvents,
                 });
             }
 
             let review_case =
-                resolve_case(&replay_run, case_id).ok_or(ApplicationReplayError::Mismatch {
+                resolve_case(&replay_run, *case_id).ok_or(ApplicationReplayError::Mismatch {
                     field: ApplicationReplayField::ReviewCases,
                 })?;
+            let replay_decision =
+                revalidate_decision_for_case(&self.transcript, review_case, decision.clone())
+                    .map_err(ApplicationReplayError::Service)?;
             replay_ledger
-                .record_decision(review_case, observed_revision, decision)
+                .record_decision(review_case, *observed_revision, replay_decision)
                 .map_err(ApplicationServiceError::Decision)
                 .map_err(ApplicationReplayError::Service)?;
         }
@@ -462,6 +500,23 @@ impl ApplicationReviewSession {
         if derive_decision_summary(&replay_run, &replay_ledger) != self.decision_summary() {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::DecisionSummary,
+            });
+        }
+        let replay_session_summary = derive_session_summary_projection(
+            &self.transcript,
+            self.session_terms.len(),
+            &replay_run,
+            &replay_ledger,
+        );
+        let current_session_summary = derive_session_summary_projection(
+            &self.transcript,
+            self.session_terms.len(),
+            &self.canonical_run,
+            &self.ledger,
+        );
+        if replay_session_summary != current_session_summary {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::SessionSummary,
             });
         }
 
@@ -509,6 +564,26 @@ fn resolve_case(
         .review_cases()
         .get(case_id.local_index())
         .filter(|review_case| review_case.id() == case_id)
+}
+
+fn revalidate_decision_for_case(
+    transcript: &Transcript,
+    review_case: &ReviewCase,
+    decision: CorrectionDecision,
+) -> Result<CorrectionDecision, ApplicationServiceError> {
+    let CorrectionDecision::ManualReplacement { replacement } = decision else {
+        return Ok(decision);
+    };
+    let selected_source_text = transcript
+        .resolve(review_case.candidate_span().anchor())
+        .ok_or(ApplicationServiceError::ReviewedOutput(
+            ReviewedOutputError::AnchorResolutionFailed {
+                case_id: review_case.id(),
+            },
+        ))?;
+    let replacement = ManualReplacementText::new(replacement.as_str(), selected_source_text)
+        .map_err(ApplicationServiceError::ManualReplacement)?;
+    Ok(CorrectionDecision::ManualReplacement { replacement })
 }
 
 fn effective_statuses(
@@ -560,6 +635,7 @@ fn derive_decision_summary(
         total_review_cases: canonical_run.review_cases().len(),
         total_recorded_events: ledger.events().len(),
         accepted_alternatives: 0,
+        manual_replacements: 0,
         rejected: 0,
         deferred: 0,
         needs_manual_correction: 0,
@@ -572,6 +648,9 @@ fn derive_decision_summary(
             ReviewCaseStatus::Decided { decision, .. } => match decision {
                 CorrectionDecision::AcceptAlternative { .. } => {
                     summary.accepted_alternatives += 1;
+                }
+                CorrectionDecision::ManualReplacement { .. } => {
+                    summary.manual_replacements += 1;
                 }
                 CorrectionDecision::Reject => summary.rejected += 1,
                 CorrectionDecision::Defer => summary.deferred += 1,
@@ -632,20 +711,26 @@ fn derive_session_summary_projection(
         match ledger.status_for(review_case.id()) {
             ReviewCaseStatus::Undecided => {}
             ReviewCaseStatus::Decided { decision, .. } => {
-                if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
-                    accepted_replacements_materialized += 1;
-                    affected_segments
-                        .insert(review_case.candidate_span().anchor().segment_position());
-
-                    if let Some(alternative) = review_case
+                let replacement_text = match decision {
+                    CorrectionDecision::AcceptAlternative { alternative_index } => review_case
                         .candidate_span()
                         .alternatives()
                         .get(alternative_index)
-                    {
-                        *accepted_replacements
-                            .entry(alternative.replacement_text().to_string())
-                            .or_default() += 1;
+                        .map(|alternative| alternative.replacement_text()),
+                    CorrectionDecision::ManualReplacement { ref replacement } => {
+                        Some(replacement.as_str())
                     }
+                    CorrectionDecision::Reject
+                    | CorrectionDecision::Defer
+                    | CorrectionDecision::NeedsManualCorrection => None,
+                };
+                if let Some(replacement_text) = replacement_text {
+                    accepted_replacements_materialized += 1;
+                    affected_segments
+                        .insert(review_case.candidate_span().anchor().segment_position());
+                    *accepted_replacements
+                        .entry(replacement_text.to_string())
+                        .or_default() += 1;
                 }
             }
         }
@@ -698,13 +783,13 @@ fn derive_decision_projection_records(
                 case_id,
                 observed_revision,
                 decision,
-            } = *event;
+            } = event;
 
             ApplicationDecisionProjectionRecord {
                 event_index,
-                case_id,
-                observed_revision,
-                decision,
+                case_id: *case_id,
+                observed_revision: *observed_revision,
+                decision: decision.clone(),
                 session_authority: session_authority.clone(),
             }
         })

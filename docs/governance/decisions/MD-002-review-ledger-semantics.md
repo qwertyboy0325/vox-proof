@@ -355,8 +355,10 @@ The explicit `ReviewCaseOrigin` enum may wait until human-raised cases are imple
 
 This decision does not authorize persistence, custom replacement, reviewed-output materialization, audio support, speaker support, GUI work, or product CLI work.
 
-## Related proposed decisions
+## Related decisions
 
 MD-002 remains authoritative for the established v0.1 `ReviewCase` and `ReviewLedger` model.
 
-If accepted, `decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` would extend the deferred human-raised, manual-replacement, withdrawal, supersession, and v0.2 history-fold slice for v0.2. `CustomReplacement` was a deferred working term in this decision; MD-011 standardizes the v0.2 term as `ManualReplacement`. MD-011 would not rewrite the historical semantics established here.
+Accepted MD-017 extends the existing `DecisionRecorded` vocabulary with bounded `ManualReplacement` payloads on existing detector-raised ReviewCases while retaining this decision's append-only last-decision-wins fold.
+
+`decisions/MD-011-proposed-human-raised-manual-replacement-correction-history.md` remains proposed for HumanRaised cases, withdrawal, explicit supersession, and other broader history semantics. It is not accepted by MD-017 and does not rewrite the historical semantics established here.

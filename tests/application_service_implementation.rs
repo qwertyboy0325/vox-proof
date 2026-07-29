@@ -5,7 +5,9 @@ use vox_proof::application_service::{
     begin_application_review,
 };
 use vox_proof::candidate::SessionTermEntry;
-use vox_proof::review::{CorrectionDecision, ReviewCaseStatus, ReviewLedgerError};
+use vox_proof::review::{
+    CorrectionDecision, ManualReplacementTextError, ReviewCaseStatus, ReviewLedgerError,
+};
 use vox_proof::reviewed_output::ReviewedOutputError;
 use vox_proof::srt::parse_srt;
 
@@ -276,6 +278,166 @@ fn decision_revision_retains_history_and_last_event_controls_effective_state() {
 }
 
 #[test]
+fn manual_replacement_is_exact_materializing_authority_and_replays() {
+    let mut session = one_case_session();
+    let target = session.review_items()[0].target;
+    let source_before = session.source().segments()[0].text().to_string();
+
+    session
+        .record_human_decision(target, CorrectionDecision::NeedsManualCorrection)
+        .expect("signal");
+    session
+        .record_manual_replacement(target, "  Kafka 正式版  ")
+        .expect("manual replacement");
+
+    let summary = session.decision_summary();
+    assert_eq!(summary.total_recorded_events, 2);
+    assert_eq!(summary.needs_manual_correction, 0);
+    assert_eq!(summary.manual_replacements, 1);
+    assert_eq!(
+        session.progress().resolution_status,
+        ApplicationResolutionStatus::Resolved
+    );
+    assert_eq!(session.source().segments()[0].text(), source_before);
+    assert!(
+        session
+            .derive_current_projection()
+            .expect("current projection")
+            .srt
+            .contains("  Kafka 正式版  ")
+    );
+    assert_eq!(session.verify_in_memory_replay(), Ok(()));
+}
+
+#[test]
+fn manual_replacement_revisions_append_and_last_decision_wins() {
+    let mut session = one_case_session();
+    let target = session.review_items()[0].target;
+
+    session
+        .record_manual_replacement(target, "Kafka first")
+        .expect("first replacement");
+    session
+        .record_manual_replacement(target, "Kafka second")
+        .expect("second replacement");
+
+    let output = session
+        .materialize_reviewed_output()
+        .expect("reviewed output");
+    assert!(output.srt.contains("Kafka second"));
+    assert!(!output.srt.contains("Kafka first"));
+    assert_eq!(output.decision_summary.total_recorded_events, 2);
+    assert_eq!(output.decision_summary.manual_replacements, 1);
+    assert_eq!(session.verify_in_memory_replay(), Ok(()));
+}
+
+#[test]
+fn manual_replacement_validation_fails_without_appending_authority() {
+    let invalid = [
+        ("", ManualReplacementTextError::Empty),
+        (" \u{3000}", ManualReplacementTextError::WhitespaceOnly),
+        (
+            "Kafak",
+            ManualReplacementTextError::IdenticalToSelectedSource,
+        ),
+    ];
+
+    for (value, expected) in invalid {
+        let mut session = one_case_session();
+        let target = session.review_items()[0].target;
+        assert_eq!(
+            session.record_manual_replacement(target, value),
+            Err(ApplicationServiceError::ManualReplacement(expected))
+        );
+        assert_eq!(session.decision_summary().total_recorded_events, 0);
+        assert_eq!(
+            session.review_items()[0].status,
+            ReviewCaseStatus::Undecided
+        );
+    }
+
+    let mut session = one_case_session();
+    let target = session.review_items()[0].target;
+    assert!(matches!(
+        session.record_manual_replacement(target, "line\nbreak"),
+        Err(ApplicationServiceError::ManualReplacement(
+            ManualReplacementTextError::UnicodeControl { .. }
+        ))
+    ));
+    assert_eq!(session.decision_summary().total_recorded_events, 0);
+}
+
+#[test]
+fn copied_manual_payload_is_revalidated_against_the_receiving_review_case() {
+    let mut source_session = one_case_session();
+    let source_target = source_session.review_items()[0].target;
+    source_session
+        .record_manual_replacement(source_target, "Other")
+        .expect("source manual replacement");
+    let copied_decision = match &source_session.review_items()[0].status {
+        ReviewCaseStatus::Decided { decision, .. } => decision.clone(),
+        ReviewCaseStatus::Undecided => panic!("manual decision must be present"),
+    };
+
+    let transcript =
+        parse_srt("1\n00:00:00,000 --> 00:00:01,000\nOther").expect("valid transcript");
+    let mut receiving_session = begin_application_review(
+        transcript,
+        vec![alias_entry("Canonical", "Other")],
+        material_use(),
+        session_authority("receiving-operator"),
+    )
+    .expect("receiving session");
+    let receiving_target = receiving_session.review_items()[0].target;
+
+    assert_eq!(
+        receiving_session.record_human_decision(receiving_target, copied_decision),
+        Err(ApplicationServiceError::ManualReplacement(
+            ManualReplacementTextError::IdenticalToSelectedSource
+        ))
+    );
+    assert_eq!(
+        receiving_session.decision_summary().total_recorded_events,
+        0
+    );
+}
+
+#[test]
+fn manual_replacement_and_accepted_alternative_share_overlap_refusal() {
+    let transcript =
+        parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid transcript");
+    let mut session = begin_application_review(
+        transcript,
+        vec![alias_entry("Kafka", "Kafak"), alias_entry("AFA", "afa")],
+        material_use(),
+        session_authority("manual-overlap-operator"),
+    )
+    .expect("overlap session");
+    let items = session.review_items();
+    assert_eq!(items.len(), 2);
+
+    session
+        .record_manual_replacement(items[0].target, "Kafka manual")
+        .expect("manual replacement");
+    session
+        .record_human_decision(
+            items[1].target,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .expect("accepted alternative");
+
+    assert!(matches!(
+        session.derive_current_projection(),
+        Err(ApplicationServiceError::ReviewedOutput(
+            ReviewedOutputError::OverlappingEdits { .. }
+        ))
+    ));
+    assert_eq!(session.verify_in_memory_replay(), Ok(()));
+}
+
+#[test]
 fn mixed_effective_decisions_fold_into_complete_unresolved_progress_and_summary() {
     let mut session = two_case_session();
     let items = session.review_items();
@@ -297,6 +459,7 @@ fn mixed_effective_decisions_fold_into_complete_unresolved_progress_and_summary(
     assert_eq!(summary.total_recorded_events, 2);
     assert_eq!(
         summary.accepted_alternatives
+            + summary.manual_replacements
             + summary.rejected
             + summary.deferred
             + summary.needs_manual_correction

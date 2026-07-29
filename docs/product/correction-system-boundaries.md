@@ -1,7 +1,7 @@
 Status: current
 Owns: Cross-version product boundaries for correction categories, evidence, context, policy, transformations, projections, user authorization, Domain Collection authority, and provisional pack terminology relationships.
 Does not own: Current version scope, final data schemas, runtime pipeline design, persistence, implementation tasks, quality metrics, final pack schemas or storage, or accepted Material Decisions.
-Last reviewed against code: The current local loop implements exact, case-sensitive, bounded accuracy-oriented term restoration through human-reviewed replacements and provisional session-term input. Effective canonical analysis identity binds transcript, ordered session terms, detector set, detector configuration, and algorithm version. Duplicate source forms are rejected. `SessionContext`, policy resolution, Domain Collections, LLM or automation runtimes, typed transformation intent, multiple projections, typed ASR metadata, multi-alternative cross-collection resolution, and phonetic evidence are not implemented.
+Last reviewed against code: The current local loop implements exact, case-sensitive, bounded accuracy-oriented term restoration through detector alternatives or MD-017 exact validated single-line Manual Replacement payloads on existing detector-raised ReviewCases. Effective canonical analysis identity binds transcript, ordered session terms, detector set, detector configuration, and algorithm version. Duplicate source forms are rejected. Manual Replacement does not authorize deletion, HumanRaised cases, Correction Memory, or cross-material reuse. `SessionContext`, policy resolution, Domain Collections, LLM or automation runtimes, typed transformation intent, multiple projections, typed ASR metadata, and multi-alternative cross-collection resolution are not implemented.
 
 # Correction System Boundaries
 
@@ -22,13 +22,13 @@ The correction system distinguishes four categories:
 - **Disfluency cleanup** handles fillers, repetition, false starts, backchannels, and related speech phenomena according to user policy.
 - **Editorial transformation** rewrites content for concision, formality, structure, or style and may change tone, uncertainty, or syntax.
 
-The current v0.1 implementation covers only a bounded part of accuracy-oriented term restoration:
+The established v0.1 slice plus the bounded MD-017 v0.2 extension cover only a bounded part of accuracy-oriented term restoration:
 
 ```text
 session-scoped term input
 -> exact alias / observed-error-form evidence
 -> human review
--> accepted replacement
+-> accepted detector alternative or exact Manual Replacement
 -> reviewed SRT + audit artifacts
 ```
 

@@ -209,7 +209,7 @@ fn decision_log_format_identity_and_disclaimer() {
     let log = render_application_decision_log(&bundle);
     let lines: Vec<&str> = log.lines().collect();
 
-    assert_eq!(lines[0], "voxproof application decision log v1");
+    assert_eq!(lines[0], "voxproof application decision log v2");
     assert!(log.contains("Human-readable export"));
     assert!(log.contains("not machine re-import"));
     assert!(log.contains("not persistence"));
@@ -228,7 +228,7 @@ fn session_summary_format_identity_and_disclaimer() {
     let summary = render_application_session_summary(&bundle);
     let lines: Vec<&str> = summary.lines().collect();
 
-    assert_eq!(lines[0], "voxproof application session summary v1");
+    assert_eq!(lines[0], "voxproof application session summary v2");
     assert!(summary.contains("Human-readable export"));
     assert!(summary.contains("not machine re-import"));
     assert!(summary.contains("not persistence"));
@@ -370,7 +370,7 @@ fn later_non_accept_removes_prior_accepted_outcome() {
             )
             .expect("accept");
         session
-            .record_human_decision(target, decision)
+            .record_human_decision(target, decision.clone())
             .expect("revise away from accept");
 
         let bundle = session
@@ -635,6 +635,106 @@ fn replay_bundle_equality_holds_after_decisions() {
     session
         .record_human_decision(target, CorrectionDecision::Reject)
         .expect("reject");
+    assert_eq!(session.verify_in_memory_replay(), Ok(()));
+}
+
+#[test]
+fn manual_replacement_is_authority_complete_in_frozen_v2_exports() {
+    let mut session = one_case_session("manual-export-operator");
+    let target = session.review_items()[0].target;
+    session
+        .record_human_decision(target, CorrectionDecision::NeedsManualCorrection)
+        .expect("signal");
+    session
+        .record_manual_replacement(target, r"Kafka\Exact")
+        .expect("manual replacement");
+
+    let bundle = session
+        .materialize_review_export_bundle()
+        .expect("export bundle");
+    let log = render_application_decision_log(&bundle);
+    let summary = render_application_session_summary(&bundle);
+
+    assert_eq!(
+        log,
+        r#"voxproof application decision log v2
+Human-readable export; not machine re-import; not persistence; not authenticated identity; not legal authorization; not validation evidence by itself.
+declared_session_authority_role: declared_local_owner_operator
+declared_session_authority_label: manual-export-operator
+
+event 1
+type: decision_recorded
+session_authority_role: declared_local_owner_operator
+session_authority_label: manual-export-operator
+case_id: local:0
+observed_revision: rev:sha256-v1:2e467b23907e6b6c0c6ba6d51b02945e02d80436ef03efb4456da27ab12f0ea1
+decision: needs_manual_correction
+
+event 2
+type: decision_recorded
+session_authority_role: declared_local_owner_operator
+session_authority_label: manual-export-operator
+case_id: local:0
+observed_revision: rev:sha256-v1:2e467b23907e6b6c0c6ba6d51b02945e02d80436ef03efb4456da27ab12f0ea1
+decision: manual_replacement
+replacement_text: Kafka\\Exact
+"#
+    );
+    assert_eq!(
+        summary,
+        r#"voxproof application session summary v2
+Human-readable export; not machine re-import; not persistence; not authenticated identity; not legal authorization; not validation evidence by itself.
+Claim limitations: caller-declared, unauthenticated, single-session, single-process, in-memory operator authority only. Does not establish legal authorization, durable storage, cross-process replay, transport, hydration, or authenticated identity.
+
+Run identity
+source_revision: rev:sha256-v1:2e467b23907e6b6c0c6ba6d51b02945e02d80436ef03efb4456da27ab12f0ea1
+transcript_segments: 1
+session_term_entry_count: 1
+analysis_snapshot:
+  source_revision: rev:sha256-v1:2e467b23907e6b6c0c6ba6d51b02945e02d80436ef03efb4456da27ab12f0ea1
+  session_terms: session-terms:sha256-v1:6cc1bea31f8ba7060908ff489eecbee59bfc62a1b22d3cbc20224dc68a39dcee
+  detector_set:
+    ascii-latin-phonetic-similarity @ 0.1.0
+    glossary-alias-match @ 0.1.0
+    observed-error-form-match @ 0.1.0
+  detector_config: canonical-session-term-cue-local @ 0.2.0
+  algorithm: canonical-exact-plus-ascii-double-metaphone-levenshtein @ rphonetic-3.0.6-v1
+
+Declared session authority
+role: declared_local_owner_operator
+display_label: manual-export-operator
+material_use_basis: self_owned
+
+Candidates
+review_cases_raised: 1
+by_detection_kind:
+  glossary_alias_match: 1
+by_detector:
+  glossary-alias-match @ 0.1.0: 1
+
+Session correction profile
+decision_counts_basis: effective last-decision-wins status per review case
+accepted_alternatives: 0
+manual_replacements: 1
+rejected: 0
+deferred: 0
+needs_manual_correction: 0
+total_decisions_recorded: 2
+undecided_review_cases: 0
+accepted_replacement_texts_this_session:
+  Kafka\\Exact: 1
+
+Outcomes
+accepted_replacements_materialized: 1
+source_segments_affected: 1
+
+Progress
+decision_coverage: complete
+resolution_status: resolved
+export_posture: declared_operator_unauthenticated_in_memory_v0_2
+"#
+    );
+    assert_eq!(bundle.decision_records.len(), 2);
     assert_eq!(session.verify_in_memory_replay(), Ok(()));
 }
 
