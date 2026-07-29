@@ -1,6 +1,7 @@
 use vox_proof::application_service::{
     ApplicationDecisionCoverage, ApplicationMaterialUseDeclaration, ApplicationResolutionStatus,
     ApplicationReviewProgress, ApplicationServiceError, DeclaredApplicationMaterialUseBasis,
+    DeclaredSessionAuthority, DeclaredSessionAuthorityError, DeclaredSessionOperatorRole,
     begin_application_review,
 };
 use vox_proof::candidate::SessionTermEntry;
@@ -10,6 +11,14 @@ use vox_proof::srt::parse_srt;
 
 fn material_use() -> ApplicationMaterialUseDeclaration {
     ApplicationMaterialUseDeclaration::new(DeclaredApplicationMaterialUseBasis::SelfOwned)
+}
+
+fn session_authority(label: &str) -> DeclaredSessionAuthority {
+    DeclaredSessionAuthority::new(
+        DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+        label,
+    )
+    .expect("valid session authority")
 }
 
 fn alias_entry(canonical: &str, alias: &str) -> SessionTermEntry {
@@ -24,6 +33,7 @@ fn one_case_session() -> vox_proof::application_service::ApplicationReviewSessio
         transcript,
         vec![alias_entry("Kafka", "Kafak")],
         material_use(),
+        session_authority("test-operator"),
     )
     .expect("application session")
 }
@@ -42,6 +52,7 @@ fn two_case_session() -> vox_proof::application_service::ApplicationReviewSessio
             alias_entry("Kafka", "Kafak"),
         ],
         material_use(),
+        session_authority("test-operator"),
     )
     .expect("application session")
 }
@@ -59,11 +70,27 @@ fn accept_first(
 }
 
 #[test]
+fn authority_declaration_rejects_empty_label() {
+    assert_eq!(
+        DeclaredSessionAuthority::new(
+            DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer,
+            "  ",
+        ),
+        Err(DeclaredSessionAuthorityError::EmptyDisplayLabel)
+    );
+}
+
+#[test]
 fn zero_proposals_have_no_automatic_authority_and_replay_deterministically() {
     let transcript =
         parse_srt("1\n00:00:00,000 --> 00:00:01,000\nordinary text").expect("valid transcript");
-    let session =
-        begin_application_review(transcript, Vec::new(), material_use()).expect("empty session");
+    let session = begin_application_review(
+        transcript,
+        Vec::new(),
+        material_use(),
+        session_authority("empty-session-operator"),
+    )
+    .expect("empty session");
 
     assert!(session.review_items().is_empty());
     assert_eq!(
@@ -75,6 +102,10 @@ fn zero_proposals_have_no_automatic_authority_and_replay_deterministically() {
     );
     assert_eq!(session.decision_summary().total_recorded_events, 0);
     assert!(session.materialize_reviewed_output().is_ok());
+    let bundle = session
+        .materialize_review_export_bundle()
+        .expect("empty complete bundle");
+    assert!(bundle.decision_records.is_empty());
     assert_eq!(session.verify_in_memory_replay(), Ok(()));
 }
 
@@ -134,6 +165,7 @@ fn different_analysis_target_is_rejected_before_mutation() {
         transcript,
         vec![alias_entry("Kubernetes", "Kubes")],
         material_use(),
+        session_authority("other-operator"),
     )
     .expect("other session");
     let other_target = other.review_items()[0].target;
@@ -152,12 +184,14 @@ fn analysis_equivalent_target_resolves_identically() {
         parse_srt(source).expect("first transcript"),
         vec![alias_entry("Kafka", "Kafak")],
         material_use(),
+        session_authority("first-operator"),
     )
     .expect("first session");
     let mut second = begin_application_review(
         parse_srt(source).expect("second transcript"),
         vec![alias_entry("Kafka", "Kafak")],
         material_use(),
+        session_authority("second-operator"),
     )
     .expect("second session");
 
@@ -297,6 +331,10 @@ fn undecided_cases_are_incomplete_but_may_be_resolved() {
         session.materialize_reviewed_output(),
         Err(ApplicationServiceError::DecisionCoverageIncomplete { undecided: 1 })
     );
+    assert_eq!(
+        session.materialize_review_export_bundle(),
+        Err(ApplicationServiceError::DecisionCoverageIncomplete { undecided: 1 })
+    );
 }
 
 #[test]
@@ -376,6 +414,15 @@ fn complete_unresolved_output_is_allowed_and_retains_context() {
             1
         );
         assert_eq!(output.srt, "1\n00:00:00,000 --> 00:00:01,000\nKafak\n");
+
+        let bundle = session
+            .materialize_review_export_bundle()
+            .expect("coverage-complete unresolved bundle");
+        assert_eq!(bundle.reviewed_srt, output.srt);
+        assert!(matches!(
+            bundle.progress.resolution_status,
+            ApplicationResolutionStatus::Unresolved { .. }
+        ));
     }
 }
 
@@ -409,8 +456,76 @@ fn resolved_unresolved_and_incomplete_sessions_replay_without_mutation() {
 }
 
 #[test]
+fn projected_decisions_inherit_immutable_session_authority() {
+    let mut session = one_case_session();
+    let target = session.review_items()[0].target;
+    session
+        .record_human_decision(target, CorrectionDecision::Reject)
+        .expect("reject");
+
+    let bundle = session
+        .materialize_review_export_bundle()
+        .expect("export bundle");
+    assert_eq!(bundle.decision_records.len(), 1);
+    assert_eq!(
+        bundle.decision_records[0].session_authority.display_label(),
+        "test-operator"
+    );
+    assert_eq!(
+        bundle.decision_records[0].session_authority.role(),
+        DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator
+    );
+    assert_eq!(
+        bundle.declared_session_authority,
+        bundle.decision_records[0].session_authority
+    );
+}
+
+#[test]
+fn export_bundle_preserves_decision_event_order() {
+    let mut session = two_case_session();
+    let items = session.review_items();
+
+    session
+        .record_human_decision(items[0].target, CorrectionDecision::Reject)
+        .expect("reject first");
+    session
+        .record_human_decision(items[1].target, CorrectionDecision::Defer)
+        .expect("defer second");
+    session
+        .record_human_decision(
+            items[0].target,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .expect("revise first");
+
+    let bundle = session
+        .materialize_review_export_bundle()
+        .expect("export bundle");
+    assert_eq!(bundle.decision_records.len(), 3);
+    assert_eq!(bundle.decision_records[0].event_index, 0);
+    assert_eq!(bundle.decision_records[1].event_index, 1);
+    assert_eq!(bundle.decision_records[2].event_index, 2);
+    assert_eq!(
+        bundle.decision_records[0].decision,
+        CorrectionDecision::Reject
+    );
+    assert_eq!(
+        bundle.decision_records[1].decision,
+        CorrectionDecision::Defer
+    );
+    assert!(matches!(
+        bundle.decision_records[2].decision,
+        CorrectionDecision::AcceptAlternative { .. }
+    ));
+}
+
+#[test]
 fn production_module_has_no_evaluation_transport_persistence_or_gui_surface() {
-    let source = include_str!("../src/application_service.rs");
+    let service_source = include_str!("../src/application_service.rs");
+    let export_source = include_str!("../src/application_export.rs");
     let forbidden = [
         "InputAuthorization",
         "RunEnvelope",
@@ -425,15 +540,44 @@ fn production_module_has_no_evaluation_transport_persistence_or_gui_surface() {
         "serde",
         "async fn",
         "unsafe",
+        "pub fn ledger",
+        "pub fn canonical_run",
     ];
 
     for term in forbidden {
         assert!(
-            !source.contains(term),
+            !service_source.contains(term),
             "production application service contains forbidden surface {term}"
         );
     }
-    assert!(!source.contains("pub fn srt"));
+    let export_forbidden = [
+        "InputAuthorization",
+        "RunEnvelope",
+        "RealTranscriptEvaluationRunRequest",
+        "RealTranscriptInitialExecutionBindings",
+        "DetectorProposalSnapshot",
+        "ReferenceSeal",
+        "ReferenceCoverage",
+        "HumanFinalReference",
+        "artifact_packet",
+        "persistence_evidence",
+        "serde",
+        "async fn",
+        "unsafe",
+        "session_log",
+        "crate::session_summary",
+        "std::fs",
+    ];
+    for term in export_forbidden {
+        assert!(
+            !export_source.contains(term),
+            "production application export contains forbidden surface {term}"
+        );
+    }
+    assert!(!service_source.contains("pub fn srt"));
+    assert!(!export_source.contains("ApplicationReviewSession"));
+    assert!(!export_source.contains("ReviewLedger"));
+    assert!(!export_source.contains("CanonicalTermReviewRun"));
 }
 
 #[test]
@@ -444,6 +588,7 @@ fn overlapping_accepts_preserve_typed_projection_error_and_replay_equality() {
         transcript,
         vec![alias_entry("Kafka", "Kafak"), alias_entry("AFA", "afa")],
         material_use(),
+        session_authority("overlap-operator"),
     )
     .expect("overlap session");
     let items = session.review_items();

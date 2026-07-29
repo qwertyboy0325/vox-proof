@@ -1,8 +1,9 @@
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 use crate::analysis::AnalysisSnapshot;
 use crate::anchor::TranscriptRevisionId;
-use crate::candidate::{DetectionError, SessionTermEntry};
+use crate::candidate::{DetectionError, DetectionKind, SessionTermEntry};
 use crate::pipeline::{CanonicalTermReviewRun, run_canonical_term_review};
 use crate::review::{
     CorrectionDecision, ReviewCase, ReviewCaseId, ReviewCaseStatus, ReviewLedger,
@@ -10,6 +11,68 @@ use crate::review::{
 };
 use crate::reviewed_output::{ReviewedOutputError, derive_reviewed_srt};
 use crate::transcript::Transcript;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeclaredSessionOperatorRole {
+    DeclaredLocalOwnerOperator,
+    DeclaredAuthorizedHumanReviewer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredSessionAuthority {
+    role: DeclaredSessionOperatorRole,
+    display_label: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeclaredSessionAuthorityError {
+    EmptyDisplayLabel,
+    ControlCharacterInDisplayLabel,
+}
+
+impl fmt::Display for DeclaredSessionAuthorityError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for DeclaredSessionAuthorityError {}
+
+impl DeclaredSessionAuthority {
+    pub fn new(
+        role: DeclaredSessionOperatorRole,
+        display_label: impl Into<String>,
+    ) -> Result<Self, DeclaredSessionAuthorityError> {
+        let display_label = display_label.into();
+        if display_label.chars().any(char::is_control) {
+            return Err(DeclaredSessionAuthorityError::ControlCharacterInDisplayLabel);
+        }
+        let display_label = display_label.trim().to_string();
+        if display_label.is_empty() {
+            return Err(DeclaredSessionAuthorityError::EmptyDisplayLabel);
+        }
+
+        Ok(Self {
+            role,
+            display_label,
+        })
+    }
+
+    pub const fn role(&self) -> DeclaredSessionOperatorRole {
+        self.role
+    }
+
+    pub fn display_label(&self) -> &str {
+        &self.display_label
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BoundDeclaredSessionAuthority {
+    authority: DeclaredSessionAuthority,
+    source_revision: TranscriptRevisionId,
+    analysis_snapshot: AnalysisSnapshot,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeclaredApplicationMaterialUseBasis {
@@ -97,6 +160,71 @@ pub struct ApplicationReviewedOutput {
     pub decision_summary: ApplicationDecisionSummary,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationDecisionProjectionRecord {
+    pub event_index: usize,
+    pub case_id: ReviewCaseId,
+    pub observed_revision: TranscriptRevisionId,
+    pub decision: CorrectionDecision,
+    pub session_authority: DeclaredSessionAuthority,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplicationExportPosture {
+    DeclaredOperatorUnauthenticatedInMemoryV0_2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationDetectionKindCount {
+    pub kind: DetectionKind,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationDetectorCount {
+    pub detector_id: String,
+    pub detector_version: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationAcceptedReplacementCount {
+    pub replacement_text: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationSessionOutcomeCounts {
+    pub accepted_replacements_materialized: usize,
+    pub source_segments_affected: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationSessionSummaryProjection {
+    pub source_revision: TranscriptRevisionId,
+    pub transcript_segments: usize,
+    pub session_term_entry_count: usize,
+    pub review_cases_raised: usize,
+    pub cases_by_detection_kind: Vec<ApplicationDetectionKindCount>,
+    pub cases_by_detector: Vec<ApplicationDetectorCount>,
+    pub outcomes: ApplicationSessionOutcomeCounts,
+    pub accepted_replacements: Vec<ApplicationAcceptedReplacementCount>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationReviewExportBundle {
+    pub reviewed_srt: String,
+    pub progress: ApplicationReviewProgress,
+    pub decision_summary: ApplicationDecisionSummary,
+    pub decision_records: Vec<ApplicationDecisionProjectionRecord>,
+    pub declared_session_authority: DeclaredSessionAuthority,
+    pub material_use_basis: DeclaredApplicationMaterialUseBasis,
+    pub source_revision: TranscriptRevisionId,
+    pub analysis_snapshot: AnalysisSnapshot,
+    pub session_summary: ApplicationSessionSummaryProjection,
+    pub export_posture: ApplicationExportPosture,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ApplicationServiceError {
     Detection(DetectionError),
@@ -125,6 +253,7 @@ pub enum ApplicationReplayField {
     DecisionSummary,
     CurrentProjection,
     ReviewedOutput,
+    ExportBundle,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -147,16 +276,19 @@ pub struct ApplicationReviewSession {
     canonical_run: CanonicalTermReviewRun,
     ledger: ReviewLedger,
     material_use: BoundApplicationMaterialUseDeclaration,
+    session_authority: BoundDeclaredSessionAuthority,
 }
 
 pub fn begin_application_review(
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
     material_use: ApplicationMaterialUseDeclaration,
+    session_authority: DeclaredSessionAuthority,
 ) -> Result<ApplicationReviewSession, ApplicationServiceError> {
     let source_revision = transcript.revision_id();
     let canonical_run = run_canonical_term_review(&transcript, &session_terms)
         .map_err(ApplicationServiceError::Detection)?;
+    let analysis_snapshot = canonical_run.analysis_run().snapshot();
 
     Ok(ApplicationReviewSession {
         transcript,
@@ -166,6 +298,11 @@ pub fn begin_application_review(
         material_use: BoundApplicationMaterialUseDeclaration {
             declaration: material_use,
             source_revision,
+        },
+        session_authority: BoundDeclaredSessionAuthority {
+            authority: session_authority,
+            source_revision,
+            analysis_snapshot,
         },
     })
 }
@@ -232,8 +369,32 @@ impl ApplicationReviewSession {
         build_reviewed_output(&self.transcript, &self.canonical_run, &self.ledger)
     }
 
+    pub fn materialize_review_export_bundle(
+        &self,
+    ) -> Result<ApplicationReviewExportBundle, ApplicationServiceError> {
+        build_export_bundle(
+            &self.transcript,
+            &self.session_terms,
+            &self.canonical_run,
+            &self.ledger,
+            self.material_use,
+            self.session_authority.clone(),
+        )
+    }
+
     pub fn verify_in_memory_replay(&self) -> Result<(), ApplicationReplayError> {
         if self.material_use.source_revision != self.transcript.revision_id() {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::AnalysisSnapshot,
+            });
+        }
+        if self.session_authority.source_revision != self.transcript.revision_id() {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::AnalysisSnapshot,
+            });
+        }
+        if self.session_authority.analysis_snapshot != self.canonical_run.analysis_run().snapshot()
+        {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::AnalysisSnapshot,
             });
@@ -318,6 +479,21 @@ impl ApplicationReviewSession {
         if replay_output != current_output {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ReviewedOutput,
+            });
+        }
+
+        let replay_bundle = build_export_bundle(
+            &self.transcript,
+            &self.session_terms,
+            &replay_run,
+            &replay_ledger,
+            self.material_use,
+            self.session_authority.clone(),
+        );
+        let current_bundle = self.materialize_review_export_bundle();
+        if replay_bundle != current_bundle {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ExportBundle,
             });
         }
 
@@ -409,6 +585,158 @@ fn derive_decision_summary(
     summary
 }
 
+fn derive_session_summary_projection(
+    transcript: &Transcript,
+    session_term_entry_count: usize,
+    canonical_run: &CanonicalTermReviewRun,
+    ledger: &ReviewLedger,
+) -> ApplicationSessionSummaryProjection {
+    let mut kind_counts = HashMap::<DetectionKind, usize>::new();
+    let mut detector_counts = BTreeMap::<(String, String), usize>::new();
+
+    for review_case in canonical_run.review_cases() {
+        let candidate = review_case.candidate_span();
+        *kind_counts.entry(candidate.kind()).or_default() += 1;
+
+        let provenance = candidate.provenance();
+        *detector_counts
+            .entry((
+                provenance.detector_id().to_string(),
+                provenance.detector_version().to_string(),
+            ))
+            .or_default() += 1;
+    }
+
+    let mut cases_by_detection_kind = kind_counts
+        .into_iter()
+        .map(|(kind, count)| ApplicationDetectionKindCount { kind, count })
+        .collect::<Vec<_>>();
+    cases_by_detection_kind.sort_by_key(|item| detection_kind_sort_key(item.kind));
+
+    let cases_by_detector = detector_counts
+        .into_iter()
+        .map(
+            |((detector_id, detector_version), count)| ApplicationDetectorCount {
+                detector_id,
+                detector_version,
+                count,
+            },
+        )
+        .collect();
+
+    let mut accepted_replacements_materialized = 0usize;
+    let mut affected_segments = HashSet::new();
+    let mut accepted_replacements = BTreeMap::<String, usize>::new();
+
+    for review_case in canonical_run.review_cases() {
+        match ledger.status_for(review_case.id()) {
+            ReviewCaseStatus::Undecided => {}
+            ReviewCaseStatus::Decided { decision, .. } => {
+                if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
+                    accepted_replacements_materialized += 1;
+                    affected_segments
+                        .insert(review_case.candidate_span().anchor().segment_position());
+
+                    if let Some(alternative) = review_case
+                        .candidate_span()
+                        .alternatives()
+                        .get(alternative_index)
+                    {
+                        *accepted_replacements
+                            .entry(alternative.replacement_text().to_string())
+                            .or_default() += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let accepted_replacements = accepted_replacements
+        .into_iter()
+        .map(
+            |(replacement_text, count)| ApplicationAcceptedReplacementCount {
+                replacement_text,
+                count,
+            },
+        )
+        .collect();
+
+    ApplicationSessionSummaryProjection {
+        source_revision: transcript.revision_id(),
+        transcript_segments: transcript.segments().len(),
+        session_term_entry_count,
+        review_cases_raised: canonical_run.review_cases().len(),
+        cases_by_detection_kind,
+        cases_by_detector,
+        outcomes: ApplicationSessionOutcomeCounts {
+            accepted_replacements_materialized,
+            source_segments_affected: affected_segments.len(),
+        },
+        accepted_replacements,
+    }
+}
+
+fn detection_kind_sort_key(kind: DetectionKind) -> &'static str {
+    match kind {
+        DetectionKind::GlossaryAliasMatch => "glossary_alias_match",
+        DetectionKind::MixedLanguageAnomaly => "mixed_language_anomaly",
+        DetectionKind::PhoneticSimilarity => "phonetic_similarity",
+        DetectionKind::RepeatedPhrase => "repeated_phrase",
+    }
+}
+
+fn derive_decision_projection_records(
+    ledger: &ReviewLedger,
+    session_authority: &DeclaredSessionAuthority,
+) -> Vec<ApplicationDecisionProjectionRecord> {
+    ledger
+        .events()
+        .iter()
+        .enumerate()
+        .map(|(event_index, event)| {
+            let ReviewLedgerEvent::DecisionRecorded {
+                case_id,
+                observed_revision,
+                decision,
+            } = *event;
+
+            ApplicationDecisionProjectionRecord {
+                event_index,
+                case_id,
+                observed_revision,
+                decision,
+                session_authority: session_authority.clone(),
+            }
+        })
+        .collect()
+}
+
+fn build_export_bundle(
+    transcript: &Transcript,
+    session_terms: &[SessionTermEntry],
+    canonical_run: &CanonicalTermReviewRun,
+    ledger: &ReviewLedger,
+    material_use: BoundApplicationMaterialUseDeclaration,
+    session_authority: BoundDeclaredSessionAuthority,
+) -> Result<ApplicationReviewExportBundle, ApplicationServiceError> {
+    let reviewed_output = build_reviewed_output(transcript, canonical_run, ledger)?;
+    let session_summary =
+        derive_session_summary_projection(transcript, session_terms.len(), canonical_run, ledger);
+
+    Ok(ApplicationReviewExportBundle {
+        reviewed_srt: reviewed_output.srt,
+        progress: reviewed_output.progress,
+        decision_summary: reviewed_output.decision_summary,
+        decision_records: derive_decision_projection_records(ledger, &session_authority.authority),
+        declared_session_authority: session_authority.authority,
+        material_use_basis: material_use.declaration.basis(),
+        source_revision: transcript.revision_id(),
+        analysis_snapshot: canonical_run.analysis_run().snapshot(),
+        session_summary,
+        export_posture: ApplicationExportPosture::DeclaredOperatorUnauthenticatedInMemoryV0_2,
+    })
+}
+
 fn build_current_projection(
     transcript: &Transcript,
     canonical_run: &CanonicalTermReviewRun,
@@ -450,6 +778,14 @@ mod tests {
     use crate::candidate::SessionTermEntry;
     use crate::srt::parse_srt;
 
+    fn test_authority() -> DeclaredSessionAuthority {
+        DeclaredSessionAuthority::new(
+            DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+            "test-operator",
+        )
+        .expect("valid authority")
+    }
+
     fn one_case_session() -> ApplicationReviewSession {
         let transcript =
             parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("fixture transcript");
@@ -463,8 +799,20 @@ mod tests {
             transcript,
             session_terms,
             ApplicationMaterialUseDeclaration::new(DeclaredApplicationMaterialUseBasis::SelfOwned),
+            test_authority(),
         )
         .expect("application session")
+    }
+
+    #[test]
+    fn authority_rejects_empty_display_label() {
+        assert_eq!(
+            DeclaredSessionAuthority::new(
+                DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+                "   ",
+            ),
+            Err(DeclaredSessionAuthorityError::EmptyDisplayLabel)
+        );
     }
 
     #[test]
@@ -478,6 +826,20 @@ mod tests {
         assert_eq!(
             session.material_use.declaration.basis(),
             DeclaredApplicationMaterialUseBasis::SelfOwned
+        );
+    }
+
+    #[test]
+    fn session_authority_is_bound_to_source_revision_and_analysis_snapshot() {
+        let session = one_case_session();
+
+        assert_eq!(
+            session.session_authority.source_revision,
+            session.source().revision_id()
+        );
+        assert_eq!(
+            session.session_authority.analysis_snapshot,
+            session.canonical_run.analysis_run().snapshot()
         );
     }
 
