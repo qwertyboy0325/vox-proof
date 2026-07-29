@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; desktop implementation and external-user validation remain pending.
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; the bounded Gate 1 desktop implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; external-user validation remains pending.
 
 # VoxProof Documentation
 
