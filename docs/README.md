@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; the bounded Gate 1 desktop implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; MD-017 accepts bounded Manual Replacement semantics on existing detector-raised ReviewCases and the current branch implements that Gate 2 slice for remote milestone review; external-user validation remains pending.
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; the bounded Gate 1 desktop implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; the bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`; external-user validation remains pending.
 
 # VoxProof Documentation
 
