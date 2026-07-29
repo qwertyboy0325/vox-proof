@@ -21,7 +21,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [product/hypotheses.md](product/hypotheses.md): unvalidated market, user, and future-product hypotheses.
 - [architecture/overview.md](architecture/overview.md): architecture principles and fixed v0.1 processing shape.
 - [architecture/data-contract.md](architecture/data-contract.md): conceptual domain entities and data ownership boundaries.
-- [architecture/v0.2-c4-architecture.md](architecture/v0.2-c4-architecture.md): **draft / proposed** v0.2 C4 architecture views, trust boundaries, and open decisions (not approved architecture; companion DSL: `architecture/v0.2-c4.dsl`).
+- [architecture/v0.2-c4-architecture.md](architecture/v0.2-c4-architecture.md): **draft / proposed** v0.2 C4 architecture views, trust boundaries, the MD-016 accepted native-desktop foundation, and remaining open decisions (companion DSL: `architecture/v0.2-c4.dsl`).
 - [quality/evaluation.md](quality/evaluation.md): fixtures, ground truth, metrics, and regression expectations.
 
 ## Active Research
@@ -42,6 +42,7 @@ Active research is not accepted architecture. It must not be implemented or trea
 - [MD-006: Strict Skeleton Calibration Correspondence v0](governance/decisions/MD-006-strict-skeleton-calibration-correspondence-v0.md)
 - [MD-007: v0.1 Establishment Evidence and Release Gates](governance/decisions/MD-007-v0.1-establishment-evidence-and-release-gates.md)
 - [MD-008: v0.1 Core Mechanism Establishment](governance/decisions/MD-008-v0.1-core-mechanism-establishment.md)
+- [MD-016: Native Desktop Framework and In-Process Integration](governance/decisions/MD-016-native-desktop-framework-and-in-process-integration.md)
 
 ## Document Lifecycle
 

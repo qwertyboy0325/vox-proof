@@ -82,6 +82,8 @@ Accepted v0.2 session-durability decision: `decisions/MD-014-proposed-session-du
 
 Accepted v0.2 persistence-evidence decision: `decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md` — bounded comparative spike protocol, shared semantic fixture and oracle, fault-injection experiments, platform coverage, evidence artifacts, and pass/fail gates before mechanism selection. Acceptance authorizes the bounded spike only; a later mechanism-selection Material Decision remains mandatory.
 
+Accepted v0.2 native-desktop decision: `decisions/MD-016-native-desktop-framework-and-in-process-integration.md` — eframe/egui `0.35.0`, one native Rust process, direct in-process integration, `ApplicationReviewSession` as canonical application state, and non-authoritative GUI state. IME composition and accessibility inspection remain open risks. Acceptance records the durable foundation choices; implementation still requires a bounded owner-authorized work package.
+
 ## Decision record shape
 
 Each Material Decision should include:

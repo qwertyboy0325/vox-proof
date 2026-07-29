@@ -1,5 +1,5 @@
 // VoxProof v0.2 C4 Architecture Draft — Structurizr DSL
-// Status: draft / proposed — synchronized with architecture/v0.2-c4-architecture.md
+// Status: draft / proposed — MD-016 desktop foundation accepted; remaining boundaries proposed
 // Renderer validation: pending (no Structurizr tool in repository; syntax manually inspected)
 //
 // C4 rule: linked Rust library is a component boundary inside executables, not a Level 2 container.
@@ -91,29 +91,14 @@ workspace "VoxProof v0.2 C4 Draft" "Proposed v0.2 architecture planning artifact
                 }
             }
 
-            desktopApp = container "VoxProof Desktop Application" "Proposed v0.2 desktop executable/process. Technology: TBD. Contains UI, application orchestration, adapters, and linked core semantics." "Technology: TBD" {
-                tags "ProposedV02" "TBD"
+            desktopApp = container "VoxProof Desktop Application" "V0.2 native desktop foundation accepted by MD-016: one Rust process with direct in-process ApplicationReviewSession integration." "Rust + eframe/egui 0.35.0" {
+                tags "ProposedV02"
 
-                reviewUI = component "Review UI" "Presents ReviewCases; submits human intent; not authoritative." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
+                reviewUI = component "Review UI" "eframe/egui presentation and transient GUI state; submits human intent; not authoritative." "eframe/egui 0.35.0" {
+                    tags "ProposedV02"
                 }
-                appAdapter = component "Desktop/Application Adapter" "Maps UI intent to application use cases." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
-                }
-                orchestrator = component "Application Orchestrator" "Sequences use cases; not part of the core domain." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
-                }
-                openUC = component "Transcript Import / Open Use Case" "Opens source transcript and session terms." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
-                }
-                sessionUC = component "Review Session Use Cases" "Drives review presentation and case navigation." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
-                }
-                decisionUC = component "Decision Recording Use Case" "Forwards validated human intent to ReviewLedger." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
-                }
-                materializeUC = component "Materialization / Export Use Case" "Invokes canonical materializer and export paths." "Technology: TBD" {
-                    tags "ProposedV02" "TBD"
+                appSession = component "ApplicationReviewSession" "Canonical in-memory application state; receives human intent and exposes governed projections and exports." "Rust application service" {
+                    tags "ProposedV02"
                 }
                 sessionSer = component "Session Serialization Adapter" "Save/load versioned session state; not core domain." "Technology: TBD" {
                     tags "ProposedV02" "TBD"
@@ -208,21 +193,16 @@ workspace "VoxProof v0.2 C4 Draft" "Proposed v0.2 architecture planning artifact
         voxproof.sessionStore -> localFilesystem "Stored on" "Proposed"
 
         // Desktop Application component relationships (owned by desktopApp only)
-        voxproof.desktopApp.reviewUI -> voxproof.desktopApp.appAdapter "Submits human intent"
-        voxproof.desktopApp.appAdapter -> voxproof.desktopApp.orchestrator "Forwards validated intent"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.openUC "Open transcript"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.sessionUC "Drive review session"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.decisionUC "Record decision"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.materializeUC "Materialize/export"
-        voxproof.desktopApp.openUC -> voxproof.desktopApp.desktopSrtParser "Parse"
-        voxproof.desktopApp.openUC -> voxproof.desktopApp.desktopTranscript "Build source model"
-        voxproof.desktopApp.sessionUC -> voxproof.desktopApp.desktopDetectors "Produce ReviewCases"
-        voxproof.desktopApp.decisionUC -> voxproof.desktopApp.desktopLedger "record_decision"
-        voxproof.desktopApp.materializeUC -> voxproof.desktopApp.desktopMaterializer "derive_reviewed_srt"
-        voxproof.desktopApp.materializeUC -> voxproof.desktopApp.desktopValidation "Fail closed on invalid input"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.sessionSer "Save/load session"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.fsAdapter "Import/export paths"
-        voxproof.desktopApp.orchestrator -> voxproof.desktopApp.mediaAdapter "Optional playback"
+        voxproof.desktopApp.reviewUI -> voxproof.desktopApp.appSession "Submits human intent; reads projections"
+        voxproof.desktopApp.reviewUI -> voxproof.desktopApp.fsAdapter "Import/export paths"
+        voxproof.desktopApp.reviewUI -> voxproof.desktopApp.mediaAdapter "Optional playback"
+        voxproof.desktopApp.fsAdapter -> voxproof.desktopApp.desktopSrtParser "Parse imported SRT"
+        voxproof.desktopApp.appSession -> voxproof.desktopApp.desktopTranscript "Owns immutable source"
+        voxproof.desktopApp.appSession -> voxproof.desktopApp.desktopDetectors "Produce ReviewCases"
+        voxproof.desktopApp.appSession -> voxproof.desktopApp.desktopLedger "record_decision"
+        voxproof.desktopApp.appSession -> voxproof.desktopApp.desktopMaterializer "derive reviewed output and export bundle"
+        voxproof.desktopApp.appSession -> voxproof.desktopApp.desktopValidation "Fail closed on invalid input"
+        voxproof.desktopApp.sessionSer -> voxproof.desktopApp.appSession "Future save/load only; not accepted or implemented"
         voxproof.desktopApp.desktopMaterializer -> voxproof.desktopApp.desktopLedger "Reads accepted decisions"
         voxproof.desktopApp.desktopMaterializer -> voxproof.desktopApp.desktopTranscript "Reads immutable source"
     }
