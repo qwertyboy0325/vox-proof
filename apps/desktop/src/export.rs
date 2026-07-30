@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use vox_proof::application_export::{
     render_application_decision_log, render_application_session_summary,
 };
+use vox_proof::application_export_v3::{
+    render_application_decision_log_v3, render_application_session_summary_v3,
+};
 use vox_proof::application_service::ApplicationReviewExportBundle;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,6 +109,56 @@ impl ExclusiveIo for FilesystemIo {
     fn remove_created(&mut self, path: &Path) -> std::io::Result<()> {
         fs::remove_file(path)
     }
+}
+
+pub fn export_bundle_v3_exclusively(
+    base: &ApplicationReviewExportBundle,
+    bundle_v3: &vox_proof::application_export_v3::ApplicationReviewExportBundleV3,
+    destination: &Path,
+    source_path: Option<&Path>,
+) -> Result<ExportPaths, ExportError> {
+    if !destination.is_dir() {
+        return Err(ExportError::DestinationNotDirectory(
+            destination.to_path_buf(),
+        ));
+    }
+
+    let stem = source_path
+        .and_then(Path::file_stem)
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or("transcript");
+    let paths = ExportPaths {
+        reviewed_srt: destination.join(format!("{stem}.voxproof-reviewed.srt")),
+        decision_log: destination.join(format!("{stem}.voxproof-decisions-v3.txt")),
+        session_summary: destination.join(format!("{stem}.voxproof-session-summary-v3.txt")),
+    };
+    let payloads = vec![
+        Payload {
+            path: paths.reviewed_srt.clone(),
+            bytes: base.reviewed_srt.as_bytes().to_vec(),
+        },
+        Payload {
+            path: paths.decision_log.clone(),
+            bytes: render_application_decision_log_v3(bundle_v3).into_bytes(),
+        },
+        Payload {
+            path: paths.session_summary.clone(),
+            bytes: render_application_session_summary_v3(bundle_v3).into_bytes(),
+        },
+    ];
+
+    let collisions = payloads
+        .iter()
+        .filter(|payload| payload.path.exists())
+        .map(|payload| payload.path.clone())
+        .collect::<Vec<_>>();
+    if !collisions.is_empty() {
+        return Err(ExportError::Collision { paths: collisions });
+    }
+
+    execute_payloads(&payloads, &mut FilesystemIo)?;
+    Ok(paths)
 }
 
 pub fn export_bundle_exclusively(

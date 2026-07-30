@@ -572,7 +572,145 @@ impl ReviewApp {
                 self.apply_decision(CorrectionDecision::NeedsManualCorrection);
             }
         });
+        self.reuse_governance_panel(ui);
         self.export_controls(ui, progress);
+    }
+
+    fn reuse_governance_panel(&mut self, ui: &mut egui::Ui) {
+        ui.add_space(12.0);
+        ui.separator();
+        ui.heading("Reusable influence governance (Gate 3)");
+        ui.label(
+            "Draft fields below have no authority until explicitly committed. Promotion requires \
+             a project scope.",
+        );
+        ui.horizontal(|ui| {
+            ui.label("Stable project ID:");
+            ui.add(
+                egui::TextEdit::singleline(self.controller.project_scope_id_draft_mut())
+                    .desired_width(180.0)
+                    .hint_text("opaque project id"),
+            );
+            ui.label("Display label:");
+            ui.add(
+                egui::TextEdit::singleline(self.controller.project_scope_display_draft_mut())
+                    .desired_width(180.0)
+                    .hint_text("presentation label"),
+            );
+        });
+        let generation = self.controller.generation();
+        ui.horizontal(|ui| {
+            if ui.button("Initialize project scope").clicked() {
+                match self.controller.initialize_project_scope(generation) {
+                    Ok(()) => self.status = "Project scope initialized.".to_owned(),
+                    Err(error) => self.error = Some(error.to_string()),
+                }
+            }
+            if self.controller.has_project_scope() && ui.button("Update display label").clicked() {
+                match self
+                    .controller
+                    .update_project_scope_display_name(generation)
+                {
+                    Ok(()) => self.status = "Display label updated.".to_owned(),
+                    Err(error) => self.error = Some(error.to_string()),
+                }
+            }
+        });
+        if !self.controller.has_project_scope() {
+            ui.label("Gate 2 review remains available without a project scope.");
+            return;
+        }
+        match self.controller.reuse_candidates() {
+            Ok(candidates) => {
+                ui.label(RichText::new("Promotion candidates").strong());
+                if candidates.is_empty() {
+                    ui.label("No unpromoted Manual Replacement candidates.");
+                }
+                for candidate in candidates {
+                    ui.group(|ui| {
+                        ui.label(format!(
+                            "observed: {} → replacement: {}",
+                            candidate.exact_payload.observed_text,
+                            candidate.exact_payload.confirmed_replacement
+                        ));
+                        ui.label(format!(
+                            "source case local:{} · still effective: {}",
+                            candidate
+                                .key
+                                .source_locator
+                                .source_review_case_id
+                                .local_index()
+                                + 1,
+                            candidate.source_decision_still_effective
+                        ));
+                        let key = candidate.key.clone();
+                        ui.horizontal(|ui| {
+                            if ui.button("Accept for reuse").clicked() {
+                                match self.controller.accept_reuse_candidate(generation, &key) {
+                                    Ok(()) => self.status = "Promotion accepted.".to_owned(),
+                                    Err(error) => self.error = Some(error.to_string()),
+                                }
+                            }
+                            if ui.button("Reject promotion candidate").clicked() {
+                                match self.controller.reject_reuse_candidate(generation, &key) {
+                                    Ok(()) => {
+                                        self.status = "Promotion candidate rejected.".to_owned()
+                                    }
+                                    Err(error) => self.error = Some(error.to_string()),
+                                }
+                            }
+                        });
+                    });
+                }
+            }
+            Err(error) => self.error = Some(error.to_string()),
+        }
+        match self.controller.active_reusable_records() {
+            Ok(records) => {
+                ui.label(RichText::new("Active reusable records").strong());
+                if records.is_empty() {
+                    ui.label("No active reusable records.");
+                }
+                for record in records {
+                    ui.group(|ui| {
+                        ui.label(format!(
+                            "record promotion_event:{} · {} → {}",
+                            record.record_id.promotion_event_index(),
+                            record.payload.observed_text,
+                            record.payload.confirmed_replacement
+                        ));
+                        if !record.source_decision_still_effective {
+                            ui.colored_label(
+                                Color32::YELLOW,
+                                "Source decision no longer effective; revoke or supersede explicitly.",
+                            );
+                        }
+                        if ui.button("Revoke").clicked() {
+                            match self
+                                .controller
+                                .revoke_reusable_influence(generation, record.record_id)
+                            {
+                                Ok(()) => self.status = "Record revoked.".to_owned(),
+                                Err(error) => self.error = Some(error.to_string()),
+                            }
+                        }
+                    });
+                }
+            }
+            Err(error) => self.error = Some(error.to_string()),
+        }
+        if ui.button("Run reuse-enabled exact analysis").clicked() {
+            match self.controller.run_reuse_enabled_analysis(generation) {
+                Ok(count) => {
+                    self.status =
+                        format!("Reuse-enabled analysis raised {count} non-binding case(s).");
+                }
+                Err(error) => self.error = Some(error.to_string()),
+            }
+        }
+        if let Some(count) = self.controller.reuse_enabled_case_count() {
+            ui.small(format!("Last reuse-enabled analysis case count: {count}"));
+        }
     }
 
     fn export_controls(

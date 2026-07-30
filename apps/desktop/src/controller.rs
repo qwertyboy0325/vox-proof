@@ -5,6 +5,10 @@ use std::path::{Path, PathBuf};
 use vox_proof::application_export::{
     render_application_decision_log, render_application_session_summary,
 };
+use vox_proof::application_export_v3::{
+    render_application_decision_log_v3, render_application_session_summary_v3,
+};
+use vox_proof::application_reuse::ApplicationReuseError;
 use vox_proof::application_service::{
     ApplicationCurrentProjection, ApplicationDecisionCoverage, ApplicationMaterialUseDeclaration,
     ApplicationResolutionStatus, ApplicationReviewProgress, ApplicationReviewSession,
@@ -16,7 +20,9 @@ use vox_proof::review::{CorrectionDecision, ReviewCaseStatus};
 use vox_proof::session_terms::{SessionTermsError, parse_session_terms};
 use vox_proof::srt::{ParseError, parse_srt};
 
-use crate::export::{ExportError, ExportPaths, export_bundle_exclusively};
+use crate::export::{
+    ExportError, ExportPaths, export_bundle_exclusively, export_bundle_v3_exclusively,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DesktopPhase {
@@ -62,6 +68,7 @@ pub enum ControllerError {
     Authority(DeclaredSessionAuthorityError),
     Service(ApplicationServiceError),
     Export(ExportError),
+    Reuse(ApplicationReuseError),
     NoActiveSession,
     StaleGeneration { expected: u64, actual: u64 },
     NoSelectedCase,
@@ -81,6 +88,7 @@ impl fmt::Display for ControllerError {
             Self::Authority(error) => write!(formatter, "operator declaration failed: {error}"),
             Self::Service(error) => write!(formatter, "review operation failed: {error}"),
             Self::Export(error) => write!(formatter, "export failed: {error}"),
+            Self::Reuse(error) => write!(formatter, "reuse governance failed: {error}"),
             Self::NoActiveSession => write!(formatter, "no active review session"),
             Self::StaleGeneration { expected, actual } => write!(
                 formatter,
@@ -114,6 +122,12 @@ impl From<std::io::Error> for ControllerError {
     }
 }
 
+impl From<ApplicationReuseError> for ControllerError {
+    fn from(value: ApplicationReuseError) -> Self {
+        Self::Reuse(value)
+    }
+}
+
 impl From<ApplicationServiceError> for ControllerError {
     fn from(value: ApplicationServiceError) -> Self {
         Self::Service(value)
@@ -128,6 +142,9 @@ pub struct DesktopController {
     declared_role: Option<DeclaredSessionOperatorRole>,
     selected_index: usize,
     exported_paths: Option<ExportPaths>,
+    project_scope_id_draft: String,
+    project_scope_display_draft: String,
+    reuse_enabled_case_count: Option<usize>,
 }
 
 impl Default for DesktopController {
@@ -140,6 +157,9 @@ impl Default for DesktopController {
             declared_role: None,
             selected_index: 0,
             exported_paths: None,
+            project_scope_id_draft: String::new(),
+            project_scope_display_draft: String::new(),
+            reuse_enabled_case_count: None,
         }
     }
 }
@@ -215,6 +235,9 @@ impl DesktopController {
         self.declared_role = Some(role);
         self.selected_index = 0;
         self.exported_paths = None;
+        self.project_scope_id_draft.clear();
+        self.project_scope_display_draft.clear();
+        self.reuse_enabled_case_count = None;
         Ok(())
     }
 
@@ -226,6 +249,179 @@ impl DesktopController {
         self.declared_role = None;
         self.selected_index = 0;
         self.exported_paths = None;
+        self.project_scope_id_draft.clear();
+        self.project_scope_display_draft.clear();
+        self.reuse_enabled_case_count = None;
+    }
+
+    pub fn has_project_scope(&self) -> bool {
+        self.session
+            .as_ref()
+            .map(|session| session.has_project_scope())
+            .unwrap_or(false)
+    }
+
+    pub fn project_scope_id_draft(&self) -> &str {
+        &self.project_scope_id_draft
+    }
+
+    pub fn project_scope_id_draft_mut(&mut self) -> &mut String {
+        &mut self.project_scope_id_draft
+    }
+
+    pub fn project_scope_display_draft(&self) -> &str {
+        &self.project_scope_display_draft
+    }
+
+    pub fn project_scope_display_draft_mut(&mut self) -> &mut String {
+        &mut self.project_scope_display_draft
+    }
+
+    pub fn reuse_enabled_case_count(&self) -> Option<usize> {
+        self.reuse_enabled_case_count
+    }
+
+    pub fn initialize_project_scope(
+        &mut self,
+        expected_generation: u64,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        let stable_id = self.project_scope_id_draft.clone();
+        let display_name = self.project_scope_display_draft.clone();
+        session.initialize_project_scope(stable_id, display_name)?;
+        self.exported_paths = None;
+        Ok(())
+    }
+
+    pub fn update_project_scope_display_name(
+        &mut self,
+        expected_generation: u64,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        session.update_project_scope_display_name(self.project_scope_display_draft.clone())?;
+        if self.exported_paths.is_some() {
+            self.exported_paths = None;
+        }
+        Ok(())
+    }
+
+    pub fn reuse_candidates(
+        &self,
+    ) -> Result<Vec<vox_proof::reusable_influence::ReuseCandidate>, ControllerError> {
+        let session = self
+            .session
+            .as_ref()
+            .ok_or(ControllerError::NoActiveSession)?;
+        Ok(session.reuse_candidates()?)
+    }
+
+    pub fn active_reusable_records(
+        &self,
+    ) -> Result<Vec<vox_proof::reusable_influence::EffectiveReusableInfluenceRecord>, ControllerError>
+    {
+        let session = self
+            .session
+            .as_ref()
+            .ok_or(ControllerError::NoActiveSession)?;
+        Ok(session.active_reusable_records()?)
+    }
+
+    pub fn accept_reuse_candidate(
+        &mut self,
+        expected_generation: u64,
+        candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        session.accept_reuse_candidate(candidate_key)?;
+        self.exported_paths = None;
+        Ok(())
+    }
+
+    pub fn reject_reuse_candidate(
+        &mut self,
+        expected_generation: u64,
+        candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        session.reject_reuse_candidate(candidate_key)?;
+        self.exported_paths = None;
+        Ok(())
+    }
+
+    pub fn revoke_reusable_influence(
+        &mut self,
+        expected_generation: u64,
+        record_id: vox_proof::reuse_primitives::ReusableInfluenceRecordId,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        session.revoke_reusable_influence(record_id)?;
+        self.exported_paths = None;
+        Ok(())
+    }
+
+    pub fn run_reuse_enabled_analysis(
+        &mut self,
+        expected_generation: u64,
+    ) -> Result<usize, ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        let run = session.run_reuse_enabled_review()?;
+        let count = run.review_cases().len();
+        self.reuse_enabled_case_count = Some(count);
+        Ok(count)
     }
 
     pub fn select(&mut self, index: usize) {
@@ -457,8 +653,21 @@ impl DesktopController {
         }
 
         let bundle = session.materialize_review_export_bundle()?;
-        let paths = export_bundle_exclusively(&bundle, destination, self.source_path.as_deref())
-            .map_err(ControllerError::Export)?;
+        let paths = if session.has_project_scope() {
+            let bundle_v3 = session
+                .materialize_review_export_bundle_v3()
+                .map_err(gate3_error)?;
+            export_bundle_v3_exclusively(
+                &bundle,
+                &bundle_v3,
+                destination,
+                self.source_path.as_deref(),
+            )
+            .map_err(ControllerError::Export)?
+        } else {
+            export_bundle_exclusively(&bundle, destination, self.source_path.as_deref())
+                .map_err(ControllerError::Export)?
+        };
         self.exported_paths = Some(paths.clone());
         Ok(paths)
     }
@@ -485,10 +694,31 @@ impl DesktopController {
             return Err(ControllerError::UnresolvedConfirmationRequired);
         }
         let bundle = session.materialize_review_export_bundle()?;
-        Ok((
-            render_application_decision_log(&bundle),
-            render_application_session_summary(&bundle),
-        ))
+        if session.has_project_scope() {
+            let bundle_v3 = session
+                .materialize_review_export_bundle_v3()
+                .map_err(gate3_error)?;
+            Ok((
+                render_application_decision_log_v3(&bundle_v3),
+                render_application_session_summary_v3(&bundle_v3),
+            ))
+        } else {
+            Ok((
+                render_application_decision_log(&bundle),
+                render_application_session_summary(&bundle),
+            ))
+        }
+    }
+}
+
+fn gate3_error(error: vox_proof::application_service::ApplicationGate3Error) -> ControllerError {
+    match error {
+        vox_proof::application_service::ApplicationGate3Error::Reuse(error) => {
+            ControllerError::Reuse(error)
+        }
+        vox_proof::application_service::ApplicationGate3Error::Service(error) => {
+            ControllerError::Service(error)
+        }
     }
 }
 
@@ -503,6 +733,10 @@ fn evidence_label(evidence: &Evidence) -> String {
         Evidence::PhoneticSimilarity(item) => format!(
             "Phonetic similarity: {} → {} (distance {})",
             item.observed_surface, item.target_surface, item.comparison.edit_distance
+        ),
+        Evidence::ReusableExactObservedForm(item) => format!(
+            "Reusable exact observed form: {} → {}",
+            item.observed_text, item.confirmed_replacement
         ),
     }
 }
