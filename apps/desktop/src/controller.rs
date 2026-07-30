@@ -404,6 +404,27 @@ impl DesktopController {
         Ok(())
     }
 
+    pub fn supersede_reusable_influence(
+        &mut self,
+        expected_generation: u64,
+        predecessor_id: vox_proof::reuse_primitives::ReusableInfluenceRecordId,
+        successor_candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
+    ) -> Result<(), ControllerError> {
+        if expected_generation != self.generation {
+            return Err(ControllerError::StaleGeneration {
+                expected: expected_generation,
+                actual: self.generation,
+            });
+        }
+        let session = self
+            .session
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        session.supersede_reusable_influence(predecessor_id, successor_candidate_key)?;
+        self.exported_paths = None;
+        Ok(())
+    }
+
     pub fn run_reuse_enabled_analysis(
         &mut self,
         expected_generation: u64,
@@ -421,6 +442,7 @@ impl DesktopController {
         let run = session.run_reuse_enabled_review()?;
         let count = run.review_cases().len();
         self.reuse_enabled_case_count = Some(count);
+        self.exported_paths = None;
         Ok(count)
     }
 

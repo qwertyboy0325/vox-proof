@@ -1,11 +1,11 @@
 use crate::analysis::{AnalysisRun, ReuseEnabledAnalysisSnapshot};
 use crate::candidate::{
     CandidateSpan, DetectionError, SessionTermEntry, detect_glossary_matches,
-    detect_observed_error_form_matches,
+    detect_glossary_matches_reuse_enabled, detect_observed_error_form_matches,
 };
 use crate::reusable_influence::{
     ResolvedExactInputProjection, ReusableInfluenceSnapshot,
-    detect_reusable_exact_observed_form_matches,
+    detect_resolved_exact_observed_form_matches,
 };
 use crate::review::ReviewCase;
 use crate::transcript::Transcript;
@@ -131,16 +131,15 @@ fn collect_reuse_enabled_spans(
     projection: &ResolvedExactInputProjection,
     snapshot: &ReusableInfluenceSnapshot,
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
-    let mut spans = detect_glossary_matches(run, transcript, entries)?;
-    spans.extend(detect_observed_error_form_matches(
-        run, transcript, entries,
+    let mut spans = detect_glossary_matches_reuse_enabled(run, transcript, entries)?;
+    spans.extend(detect_resolved_exact_observed_form_matches(
+        run, transcript, entries, projection, snapshot,
     )?);
-    spans.extend(detect_reusable_exact_observed_form_matches(
-        transcript, projection, snapshot,
-    ));
-    spans.extend(crate::phonetic::detect_ascii_latin_phonetic_matches(
-        run, transcript, entries,
-    )?);
+    spans.extend(
+        crate::phonetic::detect_ascii_latin_phonetic_matches_reuse_enabled(
+            run, transcript, entries,
+        )?,
+    );
     spans.sort_by(|left, right| {
         let left_anchor = left.anchor();
         let right_anchor = right.anchor();
@@ -168,7 +167,7 @@ pub fn run_reuse_enabled_term_review(
     projection: &ResolvedExactInputProjection,
     snapshot: &ReusableInfluenceSnapshot,
 ) -> Result<ReuseEnabledTermReviewRun, DetectionError> {
-    let run = AnalysisRun::for_reuse_enabled_session_terms(transcript, entries, snapshot.identity);
+    let run = AnalysisRun::for_reuse_enabled_session_terms(transcript, entries);
     let spans = collect_reuse_enabled_spans(&run, transcript, entries, projection, snapshot)?;
     Ok(ReuseEnabledTermReviewRun {
         analysis_run: run,

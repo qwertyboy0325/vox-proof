@@ -7,6 +7,14 @@ use crate::anchor::TranscriptRevisionId;
 use crate::review::{ManualReplacementText, ReviewCaseId};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PromotionCandidateRejectionIdentity {
+    pub project_scope_id: ProjectScopeId,
+    pub source_review_case_id: ReviewCaseId,
+    pub review_ledger_position: usize,
+    pub decision_digest: [u8; 32],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ProjectScopeId(String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -171,25 +179,60 @@ pub(crate) fn hash_string(hasher: &mut Sha256, value: &str) {
     hasher.update(value.as_bytes());
 }
 
+pub struct SnapshotIdentityRecordProvenance<'a> {
+    pub record_id: ReusableInfluenceRecordId,
+    pub observed_text: &'a str,
+    pub confirmed_replacement: &'a str,
+    pub source_locator: &'a SourceDecisionLocator,
+    pub promotion_actor_role: &'a str,
+    pub promotion_actor_label: &'a str,
+}
+
+pub(crate) fn hash_analysis_snapshot(hasher: &mut Sha256, snapshot: &AnalysisSnapshot) {
+    hash_string(hasher, &snapshot.source_revision().to_tagged_string());
+    hash_string(hasher, &snapshot.session_terms().to_tagged_string());
+    let configuration = snapshot.configuration();
+    let detector_set = configuration.detector_set();
+    hasher.update((detector_set.detectors().len() as u64).to_le_bytes());
+    for detector in detector_set.detectors() {
+        hash_string(hasher, detector.id());
+        hash_string(hasher, detector.version());
+    }
+    hash_string(hasher, configuration.detector_config().id());
+    hash_string(hasher, configuration.detector_config().version());
+    hash_string(hasher, configuration.algorithm().id());
+    hash_string(hasher, configuration.algorithm().version());
+}
+
+pub(crate) fn hash_source_decision_locator(hasher: &mut Sha256, locator: &SourceDecisionLocator) {
+    hash_string(hasher, &locator.source_revision.to_tagged_string());
+    hash_analysis_snapshot(hasher, &locator.source_analysis_snapshot);
+    hasher.update((locator.source_review_case_id.local_index() as u64).to_le_bytes());
+    hasher.update((locator.review_ledger_position as u64).to_le_bytes());
+    hasher.update(locator.decision_digest);
+    hasher.update((locator.effective_at_ledger_length as u64).to_le_bytes());
+}
+
 pub fn compute_snapshot_identity(
     project_scope_id: &ProjectScopeId,
     governance_event_boundary: usize,
     projection_version: &str,
-    active_record_ids: &[(ReusableInfluenceRecordId, &str, &str, [u8; 32], usize)],
+    active_records: &[SnapshotIdentityRecordProvenance<'_>],
 ) -> ReusableInfluenceSnapshotIdentity {
-    const DOMAIN: &[u8] = b"voxproof-reusable-influence-snapshot-identity-v1";
+    const DOMAIN: &[u8] = b"voxproof-reusable-influence-snapshot-identity-v2";
     let mut hasher = Sha256::new();
     hasher.update(DOMAIN);
     hash_string(&mut hasher, project_scope_id.as_str());
     hasher.update((governance_event_boundary as u64).to_le_bytes());
     hash_string(&mut hasher, projection_version);
-    hasher.update((active_record_ids.len() as u64).to_le_bytes());
-    for (record_id, observed, replacement, digest, ledger_position) in active_record_ids {
-        hasher.update((record_id.promotion_event_index() as u64).to_le_bytes());
-        hash_string(&mut hasher, observed);
-        hash_string(&mut hasher, replacement);
-        hasher.update(*digest);
-        hasher.update((*ledger_position as u64).to_le_bytes());
+    hasher.update((active_records.len() as u64).to_le_bytes());
+    for record in active_records {
+        hasher.update((record.record_id.promotion_event_index() as u64).to_le_bytes());
+        hash_string(&mut hasher, record.observed_text);
+        hash_string(&mut hasher, record.confirmed_replacement);
+        hash_source_decision_locator(&mut hasher, record.source_locator);
+        hash_string(&mut hasher, record.promotion_actor_role);
+        hash_string(&mut hasher, record.promotion_actor_label);
     }
     ReusableInfluenceSnapshotIdentity::from_digest(hasher.finalize().into())
 }

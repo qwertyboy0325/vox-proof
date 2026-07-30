@@ -291,12 +291,19 @@ pub enum DetectionError {
     EmptyObservedErrorForm {
         canonical_term: String,
     },
+    ProjectionSnapshotIdentityMismatch,
+    MissingReusableRecordProvenance {
+        record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+    },
 }
 
 pub(crate) const GLOSSARY_DETECTOR: DetectorIdentity =
     DetectorIdentity::new("glossary-alias-match", "0.1.0");
 pub(crate) const OBSERVED_ERROR_FORM_DETECTOR: DetectorIdentity =
     DetectorIdentity::new("observed-error-form-match", "0.1.0");
+
+pub(crate) const RESOLVED_EXACT_OBSERVED_FORM_DETECTOR: DetectorIdentity =
+    DetectorIdentity::new("resolved-exact-observed-form-match", "0.1.0");
 
 pub(crate) const PHONETIC_DETECTOR: DetectorIdentity =
     DetectorIdentity::new("ascii-latin-phonetic-similarity", "0.1.0");
@@ -325,14 +332,44 @@ pub(crate) const CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY: AnalysisConfiguration
         CANONICAL_SESSION_TERM_ALGORITHM,
     );
 
+pub(crate) const REUSE_ENABLED_SESSION_TERM_DETECTORS: &[DetectorIdentity] = &[
+    GLOSSARY_DETECTOR,
+    RESOLVED_EXACT_OBSERVED_FORM_DETECTOR,
+    PHONETIC_DETECTOR,
+];
+
+pub(crate) const REUSE_ENABLED_SESSION_TERM_DETECTOR_SET: CanonicalDetectorSetIdentity =
+    CanonicalDetectorSetIdentity::new(REUSE_ENABLED_SESSION_TERM_DETECTORS);
+
+pub(crate) const REUSE_ENABLED_SESSION_TERM_DETECTOR_CONFIG: DetectorConfigIdentity =
+    DetectorConfigIdentity::new("reuse-enabled-session-term-cue-local", "0.2.0");
+
+pub(crate) const REUSE_ENABLED_SESSION_TERM_ALGORITHM: AlgorithmIdentity = AlgorithmIdentity::new(
+    "reuse-enabled-exact-plus-ascii-double-metaphone-levenshtein",
+    "0.2.0",
+);
+
+pub(crate) const REUSE_ENABLED_SESSION_TERM_ANALYSIS_IDENTITY: AnalysisConfigurationIdentity =
+    AnalysisConfigurationIdentity::new(
+        REUSE_ENABLED_SESSION_TERM_DETECTOR_SET,
+        REUSE_ENABLED_SESSION_TERM_DETECTOR_CONFIG,
+        REUSE_ENABLED_SESSION_TERM_ALGORITHM,
+    );
+
 pub(crate) const fn canonical_session_term_analysis_identity() -> AnalysisConfigurationIdentity {
     CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY
 }
 
-pub(crate) fn validate_detection_inputs(
+pub(crate) const fn reuse_enabled_session_term_analysis_identity() -> AnalysisConfigurationIdentity
+{
+    REUSE_ENABLED_SESSION_TERM_ANALYSIS_IDENTITY
+}
+
+fn validate_detection_inputs_with_configuration(
     run: &AnalysisRun,
     transcript: &Transcript,
     entries: &[SessionTermEntry],
+    required_configuration: AnalysisConfigurationIdentity,
 ) -> Result<(), DetectionError> {
     let run_revision = run.snapshot().source_revision();
     let transcript_revision = transcript.revision_id();
@@ -353,7 +390,6 @@ pub(crate) fn validate_detection_inputs(
     }
 
     let run_configuration = run.snapshot().configuration();
-    let required_configuration = canonical_session_term_analysis_identity();
     if run_configuration.detector_set() != required_configuration.detector_set() {
         return Err(DetectionError::DetectorSetIdentityMismatch {
             run_identity: run_configuration.detector_set(),
@@ -373,6 +409,12 @@ pub(crate) fn validate_detection_inputs(
         });
     }
 
+    validate_session_term_entry_uniqueness(entries)
+}
+
+fn validate_session_term_entry_uniqueness(
+    entries: &[SessionTermEntry],
+) -> Result<(), DetectionError> {
     let mut seen_canonical_terms = HashSet::new();
     let mut seen_source_forms = HashSet::new();
     for entry in entries {
@@ -409,6 +451,32 @@ pub(crate) fn validate_detection_inputs(
     Ok(())
 }
 
+pub(crate) fn validate_detection_inputs(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<(), DetectionError> {
+    validate_detection_inputs_with_configuration(
+        run,
+        transcript,
+        entries,
+        canonical_session_term_analysis_identity(),
+    )
+}
+
+pub(crate) fn validate_reuse_enabled_detection_inputs(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<(), DetectionError> {
+    validate_detection_inputs_with_configuration(
+        run,
+        transcript,
+        entries,
+        reuse_enabled_session_term_analysis_identity(),
+    )
+}
+
 /// Finds exact, case-sensitive occurrences of a matched non-canonical
 /// glossary form in the transcript. Matching is byte-exact on the parsed
 /// segment text: no case folding or other text normalization is applied,
@@ -428,12 +496,30 @@ pub(crate) fn validate_detection_inputs(
 /// `CandidateKey` as an unambiguous deduplication identity, so it is
 /// rejected as a configuration error rather than silently merged or
 /// arbitrarily chosen.
+pub fn detect_glossary_matches_reuse_enabled(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    validate_reuse_enabled_detection_inputs(run, transcript, entries)?;
+    detect_glossary_matches_internal(run, transcript, entries)
+}
+
 pub fn detect_glossary_matches(
     run: &AnalysisRun,
     transcript: &Transcript,
     entries: &[SessionTermEntry],
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
     validate_detection_inputs(run, transcript, entries)?;
+    detect_glossary_matches_internal(run, transcript, entries)
+}
+
+fn detect_glossary_matches_internal(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    let _ = run;
 
     let provenance = DetectorProvenance::from_detector_identity(GLOSSARY_DETECTOR);
     let mut spans = Vec::new();

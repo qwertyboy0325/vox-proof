@@ -64,12 +64,30 @@ struct QualifiedMatch {
 /// windows and session-term canonical terms or aliases. Observed error forms
 /// are never phonetic targets. Multiple qualifying canonical owners for one
 /// anchor are suppressed without emitting a candidate.
+pub fn detect_ascii_latin_phonetic_matches_reuse_enabled(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    crate::candidate::validate_reuse_enabled_detection_inputs(run, transcript, entries)?;
+    detect_ascii_latin_phonetic_matches_internal(run, transcript, entries)
+}
+
 pub fn detect_ascii_latin_phonetic_matches(
     run: &AnalysisRun,
     transcript: &Transcript,
     entries: &[SessionTermEntry],
 ) -> Result<Vec<CandidateSpan>, DetectionError> {
     validate_detection_inputs(run, transcript, entries)?;
+    detect_ascii_latin_phonetic_matches_internal(run, transcript, entries)
+}
+
+fn detect_ascii_latin_phonetic_matches_internal(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    let _ = run;
 
     let targets = build_phonetic_targets(entries);
     let exact_token_vectors = exact_suppression_token_vectors(&targets);

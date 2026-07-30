@@ -2,6 +2,7 @@ pub mod analysis;
 pub mod anchor;
 pub mod application_export;
 pub mod application_export_v3;
+pub mod application_gate3_replay;
 pub mod application_reuse;
 pub mod application_service;
 pub mod artifact_bundle;

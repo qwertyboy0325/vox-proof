@@ -360,16 +360,12 @@ impl ApplicationReviewSession {
         &self.reuse_state
     }
 
-    pub fn reuse_state_mut(&mut self) -> &mut ApplicationReuseState {
-        &mut self.reuse_state
-    }
-
     pub fn reuse_enabled_run(&self) -> Option<&ReuseEnabledTermReviewRun> {
         self.reuse_enabled_run.as_ref()
     }
 
     pub fn has_project_scope(&self) -> bool {
-        self.reuse_state.project_scope.is_some()
+        self.reuse_state.project_scope().is_some()
     }
 
     pub fn reuse_parts(&self) -> ReuseSessionParts<'_> {
@@ -443,7 +439,13 @@ impl ApplicationReviewSession {
         record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
     ) -> Result<(), ApplicationReuseError> {
         let authority = self.session_authority().clone();
-        revoke_reusable_influence(&mut self.reuse_state, &self.ledger, &authority, record_id)?;
+        revoke_reusable_influence(
+            &mut self.reuse_state,
+            &self.ledger,
+            &self.canonical_run,
+            &authority,
+            record_id,
+        )?;
         self.reuse_enabled_run = None;
         Ok(())
     }
@@ -503,6 +505,7 @@ impl ApplicationReviewSession {
             base,
             &self.reuse_state,
             &self.ledger,
+            &self.canonical_run,
             derived_candidates,
             snapshot,
             self.reuse_enabled_run.as_ref(),
@@ -753,88 +756,7 @@ impl ApplicationReviewSession {
     }
 
     fn verify_gate3_replay_state(&self) -> Result<(), ApplicationReplayError> {
-        use crate::reusable_influence::fold_effective_state;
-
-        if self.reuse_state.project_scope.is_none()
-            && self.reuse_state.governance_ledger.events().is_empty()
-            && self.reuse_enabled_run.is_none()
-        {
-            return Ok(());
-        }
-
-        let replay_effective =
-            fold_effective_state(&self.reuse_state.governance_ledger, &self.ledger);
-        let current_effective = self.reuse_state.effective_state(&self.ledger);
-        if replay_effective != current_effective {
-            return Err(ApplicationReplayError::Mismatch {
-                field: ApplicationReplayField::ReuseEffectiveState,
-            });
-        }
-
-        if self.reuse_state.governance_ledger.events().len()
-            != self.reuse_state.governance_ledger.events().len()
-        {
-            return Err(ApplicationReplayError::Mismatch {
-                field: ApplicationReplayField::ReuseGovernanceLedger,
-            });
-        }
-
-        if let Some(project_scope) = &self.reuse_state.project_scope {
-            let snapshot =
-                reusable_influence_snapshot_for_parts(self.reuse_parts(), &self.reuse_state)
-                    .map_err(|_| ApplicationReplayError::Mismatch {
-                        field: ApplicationReplayField::ReuseSnapshotIdentity,
-                    })?;
-            let replay_snapshot = crate::reusable_influence::build_reusable_influence_snapshot(
-                project_scope,
-                &self.reuse_state.governance_ledger,
-                &replay_effective,
-            );
-            if snapshot.identity != replay_snapshot.identity {
-                return Err(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseSnapshotIdentity,
-                });
-            }
-        }
-
-        if let Some(run) = &self.reuse_enabled_run {
-            let replay_run =
-                run_reuse_enabled_review_for_parts(self.reuse_parts(), &self.reuse_state).map_err(
-                    |_| ApplicationReplayError::Mismatch {
-                        field: ApplicationReplayField::ReuseEnabledRun,
-                    },
-                )?;
-            if run.review_cases() != replay_run.review_cases() {
-                return Err(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseEnabledRun,
-                });
-            }
-            if run.reuse_enabled_snapshot() != replay_run.reuse_enabled_snapshot() {
-                return Err(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseEnabledRun,
-                });
-            }
-        }
-
-        if self.has_project_scope() {
-            let v3 = self.materialize_review_export_bundle_v3().map_err(|_| {
-                ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ExportBundleV3,
-                }
-            })?;
-            let replay_v3 = self.materialize_review_export_bundle_v3().map_err(|_| {
-                ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ExportBundleV3,
-                }
-            })?;
-            if v3 != replay_v3 {
-                return Err(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ExportBundleV3,
-                });
-            }
-        }
-
-        Ok(())
+        crate::application_gate3_replay::verify_gate3_independent_replay(self)
     }
 }
 

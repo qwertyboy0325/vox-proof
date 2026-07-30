@@ -13,8 +13,8 @@ use vox_proof::candidate::{
 };
 use vox_proof::pipeline::{run_canonical_term_review, run_reuse_enabled_term_review};
 use vox_proof::reusable_influence::{
-    ReusableInfluenceError, build_reusable_influence_snapshot,
-    fold_effective_state, resolve_exact_input_projection,
+    ReusableInfluenceError, build_reusable_influence_snapshot, fold_effective_state,
+    resolve_exact_input_projection,
 };
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
 use vox_proof::review::CorrectionDecision;
@@ -127,9 +127,9 @@ fn promotion_acceptance_appends_one_event_and_activates_immediately() {
     let key = session.reuse_candidates().expect("candidates")[0]
         .key
         .clone();
-    assert!(session.reuse_state().governance_ledger.events().is_empty());
+    assert!(session.reuse_state().governance_events().is_empty());
     session.accept_reuse_candidate(&key).expect("accept");
-    assert_eq!(session.reuse_state().governance_ledger.events().len(), 1);
+    assert_eq!(session.reuse_state().governance_events().len(), 1);
     let active = session.active_reusable_records().expect("active");
     assert_eq!(active.len(), 1);
     assert_eq!(
@@ -177,7 +177,7 @@ fn failed_promotion_appends_nothing() {
     session.reject_reuse_candidate(&key).expect("reject");
     let err = session.accept_reuse_candidate(&key);
     assert!(err.is_err());
-    assert_eq!(session.reuse_state().governance_ledger.events().len(), 1);
+    assert_eq!(session.reuse_state().governance_events().len(), 1);
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn revocation_stops_future_influence_and_retains_history() {
             .expect("active")
             .is_empty()
     );
-    assert_eq!(session.reuse_state().governance_ledger.events().len(), 2);
+    assert_eq!(session.reuse_state().governance_events().len(), 2);
 }
 
 #[test]
@@ -289,14 +289,16 @@ fn divergent_reusable_pairs_refuse_projection() {
     {
         session.accept_reuse_candidate(&key).expect("accept");
     }
+    let canonical = run_canonical_term_review(session.source(), &terms).expect("canonical");
     let effective = fold_effective_state(
-        &session.reuse_state().governance_ledger,
+        session.reuse_state().governance_ledger(),
         session.review_ledger(),
+        &canonical,
     );
-    let scope = session.reuse_state().project_scope.as_ref().expect("scope");
+    let scope = session.reuse_state().project_scope().expect("scope");
     let snapshot = build_reusable_influence_snapshot(
         scope,
-        &session.reuse_state().governance_ledger,
+        session.reuse_state().governance_ledger(),
         &effective,
     );
     assert!(matches!(
@@ -320,14 +322,16 @@ fn base_versus_reuse_divergence_refuses_projection() {
         .key
         .clone();
     session.accept_reuse_candidate(&key).expect("accept");
+    let canonical = run_canonical_term_review(session.source(), &entries).expect("canonical");
     let effective = fold_effective_state(
-        &session.reuse_state().governance_ledger,
+        session.reuse_state().governance_ledger(),
         session.review_ledger(),
+        &canonical,
     );
-    let scope = session.reuse_state().project_scope.as_ref().expect("scope");
+    let scope = session.reuse_state().project_scope().expect("scope");
     let snapshot = build_reusable_influence_snapshot(
         scope,
-        &session.reuse_state().governance_ledger,
+        session.reuse_state().governance_ledger(),
         &effective,
     );
     assert!(matches!(
@@ -561,7 +565,7 @@ fn derive_candidates_appends_no_governance_event() {
         .initialize_project_scope("proj-a", "Project A")
         .expect("scope");
     let _ = session.reuse_candidates().expect("candidates");
-    assert!(session.reuse_state().governance_ledger.events().is_empty());
+    assert!(session.reuse_state().governance_events().is_empty());
 }
 
 #[test]
@@ -658,14 +662,16 @@ impl AnalysisRunHelper {
         transcript: &vox_proof::transcript::Transcript,
         entries: &[SessionTermEntry],
     ) -> vox_proof::pipeline::ReuseEnabledTermReviewRun {
+        let canonical = run_canonical_term_review(transcript, entries).expect("canonical");
         let effective = fold_effective_state(
-            &session.reuse_state().governance_ledger,
+            session.reuse_state().governance_ledger(),
             session.review_ledger(),
+            &canonical,
         );
-        let scope = session.reuse_state().project_scope.as_ref().expect("scope");
+        let scope = session.reuse_state().project_scope().expect("scope");
         let snapshot = build_reusable_influence_snapshot(
             scope,
-            &session.reuse_state().governance_ledger,
+            session.reuse_state().governance_ledger(),
             &effective,
         );
         let projection =

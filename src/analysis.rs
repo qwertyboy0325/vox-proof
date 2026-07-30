@@ -235,10 +235,14 @@ impl AnalysisRun {
     pub fn for_reuse_enabled_session_terms(
         transcript: &Transcript,
         entries: &[SessionTermEntry],
-        reusable_influence_snapshot: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
     ) -> Self {
-        let _ = reusable_influence_snapshot;
-        Self::for_canonical_session_terms(transcript, entries)
+        Self {
+            snapshot: AnalysisSnapshot {
+                source_revision: transcript.revision_id(),
+                session_terms: SessionTermsIdentity::from_entries(entries),
+                configuration: crate::candidate::reuse_enabled_session_term_analysis_identity(),
+            },
+        }
     }
 }
 

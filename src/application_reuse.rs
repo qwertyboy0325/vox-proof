@@ -6,13 +6,13 @@ use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, GovernanceActorContext, ReusableGovernanceEvent,
     ReusableInfluenceEffectiveState, ReusableInfluenceError, ReusableInfluenceLedger,
-    ReusableInfluenceSnapshot, ReuseCandidate, ReuseCandidateKey, build_reusable_influence_snapshot,
-    derive_reuse_candidates, fold_effective_state, resolve_exact_input_projection,
-    verify_source_locator_against_ledger,
+    ReusableInfluenceSnapshot, ReuseCandidate, ReuseCandidateKey,
+    build_reusable_influence_snapshot, derive_reuse_candidates, fold_effective_state,
+    resolve_exact_input_projection, verify_source_locator_against_ledger,
 };
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ProjectScopeTextError,
-    ReusableInfluenceRecordId,
+    PromotionCandidateRejectionIdentity, ReusableInfluenceRecordId,
 };
 use crate::review::ReviewLedger;
 use crate::transcript::Transcript;
@@ -54,8 +54,8 @@ impl From<ProjectScopeTextError> for ApplicationReuseError {
 }
 
 pub struct ApplicationReuseState {
-    pub project_scope: Option<ProjectScope>,
-    pub governance_ledger: ReusableInfluenceLedger,
+    project_scope: Option<ProjectScope>,
+    governance_ledger: ReusableInfluenceLedger,
 }
 
 impl Default for ApplicationReuseState {
@@ -68,8 +68,42 @@ impl Default for ApplicationReuseState {
 }
 
 impl ApplicationReuseState {
-    pub fn effective_state(&self, review_ledger: &ReviewLedger) -> ReusableInfluenceEffectiveState {
-        fold_effective_state(&self.governance_ledger, review_ledger)
+    pub fn project_scope(&self) -> Option<&ProjectScope> {
+        self.project_scope.as_ref()
+    }
+
+    pub fn governance_events(&self) -> &[ReusableGovernanceEvent] {
+        self.governance_ledger.events()
+    }
+
+    pub fn governance_ledger(&self) -> &ReusableInfluenceLedger {
+        &self.governance_ledger
+    }
+
+    pub(crate) fn governance_ledger_mut(&mut self) -> &mut ReusableInfluenceLedger {
+        &mut self.governance_ledger
+    }
+
+    pub(crate) fn from_replayed_governance(
+        project_scope: ProjectScope,
+        governance_ledger: &ReusableInfluenceLedger,
+    ) -> Self {
+        let mut state = Self {
+            project_scope: Some(project_scope),
+            governance_ledger: ReusableInfluenceLedger::new(),
+        };
+        for event in governance_ledger.events() {
+            state.governance_ledger_mut().append(event.clone());
+        }
+        state
+    }
+
+    pub fn effective_state(
+        &self,
+        review_ledger: &ReviewLedger,
+        canonical_run: &CanonicalTermReviewRun,
+    ) -> ReusableInfluenceEffectiveState {
+        fold_effective_state(&self.governance_ledger, review_ledger, canonical_run)
     }
 }
 
@@ -124,7 +158,7 @@ pub fn reuse_candidates_for_parts(
         .project_scope
         .as_ref()
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
-    let effective = reuse_state.effective_state(parts.ledger);
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     derive_reuse_candidates(
         parts.transcript,
         parts.canonical_run,
@@ -143,29 +177,30 @@ pub fn reusable_influence_snapshot_for_parts(
         .project_scope
         .as_ref()
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
-    let effective = reuse_state.effective_state(parts.ledger);
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     Ok(build_reusable_influence_snapshot(
         project_scope,
-        &reuse_state.governance_ledger,
+        reuse_state.governance_ledger(),
         &effective,
     ))
 }
 
-pub fn accept_reuse_candidate(
+pub fn validate_accept_reuse_candidate(
     parts: ReuseSessionParts<'_>,
-    reuse_state: &mut ApplicationReuseState,
-    authority: &DeclaredSessionAuthority,
+    reuse_state: &ApplicationReuseState,
     candidate_key: &ReuseCandidateKey,
-) -> Result<ReusableInfluenceRecordId, ApplicationReuseError> {
+) -> Result<ReuseCandidate, ApplicationReuseError> {
     let project_scope = reuse_state
-        .project_scope
-        .as_ref()
+        .project_scope()
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
     if candidate_key.project_scope_id != project_scope.stable_id {
         return Err(ReusableInfluenceError::WrongProjectScope.into());
     }
-    let effective = reuse_state.effective_state(parts.ledger);
-    if effective.rejected_candidate_keys.contains(candidate_key) {
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
+    if effective
+        .rejected_candidate_identities
+        .contains(&PromotionCandidateRejectionIdentity::from(candidate_key))
+    {
         return Err(ReusableInfluenceError::CandidateAlreadyRejected.into());
     }
     let candidates = derive_reuse_candidates(
@@ -208,16 +243,30 @@ pub fn accept_reuse_candidate(
         parts.canonical_run,
         review_case,
     )?;
+    Ok(candidate)
+}
+
+pub fn accept_reuse_candidate(
+    parts: ReuseSessionParts<'_>,
+    reuse_state: &mut ApplicationReuseState,
+    authority: &DeclaredSessionAuthority,
+    candidate_key: &ReuseCandidateKey,
+) -> Result<ReusableInfluenceRecordId, ApplicationReuseError> {
+    let project_scope = reuse_state
+        .project_scope()
+        .ok_or(ApplicationReuseError::MissingProjectScope)?
+        .clone();
+    let candidate = validate_accept_reuse_candidate(parts, reuse_state, candidate_key)?;
 
     let event_index =
         reuse_state
-            .governance_ledger
+            .governance_ledger_mut()
             .append(ReusableGovernanceEvent::PromotionAccepted {
                 candidate_key: Box::new(candidate.key.clone()),
                 payload: candidate.exact_payload.clone(),
                 source_locator: Box::new(candidate.key.source_locator.clone()),
                 actor: governance_actor_from_authority(authority),
-                project_scope: Box::new(project_scope.clone()),
+                project_scope: Box::new(project_scope),
             });
     Ok(ReusableInfluenceRecordId::from_promotion_event_index(
         event_index,
@@ -237,7 +286,7 @@ pub fn reject_reuse_candidate(
     if candidate_key.project_scope_id != project_scope.stable_id {
         return Err(ReusableInfluenceError::WrongProjectScope.into());
     }
-    let effective = reuse_state.effective_state(parts.ledger);
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     let candidates = derive_reuse_candidates(
         parts.transcript,
         parts.canonical_run,
@@ -248,22 +297,23 @@ pub fn reject_reuse_candidate(
     if !candidates.iter().any(|item| &item.key == candidate_key) {
         return Err(ReusableInfluenceError::UnknownCandidate.into());
     }
-    reuse_state
-        .governance_ledger
-        .append(ReusableGovernanceEvent::PromotionCandidateRejected {
+    reuse_state.governance_ledger_mut().append(
+        ReusableGovernanceEvent::PromotionCandidateRejected {
             candidate_key: Box::new(candidate_key.clone()),
             actor: governance_actor_from_authority(authority),
-        });
+        },
+    );
     Ok(())
 }
 
 pub fn revoke_reusable_influence(
     reuse_state: &mut ApplicationReuseState,
     review_ledger: &ReviewLedger,
+    canonical_run: &CanonicalTermReviewRun,
     authority: &DeclaredSessionAuthority,
     record_id: ReusableInfluenceRecordId,
 ) -> Result<(), ApplicationReuseError> {
-    let effective = reuse_state.effective_state(review_ledger);
+    let effective = reuse_state.effective_state(review_ledger, canonical_run);
     if !effective
         .active_records
         .iter()
@@ -272,7 +322,7 @@ pub fn revoke_reusable_influence(
         return Err(ReusableInfluenceError::RecordNotActive { record_id }.into());
     }
     reuse_state
-        .governance_ledger
+        .governance_ledger_mut()
         .append(ReusableGovernanceEvent::ReusableInfluenceRevoked {
             record_id,
             actor: governance_actor_from_authority(authority),
@@ -287,7 +337,7 @@ pub fn supersede_reusable_influence(
     predecessor_id: ReusableInfluenceRecordId,
     successor_candidate_key: &ReuseCandidateKey,
 ) -> Result<ReusableInfluenceRecordId, ApplicationReuseError> {
-    let effective = reuse_state.effective_state(parts.ledger);
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     if !effective
         .active_records
         .iter()
@@ -298,18 +348,19 @@ pub fn supersede_reusable_influence(
         }
         .into());
     }
+    validate_accept_reuse_candidate(parts, reuse_state, successor_candidate_key)?;
     let successor_id =
         accept_reuse_candidate(parts, reuse_state, authority, successor_candidate_key)?;
     if successor_id == predecessor_id {
         return Err(ReusableInfluenceError::SelfSupersession.into());
     }
-    reuse_state
-        .governance_ledger
-        .append(ReusableGovernanceEvent::ReusableInfluenceSuperseded {
+    reuse_state.governance_ledger_mut().append(
+        ReusableGovernanceEvent::ReusableInfluenceSuperseded {
             predecessor_id,
             successor_id,
             actor: governance_actor_from_authority(authority),
-        });
+        },
+    );
     Ok(successor_id)
 }
 
@@ -340,7 +391,7 @@ pub fn active_reusable_records(
         .project_scope
         .as_ref()
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
-    let effective = reuse_state.effective_state(parts.ledger);
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     Ok(effective
         .active_records
         .iter()

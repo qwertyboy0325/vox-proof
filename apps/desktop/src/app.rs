@@ -665,8 +665,11 @@ impl ReviewApp {
             }
             Err(error) => self.error = Some(error.to_string()),
         }
-        match self.controller.active_reusable_records() {
-            Ok(records) => {
+        match (
+            self.controller.active_reusable_records(),
+            self.controller.reuse_candidates(),
+        ) {
+            (Ok(records), Ok(candidates)) => {
                 ui.label(RichText::new("Active reusable records").strong());
                 if records.is_empty() {
                     ui.label("No active reusable records.");
@@ -685,19 +688,36 @@ impl ReviewApp {
                                 "Source decision no longer effective; revoke or supersede explicitly.",
                             );
                         }
-                        if ui.button("Revoke").clicked() {
-                            match self
-                                .controller
-                                .revoke_reusable_influence(generation, record.record_id)
-                            {
-                                Ok(()) => self.status = "Record revoked.".to_owned(),
-                                Err(error) => self.error = Some(error.to_string()),
+                        ui.horizontal(|ui| {
+                            if ui.button("Revoke").clicked() {
+                                match self.controller.revoke_reusable_influence(
+                                    generation,
+                                    record.record_id,
+                                ) {
+                                    Ok(()) => self.status = "Record revoked.".to_owned(),
+                                    Err(error) => self.error = Some(error.to_string()),
+                                }
                             }
-                        }
+                            if let Some(candidate) = candidates.iter().find(|candidate| {
+                                candidate.key.source_locator != record.source_locator
+                            }) {
+                                let key = candidate.key.clone();
+                                if ui.button("Supersede with eligible candidate").clicked() {
+                                    match self.controller.supersede_reusable_influence(
+                                        generation,
+                                        record.record_id,
+                                        &key,
+                                    ) {
+                                        Ok(()) => self.status = "Record superseded.".to_owned(),
+                                        Err(error) => self.error = Some(error.to_string()),
+                                    }
+                                }
+                            }
+                        });
                     });
                 }
             }
-            Err(error) => self.error = Some(error.to_string()),
+            (Err(error), _) | (_, Err(error)) => self.error = Some(error.to_string()),
         }
         if ui.button("Run reuse-enabled exact analysis").clicked() {
             match self.controller.run_reuse_enabled_analysis(generation) {

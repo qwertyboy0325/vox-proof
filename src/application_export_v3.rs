@@ -2,7 +2,7 @@ use crate::analysis::ReuseEnabledAnalysisSnapshot;
 use crate::application_export::{escape_export_text, render_application_decision_log};
 use crate::application_reuse::ApplicationReuseState;
 use crate::application_service::ApplicationReviewExportBundle;
-use crate::pipeline::ReuseEnabledTermReviewRun;
+use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ReusableGovernanceEvent, ReusableInfluenceLedger,
     ReusableInfluenceSnapshot, ReuseCandidate,
@@ -22,6 +22,19 @@ pub enum ApplicationExportPostureV3 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReuseEnabledProposalProjectionRecord {
+    pub detector_id: String,
+    pub detector_version: String,
+    pub snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    pub project_scope_id: crate::reuse_primitives::ProjectScopeId,
+    pub observed_text: String,
+    pub confirmed_replacement: String,
+    pub promotion_event_indices: Vec<usize>,
+    pub source_locators: Vec<crate::reuse_primitives::SourceDecisionLocator>,
+    pub record_ids: Vec<crate::reuse_primitives::ReusableInfluenceRecordId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplicationReviewExportBundleV3 {
     pub base: ApplicationReviewExportBundle,
     pub export_posture_v3: ApplicationExportPostureV3,
@@ -32,33 +45,74 @@ pub struct ApplicationReviewExportBundleV3 {
     pub derived_candidates_non_authoritative: Vec<ReuseCandidate>,
     pub reusable_snapshot: ReusableInfluenceSnapshot,
     pub reuse_enabled_analysis: Option<ReuseEnabledAnalysisSnapshot>,
+    pub reuse_enabled_proposal_projections: Vec<ReuseEnabledProposalProjectionRecord>,
 }
 
 pub fn build_export_bundle_v3(
     base: ApplicationReviewExportBundle,
     reuse_state: &ApplicationReuseState,
     review_ledger: &ReviewLedger,
+    canonical_run: &CanonicalTermReviewRun,
     derived_candidates: Vec<ReuseCandidate>,
     reusable_snapshot: ReusableInfluenceSnapshot,
     reuse_enabled_run: Option<&ReuseEnabledTermReviewRun>,
 ) -> Result<ApplicationReviewExportBundleV3, crate::application_reuse::ApplicationReuseError> {
     let project_scope = reuse_state
-        .project_scope
-        .clone()
+        .project_scope()
+        .cloned()
         .ok_or(crate::application_reuse::ApplicationReuseError::MissingProjectScope)?;
-    let effective = reuse_state.effective_state(review_ledger);
+    let effective = reuse_state.effective_state(review_ledger, canonical_run);
+    let reuse_enabled_proposal_projections =
+        collect_reuse_enabled_proposal_projections(reuse_enabled_run);
     Ok(ApplicationReviewExportBundleV3 {
         base,
         export_posture_v3:
             ApplicationExportPostureV3::DeclaredOperatorUnauthenticatedInMemoryGate3V0_2,
         project_scope,
-        governance_ledger: reuse_state.governance_ledger.clone(),
+        governance_ledger: reuse_state.governance_ledger().clone(),
         effective_active_records: effective.active_records,
         historical_records: effective.historical_records,
         derived_candidates_non_authoritative: derived_candidates,
         reusable_snapshot,
         reuse_enabled_analysis: reuse_enabled_run.map(|run| run.reuse_enabled_snapshot()),
+        reuse_enabled_proposal_projections,
     })
+}
+
+fn collect_reuse_enabled_proposal_projections(
+    reuse_enabled_run: Option<&ReuseEnabledTermReviewRun>,
+) -> Vec<ReuseEnabledProposalProjectionRecord> {
+    let Some(run) = reuse_enabled_run else {
+        return Vec::new();
+    };
+    let mut records = Vec::new();
+    for review_case in run.review_cases() {
+        let candidate = review_case.candidate_span();
+        let crate::candidate::Evidence::ReusableExactObservedForm(evidence) = candidate.evidence()
+        else {
+            continue;
+        };
+        records.push(ReuseEnabledProposalProjectionRecord {
+            detector_id: candidate.provenance().detector_id().to_owned(),
+            detector_version: candidate.provenance().detector_version().to_owned(),
+            snapshot_identity: evidence.snapshot_identity,
+            project_scope_id: evidence.project_scope_id.clone(),
+            observed_text: evidence.observed_text.clone(),
+            confirmed_replacement: evidence.confirmed_replacement.clone(),
+            promotion_event_indices: evidence.promotion_event_indices.clone(),
+            source_locators: evidence
+                .contributions
+                .iter()
+                .map(|contribution| contribution.source_locator.clone())
+                .collect(),
+            record_ids: evidence
+                .contributions
+                .iter()
+                .map(|contribution| contribution.record_id)
+                .collect(),
+        });
+    }
+    records
 }
 
 pub fn render_application_decision_log_v3(bundle: &ApplicationReviewExportBundleV3) -> String {
@@ -88,9 +142,7 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
     output.push('\n');
     output.push_str(EXPORT_V3_DISCLAIMER);
     output.push('\n');
-    output.push_str(
-        "export_posture_v3: declared_operator_unauthenticated_in_memory_gate3_v0_2\n",
-    );
+    output.push_str("export_posture_v3: declared_operator_unauthenticated_in_memory_gate3_v0_2\n");
     output.push_str(&format!(
         "project_scope_id: {}\n",
         escape_export_text(bundle.project_scope.stable_id.as_str())
@@ -159,6 +211,51 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
             output.push_str(&format!(
                 "    source_decision_still_effective: {}\n",
                 candidate.source_decision_still_effective
+            ));
+        }
+    }
+
+    output.push_str("\nReuse-enabled proposal projections (non-authoritative)\n");
+    if bundle.reuse_enabled_proposal_projections.is_empty() {
+        output.push_str("  (none)\n");
+    } else {
+        for record in &bundle.reuse_enabled_proposal_projections {
+            output.push_str("  proposal:\n");
+            output.push_str(&format!(
+                "    detector_id: {}\n",
+                escape_export_text(&record.detector_id)
+            ));
+            output.push_str(&format!(
+                "    detector_version: {}\n",
+                escape_export_text(&record.detector_version)
+            ));
+            output.push_str(&format!(
+                "    snapshot_identity: {}\n",
+                record.snapshot_identity.to_tagged_string()
+            ));
+            output.push_str(&format!(
+                "    project_scope_id: {}\n",
+                escape_export_text(record.project_scope_id.as_str())
+            ));
+            output.push_str(&format!(
+                "    observed_text: {}\n",
+                escape_export_text(&record.observed_text)
+            ));
+            output.push_str(&format!(
+                "    confirmed_replacement: {}\n",
+                escape_export_text(&record.confirmed_replacement)
+            ));
+            output.push_str(&format!(
+                "    promotion_event_indices: {:?}\n",
+                record.promotion_event_indices
+            ));
+            output.push_str(&format!(
+                "    record_ids: {:?}\n",
+                record
+                    .record_ids
+                    .iter()
+                    .map(|id| id.promotion_event_index())
+                    .collect::<Vec<_>>()
             ));
         }
     }
