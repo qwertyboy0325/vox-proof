@@ -14,11 +14,13 @@ Classification: durable session authority, recovery, lifecycle, retention, and c
 
 MD-001 through MD-004 establish transcript revision identity, review ledger authority, materialization, and analysis identity.
 
-Proposed MD-011 establishes append-only correction history, stale-write protection at the command boundary, and durable ledger semantics for v0.2 corrections.
+MD-011 proposes append-only correction history, stale-write protection at the command boundary, and richer ledger semantics for v0.2 corrections. It remains proposed and non-authoritative.
 
-Proposed MD-012 establishes immutable knowledge snapshots, promotion and revocation provenance, and knowledge retention constraints.
+MD-012 proposes immutable knowledge snapshots, promotion and revocation provenance, and knowledge retention constraints. It remains proposed and non-authoritative.
 
-Proposed MD-013 establishes bounded analysis jobs, atomic attachment of immutable analysis results, source revision lifecycle, reanalysis, and reconciliation. It explicitly deferred durability, recovery, locking, and retention to MD-014.
+MD-013 proposes bounded analysis jobs, atomic attachment of immutable analysis results, source revision lifecycle, reanalysis, and reconciliation. It remains proposed and non-authoritative.
+
+If later accepted product models include those concepts, MD-014 constrains how a selected persistence mechanism must preserve their accepted semantics. MD-014 does not accept or redefine them.
 
 The data contract and v0.2 C4 draft recognize a future versioned local session store but do not define durability semantics, recovery classes, garbage collection, or compaction rules.
 
@@ -48,8 +50,8 @@ Canonical state includes or references authoritative historical facts such as:
 * imported source revisions;
 * `ReviewCase` identities and origins;
 * append-only `ReviewLedger` events;
-* immutable analysis-result identities and active-analysis selection history;
-* knowledge governance identities stored within the session boundary where applicable;
+* immutable analysis-result identities and, if later accepted, active-analysis selection history;
+* knowledge governance identities stored within the session boundary where applicable under later accepted product semantics;
 * session identity and duplication lineage;
 * format and governance metadata required to interpret history.
 
@@ -65,7 +67,7 @@ Derived state may include:
 * search indexes;
 * thumbnails;
 * media probe cache;
-* reconciliation indexes;
+* reconciliation indexes if reconciliation semantics are later accepted;
 * materialized previews;
 * performance metrics;
 * component or view caches;
@@ -73,7 +75,8 @@ Derived state may include:
 
 Derived state may be deleted and rebuilt without changing domain truth.
 
-An immutable analysis result is not disposable merely because it is inactive.
+If later accepted product semantics distinguish active and inactive immutable
+analysis results, inactive status alone does not make a result disposable.
 
 ### Durable command semantics
 
@@ -88,7 +91,7 @@ Required rules:
 * the system must expose the last known durable revision, sequence, event, or equivalent boundary;
 * operational logging failure does not invalidate a domain command unless that log is itself canonical audit history.
 
-This extends MD-011 command semantics and MD-013 atomic attachment semantics.
+These requirements also constrain any later accepted correction-command or analysis-attachment semantics. They do not accept the proposals in MD-011 or MD-013.
 
 ### Crash consistency
 
@@ -133,7 +136,7 @@ If stale:
 * do not overwrite another transition;
 * do not silently merge conflicting user actions.
 
-This extends MD-011 stale-write protection and MD-013 stale attachment rejection.
+These requirements also constrain any later accepted stale-command or stale-attachment semantics. They do not accept the proposals in MD-011 or MD-013.
 
 The concrete token representation is not defined here.
 
@@ -295,7 +298,8 @@ Required close behavior:
 
 * stop accepting new authoritative commands;
 * allow or terminate the current transition safely;
-* cancel incomplete analysis jobs without attaching partial results;
+* if later accepted job semantics include incomplete analysis jobs, cancel them
+  without attaching partial results;
 * release writer ownership;
 * record or preserve enough state to distinguish clean close from interrupted operation where useful;
 * close failure must not silently discard a committed transition.
@@ -341,7 +345,13 @@ Examples include source revisions, `ReviewLedger` events, governance events, ses
 
 #### Referenced historical
 
-Examples include immutable analysis results referenced by decisions, reconciliation, audit, accepted knowledge, or retained exports; knowledge snapshots referenced by historical analyses; extraction or proposal artifacts referenced by accepted knowledge.
+Examples include immutable analysis results referenced by accepted decisions,
+audit, or retained exports. If later accepted product semantics include
+reconciliation, references from reconciliation also constrain retention. If
+later accepted product semantics include reusable knowledge, examples may also
+include accepted knowledge, knowledge snapshots referenced by historical
+analyses, and extraction or proposal artifacts referenced by accepted
+knowledge.
 
 #### User pinned
 
@@ -353,7 +363,8 @@ Indexes, caches, previews, thumbnails, temporary metrics.
 
 #### Temporary
 
-Incomplete jobs, failed or cancelled uncommitted output, abandoned update or download artifacts where applicable.
+Abandoned update or download artifacts and, if later accepted job semantics
+exist, incomplete jobs or failed or cancelled uncommitted output.
 
 #### Garbage candidate
 
@@ -367,7 +378,7 @@ Conceptual roots include:
 
 * canonical history;
 * active and historical decisions;
-* accepted knowledge provenance;
+* provenance of any reusable knowledge accepted under later product semantics;
 * retained immutable analysis identities;
 * user pins;
 * retained export manifests where they reference session artifacts;
@@ -386,18 +397,20 @@ The traversal implementation is not defined here.
 
 ### Analysis-result retention
 
-* active analysis results are retained;
-* historical results referenced by decisions, lineage, knowledge, audit, or export are retained;
-* unreferenced historical results may become explicit garbage candidates under policy;
-* failed or cancelled uncommitted analysis output may be deleted automatically;
+For immutable analysis results retained under accepted product semantics:
+
+* results referenced by accepted decisions, lineage, audit, or export are retained; references from reconciliation or reusable knowledge also constrain retention if those semantics are later accepted;
+* unreferenced results may become explicit garbage candidates under policy;
+* failed or cancelled uncommitted analysis output may be deleted automatically if later accepted job semantics define that state;
 * deletion of a historical result must not make a retained canonical event uninterpretable;
 * a minimal disposal or tombstone record may be retained when needed for audit, but this decision does not define its schema.
 
-Not every inactive snapshot is disposable.
+If later accepted product semantics distinguish active and inactive snapshots,
+inactive status alone does not make a snapshot disposable.
 
 ### Knowledge-snapshot retention
 
-Knowledge snapshots referenced by historical analyses must remain available or reconstructable with equivalent immutable content and identity semantics.
+If a later accepted product model includes knowledge snapshots, snapshots referenced by historical analyses must remain available or reconstructable with equivalent immutable content and identity semantics.
 
 Content deduplication may allow multiple logical snapshot identities to reference shared immutable content.
 
@@ -416,7 +429,7 @@ Compaction may improve performance or space use but must not:
 * change event order;
 * erase provenance;
 * collapse distinct correction decisions into one;
-* rewrite historical knowledge versions;
+* rewrite historical knowledge versions if such versions are later accepted;
 * invalidate old analysis identities;
 * make canonical history uninterpretable.
 
@@ -491,11 +504,11 @@ MD-014 acceptance alone does not authorize selecting or implementing a backend w
 8. Rebuildable derived data may be discarded without changing domain truth.
 9. Canonical history is not destructively garbage-collected.
 10. Referenced historical artifacts are retained.
-11. Withdrawal, supersession, revocation, and reanalysis provenance remains interpretable after compaction.
+11. If later accepted product semantics include withdrawal, supersession, revocation, or reanalysis provenance, that provenance remains interpretable after compaction.
 12. GC fails closed when reachability is incomplete.
 13. Session duplication creates a new identity.
 14. Read-only mode does not mutate canonical state.
-15. Incomplete analysis output is not committed during close or recovery.
+15. If later accepted job semantics include incomplete analysis output, that output is not committed during close or recovery.
 16. Sensitive content is not written to ordinary operational logs by default.
 17. A later persistence mechanism must satisfy these requirements without rewriting domain semantics.
 
@@ -507,8 +520,8 @@ The following designs are rejected:
 2. Permitting multiple writers with last-write-wins.
 3. Opening unknown newer formats writable.
 4. Rebuilding missing canonical history from caches.
-5. Treating any inactive analysis result as disposable.
-6. Deleting revoked or superseded history.
+5. If later accepted product semantics distinguish inactive analysis results, treating any result as disposable solely because it is inactive.
+6. If later accepted product semantics include revocation or supersession, deleting the affected historical record.
 7. GC without reachability analysis.
 8. Compaction that rewrites event identities.
 9. Force-unlocking solely because a PID is absent.
@@ -548,7 +561,7 @@ Acceptance records durable session authority requirements. It does not authorize
 * commands require durable acknowledgement and stale-write checks;
 * storage must preserve canonical and derived separation;
 * opening and recovery need bounded validation;
-* historical analysis and knowledge references constrain GC;
+* historical analysis references constrain GC; knowledge references do so if reusable-knowledge semantics are later accepted;
 * session duplication is semantic, not merely a file copy;
 * security and performance testing becomes release-blocking before persistence selection;
 * UI must expose recovery and read-only conditions without becoming authority;
@@ -556,27 +569,42 @@ Acceptance records durable session authority requirements. It does not authorize
 
 ## Compatibility with existing decisions
 
-### MD-011
+### Proposed MD-011 concepts
 
-* append-only correction history remains canonical;
-* stale-write protection is reinforced;
-* withdrawal and supersession events must remain durable and interpretable;
+If a later accepted correction-history decision includes withdrawal,
+supersession, or stale-write semantics:
+
+* the accepted append-only correction history must remain canonical;
+* stale-write protection must be preserved;
+* accepted withdrawal and supersession events must remain durable and interpretable;
 * MD-014 does not redefine correction actions.
 
-### MD-012
+MD-011 currently remains proposed and non-authoritative.
 
-* immutable correction, proposal, knowledge, and snapshot provenance constrain retention;
-* revocation does not permit historical deletion;
-* knowledge-snapshot identity survives deduplication and compaction;
+### Proposed MD-012 concepts
+
+If a later accepted reusable-knowledge decision includes correction, proposal,
+knowledge, snapshot, revocation, promotion, or conflict semantics:
+
+* its accepted provenance must constrain retention;
+* revocation must not permit deletion of required historical state;
+* accepted snapshot identity must survive deduplication and compaction;
 * MD-014 does not redefine promotion or conflict semantics.
 
-### MD-013
+MD-012 currently remains proposed and non-authoritative.
 
-* analysis attachment must become durable before authoritative success;
-* incomplete or stale results remain non-authoritative;
-* immutable analysis results constrain retention;
-* MD-014 owns lifecycle, writable and read-only state, recovery, locking, and GC;
-* MD-013 execution and reconciliation semantics remain unchanged.
+### Proposed MD-013 concepts
+
+If a later accepted analysis-job decision includes attachment, incomplete-result,
+stale-result, or reconciliation semantics:
+
+* authoritative analysis attachment must become durable before success;
+* incomplete or stale results must remain non-authoritative;
+* immutable analysis results must constrain retention;
+* MD-014 continues to own lifecycle, writable and read-only state, recovery, locking, and GC;
+* persistence must preserve the accepted execution and reconciliation semantics.
+
+MD-013 currently remains proposed and non-authoritative.
 
 ### MD-001 through MD-004
 
@@ -586,16 +614,16 @@ Acceptance records durable session authority requirements. It does not authorize
 ## Relationship to prior decisions
 
 * MD-001 through MD-004 remain authoritative for their established v0.1 semantics.
-* Proposed MD-011, MD-012, and MD-013 remain authoritative for their respective domains.
-* MD-014 extends durability, recovery, and retention requirements without rewriting domain semantics recorded in those decisions.
+* MD-011, MD-012, and MD-013 remain proposed and non-authoritative.
+* MD-014 may constrain future persistence of their concepts if those concepts are later accepted, but it does not accept, promote, or redefine them.
 
 ## Related decisions
 
 MD-014 owns durable session authority, lifecycle, recovery, locking, retention, and compaction requirements for v0.2.
 
-Proposed MD-011 would remain authoritative for correction-history semantics.
+If later accepted, the resulting correction-history decision would own those semantics; currently MD-011 remains proposed.
 
-Proposed MD-013 would remain authoritative for analysis execution, attachment, reanalysis, and reconciliation semantics.
+If later accepted, the resulting analysis-job decision would own execution, attachment, reanalysis, and reconciliation semantics; currently MD-013 remains proposed.
 
 Neither proposed decision selects persistence technology.
 

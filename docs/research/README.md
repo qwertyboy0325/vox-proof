@@ -40,6 +40,42 @@ Only `ACCEPTED_AS_MATERIAL_DECISION` may alter canonical architecture semantics.
 
 ## Active Research
 
+### VP-ARCH-002 — Authority-Transition Graph as a VoxProof Architecture Reasoning Model
+
+```yaml
+id: VP-ARCH-002
+title: Authority-Transition Graph as a VoxProof Architecture Reasoning Model
+status: EVIDENCE_COLLECTED
+authority: NON_CANONICAL
+owner: Ezra
+opened: 2026-07-29
+canonical_memo: ./VP-ARCH-002-authority-transition-graph.md
+tracking_issue: https://github.com/qwertyboy0325/vox-proof/issues/14
+research_question: >
+  Does a typed authority-transition graph provide useful design discrimination
+  across correction, reusable influence and continuity without becoming an
+  over-governing or misleading foundational architecture claim?
+next_action: >
+  Apply the model to Gate 3 and later persistence, then reassess.
+```
+
+Blocks without separate owner authorization:
+
+- canonicalizing the model;
+- renaming the entire architecture;
+- treating every transition as authority-bearing;
+- adding durable actor identity;
+- changing Gate 3 semantics;
+- changing persistence semantics;
+- creating a Material Decision from the hypothesis.
+
+Does not block:
+
+- Gate 3 read-only semantic research;
+- existing accepted Gate 1 or Gate 2 behavior;
+- bounded documentation corrections;
+- implementation already authorized under accepted Material Decisions.
+
 ### VP-ARCH-001 — Loose Inference / Strict Commitment
 
 ```yaml

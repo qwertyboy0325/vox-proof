@@ -129,14 +129,20 @@ Prototype adapters may share a common semantic test surface without prescribing 
 
 Define one shared, deterministic, versioned test fixture used across all evaluated candidates.
 
-The fixture must contain representative canonical state:
+The evidence spike may exercise provisional oracle dimensions derived from
+proposed MD-011, MD-012, and MD-013. Those fixture dimensions are evidence-only
+and do not establish product correction-history, reusable-knowledge, or
+analysis-job semantics.
+
+The fixture must contain representative accepted state and bounded
+evidence-only representations of possible future state:
 
 * one or more `TranscriptRevisionId` values;
-* detector-raised and `HumanRaised` `ReviewCase` values;
-* `ReviewLedger` events including approval, `ManualReplacement`, withdrawal, and supersession where applicable;
+* detector-raised `ReviewCase` values and evidence-only `HumanRaised` representations;
+* accepted `ReviewLedger` actions including approval and `ManualReplacement`, plus evidence-only withdrawal and supersession representations where applicable;
 * at least two immutable analysis results;
 * one active-analysis transition;
-* one knowledge-informed analysis reference;
+* one evidence-only knowledge-informed analysis reference;
 * one conflict or ambiguous lineage case;
 * derived indexes or caches;
 * temporary failed or cancelled job artifacts;
@@ -387,7 +393,7 @@ Where compaction is supported by a candidate, verify:
 * event identities unchanged;
 * event order unchanged;
 * `ReviewLedger` distinctions preserved;
-* knowledge versions and snapshot identities preserved;
+* evidence-only knowledge versions and snapshot identities preserved where exercised;
 * analysis identities preserved;
 * retained history remains interpretable;
 * interrupted compaction does not expose a mixed canonical state;
@@ -683,17 +689,25 @@ Acceptance authorizes the bounded spike only. It does not authorize production p
 * no MD-014 requirement may be waived through benchmark success;
 * candidate-specific limitations must be surfaced in evidence.
 
-### MD-013
+### Proposed MD-013 concepts
 
-* analysis attachment semantics remain unchanged;
-* the fixture may exercise attachment durability but does not redefine `AnalysisJob` or `AnalysisSnapshot`;
-* partial analysis results remain non-authoritative.
+The fixture may exercise provisional analysis-attachment and stale-result
+dimensions, but these are evidence-only:
 
-### MD-011 and MD-012
+* MD-015 does not accept or redefine `AnalysisJob`, attachment, reanalysis, or reconciliation semantics;
+* partial analysis results remain non-authoritative;
+* MD-013 remains proposed and non-authoritative.
 
-* append-only correction and knowledge provenance are semantic-oracle requirements;
-* the spike does not redefine correction or knowledge governance;
-* withdrawal, supersession, and revocation history remains preserved.
+### Proposed MD-011 and MD-012 concepts
+
+The evidence spike may exercise provisional oracle dimensions derived from
+proposed MD-011 and MD-012, but those fixtures are evidence-only and do not
+establish product correction-history or reusable-knowledge semantics:
+
+* accepted MD-002 and MD-017 correction history remains part of the semantic oracle;
+* provisional withdrawal, supersession, knowledge-provenance, and revocation histories are preserved when a fixture exercises them;
+* the spike does not accept or redefine correction or knowledge governance;
+* MD-011 and MD-012 remain proposed and non-authoritative.
 
 ### MD-001 through MD-004
 
@@ -703,7 +717,8 @@ Acceptance authorizes the bounded spike only. It does not authorize production p
 ## Relationship to prior decisions
 
 * MD-001 through MD-004 remain authoritative for their established v0.1 semantics.
-* Proposed MD-011, MD-012, and MD-013 remain authoritative for their respective domains.
+* MD-011, MD-012, and MD-013 remain proposed and non-authoritative.
+* MD-015 may use bounded fixtures to test candidate persistence mechanisms against possible future semantic demands, but it does not accept or promote those demands.
 * MD-014 remains authoritative for durability, recovery, and retention requirements.
 * MD-015 defines how candidate mechanisms must be tested before a later decision may select one.
 
