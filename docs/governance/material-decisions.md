@@ -86,6 +86,8 @@ Accepted v0.2 native-desktop decision: `decisions/MD-016-native-desktop-framewor
 
 Accepted bounded v0.2 Manual Replacement decision: `decisions/MD-017-governed-manual-replacement-on-existing-review-case.md` — exact validated single-line Manual Replacement payloads on existing detector-raised `ReviewCase` values, append-only `DecisionRecorded` authority, last-decision-wins effective status, shared canonical materialization and overlap refusal, replay closure, frozen application export v2 renderers, and explicit exclusion of deletion, HumanRaised cases, persistence, and Correction Memory authority.
 
+Proposed Gate 3 reusable-influence decision (not accepted): `decisions/MD-018-proposed-minimal-governed-reusable-influence.md` — minimal exact-pair, project-scoped, explicitly promoted, revocable reusable influence semantics for future exact proposal generation. Status: proposed. Authority: non_authoritative_until_owner_acceptance. Implementation authorized: false. Owner review and acceptance are pending. Does not authorize Gate 3 implementation, persistence, public pack formats, ontology, ranking, suppression, phonetic reusable influence, automatic promotion, or v0.3 establishment.
+
 ## Decision record shape
 
 Each Material Decision should include:
