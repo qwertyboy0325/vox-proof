@@ -282,11 +282,41 @@ ReusableInfluenceSuperseded
 These are conceptual semantic events. This proposal does not freeze Rust enum
 names.
 
+First-slice lifecycle decision:
+
+```text
+In the first slice, PromotionAccepted immediately makes the reusable influence
+record accepted and active within its explicitly promoted project scope.
+
+There is no separate accepted-but-inactive state in this decision.
+
+Splitting acceptance from activation requires a later Material Decision.
+```
+
+First-slice lifecycle transitions:
+
+```text
+derived candidate
+→ PromotionCandidateRejected
+
+derived candidate
+→ PromotionAccepted
+→ accepted_and_active
+
+accepted_and_active
+→ ReusableInfluenceRevoked
+
+accepted_and_active
+→ ReusableInfluenceSuperseded
+```
+
 Rules:
 
 - events are append-only;
 - effective state is derived by deterministic fold;
-- accepted and active may be one effective state in the first slice;
+- `PromotionAccepted` immediately yields `accepted_and_active`; there is no
+  separate accepted-but-inactive state in this decision;
+- splitting acceptance from activation requires a later Material Decision;
 - destructive deletion is forbidden;
 - revocation stops future influence;
 - revocation does not erase historical provenance or past analysis snapshots;
