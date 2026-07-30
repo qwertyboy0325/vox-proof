@@ -153,12 +153,30 @@ pub struct PhoneticSimilarityEvidence {
     pub algorithm: AlgorithmIdentity,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReusableProvenanceContribution {
+    pub record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+    pub promotion_event_index: usize,
+    pub source_locator: crate::reuse_primitives::SourceDecisionLocator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReusableExactObservedFormEvidence {
+    pub observed_text: String,
+    pub confirmed_replacement: String,
+    pub project_scope_id: crate::reuse_primitives::ProjectScopeId,
+    pub snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    pub contributions: Vec<ReusableProvenanceContribution>,
+    pub promotion_event_indices: Vec<usize>,
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Evidence {
     GlossaryAlias(GlossaryAliasEvidence),
     ObservedErrorForm(ObservedErrorFormEvidence),
     PhoneticSimilarity(PhoneticSimilarityEvidence),
+    ReusableExactObservedForm(ReusableExactObservedFormEvidence),
 }
 
 /// A non-binding suggested replacement. It is not an edit decision and must

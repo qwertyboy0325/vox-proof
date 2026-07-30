@@ -1,6 +1,8 @@
 pub mod analysis;
 pub mod anchor;
 pub mod application_export;
+pub mod application_export_v3;
+pub mod application_reuse;
 pub mod application_service;
 pub mod artifact_bundle;
 pub mod calibration;
@@ -28,6 +30,8 @@ pub mod reference_alignment;
 pub mod reference_coverage;
 pub mod reference_identity;
 pub mod reference_seal;
+pub mod reusable_influence;
+pub mod reuse_primitives;
 pub mod review;
 pub mod reviewed_output;
 pub mod run_manifest;
@@ -695,6 +699,7 @@ mod tests {
             }
             Evidence::ObservedErrorForm(_) => panic!("expected glossary-alias evidence"),
             Evidence::PhoneticSimilarity(_) => panic!("expected glossary-alias evidence"),
+            Evidence::ReusableExactObservedForm(_) => panic!("expected glossary-alias evidence"),
         }
     }
 
@@ -947,6 +952,9 @@ mod tests {
             }
             Evidence::GlossaryAlias(_) => panic!("expected observed-error-form evidence"),
             Evidence::PhoneticSimilarity(_) => panic!("expected observed-error-form evidence"),
+            Evidence::ReusableExactObservedForm(_) => {
+                panic!("expected observed-error-form evidence")
+            }
         }
     }
 
