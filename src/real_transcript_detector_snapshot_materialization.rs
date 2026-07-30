@@ -479,6 +479,17 @@ fn map_candidate_evidence(
             review_case_index,
             analysis_identity,
         ),
+        Evidence::ReusableExactObservedForm(_) => Err(
+            RealTranscriptDetectorSnapshotMaterializationError::ProposalMappingFailure {
+                review_case_index,
+                source: DetectorProposalRecordValidationError::EvidenceValidation(
+                    crate::detector_snapshot::DetectorProposalEvidenceValidationError::IncompatibleDetectionKind {
+                        evidence: "reusable_exact_observed_form",
+                        detection_kind: kind,
+                    },
+                ),
+            },
+        ),
     }
 }
 

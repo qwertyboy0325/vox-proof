@@ -221,7 +221,7 @@ fn render_analysis_snapshot_lines(snapshot: AnalysisSnapshot, output: &mut Strin
     ));
 }
 
-fn escape_export_text(text: &str) -> String {
+pub(crate) fn escape_export_text(text: &str) -> String {
     let mut output = String::with_capacity(text.len());
     for character in text.chars() {
         match character {

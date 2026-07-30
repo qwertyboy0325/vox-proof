@@ -3,8 +3,18 @@ use std::fmt;
 
 use crate::analysis::AnalysisSnapshot;
 use crate::anchor::TranscriptRevisionId;
+use crate::application_export_v3::{ApplicationReviewExportBundleV3, build_export_bundle_v3};
+use crate::application_reuse::{
+    ApplicationReuseError, ApplicationReuseState, ReuseSessionParts, accept_reuse_candidate,
+    active_reusable_records, initialize_project_scope, reject_reuse_candidate,
+    reusable_influence_snapshot_for_parts, reuse_candidates_for_parts, revoke_reusable_influence,
+    run_reuse_enabled_review_for_parts, supersede_reusable_influence,
+    update_project_scope_display_name,
+};
 use crate::candidate::{DetectionError, DetectionKind, SessionTermEntry};
-use crate::pipeline::{CanonicalTermReviewRun, run_canonical_term_review};
+use crate::pipeline::{
+    CanonicalTermReviewRun, ReuseEnabledTermReviewRun, run_canonical_term_review,
+};
 use crate::review::{
     CorrectionDecision, ManualReplacementText, ManualReplacementTextError, ReviewCase,
     ReviewCaseId, ReviewCaseStatus, ReviewLedger, ReviewLedgerError, ReviewLedgerEvent,
@@ -257,6 +267,11 @@ pub enum ApplicationReplayField {
     CurrentProjection,
     ReviewedOutput,
     ExportBundle,
+    ReuseGovernanceLedger,
+    ReuseEffectiveState,
+    ReuseSnapshotIdentity,
+    ReuseEnabledRun,
+    ExportBundleV3,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -273,6 +288,20 @@ impl fmt::Display for ApplicationReplayError {
 
 impl std::error::Error for ApplicationReplayError {}
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ApplicationGate3Error {
+    Reuse(ApplicationReuseError),
+    Service(ApplicationServiceError),
+}
+
+impl fmt::Display for ApplicationGate3Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{self:?}")
+    }
+}
+
+impl std::error::Error for ApplicationGate3Error {}
+
 pub struct ApplicationReviewSession {
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
@@ -280,6 +309,8 @@ pub struct ApplicationReviewSession {
     ledger: ReviewLedger,
     material_use: BoundApplicationMaterialUseDeclaration,
     session_authority: BoundDeclaredSessionAuthority,
+    reuse_state: ApplicationReuseState,
+    reuse_enabled_run: Option<ReuseEnabledTermReviewRun>,
 }
 
 pub fn begin_application_review(
@@ -307,12 +338,176 @@ pub fn begin_application_review(
             source_revision,
             analysis_snapshot,
         },
+        reuse_state: ApplicationReuseState::default(),
+        reuse_enabled_run: None,
     })
 }
 
 impl ApplicationReviewSession {
     pub fn source(&self) -> &Transcript {
         &self.transcript
+    }
+
+    pub fn review_ledger(&self) -> &ReviewLedger {
+        &self.ledger
+    }
+
+    pub fn session_authority(&self) -> &DeclaredSessionAuthority {
+        &self.session_authority.authority
+    }
+
+    pub fn reuse_state(&self) -> &ApplicationReuseState {
+        &self.reuse_state
+    }
+
+    pub fn reuse_state_mut(&mut self) -> &mut ApplicationReuseState {
+        &mut self.reuse_state
+    }
+
+    pub fn reuse_enabled_run(&self) -> Option<&ReuseEnabledTermReviewRun> {
+        self.reuse_enabled_run.as_ref()
+    }
+
+    pub fn has_project_scope(&self) -> bool {
+        self.reuse_state.project_scope.is_some()
+    }
+
+    pub fn reuse_parts(&self) -> ReuseSessionParts<'_> {
+        ReuseSessionParts {
+            transcript: &self.transcript,
+            session_terms: &self.session_terms,
+            canonical_run: &self.canonical_run,
+            ledger: &self.ledger,
+        }
+    }
+
+    pub fn initialize_project_scope(
+        &mut self,
+        stable_id: impl Into<String>,
+        display_name: impl Into<String>,
+    ) -> Result<(), ApplicationReuseError> {
+        initialize_project_scope(&mut self.reuse_state, stable_id, display_name)?;
+        self.reuse_enabled_run = None;
+        Ok(())
+    }
+
+    pub fn update_project_scope_display_name(
+        &mut self,
+        display_name: impl Into<String>,
+    ) -> Result<(), ApplicationReuseError> {
+        update_project_scope_display_name(&mut self.reuse_state, display_name)?;
+        Ok(())
+    }
+
+    pub fn reuse_candidates(
+        &self,
+    ) -> Result<Vec<crate::reusable_influence::ReuseCandidate>, ApplicationReuseError> {
+        reuse_candidates_for_parts(self.reuse_parts(), &self.reuse_state)
+    }
+
+    pub fn accept_reuse_candidate(
+        &mut self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<crate::reuse_primitives::ReusableInfluenceRecordId, ApplicationReuseError> {
+        let authority = self.session_authority().clone();
+        let parts = ReuseSessionParts {
+            transcript: &self.transcript,
+            session_terms: &self.session_terms,
+            canonical_run: &self.canonical_run,
+            ledger: &self.ledger,
+        };
+        let record_id =
+            accept_reuse_candidate(parts, &mut self.reuse_state, &authority, candidate_key)?;
+        self.reuse_enabled_run = None;
+        Ok(record_id)
+    }
+
+    pub fn reject_reuse_candidate(
+        &mut self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<(), ApplicationReuseError> {
+        let authority = self.session_authority().clone();
+        let parts = ReuseSessionParts {
+            transcript: &self.transcript,
+            session_terms: &self.session_terms,
+            canonical_run: &self.canonical_run,
+            ledger: &self.ledger,
+        };
+        reject_reuse_candidate(parts, &mut self.reuse_state, &authority, candidate_key)?;
+        self.reuse_enabled_run = None;
+        Ok(())
+    }
+
+    pub fn revoke_reusable_influence(
+        &mut self,
+        record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+    ) -> Result<(), ApplicationReuseError> {
+        let authority = self.session_authority().clone();
+        revoke_reusable_influence(&mut self.reuse_state, &self.ledger, &authority, record_id)?;
+        self.reuse_enabled_run = None;
+        Ok(())
+    }
+
+    pub fn supersede_reusable_influence(
+        &mut self,
+        predecessor_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+        successor_candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<crate::reuse_primitives::ReusableInfluenceRecordId, ApplicationReuseError> {
+        let authority = self.session_authority().clone();
+        let parts = ReuseSessionParts {
+            transcript: &self.transcript,
+            session_terms: &self.session_terms,
+            canonical_run: &self.canonical_run,
+            ledger: &self.ledger,
+        };
+        let record_id = supersede_reusable_influence(
+            parts,
+            &mut self.reuse_state,
+            &authority,
+            predecessor_id,
+            successor_candidate_key,
+        )?;
+        self.reuse_enabled_run = None;
+        Ok(record_id)
+    }
+
+    pub fn run_reuse_enabled_review(
+        &mut self,
+    ) -> Result<&ReuseEnabledTermReviewRun, ApplicationReuseError> {
+        let run = run_reuse_enabled_review_for_parts(self.reuse_parts(), &self.reuse_state)?;
+        self.reuse_enabled_run = Some(run);
+        Ok(self.reuse_enabled_run.as_ref().expect("just stored"))
+    }
+
+    pub fn active_reusable_records(
+        &self,
+    ) -> Result<
+        Vec<crate::reusable_influence::EffectiveReusableInfluenceRecord>,
+        ApplicationReuseError,
+    > {
+        active_reusable_records(self.reuse_parts(), &self.reuse_state)
+    }
+
+    pub fn materialize_review_export_bundle_v3(
+        &self,
+    ) -> Result<ApplicationReviewExportBundleV3, ApplicationGate3Error> {
+        let base = self
+            .materialize_review_export_bundle()
+            .map_err(ApplicationGate3Error::Service)?;
+        let derived_candidates = self
+            .reuse_candidates()
+            .map_err(ApplicationGate3Error::Reuse)?;
+        let snapshot = reusable_influence_snapshot_for_parts(self.reuse_parts(), &self.reuse_state)
+            .map_err(ApplicationGate3Error::Reuse)?;
+        build_export_bundle_v3(
+            base,
+            &self.reuse_state,
+            &self.ledger,
+            derived_candidates,
+            snapshot,
+            self.reuse_enabled_run.as_ref(),
+        )
+        .map_err(ApplicationGate3Error::Reuse)
     }
 
     pub fn review_items(&self) -> Vec<ApplicationReviewItem> {
@@ -550,6 +745,93 @@ impl ApplicationReviewSession {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ExportBundle,
             });
+        }
+
+        self.verify_gate3_replay_state()?;
+
+        Ok(())
+    }
+
+    fn verify_gate3_replay_state(&self) -> Result<(), ApplicationReplayError> {
+        use crate::reusable_influence::fold_effective_state;
+
+        if self.reuse_state.project_scope.is_none()
+            && self.reuse_state.governance_ledger.events().is_empty()
+            && self.reuse_enabled_run.is_none()
+        {
+            return Ok(());
+        }
+
+        let replay_effective =
+            fold_effective_state(&self.reuse_state.governance_ledger, &self.ledger);
+        let current_effective = self.reuse_state.effective_state(&self.ledger);
+        if replay_effective != current_effective {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseEffectiveState,
+            });
+        }
+
+        if self.reuse_state.governance_ledger.events().len()
+            != self.reuse_state.governance_ledger.events().len()
+        {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            });
+        }
+
+        if let Some(project_scope) = &self.reuse_state.project_scope {
+            let snapshot =
+                reusable_influence_snapshot_for_parts(self.reuse_parts(), &self.reuse_state)
+                    .map_err(|_| ApplicationReplayError::Mismatch {
+                        field: ApplicationReplayField::ReuseSnapshotIdentity,
+                    })?;
+            let replay_snapshot = crate::reusable_influence::build_reusable_influence_snapshot(
+                project_scope,
+                &self.reuse_state.governance_ledger,
+                &replay_effective,
+            );
+            if snapshot.identity != replay_snapshot.identity {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ReuseSnapshotIdentity,
+                });
+            }
+        }
+
+        if let Some(run) = &self.reuse_enabled_run {
+            let replay_run =
+                run_reuse_enabled_review_for_parts(self.reuse_parts(), &self.reuse_state).map_err(
+                    |_| ApplicationReplayError::Mismatch {
+                        field: ApplicationReplayField::ReuseEnabledRun,
+                    },
+                )?;
+            if run.review_cases() != replay_run.review_cases() {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ReuseEnabledRun,
+                });
+            }
+            if run.reuse_enabled_snapshot() != replay_run.reuse_enabled_snapshot() {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ReuseEnabledRun,
+                });
+            }
+        }
+
+        if self.has_project_scope() {
+            let v3 = self.materialize_review_export_bundle_v3().map_err(|_| {
+                ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ExportBundleV3,
+                }
+            })?;
+            let replay_v3 = self.materialize_review_export_bundle_v3().map_err(|_| {
+                ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ExportBundleV3,
+                }
+            })?;
+            if v3 != replay_v3 {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ExportBundleV3,
+                });
+            }
         }
 
         Ok(())

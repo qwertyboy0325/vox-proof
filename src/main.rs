@@ -829,6 +829,13 @@ fn print_review_case<W: Write>(
                 evidence.algorithm.version()
             )?;
         }
+        Evidence::ReusableExactObservedForm(evidence) => {
+            writeln!(
+                output,
+                "evidence: reusable exact observed form '{}' -> '{}'",
+                evidence.observed_text, evidence.confirmed_replacement
+            )?;
+        }
     }
 
     writeln!(output, "alternatives:")?;

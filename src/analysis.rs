@@ -231,6 +231,43 @@ impl AnalysisRun {
     pub fn snapshot(&self) -> AnalysisSnapshot {
         self.snapshot
     }
+
+    pub fn for_reuse_enabled_session_terms(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+        reusable_influence_snapshot: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    ) -> Self {
+        let _ = reusable_influence_snapshot;
+        Self::for_canonical_session_terms(transcript, entries)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ReuseEnabledAnalysisSnapshot {
+    base: AnalysisSnapshot,
+    reusable_influence_snapshot: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+}
+
+impl ReuseEnabledAnalysisSnapshot {
+    pub fn new(
+        base: AnalysisSnapshot,
+        reusable_influence_snapshot: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    ) -> Self {
+        Self {
+            base,
+            reusable_influence_snapshot,
+        }
+    }
+
+    pub fn base(&self) -> AnalysisSnapshot {
+        self.base
+    }
+
+    pub fn reusable_influence_snapshot(
+        &self,
+    ) -> crate::reuse_primitives::ReusableInfluenceSnapshotIdentity {
+        self.reusable_influence_snapshot
+    }
 }
 
 #[cfg(test)]

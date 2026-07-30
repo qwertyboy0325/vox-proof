@@ -650,6 +650,22 @@ fn validate_candidate_evidence_mapping(
                 validated_analysis_identity,
             )?;
         }
+        Evidence::ReusableExactObservedForm(evidence_data) => {
+            if kind != DetectionKind::GlossaryAliasMatch {
+                return Err(
+                    RealTranscriptDetectorSnapshotAdapterContractError::CandidateKindEvidenceMismatch {
+                        review_case_index,
+                    },
+                );
+            }
+            if evidence_data.observed_text != observed_surface {
+                return Err(
+                    RealTranscriptDetectorSnapshotAdapterContractError::ObservedSurfaceResolutionFailure {
+                        review_case_index,
+                    },
+                );
+            }
+        }
     }
     Ok(())
 }

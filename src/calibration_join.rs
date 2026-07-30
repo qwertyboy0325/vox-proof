@@ -919,6 +919,10 @@ fn evidence_view(evidence: &Evidence) -> EvidenceView {
                 version: value.algorithm.version().to_string(),
             },
         },
+        Evidence::ReusableExactObservedForm(value) => EvidenceView::ObservedErrorForm {
+            matched_form: value.observed_text.clone(),
+            canonical_term: value.confirmed_replacement.clone(),
+        },
     }
 }
 
