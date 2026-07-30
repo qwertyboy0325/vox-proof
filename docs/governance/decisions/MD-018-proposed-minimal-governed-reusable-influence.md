@@ -1,24 +1,25 @@
 # MD-018: Minimal Governed Reusable Influence Semantics
 
-Status: proposed
+Status: accepted
 
 Date: 2026-07-30
 
+Accepted: 2026-07-30 per explicit owner authorization
+
+Accepted commit: `6b9170c4692ecc6f6545c6025abf75480ee9148a`
+
 Decision authority: Ezra
 
-Classification: minimal exact-pair, project-scoped, explicitly promoted, revocable reusable influence semantics for future exact proposal generation (not accepted)
+Classification: minimal exact-pair, project-scoped, explicitly promoted, revocable reusable influence semantics for future exact proposal generation
 
-Authority: non_authoritative_until_owner_acceptance
+## Acceptance boundary
 
-Implementation authorized: false
+This Material Decision is **accepted** by the decision authority.
 
-## Proposal boundary
+It records the minimal governed reusable-influence semantics for Gate 3.
 
-This document is a **proposed** Material Decision candidate for owner review.
+Acceptance does **not**:
 
-It does **not**:
-
-- accept MD-018;
 - authorize Gate 3 implementation;
 - authorize Rust, test, Cargo, or application changes;
 - select a persistence mechanism;
@@ -27,10 +28,10 @@ It does **not**:
 - establish a public Experience Pack or Language Pack format;
 - accept MD-012 ontology, ranking, suppression, embeddings, ASR, or HumanRaised semantics.
 
-Owner acceptance is pending. Remote ChatGPT review of the pushed commit is required before owner acceptance.
+Implementation still requires a separately authorized bounded work package.
 
 “Reusable Influence Authority” is the bounded authority defined by this
-proposal. It does not mean knowledge truth, correction authority over future
+decision. It does not mean knowledge truth, correction authority over future
 material, automatic acceptance, or automatic canonical text modification.
 
 ## Context
@@ -54,7 +55,7 @@ persistence, ASR, broad Experience Packs, or related-material evidence.
 
 VP-ARCH-002 is non-authoritative research. It may explain scope/effect
 transition reasoning. It does not authorize this decision and does not claim
-architectural novelty for this proposal.
+architectural novelty for this decision.
 
 ## Terminology
 
@@ -70,7 +71,7 @@ ProjectScope
 ReusableInfluenceSnapshot
 ```
 
-These are conceptual semantic terms. This proposal does not freeze Rust enum
+These are conceptual semantic terms. This decision does not freeze Rust enum
 names or concrete type layouts.
 
 ## Decision
@@ -160,7 +161,7 @@ proposal.
 ### 4. Source-decision locator
 
 The current review ledger does not provide a durable global event identity.
-This proposal does not invent or imply that it does.
+This decision does not invent or imply that it does.
 
 The first slice may use a structural, session-local source locator conceptually
 equivalent to:
@@ -212,7 +213,7 @@ Rules:
 - a record may not expand its own scope;
 - wrong-scope records exert no influence.
 
-This proposal does not define a general scope ontology.
+This decision does not define a general scope ontology.
 
 ### 6. Allowed effects
 
@@ -261,7 +262,7 @@ Reusable exact pair
 → no hidden ranking or suppression
 ```
 
-This proposal does not choose the final Rust shape.
+This decision does not choose the final Rust shape.
 
 It requires that analysis configuration, snapshot identity, and provenance make
 the allowed detector effect explicit and replayable.
@@ -279,7 +280,7 @@ ReusableInfluenceRevoked
 ReusableInfluenceSuperseded
 ```
 
-These are conceptual semantic events. This proposal does not freeze Rust enum
+These are conceptual semantic events. This decision does not freeze Rust enum
 names.
 
 First-slice lifecycle decision:
@@ -410,7 +411,7 @@ Forbidden precedence:
 - hidden numeric priority;
 - partial projection that drops one conflicting mapping.
 
-No complete future conflict-resolution workflow is accepted by this proposal.
+No complete future conflict-resolution workflow is accepted by this decision.
 
 ### 11. Reusable-influence snapshot
 
@@ -433,7 +434,7 @@ The snapshot must preserve or bind:
 
 Current `SessionTermsIdentity` alone is insufficient.
 
-This proposal does not select a persistence schema or serialized public format.
+This decision does not select a persistence schema or serialized public format.
 
 ### 12. Proposal provenance
 
@@ -457,7 +458,7 @@ The implementation may later decide whether this is represented as:
 - a resource-provenance index linked from a candidate;
 - another explicitly reviewed contract.
 
-This proposal owns the semantic requirement, not the concrete Rust
+This decision owns the semantic requirement, not the concrete Rust
 representation.
 
 ### 13. Projection and pack boundary
@@ -483,7 +484,7 @@ Rules:
 - external modifications may return only as new proposals;
 - a stable public pack format is deferred.
 
-This proposal must not implement or freeze note-software, RAG, or
+This decision must not implement or freeze note-software, RAG, or
 knowledge-graph semantics.
 
 ### 14. Broader downstream compatibility
@@ -526,7 +527,7 @@ restart_surviving_Material_A_to_B_evidence:
 A meaningful tracked related-material demonstration that survives process exit
 requires accepted Gate 4 persistence.
 
-This proposal must define semantic identity sufficiently for later persistence,
+This decision must define semantic identity sufficiently for later persistence,
 but must not:
 
 - select a storage backend;
@@ -555,7 +556,7 @@ Preferred bounded direction:
 application_export_successor: v3
 ```
 
-This proposal may require a successor but does not freeze exact file names or
+This decision may require a successor but does not freeze exact file names or
 rendering syntax unless existing repository contracts require that level of
 decision.
 
@@ -622,7 +623,7 @@ automatic future decisions
 
 ## Banned designs
 
-This proposal explicitly rejects:
+This decision explicitly rejects:
 
 1. Automatically promoting every Manual Replacement.
 2. Treating repeated occurrence as authority.
@@ -660,11 +661,12 @@ A separately authorized Gate 3 implementation will likely require:
 - export successor beyond frozen v2;
 - same-process replay and deterministic tests.
 
-This candidate does **not** authorize those implementation changes.
+This decision does **not** authorize those implementation changes. A separately
+authorized bounded work package is required.
 
 ## Claims boundary
 
-If accepted, this Material Decision may support only claims equivalent to:
+This Material Decision supports only claims equivalent to:
 
 > VoxProof can explicitly promote a human-confirmed exact correction into a
 > project-scoped, revocable reusable influence record that may generate
@@ -721,20 +723,14 @@ MD-017 remains authoritative for exact Manual Replacement payloads and remains
 the sole occurrence-correction authority for that slice.
 
 MD-014 and MD-015 remain authoritative for durability requirements and the
-persistence evidence protocol. This proposal does not weaken them.
+persistence evidence protocol. This decision does not weaken them.
 
 ## Consequences
 
-If later accepted by the owner:
-
-- Gate 3 gains a proposed-then-accepted semantic boundary for minimal reusable
-  influence;
-- implementation still requires a separately authorized work package;
+- Gate 3 has an accepted semantic boundary for minimal reusable influence;
+- implementation still requires a separately authorized bounded work package;
 - MD-012 remains unaccepted;
 - persistence, public packs, ASR, ranking, suppression, and ontology remain
   deferred;
 - application export v2 remains frozen; a versioned successor projection is
   required for reusable-governance representation.
-
-Until owner acceptance, this record is non-authoritative and does not authorize
-implementation.
