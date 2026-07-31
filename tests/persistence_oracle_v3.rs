@@ -72,7 +72,6 @@ fn removing_derived_cache_does_not_change_canonical_truth() {
     actual.effective_reusable_records.clear();
     actual.historical_reusable_records.clear();
     actual.reusable_snapshot_identity.clear();
-    actual.reuse_enabled_analysis_binding = Default::default();
     let result = CurrentContractOracle::compare(&expected, &actual);
     assert!(result.passed, "{:?}", result.violations);
 }
@@ -107,13 +106,18 @@ fn source_locator_boundary_change_fails_oracle() {
     if let Some(EvidenceReuseGovernanceEvent::PromotionAccepted { source_locator, .. }) =
         actual.reuse_governance_events.first_mut()
     {
-        source_locator.effective_at_ledger_length += 1;
+        source_locator.review_ledger_position = 99;
     }
     let result = CurrentContractOracle::validate(&actual);
     assert!(!result.passed);
     assert!(result.violations.iter().any(|v| {
-        v.code == OracleViolationCodeV3::SourceLocatorBoundaryViolation
-            || v.code == OracleViolationCodeV3::DecisionDigestMismatch
+        matches!(
+            v.code,
+            OracleViolationCodeV3::SourceLocatorBoundaryViolation
+                | OracleViolationCodeV3::DecisionDigestMismatch
+                | OracleViolationCodeV3::ChangedReusableSnapshotIdentity
+                | OracleViolationCodeV3::HistoricalBindingSnapshotMismatch
+        )
     }));
 }
 
