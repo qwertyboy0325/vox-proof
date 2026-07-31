@@ -2,6 +2,11 @@
 
 Status: evidence contract package (VP-GATE4-EVIDENCE-COMPLETION-01A)
 
+Correction-02 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-02`)
+closes remaining remote-review blockers: production-equivalent snapshot identity,
+historical reuse-enabled analysis binding, fail-closed oracle folds, Unicode-safe
+anchor validation, and strengthened scenario/measurement input validators.
+
 Correction-01 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01`)
 addresses remote-review blockers F1–F4. 01A is **not** owner-accepted; next gate is
 ChatGPT remote review and owner acceptance of corrected 01A.
@@ -16,6 +21,16 @@ aligned with owner-accepted Gate 1–3 application semantics.
 - oracle version: `3`
 - scenario contract version: `3`
 - measurement contract version: `2`
+
+## Correction-02 highlights
+
+- production-equivalent `reusable-influence-snapshot:sha256-v2` identity via `production_bridge`
+- typed analysis snapshot inputs for exact `hash_analysis_snapshot` reproduction
+- optional canonical `reuse_enabled_analysis_binding` historical provenance
+- fail-closed review-ledger and governance folds with session-bound actor validation
+- SRT-based Unicode-safe anchor validation (non-panicking)
+- `ReadOnlyOpenPolicy` for unknown-newer-format conditional safe read
+- `validate_scenario_contracts_v3` and `validate_measurement_contract_value` input validators
 
 ## Correction-01 highlights
 
@@ -41,7 +56,7 @@ aligned with owner-accepted Gate 1–3 application semantics.
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_01_REMOTE_REVIEW_PENDING
+tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_02_REMOTE_REVIEW_PENDING
 ```
 
 ## Selected owner path
