@@ -95,8 +95,10 @@ pub const FIELD_CLASSIFICATION_REGISTRY: &[ClassifiedField] = &[
     },
     ClassifiedField {
         field_path: "rejected_candidate_identities",
-        classification: FieldClassification::CanonicalHistoricalProvenance,
-        reconstruction_requirement: None,
+        classification: FieldClassification::DerivedRebuildable,
+        reconstruction_requirement: Some(
+            "Deterministic fold of PromotionCandidateRejected governance events.",
+        ),
     },
     ClassifiedField {
         field_path: "effective_reusable_records",
@@ -118,10 +120,10 @@ pub const FIELD_CLASSIFICATION_REGISTRY: &[ClassifiedField] = &[
         ),
     },
     ClassifiedField {
-        field_path: "reuse_enabled_analysis_identity",
+        field_path: "reuse_enabled_analysis_binding",
         classification: FieldClassification::DerivedRebuildable,
         reconstruction_requirement: Some(
-            "Reuse-enabled analysis identity must bind to the derived reusable snapshot identity.",
+            "Structural binding between reuse-enabled analysis snapshot identity and recomputed reusable snapshot identity.",
         ),
     },
     ClassifiedField {

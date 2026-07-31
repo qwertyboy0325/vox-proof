@@ -1,25 +1,30 @@
 use crate::analysis::AnalysisSnapshot;
-use sha2::{Digest, Sha256};
 
-use crate::application_reuse::reusable_influence_snapshot_for_parts;
+use super::derivation::finalize_derived_fields;
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession,
     DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority, DeclaredSessionOperatorRole,
 };
-use crate::reuse_primitives::PromotionCandidateRejectionIdentity;
+use crate::reusable_influence::{
+    ExactReusableCorrection, ReusableGovernanceEvent, ReuseCandidateKey,
+};
+use crate::reuse_primitives::SourceDecisionLocator;
 use crate::review::{CorrectionDecision, ReviewLedgerEvent};
 
 use super::model::{
     CurrentContractState, EvidenceAnalysisSnapshot, EvidenceDurableCommandTokens,
-    EvidenceEffectiveReviewStatus, EvidenceMaterialUseDeclaration, EvidenceProjectScope,
-    EvidenceRejectedCandidateIdentity, EvidenceReusableRecord, EvidenceReuseGovernanceEvent,
-    EvidenceReviewCase, EvidenceReviewLedgerEvent, EvidenceSessionAuthority,
-    EvidenceSourceRevision,
+    EvidenceExactReusableCorrection, EvidenceGovernanceActor, EvidenceMaterialUseDeclaration,
+    EvidenceProjectScope, EvidenceReuseCandidateKey, EvidenceReuseEnabledAnalysisBinding,
+    EvidenceReuseGovernanceEvent, EvidenceReviewCase, EvidenceReviewLedgerEvent,
+    EvidenceSessionAuthority, EvidenceSourceDecisionLocator, EvidenceSourceRevision,
 };
+use super::serialization::candidate_key_canonical_digest;
 
 pub fn project_current_contract_state(
     session: &ApplicationReviewSession,
     material_use: &ApplicationMaterialUseDeclaration,
+    session_id: &str,
+    evidence_writer_token: &str,
 ) -> CurrentContractState {
     let transcript = session.source();
     let revision = transcript.revision_id().to_tagged_string();
@@ -33,10 +38,16 @@ pub fn project_current_contract_state(
         .snapshot()
         .session_terms()
         .to_tagged_string();
-    let analysis_snapshots = vec![EvidenceAnalysisSnapshot {
+    let mut analysis_snapshots = vec![EvidenceAnalysisSnapshot {
         identity: analysis_snapshot_identity(canonical_run.analysis_run().snapshot()),
         source_revision_id: revision.clone(),
     }];
+    if let Some(reuse_run) = session.reuse_enabled_run() {
+        analysis_snapshots.push(EvidenceAnalysisSnapshot {
+            identity: analysis_snapshot_identity(reuse_run.analysis_run().snapshot()),
+            source_revision_id: revision.clone(),
+        });
+    }
 
     let review_cases = canonical_run
         .review_cases()
@@ -51,8 +62,8 @@ pub fn project_current_contract_state(
                 observed_revision_id: revision.clone(),
                 anchor_revision_id: revision.clone(),
                 anchor_segment_position: anchor.segment_position(),
-                anchor_start_byte: 0,
-                anchor_end_byte: observed_source_bytes.len(),
+                anchor_start_byte: anchor.start_byte(),
+                anchor_end_byte: anchor.end_byte(),
                 observed_source_bytes,
             }
         })
@@ -65,14 +76,7 @@ pub fn project_current_contract_state(
         .map(|(index, event)| map_ledger_event(index, event))
         .collect();
 
-    let effective_review_status = session
-        .review_items()
-        .iter()
-        .map(|item| EvidenceEffectiveReviewStatus {
-            case_id: format!("review-case:{}", item.review_case.id().local_index()),
-            status: format!("{:?}", item.status),
-        })
-        .collect();
+    let effective_review_status = Vec::new();
 
     let project_scope = reuse_state
         .project_scope()
@@ -89,45 +93,23 @@ pub fn project_current_contract_state(
         .governance_events()
         .iter()
         .enumerate()
-        .map(|(index, event)| map_governance_event(index, event))
+        .map(|(index, event)| map_governance_event(index, event, session))
         .collect();
 
     let effective_state = reuse_state.effective_state(ledger, canonical_run);
-    let rejected_candidate_identities = effective_state
-        .rejected_candidate_identities()
-        .iter()
-        .map(|identity| EvidenceRejectedCandidateIdentity {
-            identity_digest: rejection_identity_digest(identity),
-        })
-        .collect();
-
-    let effective_reusable_records = effective_state
-        .active_records()
-        .iter()
-        .map(map_effective_record)
-        .collect();
-    let historical_reusable_records = effective_state
-        .historical_records()
-        .iter()
-        .map(map_effective_record)
-        .collect();
-
-    let reusable_snapshot_identity = reusable_influence_snapshot_for_parts(parts, reuse_state)
-        .map(|snapshot| snapshot.identity().to_tagged_string())
-        .unwrap_or_default();
-
-    let reuse_enabled_analysis_identity = session
-        .reuse_enabled_run()
-        .map(|run| analysis_snapshot_identity(run.analysis_run().snapshot()))
-        .unwrap_or_default();
+    let effective_reusable_records = Vec::new();
+    let historical_reusable_records = Vec::new();
+    let reusable_snapshot_identity = String::new();
+    let reuse_enabled_analysis_binding = EvidenceReuseEnabledAnalysisBinding::default();
+    let _ = effective_state;
 
     let material_use_basis = match material_use.basis() {
         DeclaredApplicationMaterialUseBasis::SelfOwned => "self_owned",
         DeclaredApplicationMaterialUseBasis::ExplicitPermission => "explicit_permission",
     };
 
-    CurrentContractState {
-        session_id: "session:current-contract:001".to_owned(),
+    let mut state = CurrentContractState {
+        session_id: session_id.to_owned(),
         duplicated_from_session_id: None,
         session_authority: map_session_authority(session.session_authority()),
         material_use_declaration: EvidenceMaterialUseDeclaration {
@@ -145,11 +127,10 @@ pub fn project_current_contract_state(
         effective_review_status,
         project_scope,
         reuse_governance_events,
-        rejected_candidate_identities,
         effective_reusable_records,
         historical_reusable_records,
         reusable_snapshot_identity,
-        reuse_enabled_analysis_identity,
+        reuse_enabled_analysis_binding,
         derived_queue_projection: format!("queue:{}:{}", revision, ledger.events().len()),
         durable_command_tokens: EvidenceDurableCommandTokens {
             review_ledger_head: ledger.events().len(),
@@ -157,9 +138,41 @@ pub fn project_current_contract_state(
             active_analysis_snapshot_identity: analysis_snapshot_identity(
                 canonical_run.analysis_run().snapshot(),
             ),
+            evidence_writer_token: evidence_writer_token.to_owned(),
+        },
+    };
+    finalize_derived_fields(&mut state);
+    state.normalize()
+}
+
+pub fn map_locator(locator: &SourceDecisionLocator) -> EvidenceSourceDecisionLocator {
+    EvidenceSourceDecisionLocator {
+        source_revision_id: locator.source_revision.to_tagged_string(),
+        source_analysis_snapshot_identity: analysis_snapshot_identity(
+            locator.source_analysis_snapshot,
+        ),
+        source_review_case_id: format!(
+            "review-case:{}",
+            locator.source_review_case_id.local_index()
+        ),
+        review_ledger_position: locator.review_ledger_position,
+        decision_digest: digest_hex(locator.decision_digest),
+        effective_at_ledger_length: locator.effective_at_ledger_length,
+    }
+}
+
+pub fn map_candidate_key(
+    key: &ReuseCandidateKey,
+    payload: &ExactReusableCorrection,
+) -> EvidenceReuseCandidateKey {
+    EvidenceReuseCandidateKey {
+        project_scope_stable_id: key.project_scope_id.as_str().to_owned(),
+        source_locator: map_locator(&key.source_locator),
+        exact_payload: EvidenceExactReusableCorrection {
+            observed_text: payload.observed_text.clone(),
+            confirmed_replacement: payload.confirmed_replacement.clone(),
         },
     }
-    .normalize()
 }
 
 fn format_transcript_bytes(transcript: &crate::transcript::Transcript) -> String {
@@ -236,129 +249,110 @@ fn map_ledger_event(index: usize, event: &ReviewLedgerEvent) -> EvidenceReviewLe
 
 fn map_governance_event(
     index: usize,
-    event: &crate::reusable_influence::ReusableGovernanceEvent,
+    event: &ReusableGovernanceEvent,
+    session: &ApplicationReviewSession,
 ) -> EvidenceReuseGovernanceEvent {
-    use crate::reusable_influence::ReusableGovernanceEvent;
     match event {
         ReusableGovernanceEvent::PromotionCandidateRejected {
             candidate_key,
             actor,
-        } => EvidenceReuseGovernanceEvent {
-            event_index: index,
-            event_kind: "promotion_candidate_rejected".to_owned(),
-            actor_role_label: actor.role_label.clone(),
-            actor_display_label: actor.display_label.clone(),
-            candidate_key_digest: Some(digest_hex(&format!("{candidate_key:?}"))),
-            record_id: None,
-            predecessor_record_id: None,
-            successor_record_id: None,
-            observed_text: None,
-            confirmed_replacement: None,
-            source_locator_digest: Some(digest_hex(
-                &candidate_key
-                    .source_locator
-                    .source_revision
-                    .to_tagged_string(),
-            )),
-            project_scope_stable_id: Some(candidate_key.project_scope_id.as_str().to_owned()),
-        },
+        } => {
+            let payload = rejection_payload_for_key(session, candidate_key);
+            EvidenceReuseGovernanceEvent::PromotionCandidateRejected {
+                event_index: index,
+                candidate_key: map_candidate_key(candidate_key, &payload),
+                actor: map_actor(actor),
+            }
+        }
         ReusableGovernanceEvent::PromotionAccepted {
             candidate_key,
             payload,
             source_locator,
             actor,
             project_scope,
-        } => EvidenceReuseGovernanceEvent {
+        } => EvidenceReuseGovernanceEvent::PromotionAccepted {
             event_index: index,
-            event_kind: "promotion_accepted".to_owned(),
-            actor_role_label: actor.role_label.clone(),
-            actor_display_label: actor.display_label.clone(),
-            candidate_key_digest: Some(digest_hex(&format!("{candidate_key:?}"))),
-            record_id: Some(index),
-            predecessor_record_id: None,
-            successor_record_id: None,
-            observed_text: Some(payload.observed_text.clone()),
-            confirmed_replacement: Some(payload.confirmed_replacement.clone()),
-            source_locator_digest: Some(digest_hex(
-                &source_locator.source_revision.to_tagged_string(),
-            )),
-            project_scope_stable_id: Some(project_scope.stable_id.as_str().to_owned()),
+            candidate_key: map_candidate_key(candidate_key, payload),
+            payload: EvidenceExactReusableCorrection {
+                observed_text: payload.observed_text.clone(),
+                confirmed_replacement: payload.confirmed_replacement.clone(),
+            },
+            source_locator: map_locator(source_locator),
+            actor: map_actor(actor),
+            project_scope_stable_id: project_scope.stable_id.as_str().to_owned(),
         },
         ReusableGovernanceEvent::ReusableInfluenceRevoked { record_id, actor } => {
-            EvidenceReuseGovernanceEvent {
+            EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked {
                 event_index: index,
-                event_kind: "reusable_influence_revoked".to_owned(),
-                actor_role_label: actor.role_label.clone(),
-                actor_display_label: actor.display_label.clone(),
-                candidate_key_digest: None,
-                record_id: Some(record_id.promotion_event_index()),
-                predecessor_record_id: None,
-                successor_record_id: None,
-                observed_text: None,
-                confirmed_replacement: None,
-                source_locator_digest: None,
-                project_scope_stable_id: None,
+                record_id: record_id.promotion_event_index(),
+                actor: map_actor(actor),
             }
         }
         ReusableGovernanceEvent::ReusableInfluenceSuperseded {
             predecessor_id,
             successor_id,
             actor,
-        } => EvidenceReuseGovernanceEvent {
+        } => EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded {
             event_index: index,
-            event_kind: "reusable_influence_superseded".to_owned(),
-            actor_role_label: actor.role_label.clone(),
-            actor_display_label: actor.display_label.clone(),
-            candidate_key_digest: None,
-            record_id: None,
-            predecessor_record_id: Some(predecessor_id.promotion_event_index()),
-            successor_record_id: Some(successor_id.promotion_event_index()),
-            observed_text: None,
-            confirmed_replacement: None,
-            source_locator_digest: None,
-            project_scope_stable_id: None,
+            predecessor_record_id: predecessor_id.promotion_event_index(),
+            successor_record_id: successor_id.promotion_event_index(),
+            actor: map_actor(actor),
         },
     }
 }
 
-fn map_effective_record(
-    record: &crate::reusable_influence::EffectiveReusableInfluenceRecord,
-) -> EvidenceReusableRecord {
-    EvidenceReusableRecord {
-        record_id: record.record_id.promotion_event_index(),
-        project_scope_stable_id: record.project_scope.stable_id.as_str().to_owned(),
-        observed_text: record.payload.observed_text.clone(),
-        confirmed_replacement: record.payload.confirmed_replacement.clone(),
-        source_locator_digest: digest_hex(
-            &record.source_locator.source_revision.to_tagged_string(),
-        ),
-        promotion_actor_role_label: record.promotion_actor.role_label.clone(),
-        promotion_actor_display_label: record.promotion_actor.display_label.clone(),
-        superseded_by: record.superseded_by.map(|id| id.promotion_event_index()),
+fn rejection_payload_for_key(
+    session: &ApplicationReviewSession,
+    candidate_key: &ReuseCandidateKey,
+) -> ExactReusableCorrection {
+    let parts = session.reuse_parts();
+    let locator = &candidate_key.source_locator;
+    let case_id = locator.source_review_case_id;
+    let Some(review_case) = parts
+        .canonical_run
+        .review_cases()
+        .get(case_id.local_index())
+    else {
+        return ExactReusableCorrection {
+            observed_text: String::new(),
+            confirmed_replacement: String::new(),
+        };
+    };
+    let observed_text = parts
+        .transcript
+        .resolve(review_case.candidate_span().anchor())
+        .unwrap_or("")
+        .to_owned();
+    let replacement = parts
+        .ledger
+        .events()
+        .get(locator.review_ledger_position)
+        .and_then(|event| {
+            let ReviewLedgerEvent::DecisionRecorded { decision, .. } = event;
+            match decision {
+                CorrectionDecision::ManualReplacement { replacement } => {
+                    Some(replacement.as_str().to_owned())
+                }
+                _ => None,
+            }
+        })
+        .unwrap_or_default();
+    ExactReusableCorrection {
+        observed_text,
+        confirmed_replacement: replacement,
     }
 }
 
-fn rejection_identity_digest(identity: &PromotionCandidateRejectionIdentity) -> String {
-    digest_hex(&format!(
-        "{}:{}:{}:{}",
-        identity.project_scope_id.as_str(),
-        identity.source_review_case_id.local_index(),
-        identity.review_ledger_position,
-        digest_hex_bytes(identity.decision_digest)
-    ))
+fn map_actor(actor: &crate::reusable_influence::GovernanceActorContext) -> EvidenceGovernanceActor {
+    EvidenceGovernanceActor {
+        role_label: actor.role_label.clone(),
+        display_label: actor.display_label.clone(),
+    }
 }
 
-fn digest_hex(value: &str) -> String {
-    format!(
-        "sha256:{}",
-        digest_hex_bytes(Sha256::digest(value.as_bytes()))
-    )
-}
-
-fn digest_hex_bytes(bytes: impl AsRef<[u8]>) -> String {
+fn digest_hex(bytes: [u8; 32]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
-    let bytes = bytes.as_ref();
-    let mut out = String::with_capacity(bytes.len() * 2);
+    let mut out = String::with_capacity(64);
     for byte in bytes {
         out.push(HEX[(byte >> 4) as usize] as char);
         out.push(HEX[(byte & 0x0f) as usize] as char);
@@ -385,4 +379,39 @@ fn analysis_snapshot_identity(snapshot: AnalysisSnapshot) -> String {
         snapshot.configuration().algorithm().id(),
         snapshot.configuration().algorithm().version(),
     )
+}
+
+pub fn candidate_key_identity_digest(key: &EvidenceReuseCandidateKey) -> String {
+    candidate_key_canonical_digest(key)
+}
+
+#[cfg(test)]
+mod projection_tests {
+    use super::candidate_key_identity_digest;
+    use crate::persistence_evidence::current_contract::model::{
+        EvidenceExactReusableCorrection, EvidenceReuseCandidateKey, EvidenceSourceDecisionLocator,
+    };
+
+    #[test]
+    fn candidate_key_digest_is_stable_and_not_debug_based() {
+        let key = EvidenceReuseCandidateKey {
+            project_scope_stable_id: "proj-a".to_owned(),
+            source_locator: EvidenceSourceDecisionLocator {
+                source_revision_id: "rev:sha256-v1:abc".to_owned(),
+                source_analysis_snapshot_identity: "analysis-snapshot:test".to_owned(),
+                source_review_case_id: "review-case:0".to_owned(),
+                review_ledger_position: 0,
+                decision_digest: "deadbeef".to_owned(),
+                effective_at_ledger_length: 1,
+            },
+            exact_payload: EvidenceExactReusableCorrection {
+                observed_text: "Kafak".to_owned(),
+                confirmed_replacement: "Kafka".to_owned(),
+            },
+        };
+        let first = candidate_key_identity_digest(&key);
+        let second = candidate_key_identity_digest(&key);
+        assert_eq!(first, second);
+        assert!(first.starts_with("sha256:"));
+    }
 }

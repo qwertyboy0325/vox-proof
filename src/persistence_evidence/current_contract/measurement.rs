@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const MEASUREMENT_CONTRACT_VERSION: &str = "1";
+pub const MEASUREMENT_CONTRACT_VERSION: &str = "2";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -19,6 +19,33 @@ pub struct MeasurementOperationSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeferredFixtureScale {
+    pub scale: MeasurementFixtureScale,
+    pub rationale: String,
+    pub required_future_package: String,
+    pub unblock_condition: String,
+    pub selection_impact: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MinimumEnvironmentMetadata {
+    pub repository_commit: bool,
+    pub candidate_id_version: bool,
+    pub fixture_version: bool,
+    pub oracle_version: bool,
+    pub scenario_contract_version: bool,
+    pub os_version: bool,
+    pub execution_environment: bool,
+    pub filesystem: bool,
+    pub hardware_summary: bool,
+    pub rustc_version: bool,
+    pub dependency_versions: bool,
+    pub sample_timing_source: bool,
+    pub start_end_timestamps: bool,
+    pub configuration: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MeasurementAggregationFields {
     pub count: bool,
     pub minimum: bool,
@@ -34,27 +61,6 @@ pub struct MeasurementAggregationFields {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MeasurementRecordTemplate {
-    pub operation: String,
-    pub fixture_scale: MeasurementFixtureScale,
-    pub sample_count: u32,
-    pub warmup_count: u32,
-    pub count: Option<u32>,
-    pub minimum_ms: Option<u64>,
-    pub median_ms: Option<u64>,
-    pub p95_ms: Option<u64>,
-    pub maximum_ms: Option<u64>,
-    pub failure_count: u32,
-    pub peak_memory_bytes: Option<u64>,
-    pub bytes_read_if_available: Option<u64>,
-    pub bytes_written_if_available: Option<u64>,
-    pub storage_size_before: Option<u64>,
-    pub storage_size_after: Option<u64>,
-    pub environment_metadata: Vec<String>,
-    pub known_limitations: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComparativeMeasurementContract {
     pub contract_version: String,
     pub fixture_id: String,
@@ -63,8 +69,25 @@ pub struct ComparativeMeasurementContract {
     pub aggregation_fields: MeasurementAggregationFields,
     pub correctness_disqualification_gates: Vec<String>,
     pub resource_bound_refusal_requirements: Vec<String>,
-    pub deferred_scales: Vec<MeasurementFixtureScale>,
+    pub deferred_scales: Vec<DeferredFixtureScale>,
+    pub minimum_environment_metadata: MinimumEnvironmentMetadata,
 }
+
+const REQUIRED_OPERATIONS: &[&str] = &[
+    "create_session",
+    "open_cold",
+    "open_warm",
+    "append_review_decision",
+    "append_manual_replacement",
+    "append_reusable_promotion",
+    "append_reusable_revocation",
+    "append_reusable_supersession",
+    "close",
+    "reopen_and_validate",
+    "semantic_duplication",
+    "derived_rebuild",
+    "compaction_where_supported",
+];
 
 pub fn comparative_measurement_contract() -> ComparativeMeasurementContract {
     ComparativeMeasurementContract {
@@ -150,9 +173,37 @@ pub fn comparative_measurement_contract() -> ComparativeMeasurementContract {
             "no_unbounded_startup_or_memory_for_small_fixture".to_owned(),
         ],
         deferred_scales: vec![
-            MeasurementFixtureScale::Medium,
-            MeasurementFixtureScale::Stress,
+            DeferredFixtureScale {
+                scale: MeasurementFixtureScale::Medium,
+                rationale: "Medium fixture variants and multi-case lifecycle projections are not yet materialized in package 01A correction.".to_owned(),
+                required_future_package: "VP-GATE4-EVIDENCE-COMPLETION-01C".to_owned(),
+                unblock_condition: "fixture variants at medium scale implemented and validated by oracle v3".to_owned(),
+                selection_impact: "Mechanism selection remains blocked until medium-scale comparative measurements are executed for both candidates.".to_owned(),
+            },
+            DeferredFixtureScale {
+                scale: MeasurementFixtureScale::Stress,
+                rationale: "Stress-scale measurements require authorized evidence execution infrastructure and larger fixture corpora not defined in correction-01.".to_owned(),
+                required_future_package: "VP-GATE4-EVIDENCE-COMPLETION-01C".to_owned(),
+                unblock_condition: "stress fixture corpus and bounded resource refusal gates executed under owner-authorized evidence runs".to_owned(),
+                selection_impact: "Stress results inform owner tradeoffs but do not alone block correctness gates; absence must be recorded as a limitation.".to_owned(),
+            },
         ],
+        minimum_environment_metadata: MinimumEnvironmentMetadata {
+            repository_commit: true,
+            candidate_id_version: true,
+            fixture_version: true,
+            oracle_version: true,
+            scenario_contract_version: true,
+            os_version: true,
+            execution_environment: true,
+            filesystem: true,
+            hardware_summary: true,
+            rustc_version: true,
+            dependency_versions: true,
+            sample_timing_source: true,
+            start_end_timestamps: true,
+            configuration: true,
+        },
     }
 }
 
@@ -182,6 +233,57 @@ pub fn validate_measurement_contract() -> Result<(), String> {
     }
     if contract.operations.is_empty() {
         return Err("measurement contract has no operations".to_owned());
+    }
+    let mut names = std::collections::BTreeSet::new();
+    for operation in &contract.operations {
+        if operation.sample_count == 0 {
+            return Err(format!(
+                "operation {} must have sample_count > 0",
+                operation.operation
+            ));
+        }
+        if !names.insert(operation.operation.clone()) {
+            return Err(format!(
+                "duplicate measurement operation {}",
+                operation.operation
+            ));
+        }
+    }
+    for required in REQUIRED_OPERATIONS {
+        if !names.contains(*required) {
+            return Err(format!("missing required measurement operation {required}"));
+        }
+    }
+    if contract.correctness_disqualification_gates.is_empty() {
+        return Err("correctness disqualification gates must be non-empty".to_owned());
+    }
+    if contract.resource_bound_refusal_requirements.is_empty() {
+        return Err("resource-bound refusal requirements must be non-empty".to_owned());
+    }
+    if !contract.operations.iter().any(|operation| {
+        operation
+            .fixture_scales
+            .contains(&MeasurementFixtureScale::Small)
+    }) {
+        return Err("small fixture scale must be implemented".to_owned());
+    }
+    for deferred in &contract.deferred_scales {
+        if deferred.rationale.trim().is_empty()
+            || deferred.required_future_package.trim().is_empty()
+            || deferred.unblock_condition.trim().is_empty()
+            || deferred.selection_impact.trim().is_empty()
+        {
+            return Err(format!(
+                "deferred scale {:?} missing complete rationale metadata",
+                deferred.scale
+            ));
+        }
+    }
+    if !contract.minimum_environment_metadata.repository_commit
+        || !contract.minimum_environment_metadata.fixture_version
+        || !contract.minimum_environment_metadata.oracle_version
+    {
+        return Err("minimum environment metadata incomplete".to_owned());
     }
     Ok(())
 }

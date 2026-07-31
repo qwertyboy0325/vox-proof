@@ -17,11 +17,10 @@ pub struct CurrentContractState {
     pub effective_review_status: Vec<EvidenceEffectiveReviewStatus>,
     pub project_scope: EvidenceProjectScope,
     pub reuse_governance_events: Vec<EvidenceReuseGovernanceEvent>,
-    pub rejected_candidate_identities: Vec<EvidenceRejectedCandidateIdentity>,
     pub effective_reusable_records: Vec<EvidenceReusableRecord>,
     pub historical_reusable_records: Vec<EvidenceReusableRecord>,
     pub reusable_snapshot_identity: String,
-    pub reuse_enabled_analysis_identity: String,
+    pub reuse_enabled_analysis_binding: EvidenceReuseEnabledAnalysisBinding,
     pub derived_queue_projection: String,
     pub durable_command_tokens: EvidenceDurableCommandTokens,
 }
@@ -87,24 +86,61 @@ pub struct EvidenceProjectScope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EvidenceReuseGovernanceEvent {
-    pub event_index: usize,
-    pub event_kind: String,
-    pub actor_role_label: String,
-    pub actor_display_label: String,
-    pub candidate_key_digest: Option<String>,
-    pub record_id: Option<usize>,
-    pub predecessor_record_id: Option<usize>,
-    pub successor_record_id: Option<usize>,
-    pub observed_text: Option<String>,
-    pub confirmed_replacement: Option<String>,
-    pub source_locator_digest: Option<String>,
-    pub project_scope_stable_id: Option<String>,
+pub struct EvidenceSourceDecisionLocator {
+    pub source_revision_id: String,
+    pub source_analysis_snapshot_identity: String,
+    pub source_review_case_id: String,
+    pub review_ledger_position: usize,
+    pub decision_digest: String,
+    pub effective_at_ledger_length: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EvidenceRejectedCandidateIdentity {
-    pub identity_digest: String,
+pub struct EvidenceExactReusableCorrection {
+    pub observed_text: String,
+    pub confirmed_replacement: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceReuseCandidateKey {
+    pub project_scope_stable_id: String,
+    pub source_locator: EvidenceSourceDecisionLocator,
+    pub exact_payload: EvidenceExactReusableCorrection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceGovernanceActor {
+    pub role_label: String,
+    pub display_label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "event_kind", rename_all = "snake_case")]
+pub enum EvidenceReuseGovernanceEvent {
+    PromotionCandidateRejected {
+        event_index: usize,
+        candidate_key: EvidenceReuseCandidateKey,
+        actor: EvidenceGovernanceActor,
+    },
+    PromotionAccepted {
+        event_index: usize,
+        candidate_key: EvidenceReuseCandidateKey,
+        payload: EvidenceExactReusableCorrection,
+        source_locator: EvidenceSourceDecisionLocator,
+        actor: EvidenceGovernanceActor,
+        project_scope_stable_id: String,
+    },
+    ReusableInfluenceRevoked {
+        event_index: usize,
+        record_id: usize,
+        actor: EvidenceGovernanceActor,
+    },
+    ReusableInfluenceSuperseded {
+        event_index: usize,
+        predecessor_record_id: usize,
+        successor_record_id: usize,
+        actor: EvidenceGovernanceActor,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -113,10 +149,17 @@ pub struct EvidenceReusableRecord {
     pub project_scope_stable_id: String,
     pub observed_text: String,
     pub confirmed_replacement: String,
-    pub source_locator_digest: String,
-    pub promotion_actor_role_label: String,
-    pub promotion_actor_display_label: String,
+    pub source_locator: EvidenceSourceDecisionLocator,
+    pub promotion_actor: EvidenceGovernanceActor,
     pub superseded_by: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct EvidenceReuseEnabledAnalysisBinding {
+    pub analysis_snapshot_identity: String,
+    pub reusable_snapshot_identity: String,
+    pub governance_event_boundary: usize,
+    pub projection_version: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,12 +167,14 @@ pub struct EvidenceDurableCommandTokens {
     pub review_ledger_head: usize,
     pub reuse_governance_head: usize,
     pub active_analysis_snapshot_identity: String,
+    pub evidence_writer_token: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentContractFixture {
     pub fixture_id: String,
     pub fixture_version: String,
+    pub variant_id: String,
     pub scale: CurrentContractFixtureScale,
     pub expected_state: CurrentContractState,
 }
@@ -150,6 +195,7 @@ impl CurrentContractFixtureScale {
 
 pub const CURRENT_CONTRACT_FIXTURE_ID: &str = "voxproof-persistence-evidence-current-contract";
 pub const CURRENT_CONTRACT_FIXTURE_VERSION: &str = "3";
+pub const REUSABLE_INFLUENCE_PROJECTION_VERSION: &str = "reusable-exact-input-v1";
 
 impl CurrentContractState {
     pub fn normalize(mut self) -> Self {
@@ -164,9 +210,16 @@ impl CurrentContractState {
         self.effective_review_status
             .sort_by(|left, right| left.case_id.cmp(&right.case_id));
         self.reuse_governance_events
-            .sort_by_key(|event| event.event_index);
-        self.rejected_candidate_identities
-            .sort_by(|left, right| left.identity_digest.cmp(&right.identity_digest));
+            .sort_by_key(|event| match event {
+                EvidenceReuseGovernanceEvent::PromotionCandidateRejected {
+                    event_index, ..
+                }
+                | EvidenceReuseGovernanceEvent::PromotionAccepted { event_index, .. }
+                | EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked { event_index, .. }
+                | EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded {
+                    event_index, ..
+                } => *event_index,
+            });
         self.effective_reusable_records
             .sort_by_key(|record| record.record_id);
         self.historical_reusable_records
@@ -187,9 +240,6 @@ impl CurrentContractState {
             review_ledger_events: self.review_ledger_events.clone(),
             project_scope_stable_id: self.project_scope.stable_id.clone(),
             reuse_governance_events: self.reuse_governance_events.clone(),
-            rejected_candidate_identities: self.rejected_candidate_identities.clone(),
-            reusable_snapshot_identity: self.reusable_snapshot_identity.clone(),
-            reuse_enabled_analysis_identity: self.reuse_enabled_analysis_identity.clone(),
             durable_command_tokens: self.durable_command_tokens.clone(),
         }
     }
@@ -208,8 +258,16 @@ pub struct CurrentContractCanonicalProjection {
     pub review_ledger_events: Vec<EvidenceReviewLedgerEvent>,
     pub project_scope_stable_id: String,
     pub reuse_governance_events: Vec<EvidenceReuseGovernanceEvent>,
-    pub rejected_candidate_identities: Vec<EvidenceRejectedCandidateIdentity>,
-    pub reusable_snapshot_identity: String,
-    pub reuse_enabled_analysis_identity: String,
     pub durable_command_tokens: EvidenceDurableCommandTokens,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DerivedContractProjection {
+    pub effective_review_status: Vec<EvidenceEffectiveReviewStatus>,
+    pub rejected_candidate_identities: Vec<String>,
+    pub effective_reusable_records: Vec<EvidenceReusableRecord>,
+    pub historical_reusable_records: Vec<EvidenceReusableRecord>,
+    pub reusable_snapshot_identity: String,
+    pub reuse_enabled_analysis_binding: EvidenceReuseEnabledAnalysisBinding,
+    pub derived_queue_projection: String,
 }

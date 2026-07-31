@@ -35,6 +35,14 @@ impl SourceAnchor {
     pub fn segment_position(self) -> usize {
         self.segment_position
     }
+
+    pub fn start_byte(self) -> usize {
+        self.start_byte
+    }
+
+    pub fn end_byte(self) -> usize {
+        self.end_byte
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
