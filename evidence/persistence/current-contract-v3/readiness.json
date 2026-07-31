@@ -1,0 +1,13 @@
+{
+  "package": "VP-GATE4-EVIDENCE-COMPLETION-01A",
+  "fixture_id": "voxproof-persistence-evidence-current-contract",
+  "fixture_version": "3",
+  "oracle_version": "3",
+  "scenario_contract_version": "3",
+  "measurement_contract_version": "1",
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
+  "selection_status": "none",
+  "selected_path": "A_corrected_append_authoritative_comparator",
+  "note": "Contract package only; equivalent candidate execution not completed"
+}
