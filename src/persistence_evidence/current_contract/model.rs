@@ -20,7 +20,7 @@ pub struct CurrentContractState {
     pub effective_reusable_records: Vec<EvidenceReusableRecord>,
     pub historical_reusable_records: Vec<EvidenceReusableRecord>,
     pub reusable_snapshot_identity: String,
-    pub reuse_enabled_analysis_binding: EvidenceReuseEnabledAnalysisBinding,
+    pub reuse_enabled_analysis_binding: Option<EvidenceReuseEnabledAnalysisBinding>,
     pub derived_queue_projection: String,
     pub durable_command_tokens: EvidenceDurableCommandTokens,
 }
@@ -44,9 +44,21 @@ pub struct EvidenceSourceRevision {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceDetectorIdentity {
+    pub id: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceAnalysisSnapshot {
     pub identity: String,
     pub source_revision_id: String,
+    pub session_terms_identity: String,
+    pub detectors: Vec<EvidenceDetectorIdentity>,
+    pub detector_config_id: String,
+    pub detector_config_version: String,
+    pub algorithm_id: String,
+    pub algorithm_version: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -154,8 +166,9 @@ pub struct EvidenceReusableRecord {
     pub superseded_by: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceReuseEnabledAnalysisBinding {
+    pub analysis_snapshot: EvidenceAnalysisSnapshot,
     pub analysis_snapshot_identity: String,
     pub reusable_snapshot_identity: String,
     pub governance_event_boundary: usize,
@@ -240,6 +253,7 @@ impl CurrentContractState {
             review_ledger_events: self.review_ledger_events.clone(),
             project_scope_stable_id: self.project_scope.stable_id.clone(),
             reuse_governance_events: self.reuse_governance_events.clone(),
+            reuse_enabled_analysis_binding: self.reuse_enabled_analysis_binding.clone(),
             durable_command_tokens: self.durable_command_tokens.clone(),
         }
     }
@@ -258,6 +272,7 @@ pub struct CurrentContractCanonicalProjection {
     pub review_ledger_events: Vec<EvidenceReviewLedgerEvent>,
     pub project_scope_stable_id: String,
     pub reuse_governance_events: Vec<EvidenceReuseGovernanceEvent>,
+    pub reuse_enabled_analysis_binding: Option<EvidenceReuseEnabledAnalysisBinding>,
     pub durable_command_tokens: EvidenceDurableCommandTokens,
 }
 
@@ -268,6 +283,5 @@ pub struct DerivedContractProjection {
     pub effective_reusable_records: Vec<EvidenceReusableRecord>,
     pub historical_reusable_records: Vec<EvidenceReusableRecord>,
     pub reusable_snapshot_identity: String,
-    pub reuse_enabled_analysis_binding: EvidenceReuseEnabledAnalysisBinding,
     pub derived_queue_projection: String,
 }

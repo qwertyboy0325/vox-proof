@@ -1,16 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use sha2::{Digest, Sha256};
-
-use crate::anchor::TranscriptRevisionId;
 use crate::review::{CorrectionDecision, ManualReplacementText, ReviewCaseStatus};
 
 use super::model::{
     CurrentContractState, DerivedContractProjection, EvidenceEffectiveReviewStatus,
-    EvidenceExactReusableCorrection, EvidenceGovernanceActor, EvidenceReusableRecord,
-    EvidenceReuseCandidateKey, EvidenceReuseEnabledAnalysisBinding, EvidenceReuseGovernanceEvent,
-    EvidenceReviewLedgerEvent, EvidenceSourceDecisionLocator,
+    EvidenceExactReusableCorrection, EvidenceReusableRecord, EvidenceReuseCandidateKey,
+    EvidenceReuseGovernanceEvent, EvidenceReviewLedgerEvent, EvidenceSourceDecisionLocator,
     REUSABLE_INFLUENCE_PROJECTION_VERSION,
+};
+use super::production_bridge::{
+    compute_production_snapshot_identity, parse_decision_digest_hex, parse_review_case_id,
+    parse_revision_id, production_decision_digest_hex, validate_governance_actor_session_bound,
 };
 use super::serialization::rejection_identity_digest;
 use super::violations::{OracleDiagnosticV3, OracleViolationCodeV3, diagnostic};
@@ -21,7 +21,6 @@ pub fn finalize_derived_fields(state: &mut CurrentContractState) {
     state.effective_reusable_records = derived.effective_reusable_records;
     state.historical_reusable_records = derived.historical_reusable_records;
     state.reusable_snapshot_identity = derived.reusable_snapshot_identity;
-    state.reuse_enabled_analysis_binding = derived.reuse_enabled_analysis_binding;
     state.derived_queue_projection = derived.derived_queue_projection;
 }
 
@@ -32,14 +31,17 @@ pub fn derive_contract_projection(
     validate_review_cases_and_ledger(state, &mut violations);
     validate_source_anchors(state, &mut violations);
     validate_governance_events(state, &mut violations);
+    validate_historical_binding(state, &mut violations);
 
     let effective_review_status = fold_effective_review_status(state, &mut violations);
     let (effective_reusable_records, historical_reusable_records, rejected_candidate_identities) =
-        fold_reuse_governance(state, &mut violations);
-    let reusable_snapshot_identity =
-        recompute_snapshot_identity(state, &effective_reusable_records, &mut violations);
-    let reuse_enabled_analysis_binding =
-        recompute_reuse_enabled_binding(state, &reusable_snapshot_identity, &mut violations);
+        fold_reuse_governance(state, state.reuse_governance_events.len(), &mut violations);
+    let reusable_snapshot_identity = recompute_snapshot_identity(
+        state,
+        &effective_reusable_records,
+        state.reuse_governance_events.len(),
+        &mut violations,
+    );
     let derived_queue_projection = format!(
         "queue:{}:{}",
         state
@@ -57,7 +59,6 @@ pub fn derive_contract_projection(
             effective_reusable_records,
             historical_reusable_records,
             reusable_snapshot_identity,
-            reuse_enabled_analysis_binding,
             derived_queue_projection,
         },
         violations,
@@ -70,50 +71,13 @@ fn fold_effective_review_status(
 ) -> Vec<EvidenceEffectiveReviewStatus> {
     let mut latest: BTreeMap<String, EvidenceEffectiveReviewStatus> = BTreeMap::new();
     for event in &state.review_ledger_events {
-        let Some(observed_revision) = revision_id_from_tagged(&event.observed_revision_id) else {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::ChangedSourceRevisionIdentity,
-                "review_ledger_events",
-                "invalid observed revision id",
-            ));
+        let Some(decision) = validate_and_decode_review_event(state, event, violations) else {
             continue;
         };
-        let Some(review_case) = state
-            .review_cases
-            .iter()
-            .find(|review_case| review_case.case_id == event.case_id)
-        else {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::MissingReviewCaseReference,
-                "review_ledger_events",
-                "missing review case for ledger event",
-            ));
-            continue;
-        };
-        let decision = match event.action_kind.as_str() {
-            "manual_replacement" => {
-                let replacement_text = event.manual_replacement_bytes.as_deref().unwrap_or("");
-                let replacement = match ManualReplacementText::new(
-                    replacement_text,
-                    review_case.observed_source_bytes.as_str(),
-                ) {
-                    Ok(value) => value,
-                    Err(_) => continue,
-                };
-                CorrectionDecision::ManualReplacement { replacement }
-            }
-            "accept_alternative" => CorrectionDecision::AcceptAlternative {
-                alternative_index: event.alternative_index.unwrap_or(0),
-            },
-            "reject" => CorrectionDecision::Reject,
-            "defer" => CorrectionDecision::Defer,
-            "needs_manual_correction" => CorrectionDecision::NeedsManualCorrection,
-            other => {
-                violations.push(diagnostic(
-                    OracleViolationCodeV3::ChangedReviewLedgerPayload,
-                    "review_ledger_events",
-                    &format!("unsupported action kind {other}"),
-                ));
+        let observed_revision = match parse_revision_id(&event.observed_revision_id) {
+            Ok(value) => value,
+            Err(diagnostic) => {
+                violations.push(diagnostic);
                 continue;
             }
         };
@@ -132,185 +96,458 @@ fn fold_effective_review_status(
     latest.into_values().collect()
 }
 
-fn revision_id_from_tagged(tagged: &str) -> Option<TranscriptRevisionId> {
-    let hex = tagged.strip_prefix("rev:sha256-v1:")?;
-    if hex.len() != 64 {
+fn validate_and_decode_review_event(
+    state: &CurrentContractState,
+    event: &EvidenceReviewLedgerEvent,
+    violations: &mut Vec<OracleDiagnosticV3>,
+) -> Option<CorrectionDecision> {
+    let path = format!("review_ledger_events[{}]", event.event_index);
+    let review_case = state
+        .review_cases
+        .iter()
+        .find(|case| case.case_id == event.case_id);
+    let Some(review_case) = review_case else {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::MissingReviewCaseReference,
+            &path,
+            "review ledger references missing review case",
+        ));
+        return None;
+    };
+    if parse_review_case_id(&event.case_id).is_err() {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::MalformedReviewCaseId,
+            &path,
+            "review ledger event references malformed review case id",
+        ));
         return None;
     }
-    let mut digest = [0_u8; 32];
-    for (index, chunk) in hex.as_bytes().chunks(2).enumerate() {
-        if index >= 32 {
-            break;
-        }
-        let hi = (chunk[0] as char).to_digit(16)? as u8;
-        let lo = (chunk[1] as char).to_digit(16)? as u8;
-        digest[index] = (hi << 4) | lo;
+    if !state
+        .source_revisions
+        .iter()
+        .any(|revision| revision.revision_id == event.observed_revision_id)
+    {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::ChangedSourceRevisionIdentity,
+            &path,
+            "review ledger references missing source revision",
+        ));
+        return None;
     }
-    Some(TranscriptRevisionId::from_sha256_digest(digest))
+    if event.observed_revision_id != review_case.observed_revision_id {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::ReviewLedgerEventRevisionMismatch,
+            &path,
+            "review ledger event observed revision differs from review case",
+        ));
+        return None;
+    }
+    match event.provenance.as_str() {
+        "human" => {}
+        "automatic" => {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::FabricatedAutomaticDecision,
+                &path,
+                "automatic provenance is forbidden",
+            ));
+            return None;
+        }
+        _ => {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::UnknownDecisionProvenance,
+                &path,
+                "unknown review ledger provenance",
+            ));
+            return None;
+        }
+    }
+
+    match event.action_kind.as_str() {
+        "manual_replacement" => {
+            if event.alternative_index.is_some() {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "manual replacement must not include alternative index",
+                ));
+                return None;
+            }
+            let Some(replacement_text) = event.manual_replacement_bytes.as_deref() else {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "manual replacement bytes are required",
+                ));
+                return None;
+            };
+            if replacement_text.is_empty() {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "manual replacement bytes must not be empty",
+                ));
+                return None;
+            }
+            match ManualReplacementText::new(
+                replacement_text,
+                review_case.observed_source_bytes.as_str(),
+            ) {
+                Ok(replacement) => Some(CorrectionDecision::ManualReplacement { replacement }),
+                Err(_) => {
+                    violations.push(diagnostic(
+                        OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                        &path,
+                        "manual replacement bytes are invalid for observed source bytes",
+                    ));
+                    None
+                }
+            }
+        }
+        "accept_alternative" => {
+            if event.manual_replacement_bytes.is_some() {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "accept alternative must not include manual replacement bytes",
+                ));
+                return None;
+            }
+            let Some(alternative_index) = event.alternative_index else {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "accept alternative requires alternative index",
+                ));
+                return None;
+            };
+            Some(CorrectionDecision::AcceptAlternative { alternative_index })
+        }
+        "reject" | "defer" | "needs_manual_correction" => {
+            if event.manual_replacement_bytes.is_some() || event.alternative_index.is_some() {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "non-replacement actions must not include replacement payload fields",
+                ));
+                return None;
+            }
+            Some(match event.action_kind.as_str() {
+                "reject" => CorrectionDecision::Reject,
+                "defer" => CorrectionDecision::Defer,
+                _ => CorrectionDecision::NeedsManualCorrection,
+            })
+        }
+        other => {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::ChangedReviewLedgerPayload,
+                &path,
+                &format!("unsupported action kind {other}"),
+            ));
+            None
+        }
+    }
+}
+
+struct GovernanceFoldState {
+    rejected: BTreeSet<String>,
+    records_by_id: BTreeMap<usize, EvidenceReusableRecord>,
+    revoked: HashSet<usize>,
+    superseded: BTreeMap<usize, usize>,
+}
+
+impl GovernanceFoldState {
+    fn new() -> Self {
+        Self {
+            rejected: BTreeSet::new(),
+            records_by_id: BTreeMap::new(),
+            revoked: HashSet::new(),
+            superseded: BTreeMap::new(),
+        }
+    }
+
+    fn finalize(self) -> (Vec<EvidenceReusableRecord>, Vec<EvidenceReusableRecord>) {
+        let mut effective_reusable_records = Vec::new();
+        let mut historical_reusable_records = Vec::new();
+        for record in self.records_by_id.into_values() {
+            if self.revoked.contains(&record.record_id)
+                || self.superseded.contains_key(&record.record_id)
+            {
+                historical_reusable_records.push(record);
+            } else {
+                effective_reusable_records.push(record);
+            }
+        }
+        effective_reusable_records.sort_by_key(|record| record.record_id);
+        historical_reusable_records.sort_by_key(|record| record.record_id);
+        (effective_reusable_records, historical_reusable_records)
+    }
 }
 
 fn fold_reuse_governance(
     state: &CurrentContractState,
+    event_limit: usize,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> (
     Vec<EvidenceReusableRecord>,
     Vec<EvidenceReusableRecord>,
     Vec<String>,
 ) {
-    let mut rejected = BTreeSet::new();
-    let mut records_by_id: BTreeMap<usize, EvidenceReusableRecord> = BTreeMap::new();
-    let mut revoked: HashSet<usize> = HashSet::new();
-    let mut superseded: BTreeMap<usize, usize> = BTreeMap::new();
+    let mut fold = GovernanceFoldState::new();
+    for event in state.reuse_governance_events.iter().take(event_limit) {
+        apply_governance_event(state, event, &mut fold, violations);
+    }
+    let rejected: Vec<String> = fold.rejected.iter().cloned().collect();
+    let (effective, historical) = fold.finalize();
+    (effective, historical, rejected)
+}
 
-    for event in &state.reuse_governance_events {
-        match event {
-            EvidenceReuseGovernanceEvent::PromotionCandidateRejected {
-                event_index,
-                candidate_key,
+fn apply_governance_event(
+    state: &CurrentContractState,
+    event: &EvidenceReuseGovernanceEvent,
+    fold: &mut GovernanceFoldState,
+    violations: &mut Vec<OracleDiagnosticV3>,
+) {
+    match event {
+        EvidenceReuseGovernanceEvent::PromotionCandidateRejected {
+            event_index,
+            candidate_key,
+            actor,
+        } => {
+            let path = format!("reuse_governance_events[{event_index}]");
+            if !validate_governance_actor_session_bound(
                 actor,
-            } => {
-                validate_candidate_key(state, candidate_key, violations);
-                validate_governance_actor(actor, violations);
-                let identity = rejection_identity_digest(
-                    &candidate_key.project_scope_stable_id,
-                    &candidate_key.source_locator.source_review_case_id,
-                    candidate_key.source_locator.review_ledger_position,
-                    &candidate_key.source_locator.decision_digest,
-                );
-                rejected.insert(identity);
-                let _ = event_index;
+                &state.session_authority,
+                &path,
+                violations,
+            ) {
+                return;
             }
-            EvidenceReuseGovernanceEvent::PromotionAccepted {
-                event_index,
-                candidate_key,
-                payload,
-                source_locator,
-                actor,
-                project_scope_stable_id,
-            } => {
-                validate_candidate_key(state, candidate_key, violations);
-                validate_locator_integrity(state, source_locator, payload, violations);
-                validate_promotion_locator_matches_candidate(
-                    candidate_key,
-                    source_locator,
-                    violations,
-                );
-                if project_scope_stable_id != &state.project_scope.stable_id {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::CrossProjectRecordReference,
-                        "reuse_governance_events",
-                        "promotion project scope does not match session project scope",
-                    ));
-                }
-                if records_by_id.contains_key(event_index) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::DuplicateAcceptedRecordId,
-                        "reuse_governance_events",
-                        "duplicate promotion accepted record id",
-                    ));
-                }
-                if rejected.contains(&rejection_identity_digest(
-                    &candidate_key.project_scope_stable_id,
-                    &candidate_key.source_locator.source_review_case_id,
-                    candidate_key.source_locator.review_ledger_position,
-                    &candidate_key.source_locator.decision_digest,
-                )) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::PromotionAfterRejectedCandidate,
-                        "reuse_governance_events",
-                        "promotion accepted after candidate rejection",
-                    ));
-                }
-                records_by_id.insert(
-                    *event_index,
-                    EvidenceReusableRecord {
-                        record_id: *event_index,
-                        project_scope_stable_id: project_scope_stable_id.clone(),
-                        observed_text: payload.observed_text.clone(),
-                        confirmed_replacement: payload.confirmed_replacement.clone(),
-                        source_locator: source_locator.clone(),
-                        promotion_actor: actor.clone(),
-                        superseded_by: None,
-                    },
-                );
+            if !validate_candidate_key(state, candidate_key, violations) {
+                return;
             }
-            EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked {
-                event_index: _,
-                record_id,
-                actor,
-            } => {
-                validate_governance_actor(actor, violations);
-                if !records_by_id.contains_key(record_id) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::RevokeUnknownRecord,
-                        "reuse_governance_events",
-                        "revocation references unknown record",
-                    ));
-                } else if revoked.contains(record_id) || superseded.contains_key(record_id) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::RevokeInactiveRecord,
-                        "reuse_governance_events",
-                        "revocation targets already inactive record",
-                    ));
-                }
-                revoked.insert(*record_id);
+            let identity = rejection_identity_digest(
+                &candidate_key.project_scope_stable_id,
+                &candidate_key.source_locator.source_review_case_id,
+                candidate_key.source_locator.review_ledger_position,
+                &candidate_key.source_locator.decision_digest,
+            );
+            if fold.rejected.contains(&identity) {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::DuplicateRejectionIdentity,
+                    &path,
+                    "candidate has already been rejected",
+                ));
+                return;
             }
-            EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded {
-                event_index: _,
-                predecessor_record_id,
-                successor_record_id,
+            if fold.records_by_id.values().any(|record| {
+                record.source_locator == candidate_key.source_locator
+                    && record.project_scope_stable_id == candidate_key.project_scope_stable_id
+            }) {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::PromotionAfterRejectedCandidate,
+                    &path,
+                    "candidate rejection after promotion is forbidden",
+                ));
+                return;
+            }
+            fold.rejected.insert(identity);
+        }
+        EvidenceReuseGovernanceEvent::PromotionAccepted {
+            event_index,
+            candidate_key,
+            payload,
+            source_locator,
+            actor,
+            project_scope_stable_id,
+        } => {
+            let path = format!("reuse_governance_events[{event_index}]");
+            if !validate_governance_actor_session_bound(
                 actor,
-            } => {
-                validate_governance_actor(actor, violations);
-                if !records_by_id.contains_key(predecessor_record_id) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::SupersedeUnknownPredecessor,
-                        "reuse_governance_events",
-                        "supersession references unknown predecessor",
-                    ));
-                }
-                if !records_by_id.contains_key(successor_record_id) {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::SupersedeUnknownSuccessor,
-                        "reuse_governance_events",
-                        "supersession references unknown successor",
-                    ));
-                }
-                if predecessor_record_id == successor_record_id {
-                    violations.push(diagnostic(
-                        OracleViolationCodeV3::InvalidSupersessionLineage,
-                        "reuse_governance_events",
-                        "supersession predecessor equals successor",
-                    ));
-                }
-                superseded.insert(*predecessor_record_id, *successor_record_id);
+                &state.session_authority,
+                &path,
+                violations,
+            ) {
+                return;
+            }
+            if !validate_candidate_key(state, candidate_key, violations) {
+                return;
+            }
+            if candidate_key.exact_payload != *payload {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::PromotionPayloadMismatch,
+                    &path,
+                    "promotion payload does not match candidate key payload",
+                ));
+                return;
+            }
+            if candidate_key.source_locator != *source_locator {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::PromotionLocatorMismatch,
+                    &path,
+                    "promotion source locator does not equal candidate locator",
+                ));
+                return;
+            }
+            validate_locator_integrity(state, source_locator, payload, violations);
+            if project_scope_stable_id != &state.project_scope.stable_id {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::CrossProjectRecordReference,
+                    &path,
+                    "promotion project scope does not match session project scope",
+                ));
+                return;
+            }
+            let rejection = rejection_identity_digest(
+                &candidate_key.project_scope_stable_id,
+                &candidate_key.source_locator.source_review_case_id,
+                candidate_key.source_locator.review_ledger_position,
+                &candidate_key.source_locator.decision_digest,
+            );
+            if fold.rejected.contains(&rejection) {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::PromotionAfterRejectedCandidate,
+                    &path,
+                    "promotion accepted after candidate rejection",
+                ));
+                return;
+            }
+            if fold.records_by_id.contains_key(event_index) {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::DuplicateAcceptedRecordId,
+                    &path,
+                    "duplicate promotion accepted record id",
+                ));
+                return;
+            }
+            if *event_index != fold.records_by_id.len() {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::InvalidGovernanceTransition,
+                    &path,
+                    "record id must equal promotion event index",
+                ));
+                return;
+            }
+            fold.records_by_id.insert(
+                *event_index,
+                EvidenceReusableRecord {
+                    record_id: *event_index,
+                    project_scope_stable_id: project_scope_stable_id.clone(),
+                    observed_text: payload.observed_text.clone(),
+                    confirmed_replacement: payload.confirmed_replacement.clone(),
+                    source_locator: source_locator.clone(),
+                    promotion_actor: actor.clone(),
+                    superseded_by: None,
+                },
+            );
+        }
+        EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked {
+            event_index,
+            record_id,
+            actor,
+        } => {
+            let path = format!("reuse_governance_events[{event_index}]");
+            if !validate_governance_actor_session_bound(
+                actor,
+                &state.session_authority,
+                &path,
+                violations,
+            ) {
+                return;
+            }
+            let Some(record) = fold.records_by_id.get(record_id) else {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::RevokeUnknownRecord,
+                    &path,
+                    "revocation references unknown record",
+                ));
+                return;
+            };
+            if record.project_scope_stable_id != state.project_scope.stable_id {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::CrossProjectRecordReference,
+                    &path,
+                    "revocation references record outside session project scope",
+                ));
+                return;
+            }
+            if fold.revoked.contains(record_id) || fold.superseded.contains_key(record_id) {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::RevokeInactiveRecord,
+                    &path,
+                    "revocation targets already inactive record",
+                ));
+                return;
+            }
+            fold.revoked.insert(*record_id);
+        }
+        EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded {
+            event_index,
+            predecessor_record_id,
+            successor_record_id,
+            actor,
+        } => {
+            let path = format!("reuse_governance_events[{event_index}]");
+            if !validate_governance_actor_session_bound(
+                actor,
+                &state.session_authority,
+                &path,
+                violations,
+            ) {
+                return;
+            }
+            if predecessor_record_id == successor_record_id {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::InvalidSupersessionLineage,
+                    &path,
+                    "supersession predecessor equals successor",
+                ));
+                return;
+            }
+            let predecessor_active = fold.records_by_id.contains_key(predecessor_record_id)
+                && !fold.revoked.contains(predecessor_record_id)
+                && !fold.superseded.contains_key(predecessor_record_id);
+            let successor_active = fold.records_by_id.contains_key(successor_record_id)
+                && !fold.revoked.contains(successor_record_id)
+                && !fold.superseded.contains_key(successor_record_id);
+            if !predecessor_active {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::SupersedeUnknownPredecessor,
+                    &path,
+                    "supersession references inactive or unknown predecessor",
+                ));
+                return;
+            }
+            if !successor_active {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::SupersedeUnknownSuccessor,
+                    &path,
+                    "supersession references inactive or unknown successor",
+                ));
+                return;
+            }
+            if fold
+                .records_by_id
+                .get(predecessor_record_id)
+                .map(|record| record.project_scope_stable_id.as_str())
+                != fold
+                    .records_by_id
+                    .get(successor_record_id)
+                    .map(|record| record.project_scope_stable_id.as_str())
+            {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::CrossProjectRecordReference,
+                    &path,
+                    "supersession records must belong to the same project scope",
+                ));
+                return;
+            }
+            fold.superseded
+                .insert(*predecessor_record_id, *successor_record_id);
+            if let Some(record) = fold.records_by_id.get_mut(predecessor_record_id) {
+                record.superseded_by = Some(*successor_record_id);
             }
         }
     }
-
-    for (predecessor, successor) in &superseded {
-        if let Some(record) = records_by_id.get_mut(predecessor) {
-            record.superseded_by = Some(*successor);
-        }
-    }
-
-    let mut effective_reusable_records = Vec::new();
-    let mut historical_reusable_records = Vec::new();
-    for record in records_by_id.into_values() {
-        if revoked.contains(&record.record_id) || superseded.contains_key(&record.record_id) {
-            historical_reusable_records.push(record);
-        } else {
-            effective_reusable_records.push(record);
-        }
-    }
-    effective_reusable_records.sort_by_key(|record| record.record_id);
-    historical_reusable_records.sort_by_key(|record| record.record_id);
-
-    (
-        effective_reusable_records,
-        historical_reusable_records,
-        rejected.into_iter().collect(),
-    )
 }
 
 pub fn validate_locator_integrity(
@@ -319,6 +556,22 @@ pub fn validate_locator_integrity(
     payload: &EvidenceExactReusableCorrection,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) {
+    if parse_review_case_id(&locator.source_review_case_id).is_err() {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::MalformedReviewCaseId,
+            "source_locator.source_review_case_id",
+            "malformed review case id in source locator",
+        ));
+        return;
+    }
+    if parse_decision_digest_hex(&locator.decision_digest).is_err() {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::MalformedDecisionDigest,
+            "source_locator.decision_digest",
+            "malformed decision digest in source locator",
+        ));
+        return;
+    }
     if !state
         .source_revisions
         .iter()
@@ -396,17 +649,22 @@ pub fn validate_locator_integrity(
             "manual replacement bytes do not match ledger event",
         ));
     }
-    let expected_digest = evidence_decision_digest(
+    match production_decision_digest_hex(
         &locator.source_review_case_id,
         &locator.source_revision_id,
         replacement,
-    );
-    if locator.decision_digest != expected_digest {
-        violations.push(diagnostic(
-            OracleViolationCodeV3::DecisionDigestMismatch,
-            "source_locator.decision_digest",
-            "decision digest does not match canonical exact decision bytes",
-        ));
+        &review_case.observed_source_bytes,
+    ) {
+        Ok(expected_digest) => {
+            if locator.decision_digest != expected_digest {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::DecisionDigestMismatch,
+                    "source_locator.decision_digest",
+                    "decision digest does not match canonical exact decision bytes",
+                ));
+            }
+        }
+        Err(diagnostic) => violations.push(diagnostic),
     }
     if !prefix_effective_at(
         state,
@@ -422,31 +680,18 @@ pub fn validate_locator_integrity(
     }
 }
 
-fn validate_promotion_locator_matches_candidate(
-    candidate_key: &EvidenceReuseCandidateKey,
-    source_locator: &EvidenceSourceDecisionLocator,
-    violations: &mut Vec<OracleDiagnosticV3>,
-) {
-    if candidate_key.source_locator != *source_locator {
-        violations.push(diagnostic(
-            OracleViolationCodeV3::PromotionLocatorMismatch,
-            "reuse_governance_events",
-            "promotion source locator does not equal candidate locator",
-        ));
-    }
-}
-
 fn validate_candidate_key(
     state: &CurrentContractState,
     candidate_key: &EvidenceReuseCandidateKey,
     violations: &mut Vec<OracleDiagnosticV3>,
-) {
+) -> bool {
     if candidate_key.project_scope_stable_id != state.project_scope.stable_id {
         violations.push(diagnostic(
             OracleViolationCodeV3::CrossProjectRecordReference,
             "candidate_key.project_scope_stable_id",
             "candidate key project scope mismatch",
         ));
+        return false;
     }
     validate_locator_integrity(
         state,
@@ -454,25 +699,31 @@ fn validate_candidate_key(
         &candidate_key.exact_payload,
         violations,
     );
-}
-
-fn validate_governance_actor(
-    actor: &EvidenceGovernanceActor,
-    violations: &mut Vec<OracleDiagnosticV3>,
-) {
-    if actor.role_label.is_empty() || actor.display_label.is_empty() {
-        violations.push(diagnostic(
-            OracleViolationCodeV3::ChangedReuseGovernanceActor,
-            "reuse_governance_events.actor",
-            "governance actor context is incomplete",
-        ));
-    }
+    true
 }
 
 fn validate_review_cases_and_ledger(
     state: &CurrentContractState,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) {
+    let mut seen_case_ids = HashSet::new();
+    for review_case in &state.review_cases {
+        if parse_review_case_id(&review_case.case_id).is_err() {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::MalformedReviewCaseId,
+                "review_cases",
+                "malformed review case id",
+            ));
+        }
+        if !seen_case_ids.insert(review_case.case_id.clone()) {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::DuplicateReviewCaseId,
+                "review_cases",
+                "duplicate review case id",
+            ));
+        }
+    }
+
     let mut seen_indices = HashSet::new();
     for (offset, event) in state.review_ledger_events.iter().enumerate() {
         if event.event_index != offset {
@@ -487,35 +738,6 @@ fn validate_review_cases_and_ledger(
                 OracleViolationCodeV3::ReviewLedgerDuplicateIndex,
                 "review_ledger_events",
                 "duplicate review ledger event index",
-            ));
-        }
-        if event.provenance == "automatic" {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::FabricatedAutomaticDecision,
-                "review_ledger_events",
-                "automatic provenance is forbidden",
-            ));
-        }
-        if !state
-            .review_cases
-            .iter()
-            .any(|case| case.case_id == event.case_id)
-        {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::MissingReviewCaseReference,
-                "review_ledger_events",
-                "review ledger references missing review case",
-            ));
-        }
-        if !state
-            .source_revisions
-            .iter()
-            .any(|revision| revision.revision_id == event.observed_revision_id)
-        {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::ChangedSourceRevisionIdentity,
-                "review_ledger_events",
-                "review ledger references missing source revision",
             ));
         }
     }
@@ -546,11 +768,21 @@ fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<Or
             ));
             continue;
         };
-        let segment = revision
-            .transcript_bytes
-            .split("\n\n")
-            .nth(review_case.anchor_segment_position);
-        let Some(segment_text) = segment.and_then(|block| block.lines().last()) else {
+        let transcript = match crate::srt::parse_srt(&revision.transcript_bytes) {
+            Ok(value) => value,
+            Err(_) => {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedTranscriptRepresentation,
+                    "source_revisions",
+                    "malformed transcript representation for anchor validation",
+                ));
+                continue;
+            }
+        };
+        let Some(segment) = transcript
+            .segments()
+            .get(review_case.anchor_segment_position)
+        else {
             violations.push(diagnostic(
                 OracleViolationCodeV3::SourceAnchorSegmentMismatch,
                 "review_cases",
@@ -558,17 +790,31 @@ fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<Or
             ));
             continue;
         };
-        if review_case.anchor_end_byte > segment_text.len()
-            || review_case.anchor_start_byte > review_case.anchor_end_byte
+        let segment_text = segment.text();
+        if review_case.anchor_start_byte >= review_case.anchor_end_byte
+            || !segment_text.is_char_boundary(review_case.anchor_start_byte)
+            || !segment_text.is_char_boundary(review_case.anchor_end_byte)
+            || review_case.anchor_end_byte > segment_text.len()
         {
             violations.push(diagnostic(
-                OracleViolationCodeV3::SourceAnchorOutOfBounds,
+                OracleViolationCodeV3::Utf8AnchorBoundaryViolation,
                 "review_cases",
-                "anchor byte range out of bounds",
+                "anchor byte range is not a valid UTF-8 boundary",
             ));
             continue;
         }
-        let resolved = &segment_text[review_case.anchor_start_byte..review_case.anchor_end_byte];
+        let resolved =
+            match segment_text.get(review_case.anchor_start_byte..review_case.anchor_end_byte) {
+                Some(value) => value,
+                None => {
+                    violations.push(diagnostic(
+                        OracleViolationCodeV3::SourceAnchorOutOfBounds,
+                        "review_cases",
+                        "anchor byte range out of bounds",
+                    ));
+                    continue;
+                }
+            };
         if resolved != review_case.observed_source_bytes {
             violations.push(diagnostic(
                 OracleViolationCodeV3::SourceAnchorResolvedBytesMismatch,
@@ -610,6 +856,48 @@ fn validate_governance_events(
     }
 }
 
+fn validate_historical_binding(
+    state: &CurrentContractState,
+    violations: &mut Vec<OracleDiagnosticV3>,
+) {
+    let Some(binding) = state.reuse_enabled_analysis_binding.as_ref() else {
+        return;
+    };
+    if binding.projection_version != REUSABLE_INFLUENCE_PROJECTION_VERSION {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,
+            "reuse_enabled_analysis_binding.projection_version",
+            "historical binding projection version mismatch",
+        ));
+    }
+    if binding.analysis_snapshot_identity != binding.analysis_snapshot.identity {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,
+            "reuse_enabled_analysis_binding.analysis_snapshot_identity",
+            "historical binding analysis snapshot identity mismatch",
+        ));
+    }
+    let (active_at_boundary, _, _) =
+        fold_reuse_governance(state, binding.governance_event_boundary, violations);
+    match compute_production_snapshot_identity(
+        &state.project_scope.stable_id,
+        binding.governance_event_boundary,
+        &active_at_boundary,
+        &state.analysis_snapshots,
+    ) {
+        Ok(expected) => {
+            if binding.reusable_snapshot_identity != expected {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::HistoricalBindingSnapshotMismatch,
+                    "reuse_enabled_analysis_binding.reusable_snapshot_identity",
+                    "historical binding snapshot does not match production identity at boundary",
+                ));
+            }
+        }
+        Err(diagnostic) => violations.push(diagnostic),
+    }
+}
+
 fn prefix_effective_at(
     state: &CurrentContractState,
     case_id: &str,
@@ -630,136 +918,24 @@ fn prefix_effective_at(
 fn recompute_snapshot_identity(
     state: &CurrentContractState,
     active_records: &[EvidenceReusableRecord],
+    governance_event_boundary: usize,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> String {
     if state.project_scope.stable_id.is_empty() {
         return String::new();
     }
-    const DOMAIN: &[u8] = b"voxproof-reusable-influence-snapshot-identity-v2";
-    let mut hasher = Sha256::new();
-    hasher.update(DOMAIN);
-    hash_string(&mut hasher, &state.project_scope.stable_id);
-    hasher.update((state.reuse_governance_events.len() as u64).to_le_bytes());
-    hash_string(&mut hasher, REUSABLE_INFLUENCE_PROJECTION_VERSION);
-    hasher.update((active_records.len() as u64).to_le_bytes());
-    for record in active_records {
-        hasher.update((record.record_id as u64).to_le_bytes());
-        hash_string(&mut hasher, &record.observed_text);
-        hash_string(&mut hasher, &record.confirmed_replacement);
-        hash_locator(&mut hasher, &record.source_locator);
-        hash_string(&mut hasher, &record.promotion_actor.role_label);
-        hash_string(&mut hasher, &record.promotion_actor.display_label);
-        if record.project_scope_stable_id != state.project_scope.stable_id {
-            violations.push(diagnostic(
-                OracleViolationCodeV3::CrossProjectRecordReference,
-                "effective_reusable_records",
-                "active record references another project scope",
-            ));
+    match compute_production_snapshot_identity(
+        &state.project_scope.stable_id,
+        governance_event_boundary,
+        active_records,
+        &state.analysis_snapshots,
+    ) {
+        Ok(identity) => identity,
+        Err(diagnostic) => {
+            violations.push(diagnostic);
+            String::new()
         }
     }
-    format!(
-        "reusable-influence-snapshot:sha256-v2:{}",
-        digest_hex(hasher.finalize())
-    )
-}
-
-fn recompute_reuse_enabled_binding(
-    state: &CurrentContractState,
-    snapshot_identity: &str,
-    _violations: &mut Vec<OracleDiagnosticV3>,
-) -> EvidenceReuseEnabledAnalysisBinding {
-    let governance_event_boundary = state.reuse_governance_events.len();
-    if snapshot_identity.is_empty() {
-        return EvidenceReuseEnabledAnalysisBinding {
-            analysis_snapshot_identity: String::new(),
-            reusable_snapshot_identity: String::new(),
-            governance_event_boundary,
-            projection_version: REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
-        };
-    }
-    let analysis_snapshot_identity = state
-        .analysis_snapshots
-        .iter()
-        .map(|snapshot| snapshot.identity.as_str())
-        .collect::<Vec<_>>();
-    let reuse_enabled_analysis = analysis_snapshot_identity
-        .get(1)
-        .copied()
-        .or(analysis_snapshot_identity.first().copied())
-        .unwrap_or_default()
-        .to_owned();
-    EvidenceReuseEnabledAnalysisBinding {
-        analysis_snapshot_identity: reuse_enabled_analysis,
-        reusable_snapshot_identity: snapshot_identity.to_owned(),
-        governance_event_boundary,
-        projection_version: REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
-    }
-}
-
-pub fn evidence_decision_digest(
-    case_id: &str,
-    observed_revision_id: &str,
-    replacement: &str,
-) -> String {
-    const DOMAIN: &[u8] = b"voxproof-manual-replacement-decision-digest-v1";
-    let local_index = case_id
-        .strip_prefix("review-case:")
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(0);
-    let mut hasher = Sha256::new();
-    hasher.update(DOMAIN);
-    hasher.update(local_index.to_le_bytes());
-    hasher.update(observed_revision_id.as_bytes());
-    hasher.update((replacement.len() as u64).to_le_bytes());
-    hasher.update(replacement.as_bytes());
-    digest_hex(hasher.finalize())
-}
-
-fn hash_locator(hasher: &mut Sha256, locator: &EvidenceSourceDecisionLocator) {
-    hash_string(hasher, &locator.source_revision_id);
-    hash_string(hasher, &locator.source_analysis_snapshot_identity);
-    if let Some(local_index) = locator
-        .source_review_case_id
-        .strip_prefix("review-case:")
-        .and_then(|value| value.parse::<u64>().ok())
-    {
-        hasher.update(local_index.to_le_bytes());
-    }
-    hasher.update((locator.review_ledger_position as u64).to_le_bytes());
-    if let Some(bytes) = decode_hex_32(&locator.decision_digest) {
-        hasher.update(bytes);
-    }
-    hasher.update((locator.effective_at_ledger_length as u64).to_le_bytes());
-}
-
-fn decode_hex_32(value: &str) -> Option<[u8; 32]> {
-    if value.len() != 64 {
-        return None;
-    }
-    let mut out = [0_u8; 32];
-    for (index, chunk) in value.as_bytes().chunks(2).enumerate() {
-        let hi = (chunk[0] as char).to_digit(16)? as u8;
-        let lo = (chunk[1] as char).to_digit(16)? as u8;
-        out[index] = (hi << 4) | lo;
-    }
-    Some(out)
-}
-
-fn hash_string(hasher: &mut Sha256, value: &str) {
-    hasher.update((value.len() as u64).to_le_bytes());
-    hasher.update(value.as_bytes());
-}
-
-fn digest_hex(bytes: impl AsRef<[u8]>) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    bytes.as_ref().iter().fold(
-        String::with_capacity(bytes.as_ref().len() * 2),
-        |mut out, byte| {
-            out.push(HEX[(byte >> 4) as usize] as char);
-            out.push(HEX[(byte & 0x0f) as usize] as char);
-            out
-        },
-    )
 }
 
 pub fn compare_supplied_derived(
@@ -801,18 +977,6 @@ pub fn compare_supplied_derived(
             OracleViolationCodeV3::ChangedReusableSnapshotIdentity,
             "reusable_snapshot_identity",
             "candidate-supplied snapshot identity does not match independent recomputation",
-        ));
-    }
-    if !state
-        .reuse_enabled_analysis_binding
-        .reusable_snapshot_identity
-        .is_empty()
-        && state.reuse_enabled_analysis_binding != derived.reuse_enabled_analysis_binding
-    {
-        violations.push(diagnostic(
-            OracleViolationCodeV3::ReuseAnalysisSnapshotMismatch,
-            "reuse_enabled_analysis_binding",
-            "candidate-supplied reuse-enabled analysis binding does not match independent derivation",
         ));
     }
 }

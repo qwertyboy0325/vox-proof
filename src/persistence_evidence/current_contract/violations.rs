@@ -43,6 +43,23 @@ pub enum OracleViolationCodeV3 {
     SourceAnchorSegmentMismatch,
     SourceAnchorOutOfBounds,
     SourceAnchorResolvedBytesMismatch,
+    MalformedReviewCaseId,
+    MalformedDecisionDigest,
+    MalformedAnalysisSnapshot,
+    MalformedReviewLedgerEvent,
+    ReviewLedgerEventRevisionMismatch,
+    DuplicateReviewCaseId,
+    UnknownDecisionProvenance,
+    GovernanceActorRoleMismatch,
+    GovernanceActorLabelMismatch,
+    GovernanceActorLabelNonCanonical,
+    PromotionPayloadMismatch,
+    DuplicateRejectionIdentity,
+    InvalidGovernanceTransition,
+    Utf8AnchorBoundaryViolation,
+    MalformedTranscriptRepresentation,
+    HistoricalBindingSnapshotMismatch,
+    HistoricalBindingAnalysisMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

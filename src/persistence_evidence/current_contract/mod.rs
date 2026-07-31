@@ -5,6 +5,7 @@ pub mod fixture;
 pub mod measurement;
 pub mod model;
 pub mod oracle;
+pub mod production_bridge;
 pub mod projection;
 pub mod readiness;
 pub mod scenario_contract;
@@ -33,6 +34,7 @@ pub use fixture::{
 pub use measurement::{
     ComparativeMeasurementContract, DeferredFixtureScale, MEASUREMENT_CONTRACT_VERSION,
     MinimumEnvironmentMetadata, comparative_measurement_contract, validate_measurement_contract,
+    validate_measurement_contract_value,
 };
 pub use model::{
     CURRENT_CONTRACT_FIXTURE_ID, CURRENT_CONTRACT_FIXTURE_VERSION, CurrentContractFixture,
@@ -48,9 +50,9 @@ pub use projection::{
 };
 pub use readiness::{CurrentContractReadiness, EVIDENCE_PACKAGE_FILES, current_contract_readiness};
 pub use scenario_contract::{
-    ExpectedOpenState, ExpectedRecoveryClass, FaultLayer, SCENARIO_CONTRACT_VERSION,
-    ScenarioContractV3, ScenarioRequirementLevel, scenario_contract_v3,
-    validate_scenario_contract_v3,
+    ExpectedOpenState, ExpectedRecoveryClass, FaultLayer, ReadOnlyOpenPolicy,
+    SCENARIO_CONTRACT_VERSION, ScenarioContractV3, ScenarioRequirementLevel, scenario_contract_v3,
+    validate_scenario_contract_v3, validate_scenario_contracts_v3,
 };
 pub use serialization::{
     CANDIDATE_KEY_SERIALIZATION_VERSION, LOCATOR_SERIALIZATION_VERSION,

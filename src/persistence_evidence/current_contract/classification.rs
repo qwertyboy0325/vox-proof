@@ -120,10 +120,31 @@ pub const FIELD_CLASSIFICATION_REGISTRY: &[ClassifiedField] = &[
         ),
     },
     ClassifiedField {
-        field_path: "reuse_enabled_analysis_binding",
-        classification: FieldClassification::DerivedRebuildable,
+        field_path: "durable_command_tokens",
+        classification: FieldClassification::CanonicalHistoricalProvenance,
         reconstruction_requirement: Some(
-            "Structural binding between reuse-enabled analysis snapshot identity and recomputed reusable snapshot identity.",
+            "Evidence-only durable acknowledgement boundary and writer token; not production session authority.",
+        ),
+    },
+    ClassifiedField {
+        field_path: "durable_command_tokens.evidence_writer_token",
+        classification: FieldClassification::CanonicalHistoricalProvenance,
+        reconstruction_requirement: Some(
+            "Evidence-only concurrency token; excluded from production authority semantics.",
+        ),
+    },
+    ClassifiedField {
+        field_path: "reuse_enabled_analysis_binding",
+        classification: FieldClassification::CanonicalHistoricalProvenance,
+        reconstruction_requirement: Some(
+            "Records that a specific reuse-enabled analysis executed against a specific immutable reusable-influence snapshot and governance boundary at that historical time.",
+        ),
+    },
+    ClassifiedField {
+        field_path: "analysis_snapshots.typed_inputs",
+        classification: FieldClassification::CanonicalAuthority,
+        reconstruction_requirement: Some(
+            "Typed detector set, configuration, algorithm, and session terms inputs required for production-equivalent analysis snapshot hashing.",
         ),
     },
     ClassifiedField {

@@ -12,11 +12,12 @@ use crate::reuse_primitives::SourceDecisionLocator;
 use crate::review::{CorrectionDecision, ReviewLedgerEvent};
 
 use super::model::{
-    CurrentContractState, EvidenceAnalysisSnapshot, EvidenceDurableCommandTokens,
-    EvidenceExactReusableCorrection, EvidenceGovernanceActor, EvidenceMaterialUseDeclaration,
-    EvidenceProjectScope, EvidenceReuseCandidateKey, EvidenceReuseEnabledAnalysisBinding,
-    EvidenceReuseGovernanceEvent, EvidenceReviewCase, EvidenceReviewLedgerEvent,
-    EvidenceSessionAuthority, EvidenceSourceDecisionLocator, EvidenceSourceRevision,
+    CurrentContractState, EvidenceAnalysisSnapshot, EvidenceDetectorIdentity,
+    EvidenceDurableCommandTokens, EvidenceExactReusableCorrection, EvidenceGovernanceActor,
+    EvidenceMaterialUseDeclaration, EvidenceProjectScope, EvidenceReuseCandidateKey,
+    EvidenceReuseEnabledAnalysisBinding, EvidenceReuseGovernanceEvent, EvidenceReviewCase,
+    EvidenceReviewLedgerEvent, EvidenceSessionAuthority, EvidenceSourceDecisionLocator,
+    EvidenceSourceRevision, REUSABLE_INFLUENCE_PROJECTION_VERSION,
 };
 use super::serialization::candidate_key_canonical_digest;
 
@@ -38,15 +39,25 @@ pub fn project_current_contract_state(
         .snapshot()
         .session_terms()
         .to_tagged_string();
-    let mut analysis_snapshots = vec![EvidenceAnalysisSnapshot {
-        identity: analysis_snapshot_identity(canonical_run.analysis_run().snapshot()),
-        source_revision_id: revision.clone(),
-    }];
+    let mut analysis_snapshots = vec![map_analysis_snapshot(
+        canonical_run.analysis_run().snapshot(),
+        revision.clone(),
+    )];
+    let reuse_enabled_analysis_binding = session.reuse_enabled_run().map(|reuse_run| {
+        let snapshot = map_analysis_snapshot(reuse_run.analysis_run().snapshot(), revision.clone());
+        EvidenceReuseEnabledAnalysisBinding {
+            analysis_snapshot_identity: snapshot.identity.clone(),
+            analysis_snapshot: snapshot.clone(),
+            reusable_snapshot_identity: reuse_run.reusable_snapshot_identity().to_tagged_string(),
+            governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
+            projection_version: REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
+        }
+    });
     if let Some(reuse_run) = session.reuse_enabled_run() {
-        analysis_snapshots.push(EvidenceAnalysisSnapshot {
-            identity: analysis_snapshot_identity(reuse_run.analysis_run().snapshot()),
-            source_revision_id: revision.clone(),
-        });
+        analysis_snapshots.push(map_analysis_snapshot(
+            reuse_run.analysis_run().snapshot(),
+            revision.clone(),
+        ));
     }
 
     let review_cases = canonical_run
@@ -96,12 +107,9 @@ pub fn project_current_contract_state(
         .map(|(index, event)| map_governance_event(index, event, session))
         .collect();
 
-    let effective_state = reuse_state.effective_state(ledger, canonical_run);
     let effective_reusable_records = Vec::new();
     let historical_reusable_records = Vec::new();
     let reusable_snapshot_identity = String::new();
-    let reuse_enabled_analysis_binding = EvidenceReuseEnabledAnalysisBinding::default();
-    let _ = effective_state;
 
     let material_use_basis = match material_use.basis() {
         DeclaredApplicationMaterialUseBasis::SelfOwned => "self_owned",
@@ -358,6 +366,39 @@ fn digest_hex(bytes: [u8; 32]) -> String {
         out.push(HEX[(byte & 0x0f) as usize] as char);
     }
     out
+}
+
+pub fn map_analysis_snapshot_for_export(
+    snapshot: AnalysisSnapshot,
+    source_revision_id: String,
+) -> EvidenceAnalysisSnapshot {
+    map_analysis_snapshot(snapshot, source_revision_id)
+}
+
+fn map_analysis_snapshot(
+    snapshot: AnalysisSnapshot,
+    source_revision_id: String,
+) -> EvidenceAnalysisSnapshot {
+    let configuration = snapshot.configuration();
+    let detectors = configuration
+        .detector_set()
+        .detectors()
+        .iter()
+        .map(|detector| EvidenceDetectorIdentity {
+            id: detector.id().to_owned(),
+            version: detector.version().to_owned(),
+        })
+        .collect();
+    EvidenceAnalysisSnapshot {
+        identity: analysis_snapshot_identity(snapshot),
+        source_revision_id,
+        session_terms_identity: snapshot.session_terms().to_tagged_string(),
+        detectors,
+        detector_config_id: configuration.detector_config().id().to_owned(),
+        detector_config_version: configuration.detector_config().version().to_owned(),
+        algorithm_id: configuration.algorithm().id().to_owned(),
+        algorithm_version: configuration.algorithm().version().to_owned(),
+    }
 }
 
 fn analysis_snapshot_identity(snapshot: AnalysisSnapshot) -> String {

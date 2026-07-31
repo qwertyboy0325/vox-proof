@@ -49,6 +49,10 @@ impl SessionTermsIdentity {
 
         Self(hasher.finalize().into())
     }
+
+    pub(crate) fn from_digest_for_evidence(digest: [u8; 32]) -> Self {
+        Self(digest)
+    }
 }
 
 fn hash_len(hasher: &mut Sha256, len: usize) {
@@ -186,6 +190,18 @@ impl AnalysisSnapshot {
 
     pub fn configuration(&self) -> AnalysisConfigurationIdentity {
         self.configuration
+    }
+
+    pub(crate) fn from_identity_parts(
+        source_revision: TranscriptRevisionId,
+        session_terms: SessionTermsIdentity,
+        configuration: AnalysisConfigurationIdentity,
+    ) -> Self {
+        Self {
+            source_revision,
+            session_terms,
+            configuration,
+        }
     }
 }
 

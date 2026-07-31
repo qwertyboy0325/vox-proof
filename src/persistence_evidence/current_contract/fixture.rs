@@ -97,11 +97,38 @@ pub fn build_promoted_active_state() -> CurrentContractState {
 }
 
 pub fn build_revoked_historical_state() -> CurrentContractState {
-    project_session(
-        &build_revoked_historical_session(),
+    let session_before_revoke = build_promoted_active_session();
+    let binding = session_before_revoke
+        .reuse_enabled_run()
+        .map(|reuse_run| {
+            let revision = session_before_revoke.source().revision_id().to_tagged_string();
+            let analysis_snapshot = super::projection::map_analysis_snapshot_for_export(
+                reuse_run.analysis_run().snapshot(),
+                revision,
+            );
+            super::model::EvidenceReuseEnabledAnalysisBinding {
+                analysis_snapshot_identity: analysis_snapshot.identity.clone(),
+                analysis_snapshot,
+                reusable_snapshot_identity: reuse_run
+                    .reusable_snapshot_identity()
+                    .to_tagged_string(),
+                governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
+                projection_version: super::model::REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
+            }
+        });
+    let mut session = session_before_revoke;
+    let record_id = ReusableInfluenceRecordId::from_promotion_event_index(0);
+    session
+        .revoke_reusable_influence(record_id)
+        .expect("revoke");
+    let mut state = project_session(
+        &session,
         "session:current-contract:revoked",
         "writer:revoked",
-    )
+    );
+    state.reuse_enabled_analysis_binding = binding;
+    super::derivation::finalize_derived_fields(&mut state);
+    state.normalize()
 }
 
 pub fn build_superseded_state() -> CurrentContractState {
@@ -213,15 +240,6 @@ pub fn build_promoted_active_session() -> ApplicationReviewSession {
     session
         .run_reuse_enabled_review()
         .expect("reuse-enabled run");
-    session
-}
-
-fn build_revoked_historical_session() -> ApplicationReviewSession {
-    let mut session = build_promoted_active_session();
-    let record_id = ReusableInfluenceRecordId::from_promotion_event_index(0);
-    session
-        .revoke_reusable_influence(record_id)
-        .expect("revoke");
     session
 }
 

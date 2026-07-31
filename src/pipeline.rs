@@ -99,6 +99,7 @@ pub struct ReuseEnabledTermReviewRun {
     analysis_run: AnalysisRun,
     review_cases: Vec<ReviewCase>,
     reusable_snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    governance_event_boundary: usize,
 }
 
 impl ReuseEnabledTermReviewRun {
@@ -114,6 +115,10 @@ impl ReuseEnabledTermReviewRun {
         &self,
     ) -> crate::reuse_primitives::ReusableInfluenceSnapshotIdentity {
         self.reusable_snapshot_identity
+    }
+
+    pub fn governance_event_boundary_at_run(&self) -> usize {
+        self.governance_event_boundary
     }
 
     pub fn reuse_enabled_snapshot(&self) -> ReuseEnabledAnalysisSnapshot {
@@ -173,5 +178,6 @@ pub fn run_reuse_enabled_term_review(
         analysis_run: run,
         review_cases: ReviewCase::from_detector_candidates(spans),
         reusable_snapshot_identity: snapshot.identity(),
+        governance_event_boundary: snapshot.governance_event_boundary(),
     })
 }

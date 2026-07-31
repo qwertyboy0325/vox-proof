@@ -45,6 +45,14 @@ pub enum ExpectedOpenState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReadOnlyOpenPolicy {
+    Forbidden,
+    Allowed,
+    ConditionallyAllowed { required_condition: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScenarioContractV3 {
     pub scenario_id: String,
     pub scenario_version: u32,
@@ -59,7 +67,7 @@ pub struct ScenarioContractV3 {
     pub expected_recovery_class: ExpectedRecoveryClass,
     pub expected_open_state: ExpectedOpenState,
     pub writable_open: bool,
-    pub read_only_open_allowed: bool,
+    pub read_only_open: ReadOnlyOpenPolicy,
     pub oracle_assertions: Vec<String>,
     pub allowed_evidence_strength: Vec<String>,
     pub prohibited_claims: Vec<String>,
@@ -117,7 +125,7 @@ fn baseline_create_open_close() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -142,7 +150,7 @@ fn append_review_decision() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -167,7 +175,7 @@ fn append_manual_replacement() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -192,7 +200,7 @@ fn append_promotion_candidate_rejection() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -217,7 +225,7 @@ fn append_reusable_promotion() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -242,7 +250,7 @@ fn append_reusable_revocation() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -267,7 +275,7 @@ fn append_reusable_supersession() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -292,7 +300,7 @@ fn stale_review_ledger_command() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -317,7 +325,7 @@ fn stale_reuse_governance_command() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -342,7 +350,7 @@ fn stale_analysis_attachment_or_selection() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -367,7 +375,7 @@ fn concurrent_writer_attempt() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: false,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: vec![
@@ -397,7 +405,7 @@ fn writer_crash_and_takeover() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec![
             "InterfaceBehavior".to_owned(),
@@ -425,7 +433,7 @@ fn read_only_open_during_writer() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: false,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -450,7 +458,9 @@ fn unknown_newer_format() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::UnsupportedVersion,
         expected_open_state: ExpectedOpenState::UnsupportedVersion,
         writable_open: false,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::ConditionallyAllowed {
+            required_condition: "interpretation_demonstrably_safe".to_owned(),
+        },
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -475,7 +485,7 @@ fn malformed_format_version() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::Unrecoverable,
         expected_open_state: ExpectedOpenState::Unrecoverable,
         writable_open: false,
-        read_only_open_allowed: false,
+        read_only_open: ReadOnlyOpenPolicy::Forbidden,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -500,7 +510,7 @@ fn canonical_reference_corruption() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::ManualReviewRequired,
         expected_open_state: ExpectedOpenState::ReadOnlySalvage,
         writable_open: false,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -525,7 +535,7 @@ fn review_ledger_order_corruption() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::Unrecoverable,
         expected_open_state: ExpectedOpenState::Unrecoverable,
         writable_open: false,
-        read_only_open_allowed: false,
+        read_only_open: ReadOnlyOpenPolicy::Forbidden,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -550,7 +560,7 @@ fn reuse_governance_order_corruption() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::Unrecoverable,
         expected_open_state: ExpectedOpenState::Unrecoverable,
         writable_open: false,
-        read_only_open_allowed: false,
+        read_only_open: ReadOnlyOpenPolicy::Forbidden,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -575,7 +585,7 @@ fn source_locator_corruption() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::ManualReviewRequired,
         expected_open_state: ExpectedOpenState::ReadOnlySalvage,
         writable_open: false,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -600,7 +610,7 @@ fn derived_state_corruption_and_rebuild() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: Vec::new(),
@@ -625,7 +635,7 @@ fn semantic_duplication() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::None,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
@@ -650,7 +660,7 @@ fn interrupted_authoritative_review_transition() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec![
             "InterfaceBehavior".to_owned(),
@@ -678,7 +688,7 @@ fn interrupted_authoritative_reuse_transition() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec![
             "InterfaceBehavior".to_owned(),
@@ -706,7 +716,7 @@ fn interrupted_compaction() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: NO_DURABILITY.iter().map(|s| (*s).to_owned()).collect(),
@@ -731,7 +741,7 @@ fn interrupted_cleanup() -> ScenarioContractV3 {
         expected_recovery_class: ExpectedRecoveryClass::SafeAutomaticRecovery,
         expected_open_state: ExpectedOpenState::Normal,
         writable_open: true,
-        read_only_open_allowed: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
         prohibited_claims: NO_DURABILITY.iter().map(|s| (*s).to_owned()).collect(),
@@ -751,9 +761,12 @@ const ALLOWED_STRENGTHS: &[&str] = &[
 ];
 
 pub fn validate_scenario_contract_v3() -> Result<(), String> {
-    let scenarios = scenario_contract_v3();
+    validate_scenario_contracts_v3(&scenario_contract_v3())
+}
+
+pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Result<(), String> {
     let mut ids = std::collections::BTreeSet::new();
-    for scenario in &scenarios {
+    for scenario in scenarios {
         let key = format!("{}@{}", scenario.scenario_id, scenario.scenario_version);
         if !ids.insert(key) {
             return Err(format!(
@@ -794,8 +807,27 @@ pub fn validate_scenario_contract_v3() -> Result<(), String> {
             }
         }
         validate_fault_semantics(scenario)?;
-        if scenario.scenario_id == "unknown-newer-format" && scenario.writable_open {
-            return Err("unknown-newer-format must forbid writable open".to_owned());
+        if scenario.scenario_id == "unknown-newer-format" {
+            if scenario.writable_open {
+                return Err("unknown-newer-format must forbid writable open".to_owned());
+            }
+            match &scenario.read_only_open {
+                ReadOnlyOpenPolicy::ConditionallyAllowed { required_condition } => {
+                    if required_condition.trim().is_empty() {
+                        return Err(
+                            "unknown-newer-format must declare a demonstrably-safe condition"
+                                .to_owned(),
+                        );
+                    }
+                }
+                ReadOnlyOpenPolicy::Allowed => {
+                    return Err(
+                        "unknown-newer-format must not unconditionally allow read-only open"
+                            .to_owned(),
+                    );
+                }
+                ReadOnlyOpenPolicy::Forbidden => {}
+            }
         }
         if scenario.requirement == ScenarioRequirementLevel::CapabilityDependent
             && scenario.capability_requirement.is_none()

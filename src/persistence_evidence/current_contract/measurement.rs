@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub const MEASUREMENT_CONTRACT_VERSION: &str = "2";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MeasurementFixtureScale {
     Small,
@@ -222,12 +222,27 @@ fn op(
 }
 
 pub fn validate_measurement_contract() -> Result<(), String> {
-    let contract = comparative_measurement_contract();
-    if !contract.aggregation_fields.count
-        || !contract.aggregation_fields.median
-        || !contract.aggregation_fields.p95
-        || !contract.aggregation_fields.maximum
-        || !contract.aggregation_fields.failure_count
+    validate_measurement_contract_value(&comparative_measurement_contract())
+}
+
+pub fn validate_measurement_contract_value(
+    contract: &ComparativeMeasurementContract,
+) -> Result<(), String> {
+    if contract.contract_version != MEASUREMENT_CONTRACT_VERSION {
+        return Err("measurement contract version mismatch".to_owned());
+    }
+    let fields = &contract.aggregation_fields;
+    if !fields.count
+        || !fields.minimum
+        || !fields.median
+        || !fields.p95
+        || !fields.maximum
+        || !fields.failure_count
+        || !fields.peak_memory_bytes
+        || !fields.bytes_read_if_available
+        || !fields.bytes_written_if_available
+        || !fields.storage_size_before
+        || !fields.storage_size_after
     {
         return Err("measurement contract missing required aggregation fields".to_owned());
     }
@@ -236,15 +251,32 @@ pub fn validate_measurement_contract() -> Result<(), String> {
     }
     let mut names = std::collections::BTreeSet::new();
     for operation in &contract.operations {
+        if operation.operation.trim().is_empty() {
+            return Err("measurement operation name must not be empty".to_owned());
+        }
         if operation.sample_count == 0 {
             return Err(format!(
                 "operation {} must have sample_count > 0",
                 operation.operation
             ));
         }
+        if operation.warmup_count > operation.sample_count {
+            return Err(format!(
+                "operation {} warmup_count must not exceed sample_count",
+                operation.operation
+            ));
+        }
         if !names.insert(operation.operation.clone()) {
             return Err(format!(
                 "duplicate measurement operation {}",
+                operation.operation
+            ));
+        }
+        if operation.operation.contains("sqlite")
+            || operation.operation.contains("embedded_relational")
+        {
+            return Err(format!(
+                "operation {} must remain candidate-neutral",
                 operation.operation
             ));
         }
@@ -257,8 +289,26 @@ pub fn validate_measurement_contract() -> Result<(), String> {
     if contract.correctness_disqualification_gates.is_empty() {
         return Err("correctness disqualification gates must be non-empty".to_owned());
     }
+    if contract.correctness_disqualification_gates.len()
+        != contract
+            .correctness_disqualification_gates
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+    {
+        return Err("correctness disqualification gates must be unique".to_owned());
+    }
     if contract.resource_bound_refusal_requirements.is_empty() {
         return Err("resource-bound refusal requirements must be non-empty".to_owned());
+    }
+    if contract.resource_bound_refusal_requirements.len()
+        != contract
+            .resource_bound_refusal_requirements
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+    {
+        return Err("resource-bound refusal requirements must be unique".to_owned());
     }
     if !contract.operations.iter().any(|operation| {
         operation
@@ -267,6 +317,7 @@ pub fn validate_measurement_contract() -> Result<(), String> {
     }) {
         return Err("small fixture scale must be implemented".to_owned());
     }
+    let mut deferred_scales = std::collections::BTreeSet::new();
     for deferred in &contract.deferred_scales {
         if deferred.rationale.trim().is_empty()
             || deferred.required_future_package.trim().is_empty()
@@ -278,10 +329,30 @@ pub fn validate_measurement_contract() -> Result<(), String> {
                 deferred.scale
             ));
         }
+        if !deferred_scales.insert(deferred.scale) {
+            return Err(format!("duplicate deferred scale {:?}", deferred.scale));
+        }
     }
-    if !contract.minimum_environment_metadata.repository_commit
-        || !contract.minimum_environment_metadata.fixture_version
-        || !contract.minimum_environment_metadata.oracle_version
+    if !deferred_scales.contains(&MeasurementFixtureScale::Medium)
+        || !deferred_scales.contains(&MeasurementFixtureScale::Stress)
+    {
+        return Err("medium and stress deferred scales must each be declared".to_owned());
+    }
+    let metadata = &contract.minimum_environment_metadata;
+    if !metadata.repository_commit
+        || !metadata.candidate_id_version
+        || !metadata.fixture_version
+        || !metadata.oracle_version
+        || !metadata.scenario_contract_version
+        || !metadata.os_version
+        || !metadata.execution_environment
+        || !metadata.filesystem
+        || !metadata.hardware_summary
+        || !metadata.rustc_version
+        || !metadata.dependency_versions
+        || !metadata.sample_timing_source
+        || !metadata.start_end_timestamps
+        || !metadata.configuration
     {
         return Err("minimum environment metadata incomplete".to_owned());
     }
