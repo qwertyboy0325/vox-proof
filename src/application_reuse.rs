@@ -178,11 +178,8 @@ pub fn reusable_influence_snapshot_for_parts(
         .as_ref()
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
     let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
-    Ok(build_reusable_influence_snapshot(
-        project_scope,
-        reuse_state.governance_ledger(),
-        &effective,
-    ))
+    build_reusable_influence_snapshot(project_scope, reuse_state.governance_ledger(), &effective)
+        .map_err(ApplicationReuseError::from)
 }
 
 pub fn validate_accept_reuse_candidate(
@@ -198,7 +195,7 @@ pub fn validate_accept_reuse_candidate(
     }
     let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     if effective
-        .rejected_candidate_identities
+        .rejected_candidate_identities()
         .contains(&PromotionCandidateRejectionIdentity::from(candidate_key))
     {
         return Err(ReusableInfluenceError::CandidateAlreadyRejected.into());
@@ -217,7 +214,7 @@ pub fn validate_accept_reuse_candidate(
         return Err(ReusableInfluenceError::UnknownCandidate.into());
     };
     if effective
-        .active_records
+        .active_records()
         .iter()
         .any(|record| record.source_locator == candidate.key.source_locator)
     {
@@ -326,7 +323,7 @@ pub fn revoke_reusable_influence(
 ) -> Result<(), ApplicationReuseError> {
     let effective = reuse_state.effective_state(review_ledger, canonical_run);
     if !effective
-        .active_records
+        .active_records()
         .iter()
         .any(|record| record.record_id == record_id)
     {
@@ -350,7 +347,7 @@ pub fn supersede_reusable_influence(
 ) -> Result<ReusableInfluenceRecordId, ApplicationReuseError> {
     let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     if !effective
-        .active_records
+        .active_records()
         .iter()
         .any(|record| record.record_id == predecessor_id)
     {
@@ -410,7 +407,7 @@ pub fn active_reusable_records(
         .ok_or(ApplicationReuseError::MissingProjectScope)?;
     let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
     Ok(effective
-        .active_records
+        .active_records()
         .iter()
         .filter(|record| record.project_scope.stable_id == project_scope.stable_id)
         .cloned()

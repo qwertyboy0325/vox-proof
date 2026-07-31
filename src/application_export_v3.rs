@@ -6,7 +6,7 @@ use crate::candidate::ResolvedExactInputContributionEvidence;
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ReusableGovernanceEvent, ReusableInfluenceLedger,
-    ReusableInfluenceSnapshot, ReuseCandidate,
+    ReusableInfluenceSnapshot, ReuseCandidate, assert_snapshot_identity_matches_contents,
 };
 use crate::reuse_primitives::ProjectScope;
 use crate::review::ReviewLedger;
@@ -64,6 +64,7 @@ pub fn build_export_bundle_v3(
         .cloned()
         .ok_or(crate::application_reuse::ApplicationReuseError::MissingProjectScope)?;
     let effective = reuse_state.effective_state(review_ledger, canonical_run);
+    assert_snapshot_identity_matches_contents(&reusable_snapshot)?;
     let reuse_enabled_proposal_projections =
         collect_reuse_enabled_proposal_projections(reuse_enabled_run);
     Ok(ApplicationReviewExportBundleV3 {
@@ -72,8 +73,8 @@ pub fn build_export_bundle_v3(
             ApplicationExportPostureV3::DeclaredOperatorUnauthenticatedInMemoryGate3V0_2,
         project_scope,
         governance_ledger: reuse_state.governance_ledger().clone(),
-        effective_active_records: effective.active_records,
-        historical_records: effective.historical_records,
+        effective_active_records: effective.active_records().to_vec(),
+        historical_records: effective.historical_records().to_vec(),
         derived_candidates_non_authoritative: derived_candidates,
         reusable_snapshot,
         reuse_enabled_analysis: reuse_enabled_run.map(|run| run.reuse_enabled_snapshot()),
@@ -156,7 +157,7 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
     ));
     output.push_str(&format!(
         "reusable_snapshot_identity: {}\n",
-        bundle.reusable_snapshot.identity.to_tagged_string()
+        bundle.reusable_snapshot.identity().to_tagged_string()
     ));
     if let Some(analysis) = &bundle.reuse_enabled_analysis {
         output.push_str(&format!(

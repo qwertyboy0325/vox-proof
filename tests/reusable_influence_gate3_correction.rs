@@ -204,7 +204,8 @@ fn mismatched_projection_snapshot_identity_refuses_detection() {
         scope,
         &vox_proof::reusable_influence::ReusableInfluenceLedger::new(),
         &bare_effective,
-    );
+    )
+    .expect("snapshot");
     assert!(matches!(
         assert_projection_matches_expected(&projection, &bare_snapshot, &terms),
         Err(ReusableInfluenceError::ProjectionSnapshotIdentityMismatch)
@@ -303,7 +304,10 @@ fn replay_rejects_tampered_promotion_payload() {
     let parts = session.reuse_parts();
     assert!(
         vox_proof::application_gate3_replay::validate_replayed_governance_events_for_test(
-            parts, scope, &tampered
+            parts,
+            scope,
+            &tampered,
+            session.session_authority(),
         )
         .is_err()
     );
@@ -335,7 +339,7 @@ fn different_promotion_actors_change_snapshot_identity() {
             .materialize_review_export_bundle_v3()
             .expect("bundle")
             .reusable_snapshot
-            .identity
+            .identity()
     }
     assert_ne!(snapshot_after_accept("op-a"), snapshot_after_accept("op-b"));
 }
@@ -371,7 +375,7 @@ fn different_source_cases_change_snapshot_identity() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     session
         .accept_reuse_candidate(&candidates[1].key)
         .expect("accept second");
@@ -379,7 +383,7 @@ fn different_source_cases_change_snapshot_identity() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     assert_ne!(first_identity, both_identity);
 }
 
@@ -429,7 +433,7 @@ fn same_observed_and_replacement_strings_with_distinct_provenance_differ() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     session
         .revoke_reusable_influence(active[0].record_id)
         .expect("revoke one");
@@ -437,6 +441,6 @@ fn same_observed_and_replacement_strings_with_distinct_provenance_differ() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     assert_ne!(identity, reduced_identity);
 }

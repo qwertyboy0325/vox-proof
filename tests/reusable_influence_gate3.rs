@@ -251,8 +251,8 @@ fn same_effective_records_produce_same_snapshot_identity() {
         .materialize_review_export_bundle_v3()
         .expect("bundle");
     assert_eq!(
-        bundle_a.reusable_snapshot.identity,
-        bundle_b.reusable_snapshot.identity
+        bundle_a.reusable_snapshot.identity(),
+        bundle_b.reusable_snapshot.identity()
     );
 }
 
@@ -300,7 +300,8 @@ fn divergent_reusable_pairs_refuse_projection() {
         scope,
         session.reuse_state().governance_ledger(),
         &effective,
-    );
+    )
+    .expect("snapshot");
     assert!(matches!(
         resolve_exact_input_projection(scope, &snapshot, &terms),
         Err(ReusableInfluenceError::DivergentExactMapping { .. })
@@ -333,7 +334,8 @@ fn base_versus_reuse_divergence_refuses_projection() {
         scope,
         session.reuse_state().governance_ledger(),
         &effective,
-    );
+    )
+    .expect("snapshot");
     assert!(matches!(
         resolve_exact_input_projection(scope, &snapshot, &entries),
         Err(ReusableInfluenceError::DivergentExactMapping { .. })
@@ -436,7 +438,7 @@ fn display_label_change_does_not_change_snapshot_identity() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     session
         .update_project_scope_display_name("Renamed Project A")
         .expect("rename");
@@ -444,7 +446,7 @@ fn display_label_change_does_not_change_snapshot_identity() {
         .materialize_review_export_bundle_v3()
         .expect("bundle")
         .reusable_snapshot
-        .identity;
+        .identity();
     assert_eq!(before, after);
 }
 
@@ -673,7 +675,8 @@ impl AnalysisRunHelper {
             scope,
             session.reuse_state().governance_ledger(),
             &effective,
-        );
+        )
+        .expect("snapshot");
         let projection =
             resolve_exact_input_projection(scope, &snapshot, entries).expect("projection");
         run_reuse_enabled_term_review(transcript, entries, &projection, &snapshot).expect("run")

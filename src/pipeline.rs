@@ -172,6 +172,6 @@ pub fn run_reuse_enabled_term_review(
     Ok(ReuseEnabledTermReviewRun {
         analysis_run: run,
         review_cases: ReviewCase::from_detector_candidates(spans),
-        reusable_snapshot_identity: snapshot.identity,
+        reusable_snapshot_identity: snapshot.identity(),
     })
 }

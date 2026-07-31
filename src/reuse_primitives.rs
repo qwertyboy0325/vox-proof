@@ -179,7 +179,7 @@ pub(crate) fn hash_string(hasher: &mut Sha256, value: &str) {
     hasher.update(value.as_bytes());
 }
 
-pub struct SnapshotIdentityRecordProvenance<'a> {
+pub(crate) struct SnapshotIdentityRecordProvenance<'a> {
     pub record_id: ReusableInfluenceRecordId,
     pub observed_text: &'a str,
     pub confirmed_replacement: &'a str,
@@ -213,7 +213,7 @@ pub(crate) fn hash_source_decision_locator(hasher: &mut Sha256, locator: &Source
     hasher.update((locator.effective_at_ledger_length as u64).to_le_bytes());
 }
 
-pub fn compute_snapshot_identity(
+pub(crate) fn compute_snapshot_identity(
     project_scope_id: &ProjectScopeId,
     governance_event_boundary: usize,
     projection_version: &str,

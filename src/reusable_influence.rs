@@ -133,20 +133,87 @@ pub struct EffectiveReusableInfluenceRecord {
     pub superseded_by: Option<ReusableInfluenceRecordId>,
 }
 
+/// Effective reusable-influence state produced only by deterministic governance folding.
+///
+/// External callers cannot construct or mutate authority-bearing contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReusableInfluenceEffectiveState {
-    pub active_records: Vec<EffectiveReusableInfluenceRecord>,
-    pub historical_records: Vec<EffectiveReusableInfluenceRecord>,
-    pub rejected_candidate_identities: HashSet<PromotionCandidateRejectionIdentity>,
+    active_records: Vec<EffectiveReusableInfluenceRecord>,
+    historical_records: Vec<EffectiveReusableInfluenceRecord>,
+    rejected_candidate_identities: HashSet<PromotionCandidateRejectionIdentity>,
 }
 
+impl ReusableInfluenceEffectiveState {
+    pub fn active_records(&self) -> &[EffectiveReusableInfluenceRecord] {
+        &self.active_records
+    }
+
+    pub fn historical_records(&self) -> &[EffectiveReusableInfluenceRecord] {
+        &self.historical_records
+    }
+
+    pub fn rejected_candidate_identities(&self) -> &HashSet<PromotionCandidateRejectionIdentity> {
+        &self.rejected_candidate_identities
+    }
+}
+
+/// Immutable reusable-influence snapshot bound to validated project scope and ledger fold.
+///
+/// External callers cannot construct or mutate authority-bearing contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReusableInfluenceSnapshot {
-    pub project_scope_id: ProjectScopeId,
-    pub governance_event_boundary: usize,
-    pub projection_version: &'static str,
-    pub identity: ReusableInfluenceSnapshotIdentity,
-    pub active_records: Vec<EffectiveReusableInfluenceRecord>,
+    project_scope_id: ProjectScopeId,
+    governance_event_boundary: usize,
+    projection_version: &'static str,
+    identity: ReusableInfluenceSnapshotIdentity,
+    active_records: Vec<EffectiveReusableInfluenceRecord>,
+}
+
+impl ReusableInfluenceSnapshot {
+    pub fn project_scope_id(&self) -> &ProjectScopeId {
+        &self.project_scope_id
+    }
+
+    pub fn governance_event_boundary(&self) -> usize {
+        self.governance_event_boundary
+    }
+
+    pub fn projection_version(&self) -> &'static str {
+        self.projection_version
+    }
+
+    pub fn identity(&self) -> ReusableInfluenceSnapshotIdentity {
+        self.identity
+    }
+
+    pub fn active_records(&self) -> &[EffectiveReusableInfluenceRecord] {
+        &self.active_records
+    }
+}
+
+#[cfg(test)]
+impl ReusableInfluenceSnapshot {
+    pub(crate) fn replace_identity_for_test(
+        &mut self,
+        identity: ReusableInfluenceSnapshotIdentity,
+    ) {
+        self.identity = identity;
+    }
+
+    pub(crate) fn clear_active_records_for_test(&mut self) {
+        self.active_records.clear();
+    }
+
+    pub(crate) fn push_active_record_out_of_order_for_test(
+        &mut self,
+        record: EffectiveReusableInfluenceRecord,
+    ) {
+        self.active_records.push(record);
+    }
+
+    pub(crate) fn set_projection_version_for_test(&mut self, projection_version: &'static str) {
+        self.projection_version = projection_version;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -212,6 +279,15 @@ pub enum ReusableInfluenceError {
         record_id: ReusableInfluenceRecordId,
     },
     WrongProjectScope,
+    SnapshotIdentityMismatch,
+    UnsupportedSnapshotProjectionVersion {
+        version: String,
+    },
+    DuplicateActiveRecordIdentity {
+        record_id: ReusableInfluenceRecordId,
+    },
+    NonCanonicalActiveRecordOrdering,
+    SnapshotRecordWrongProjectScope,
 }
 
 impl fmt::Display for ReusableInfluenceError {
@@ -453,13 +529,13 @@ pub fn derive_reuse_candidates(
         };
 
         if effective
-            .rejected_candidate_identities
+            .rejected_candidate_identities()
             .contains(&PromotionCandidateRejectionIdentity::from(&key))
         {
             continue;
         }
         if effective
-            .active_records
+            .active_records()
             .iter()
             .any(|record| record.source_locator == source_locator)
         {
@@ -502,9 +578,9 @@ pub fn build_reusable_influence_snapshot(
     project_scope: &ProjectScope,
     governance: &ReusableInfluenceLedger,
     effective: &ReusableInfluenceEffectiveState,
-) -> ReusableInfluenceSnapshot {
+) -> Result<ReusableInfluenceSnapshot, ReusableInfluenceError> {
     let active_records: Vec<_> = effective
-        .active_records
+        .active_records()
         .iter()
         .filter(|record| record.project_scope.stable_id == project_scope.stable_id)
         .cloned()
@@ -527,13 +603,68 @@ pub fn build_reusable_influence_snapshot(
         REUSABLE_INFLUENCE_PROJECTION_VERSION,
         &identity_inputs,
     );
-    ReusableInfluenceSnapshot {
+    let snapshot = ReusableInfluenceSnapshot {
         project_scope_id: project_scope.stable_id.clone(),
         governance_event_boundary,
         projection_version: REUSABLE_INFLUENCE_PROJECTION_VERSION,
         identity,
         active_records,
+    };
+    assert_snapshot_identity_matches_contents(&snapshot)?;
+    Ok(snapshot)
+}
+
+pub fn assert_snapshot_identity_matches_contents(
+    snapshot: &ReusableInfluenceSnapshot,
+) -> Result<(), ReusableInfluenceError> {
+    if snapshot.projection_version() != REUSABLE_INFLUENCE_PROJECTION_VERSION {
+        return Err(
+            ReusableInfluenceError::UnsupportedSnapshotProjectionVersion {
+                version: snapshot.projection_version().to_owned(),
+            },
+        );
     }
+
+    let active_records = snapshot.active_records();
+    for window in active_records.windows(2) {
+        if window[0].record_id > window[1].record_id {
+            return Err(ReusableInfluenceError::NonCanonicalActiveRecordOrdering);
+        }
+    }
+
+    let mut seen = HashSet::new();
+    for record in active_records {
+        if record.project_scope.stable_id != *snapshot.project_scope_id() {
+            return Err(ReusableInfluenceError::SnapshotRecordWrongProjectScope);
+        }
+        if !seen.insert(record.record_id) {
+            return Err(ReusableInfluenceError::DuplicateActiveRecordIdentity {
+                record_id: record.record_id,
+            });
+        }
+    }
+
+    let identity_inputs: Vec<_> = active_records
+        .iter()
+        .map(|record| SnapshotIdentityRecordProvenance {
+            record_id: record.record_id,
+            observed_text: record.payload.observed_text.as_str(),
+            confirmed_replacement: record.payload.confirmed_replacement.as_str(),
+            source_locator: &record.source_locator,
+            promotion_actor_role: record.promotion_actor.role_label.as_str(),
+            promotion_actor_label: record.promotion_actor.display_label.as_str(),
+        })
+        .collect();
+    let expected_identity = compute_snapshot_identity(
+        snapshot.project_scope_id(),
+        snapshot.governance_event_boundary(),
+        snapshot.projection_version(),
+        &identity_inputs,
+    );
+    if expected_identity != snapshot.identity() {
+        return Err(ReusableInfluenceError::SnapshotIdentityMismatch);
+    }
+    Ok(())
 }
 
 pub fn resolve_exact_input_projection(
@@ -541,13 +672,14 @@ pub fn resolve_exact_input_projection(
     snapshot: &ReusableInfluenceSnapshot,
     base_session_terms: &[SessionTermEntry],
 ) -> Result<ResolvedExactInputProjection, ReusableInfluenceError> {
-    if snapshot.project_scope_id != project_scope.stable_id {
+    assert_snapshot_identity_matches_contents(snapshot)?;
+    if snapshot.project_scope_id() != &project_scope.stable_id {
         return Err(ReusableInfluenceError::WrongProjectScope);
     }
     let entries = build_exact_input_projection_entries(snapshot, base_session_terms)?;
     Ok(ResolvedExactInputProjection {
         project_scope_id: project_scope.stable_id.clone(),
-        snapshot_identity: snapshot.identity,
+        snapshot_identity: snapshot.identity(),
         entries,
     })
 }
@@ -573,7 +705,7 @@ fn build_exact_input_projection_entries(
         }
     }
 
-    for record in &snapshot.active_records {
+    for record in snapshot.active_records() {
         insert_exact_contribution(
             &mut mapping,
             ExactInputContribution {
@@ -704,7 +836,28 @@ pub fn validate_governance_actor(
         DECLARED_LOCAL_OWNER_ROLE | DECLARED_REVIEWER_ROLE => {}
         _ => return Err(ReusableInfluenceError::InvalidGovernanceActor),
     }
+    if actor.display_label.chars().any(char::is_control) {
+        return Err(ReusableInfluenceError::InvalidGovernanceActor);
+    }
+    if actor
+        .display_label
+        .chars()
+        .any(|character| matches!(character, '\u{2028}' | '\u{2029}'))
+    {
+        return Err(ReusableInfluenceError::InvalidGovernanceActor);
+    }
     if actor.display_label.trim().is_empty() {
+        return Err(ReusableInfluenceError::InvalidGovernanceActor);
+    }
+    Ok(())
+}
+
+pub fn validate_governance_actor_matches_session(
+    actor: &GovernanceActorContext,
+    expected: &GovernanceActorContext,
+) -> Result<(), ReusableInfluenceError> {
+    validate_governance_actor(actor)?;
+    if actor != expected {
         return Err(ReusableInfluenceError::InvalidGovernanceActor);
     }
     Ok(())
@@ -746,13 +899,13 @@ pub fn validate_reuse_candidate_key_at_historical_boundary(
         return Err(ReusableInfluenceError::SourceDecisionNotManualReplacement);
     };
     if replay_effective
-        .rejected_candidate_identities
+        .rejected_candidate_identities()
         .contains(&PromotionCandidateRejectionIdentity::from(candidate_key))
     {
         return Err(ReusableInfluenceError::CandidateAlreadyRejected);
     }
     if replay_effective
-        .active_records
+        .active_records()
         .iter()
         .any(|record| record.source_locator == candidate_key.source_locator)
     {
@@ -803,10 +956,11 @@ pub fn assert_projection_matches_expected(
     snapshot: &ReusableInfluenceSnapshot,
     base_terms: &[SessionTermEntry],
 ) -> Result<(), ReusableInfluenceError> {
-    if projection.snapshot_identity != snapshot.identity {
+    assert_snapshot_identity_matches_contents(snapshot)?;
+    if projection.snapshot_identity != snapshot.identity() {
         return Err(ReusableInfluenceError::ProjectionSnapshotIdentityMismatch);
     }
-    if projection.project_scope_id != snapshot.project_scope_id {
+    if projection.project_scope_id != *snapshot.project_scope_id() {
         return Err(ReusableInfluenceError::WrongProjectScope);
     }
     let expected_entries = build_exact_input_projection_entries(snapshot, base_terms)?;
@@ -841,7 +995,7 @@ pub fn detect_resolved_exact_observed_form_matches(
 
     let record_lookup: HashMap<ReusableInfluenceRecordId, &EffectiveReusableInfluenceRecord> =
         snapshot
-            .active_records
+            .active_records()
             .iter()
             .map(|record| (record.record_id, record))
             .collect();
@@ -952,6 +1106,210 @@ pub fn detect_resolved_exact_observed_form_matches(
 }
 
 #[cfg(test)]
+mod correction_03_snapshot_integrity_tests {
+    use super::*;
+    use crate::candidate::DetectionError;
+    use crate::pipeline::run_canonical_term_review;
+    use crate::reuse_primitives::ProjectScopeDisplayName;
+
+    fn sample_scope() -> ProjectScope {
+        ProjectScope::new(
+            ProjectScopeId::new("proj-a").expect("scope id"),
+            ProjectScopeDisplayName::new("Project A").expect("name"),
+        )
+    }
+
+    fn legitimate_snapshot_with_promotion() -> ReusableInfluenceSnapshot {
+        let transcript =
+            crate::srt::parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
+        let terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec!["Kafak".to_string()],
+            Vec::new(),
+        )];
+        let canonical = run_canonical_term_review(&transcript, &terms).expect("canonical");
+        let scope = sample_scope();
+        let mut review_ledger = ReviewLedger::new();
+        let review_case = &canonical.review_cases()[0];
+        review_ledger
+            .record_decision(
+                review_case,
+                transcript.revision_id(),
+                CorrectionDecision::ManualReplacement {
+                    replacement: ManualReplacementText::new("Kafka", "Kafak").expect("replacement"),
+                },
+            )
+            .expect("decision");
+        let mut ledger = ReusableInfluenceLedger::new();
+        let effective = fold_effective_state(&ledger, &review_ledger, &canonical);
+        let key =
+            derive_reuse_candidates(&transcript, &canonical, &review_ledger, &scope, &effective)
+                .expect("candidates")[0]
+                .key
+                .clone();
+        ledger.append(ReusableGovernanceEvent::PromotionAccepted {
+            candidate_key: Box::new(key.clone()),
+            payload: ExactReusableCorrection {
+                observed_text: "Kafak".to_owned(),
+                confirmed_replacement: "Kafka".to_owned(),
+            },
+            source_locator: Box::new(key.source_locator.clone()),
+            actor: GovernanceActorContext {
+                role_label: DECLARED_LOCAL_OWNER_ROLE.to_owned(),
+                display_label: "Ezra".to_owned(),
+            },
+            project_scope: Box::new(scope.clone()),
+        });
+        let effective = fold_effective_state(&ledger, &review_ledger, &canonical);
+        build_reusable_influence_snapshot(&scope, &ledger, &effective).expect("snapshot")
+    }
+
+    #[test]
+    fn legitimate_fold_and_snapshot_identity_remain_deterministic() {
+        let left = legitimate_snapshot_with_promotion();
+        let right = legitimate_snapshot_with_promotion();
+        assert_eq!(left.identity(), right.identity());
+    }
+
+    #[test]
+    fn tampered_snapshot_identity_fails_closed() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        snapshot
+            .replace_identity_for_test(ReusableInfluenceSnapshotIdentity::from_digest([1u8; 32]));
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::SnapshotIdentityMismatch)
+        ));
+    }
+
+    #[test]
+    fn wrong_scope_record_fails_snapshot_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let mut wrong_scope_record = snapshot.active_records()[0].clone();
+        wrong_scope_record.project_scope = ProjectScope::new(
+            ProjectScopeId::new("proj-b").expect("scope id"),
+            ProjectScopeDisplayName::new("Project B").expect("name"),
+        );
+        snapshot.clear_active_records_for_test();
+        snapshot.push_active_record_out_of_order_for_test(wrong_scope_record);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::SnapshotRecordWrongProjectScope)
+        ));
+    }
+
+    #[test]
+    fn duplicate_active_record_ids_fail_snapshot_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let duplicate = snapshot.active_records()[0].clone();
+        snapshot.push_active_record_out_of_order_for_test(duplicate);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::DuplicateActiveRecordIdentity { .. })
+        ));
+    }
+
+    #[test]
+    fn non_canonical_active_record_ordering_fails_snapshot_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let mut high = snapshot.active_records()[0].clone();
+        high.record_id = ReusableInfluenceRecordId::from_promotion_event_index(1);
+        let mut low = snapshot.active_records()[0].clone();
+        low.record_id = ReusableInfluenceRecordId::from_promotion_event_index(0);
+        snapshot.clear_active_records_for_test();
+        snapshot.push_active_record_out_of_order_for_test(high);
+        snapshot.push_active_record_out_of_order_for_test(low);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::NonCanonicalActiveRecordOrdering)
+        ));
+    }
+
+    #[test]
+    fn unsupported_projection_version_fails_snapshot_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        snapshot.set_projection_version_for_test("unsupported-version");
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::UnsupportedSnapshotProjectionVersion { .. })
+        ));
+    }
+
+    #[test]
+    fn legitimate_snapshot_passes_integrity_validation() {
+        let snapshot = legitimate_snapshot_with_promotion();
+        assert_snapshot_identity_matches_contents(&snapshot).expect("valid");
+    }
+
+    #[test]
+    fn projection_generation_refuses_invalid_snapshot() {
+        let scope = sample_scope();
+        let terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec!["Kafak".to_string()],
+            Vec::new(),
+        )];
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        snapshot
+            .replace_identity_for_test(ReusableInfluenceSnapshotIdentity::from_digest([2u8; 32]));
+        assert!(matches!(
+            resolve_exact_input_projection(&scope, &snapshot, &terms),
+            Err(ReusableInfluenceError::SnapshotIdentityMismatch)
+        ));
+    }
+
+    #[test]
+    fn detector_execution_refuses_invalid_snapshot() {
+        let scope = sample_scope();
+        let terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec!["Kafak".to_string()],
+            Vec::new(),
+        )];
+        let transcript =
+            crate::srt::parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let projection =
+            resolve_exact_input_projection(&scope, &snapshot, &terms).expect("projection");
+        snapshot
+            .replace_identity_for_test(ReusableInfluenceSnapshotIdentity::from_digest([3u8; 32]));
+        let run =
+            crate::analysis::AnalysisRun::for_reuse_enabled_session_terms(&transcript, &terms);
+        assert!(matches!(
+            detect_resolved_exact_observed_form_matches(
+                &run,
+                &transcript,
+                &terms,
+                &projection,
+                &snapshot,
+            ),
+            Err(DetectionError::ProjectionSnapshotIdentityMismatch)
+                | Err(DetectionError::ProjectionContentMismatch)
+        ));
+    }
+
+    #[test]
+    fn projection_validation_refuses_stripped_snapshot_contents() {
+        let scope = sample_scope();
+        let terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec!["Kafak".to_string()],
+            Vec::new(),
+        )];
+        let snapshot = legitimate_snapshot_with_promotion();
+        let projection =
+            resolve_exact_input_projection(&scope, &snapshot, &terms).expect("projection");
+        let mut stripped_snapshot = snapshot.clone();
+        stripped_snapshot.clear_active_records_for_test();
+        assert!(matches!(
+            assert_projection_matches_expected(&projection, &stripped_snapshot, &terms),
+            Err(ReusableInfluenceError::SnapshotIdentityMismatch)
+                | Err(ReusableInfluenceError::ProjectionContentMismatch)
+        ));
+    }
+}
+
+#[cfg(test)]
 mod projection_authenticity_tests {
     use super::*;
     use crate::candidate::DetectionError;
@@ -978,7 +1336,8 @@ mod projection_authenticity_tests {
         let ledger = ReviewLedger::new();
         let effective = fold_effective_state(&ReusableInfluenceLedger::new(), &ledger, &canonical);
         let snapshot =
-            build_reusable_influence_snapshot(&scope, &ReusableInfluenceLedger::new(), &effective);
+            build_reusable_influence_snapshot(&scope, &ReusableInfluenceLedger::new(), &effective)
+                .expect("snapshot");
         let projection =
             resolve_exact_input_projection(&scope, &snapshot, &terms).expect("projection");
         let mut forged_entries = projection.entries.clone();
