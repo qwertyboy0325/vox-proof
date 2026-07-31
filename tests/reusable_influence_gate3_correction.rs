@@ -7,7 +7,7 @@ use vox_proof::candidate::SessionTermEntry;
 use vox_proof::pipeline::run_canonical_term_review;
 use vox_proof::reusable_influence::{
     ReusableGovernanceEvent, ReusableInfluenceError, assert_projection_matches_expected,
-    build_reusable_influence_snapshot, fold_effective_state, resolve_exact_input_projection,
+    resolve_exact_input_projection,
 };
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
 use vox_proof::review::CorrectionDecision;
@@ -171,10 +171,10 @@ fn reuse_enabled_analysis_identity_binds_resolved_detector_set() {
 
 #[test]
 fn mismatched_projection_snapshot_identity_refuses_detection() {
-    let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
+    let transcript_a = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
     let terms = vec![alias_entry("Kafka", "Kafak")];
     let mut session =
-        begin_application_review(transcript, terms.clone(), material_use(), authority("op"))
+        begin_application_review(transcript_a, terms.clone(), material_use(), authority("op"))
             .expect("session");
     let target = session.review_items()[0].target;
     session
@@ -194,21 +194,36 @@ fn mismatched_projection_snapshot_identity_refuses_detection() {
         .reusable_snapshot;
     let scope = session.reuse_state().project_scope().expect("scope");
     let projection = resolve_exact_input_projection(scope, &snapshot, &terms).expect("projection");
-    let canonical = run_canonical_term_review(session.source(), &terms).expect("canonical");
-    let bare_effective = fold_effective_state(
-        &vox_proof::reusable_influence::ReusableInfluenceLedger::new(),
-        session.review_ledger(),
-        &canonical,
-    );
-    let bare_snapshot = build_reusable_influence_snapshot(
-        scope,
-        &vox_proof::reusable_influence::ReusableInfluenceLedger::new(),
-        &bare_effective,
+    let transcript_b = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
+    let mut other_session = begin_application_review(
+        transcript_b,
+        terms.clone(),
+        material_use(),
+        authority("other"),
     )
-    .expect("snapshot");
+    .expect("session");
+    let other_target = other_session.review_items()[0].target;
+    other_session
+        .record_manual_replacement(other_target, "Kafka")
+        .expect("replacement");
+    other_session
+        .initialize_project_scope("proj-a", "Project A")
+        .expect("scope");
+    let other_key = other_session.reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    other_session
+        .accept_reuse_candidate(&other_key)
+        .expect("accept");
+    let mismatched_snapshot = other_session
+        .materialize_review_export_bundle_v3()
+        .expect("bundle")
+        .reusable_snapshot;
+    assert_ne!(snapshot.identity(), mismatched_snapshot.identity());
     assert!(matches!(
-        assert_projection_matches_expected(&projection, &bare_snapshot, &terms),
+        assert_projection_matches_expected(&projection, &mismatched_snapshot, &terms),
         Err(ReusableInfluenceError::ProjectionSnapshotIdentityMismatch)
+            | Err(ReusableInfluenceError::SnapshotIdentityMismatch)
     ));
 }
 

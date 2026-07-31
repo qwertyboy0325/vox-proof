@@ -7,9 +7,8 @@ use crate::application_export_v3::{ApplicationReviewExportBundleV3, build_export
 use crate::application_reuse::{
     ApplicationReuseError, ApplicationReuseState, ReuseSessionParts, accept_reuse_candidate,
     active_reusable_records, initialize_project_scope, reject_reuse_candidate,
-    reusable_influence_snapshot_for_parts, reuse_candidates_for_parts, revoke_reusable_influence,
-    run_reuse_enabled_review_for_parts, supersede_reusable_influence,
-    update_project_scope_display_name,
+    reuse_candidates_for_parts, revoke_reusable_influence, run_reuse_enabled_review_for_parts,
+    supersede_reusable_influence, update_project_scope_display_name,
 };
 use crate::candidate::{DetectionError, DetectionKind, SessionTermEntry};
 use crate::pipeline::{
@@ -38,6 +37,8 @@ pub struct DeclaredSessionAuthority {
 pub enum DeclaredSessionAuthorityError {
     EmptyDisplayLabel,
     ControlCharacterInDisplayLabel,
+    UnicodeLineSeparatorInDisplayLabel,
+    NonCanonicalDisplayLabel,
 }
 
 impl fmt::Display for DeclaredSessionAuthorityError {
@@ -53,14 +54,11 @@ impl DeclaredSessionAuthority {
         role: DeclaredSessionOperatorRole,
         display_label: impl Into<String>,
     ) -> Result<Self, DeclaredSessionAuthorityError> {
-        let display_label = display_label.into();
-        if display_label.chars().any(char::is_control) {
-            return Err(DeclaredSessionAuthorityError::ControlCharacterInDisplayLabel);
-        }
-        let display_label = display_label.trim().to_string();
-        if display_label.is_empty() {
-            return Err(DeclaredSessionAuthorityError::EmptyDisplayLabel);
-        }
+        let display_label =
+            crate::reusable_influence::canonicalize_actor_display_label_for_declaration(
+                display_label,
+            )
+            .map_err(map_actor_label_error)?;
 
         Ok(Self {
             role,
@@ -499,15 +497,12 @@ impl ApplicationReviewSession {
         let derived_candidates = self
             .reuse_candidates()
             .map_err(ApplicationGate3Error::Reuse)?;
-        let snapshot = reusable_influence_snapshot_for_parts(self.reuse_parts(), &self.reuse_state)
-            .map_err(ApplicationGate3Error::Reuse)?;
         build_export_bundle_v3(
             base,
             &self.reuse_state,
             &self.ledger,
             &self.canonical_run,
             derived_candidates,
-            snapshot,
             self.reuse_enabled_run.as_ref(),
         )
         .map_err(ApplicationGate3Error::Reuse)
@@ -1061,6 +1056,25 @@ fn build_reviewed_output(
     })
 }
 
+fn map_actor_label_error(
+    error: crate::reusable_influence::ActorDisplayLabelValidationError,
+) -> DeclaredSessionAuthorityError {
+    match error {
+        crate::reusable_influence::ActorDisplayLabelValidationError::Empty => {
+            DeclaredSessionAuthorityError::EmptyDisplayLabel
+        }
+        crate::reusable_influence::ActorDisplayLabelValidationError::ControlCharacter => {
+            DeclaredSessionAuthorityError::ControlCharacterInDisplayLabel
+        }
+        crate::reusable_influence::ActorDisplayLabelValidationError::UnicodeLineSeparator => {
+            DeclaredSessionAuthorityError::UnicodeLineSeparatorInDisplayLabel
+        }
+        crate::reusable_influence::ActorDisplayLabelValidationError::NonCanonical => {
+            DeclaredSessionAuthorityError::NonCanonicalDisplayLabel
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1101,6 +1115,33 @@ mod tests {
                 "   ",
             ),
             Err(DeclaredSessionAuthorityError::EmptyDisplayLabel)
+        );
+    }
+
+    #[test]
+    fn authority_rejects_unicode_line_separators_in_display_label() {
+        for label in ["Ezra\u{2028}Reviewer", "Ezra\u{2029}Reviewer"] {
+            assert_eq!(
+                DeclaredSessionAuthority::new(
+                    DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+                    label,
+                ),
+                Err(DeclaredSessionAuthorityError::UnicodeLineSeparatorInDisplayLabel)
+            );
+        }
+    }
+
+    #[test]
+    fn authority_canonicalizes_surrounding_whitespace_on_declaration() {
+        let authority = DeclaredSessionAuthority::new(
+            DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
+            " Ezra ",
+        )
+        .expect("valid authority");
+        assert_eq!(authority.display_label(), "Ezra");
+        assert_eq!(
+            crate::application_reuse::governance_actor_from_authority(&authority).display_label,
+            "Ezra"
         );
     }
 

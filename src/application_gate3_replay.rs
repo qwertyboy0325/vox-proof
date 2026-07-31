@@ -139,18 +139,12 @@ fn materialize_v3_for_reuse_state(
                 field: ApplicationReplayField::ExportBundleV3,
             }
         })?;
-    let snapshot = reusable_influence_snapshot_for_parts(parts, reuse_state).map_err(|_| {
-        ApplicationReplayError::Mismatch {
-            field: ApplicationReplayField::ExportBundleV3,
-        }
-    })?;
     build_export_bundle_v3(
         base,
         reuse_state,
         session.review_ledger(),
         parts.canonical_run,
         derived_candidates,
-        snapshot,
         reuse_enabled_run,
     )
     .map_err(|_| ApplicationReplayError::Mismatch {

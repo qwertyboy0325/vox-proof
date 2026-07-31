@@ -2,11 +2,11 @@ use crate::analysis::ReuseEnabledAnalysisSnapshot;
 use crate::application_export::{escape_export_text, render_application_decision_log};
 use crate::application_reuse::ApplicationReuseState;
 use crate::application_service::ApplicationReviewExportBundle;
-use crate::candidate::ResolvedExactInputContributionEvidence;
+use crate::candidate::{Evidence, ResolvedExactInputContributionEvidence};
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ReusableGovernanceEvent, ReusableInfluenceLedger,
-    ReusableInfluenceSnapshot, ReuseCandidate, assert_snapshot_identity_matches_contents,
+    ReusableInfluenceSnapshot, ReuseCandidate, build_reusable_influence_snapshot,
 };
 use crate::reuse_primitives::ProjectScope;
 use crate::review::ReviewLedger;
@@ -50,13 +50,12 @@ pub struct ApplicationReviewExportBundleV3 {
     pub reuse_enabled_proposal_projections: Vec<ReuseEnabledProposalProjectionRecord>,
 }
 
-pub fn build_export_bundle_v3(
+pub(crate) fn build_export_bundle_v3(
     base: ApplicationReviewExportBundle,
     reuse_state: &ApplicationReuseState,
     review_ledger: &ReviewLedger,
     canonical_run: &CanonicalTermReviewRun,
     derived_candidates: Vec<ReuseCandidate>,
-    reusable_snapshot: ReusableInfluenceSnapshot,
     reuse_enabled_run: Option<&ReuseEnabledTermReviewRun>,
 ) -> Result<ApplicationReviewExportBundleV3, crate::application_reuse::ApplicationReuseError> {
     let project_scope = reuse_state
@@ -64,7 +63,12 @@ pub fn build_export_bundle_v3(
         .cloned()
         .ok_or(crate::application_reuse::ApplicationReuseError::MissingProjectScope)?;
     let effective = reuse_state.effective_state(review_ledger, canonical_run);
-    assert_snapshot_identity_matches_contents(&reusable_snapshot)?;
+    let reusable_snapshot = build_reusable_influence_snapshot(
+        &project_scope,
+        reuse_state.governance_ledger(),
+        &effective,
+    )?;
+    validate_reuse_enabled_run_matches_snapshot(reuse_enabled_run, &reusable_snapshot)?;
     let reuse_enabled_proposal_projections =
         collect_reuse_enabled_proposal_projections(reuse_enabled_run);
     Ok(ApplicationReviewExportBundleV3 {
@@ -80,6 +84,31 @@ pub fn build_export_bundle_v3(
         reuse_enabled_analysis: reuse_enabled_run.map(|run| run.reuse_enabled_snapshot()),
         reuse_enabled_proposal_projections,
     })
+}
+
+fn validate_reuse_enabled_run_matches_snapshot(
+    reuse_enabled_run: Option<&ReuseEnabledTermReviewRun>,
+    reusable_snapshot: &ReusableInfluenceSnapshot,
+) -> Result<(), crate::application_reuse::ApplicationReuseError> {
+    let Some(run) = reuse_enabled_run else {
+        return Ok(());
+    };
+    if run.reuse_enabled_snapshot().reusable_influence_snapshot() != reusable_snapshot.identity() {
+        return Err(
+            crate::reusable_influence::ReusableInfluenceError::ReuseEnabledSnapshotIdentityMismatch
+                .into(),
+        );
+    }
+    for review_case in run.review_cases() {
+        let candidate = review_case.candidate_span();
+        let Evidence::ReusableExactObservedForm(evidence) = candidate.evidence() else {
+            continue;
+        };
+        if evidence.snapshot_identity != reusable_snapshot.identity() {
+            return Err(crate::reusable_influence::ReusableInfluenceError::ReuseEnabledSnapshotIdentityMismatch.into());
+        }
+    }
+    Ok(())
 }
 
 fn collect_reuse_enabled_proposal_projections(

@@ -157,6 +157,11 @@ impl ReusableInfluenceSnapshotIdentity {
     pub(crate) fn from_digest(digest: [u8; 32]) -> Self {
         Self(digest)
     }
+
+    #[cfg(test)]
+    pub fn from_digest_for_test(digest: [u8; 32]) -> Self {
+        Self::from_digest(digest)
+    }
 }
 
 pub fn decision_digest(

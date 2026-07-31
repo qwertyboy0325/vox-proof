@@ -193,10 +193,7 @@ impl ReusableInfluenceSnapshot {
 
 #[cfg(test)]
 impl ReusableInfluenceSnapshot {
-    pub(crate) fn replace_identity_for_test(
-        &mut self,
-        identity: ReusableInfluenceSnapshotIdentity,
-    ) {
+    pub fn replace_identity_for_test(&mut self, identity: ReusableInfluenceSnapshotIdentity) {
         self.identity = identity;
     }
 
@@ -213,6 +210,10 @@ impl ReusableInfluenceSnapshot {
 
     pub(crate) fn set_projection_version_for_test(&mut self, projection_version: &'static str) {
         self.projection_version = projection_version;
+    }
+
+    pub(crate) fn set_governance_event_boundary_for_test(&mut self, boundary: usize) {
+        self.governance_event_boundary = boundary;
     }
 }
 
@@ -288,6 +289,12 @@ pub enum ReusableInfluenceError {
     },
     NonCanonicalActiveRecordOrdering,
     SnapshotRecordWrongProjectScope,
+    NonemptySnapshotRequiresGovernanceBoundary,
+    RecordOutsideGovernanceBoundary {
+        record_id: ReusableInfluenceRecordId,
+        governance_event_boundary: usize,
+    },
+    ReuseEnabledSnapshotIdentityMismatch,
 }
 
 impl fmt::Display for ReusableInfluenceError {
@@ -574,7 +581,7 @@ pub fn derive_reuse_candidates(
     Ok(candidates)
 }
 
-pub fn build_reusable_influence_snapshot(
+pub(crate) fn build_reusable_influence_snapshot(
     project_scope: &ProjectScope,
     governance: &ReusableInfluenceLedger,
     effective: &ReusableInfluenceEffectiveState,
@@ -626,6 +633,10 @@ pub fn assert_snapshot_identity_matches_contents(
     }
 
     let active_records = snapshot.active_records();
+    if !active_records.is_empty() && snapshot.governance_event_boundary() == 0 {
+        return Err(ReusableInfluenceError::NonemptySnapshotRequiresGovernanceBoundary);
+    }
+
     for window in active_records.windows(2) {
         if window[0].record_id > window[1].record_id {
             return Err(ReusableInfluenceError::NonCanonicalActiveRecordOrdering);
@@ -636,6 +647,12 @@ pub fn assert_snapshot_identity_matches_contents(
     for record in active_records {
         if record.project_scope.stable_id != *snapshot.project_scope_id() {
             return Err(ReusableInfluenceError::SnapshotRecordWrongProjectScope);
+        }
+        if record.record_id.promotion_event_index() >= snapshot.governance_event_boundary() {
+            return Err(ReusableInfluenceError::RecordOutsideGovernanceBoundary {
+                record_id: record.record_id,
+                governance_event_boundary: snapshot.governance_event_boundary(),
+            });
         }
         if !seen.insert(record.record_id) {
             return Err(ReusableInfluenceError::DuplicateActiveRecordIdentity {
@@ -829,6 +846,54 @@ pub fn verify_source_locator_effective_at_historical_boundary(
 pub const DECLARED_LOCAL_OWNER_ROLE: &str = "declared_local_owner_operator";
 pub const DECLARED_REVIEWER_ROLE: &str = "declared_authorized_human_reviewer";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ActorDisplayLabelValidationError {
+    Empty,
+    ControlCharacter,
+    UnicodeLineSeparator,
+    NonCanonical,
+}
+
+pub(crate) fn validate_actor_display_label_chars(
+    label: &str,
+) -> Result<(), ActorDisplayLabelValidationError> {
+    if label.chars().any(char::is_control) {
+        return Err(ActorDisplayLabelValidationError::ControlCharacter);
+    }
+    if label
+        .chars()
+        .any(|character| matches!(character, '\u{2028}' | '\u{2029}'))
+    {
+        return Err(ActorDisplayLabelValidationError::UnicodeLineSeparator);
+    }
+    Ok(())
+}
+
+pub(crate) fn canonicalize_actor_display_label_for_declaration(
+    display_label: impl Into<String>,
+) -> Result<String, ActorDisplayLabelValidationError> {
+    let display_label = display_label.into();
+    validate_actor_display_label_chars(&display_label)?;
+    let canonical = display_label.trim().to_string();
+    if canonical.is_empty() {
+        return Err(ActorDisplayLabelValidationError::Empty);
+    }
+    Ok(canonical)
+}
+
+pub(crate) fn validate_canonical_stored_actor_display_label(
+    label: &str,
+) -> Result<(), ActorDisplayLabelValidationError> {
+    validate_actor_display_label_chars(label)?;
+    if label.trim().is_empty() {
+        return Err(ActorDisplayLabelValidationError::Empty);
+    }
+    if label != label.trim() {
+        return Err(ActorDisplayLabelValidationError::NonCanonical);
+    }
+    Ok(())
+}
+
 pub fn validate_governance_actor(
     actor: &GovernanceActorContext,
 ) -> Result<(), ReusableInfluenceError> {
@@ -836,20 +901,8 @@ pub fn validate_governance_actor(
         DECLARED_LOCAL_OWNER_ROLE | DECLARED_REVIEWER_ROLE => {}
         _ => return Err(ReusableInfluenceError::InvalidGovernanceActor),
     }
-    if actor.display_label.chars().any(char::is_control) {
-        return Err(ReusableInfluenceError::InvalidGovernanceActor);
-    }
-    if actor
-        .display_label
-        .chars()
-        .any(|character| matches!(character, '\u{2028}' | '\u{2029}'))
-    {
-        return Err(ReusableInfluenceError::InvalidGovernanceActor);
-    }
-    if actor.display_label.trim().is_empty() {
-        return Err(ReusableInfluenceError::InvalidGovernanceActor);
-    }
-    Ok(())
+    validate_canonical_stored_actor_display_label(&actor.display_label)
+        .map_err(|_| ReusableInfluenceError::InvalidGovernanceActor)
 }
 
 pub fn validate_governance_actor_matches_session(
@@ -1119,7 +1172,7 @@ mod correction_03_snapshot_integrity_tests {
         )
     }
 
-    fn legitimate_snapshot_with_promotion() -> ReusableInfluenceSnapshot {
+    pub(super) fn legitimate_snapshot_with_promotion() -> ReusableInfluenceSnapshot {
         let transcript =
             crate::srt::parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
         let terms = vec![SessionTermEntry::new(
@@ -1306,6 +1359,61 @@ mod correction_03_snapshot_integrity_tests {
             Err(ReusableInfluenceError::SnapshotIdentityMismatch)
                 | Err(ReusableInfluenceError::ProjectionContentMismatch)
         ));
+    }
+}
+
+#[cfg(test)]
+mod correction_04_governance_boundary_tests {
+    use super::*;
+    use correction_03_snapshot_integrity_tests::legitimate_snapshot_with_promotion;
+
+    #[test]
+    fn nonempty_active_records_with_zero_boundary_fail_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        snapshot.set_governance_event_boundary_for_test(0);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::NonemptySnapshotRequiresGovernanceBoundary)
+        ));
+    }
+
+    #[test]
+    fn record_at_boundary_fails_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let mut record = snapshot.active_records()[0].clone();
+        let boundary = snapshot.governance_event_boundary();
+        record.record_id = ReusableInfluenceRecordId::from_promotion_event_index(boundary);
+        snapshot.clear_active_records_for_test();
+        snapshot.push_active_record_out_of_order_for_test(record);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::RecordOutsideGovernanceBoundary { .. })
+        ));
+    }
+
+    #[test]
+    fn record_above_boundary_fails_integrity() {
+        let mut snapshot = legitimate_snapshot_with_promotion();
+        let mut record = snapshot.active_records()[0].clone();
+        let boundary = snapshot.governance_event_boundary();
+        record.record_id =
+            ReusableInfluenceRecordId::from_promotion_event_index(boundary.saturating_add(1));
+        snapshot.clear_active_records_for_test();
+        snapshot.push_active_record_out_of_order_for_test(record);
+        assert!(matches!(
+            assert_snapshot_identity_matches_contents(&snapshot),
+            Err(ReusableInfluenceError::RecordOutsideGovernanceBoundary { .. })
+        ));
+    }
+
+    #[test]
+    fn record_below_boundary_passes_integrity() {
+        let snapshot = legitimate_snapshot_with_promotion();
+        assert_snapshot_identity_matches_contents(&snapshot).expect("valid");
+        let record = snapshot.active_records()[0]
+            .record_id
+            .promotion_event_index();
+        assert!(record < snapshot.governance_event_boundary());
     }
 }
 

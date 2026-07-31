@@ -11,11 +11,8 @@ use vox_proof::candidate::{
     DetectionKind, Evidence, SessionTermEntry, detect_glossary_matches,
     detect_observed_error_form_matches,
 };
-use vox_proof::pipeline::{run_canonical_term_review, run_reuse_enabled_term_review};
-use vox_proof::reusable_influence::{
-    ReusableInfluenceError, build_reusable_influence_snapshot, fold_effective_state,
-    resolve_exact_input_projection,
-};
+use vox_proof::pipeline::run_canonical_term_review;
+use vox_proof::reusable_influence::{ReusableInfluenceError, resolve_exact_input_projection};
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
 use vox_proof::review::CorrectionDecision;
 use vox_proof::srt::parse_srt;
@@ -289,17 +286,10 @@ fn divergent_reusable_pairs_refuse_projection() {
     {
         session.accept_reuse_candidate(&key).expect("accept");
     }
-    let canonical = run_canonical_term_review(session.source(), &terms).expect("canonical");
-    let effective = fold_effective_state(
-        session.reuse_state().governance_ledger(),
-        session.review_ledger(),
-        &canonical,
-    );
     let scope = session.reuse_state().project_scope().expect("scope");
-    let snapshot = build_reusable_influence_snapshot(
-        scope,
-        session.reuse_state().governance_ledger(),
-        &effective,
+    let snapshot = vox_proof::application_reuse::reusable_influence_snapshot_for_parts(
+        session.reuse_parts(),
+        session.reuse_state(),
     )
     .expect("snapshot");
     assert!(matches!(
@@ -323,17 +313,10 @@ fn base_versus_reuse_divergence_refuses_projection() {
         .key
         .clone();
     session.accept_reuse_candidate(&key).expect("accept");
-    let canonical = run_canonical_term_review(session.source(), &entries).expect("canonical");
-    let effective = fold_effective_state(
-        session.reuse_state().governance_ledger(),
-        session.review_ledger(),
-        &canonical,
-    );
     let scope = session.reuse_state().project_scope().expect("scope");
-    let snapshot = build_reusable_influence_snapshot(
-        scope,
-        session.reuse_state().governance_ledger(),
-        &effective,
+    let snapshot = vox_proof::application_reuse::reusable_influence_snapshot_for_parts(
+        session.reuse_parts(),
+        session.reuse_state(),
     )
     .expect("snapshot");
     assert!(matches!(
@@ -623,7 +606,6 @@ fn revoked_records_absent_from_active_snapshot() {
 
 #[test]
 fn reusable_proposals_use_typed_reusable_evidence_not_alias_evidence() {
-    let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
     let entries = vec![alias_entry("Apache Kafka", "Kafak")];
     let mut session = manual_replacement_session(
         "1\n00:00:00,000 --> 00:00:01,000\nKafak",
@@ -637,7 +619,8 @@ fn reusable_proposals_use_typed_reusable_evidence_not_alias_evidence() {
         .key
         .clone();
     session.accept_reuse_candidate(&key).expect("accept");
-    let run = AnalysisRunHelper::reuse_enabled(&session, &transcript, &entries);
+    session.run_reuse_enabled_review().expect("run");
+    let run = session.reuse_enabled_run().expect("run");
     let reusable_cases: Vec<_> = run
         .review_cases()
         .iter()
@@ -654,33 +637,6 @@ fn reusable_proposals_use_typed_reusable_evidence_not_alias_evidence() {
             .iter()
             .all(|case| !matches!(case.candidate_span().evidence(), Evidence::GlossaryAlias(_)))
     );
-}
-
-struct AnalysisRunHelper;
-
-impl AnalysisRunHelper {
-    fn reuse_enabled(
-        session: &vox_proof::application_service::ApplicationReviewSession,
-        transcript: &vox_proof::transcript::Transcript,
-        entries: &[SessionTermEntry],
-    ) -> vox_proof::pipeline::ReuseEnabledTermReviewRun {
-        let canonical = run_canonical_term_review(transcript, entries).expect("canonical");
-        let effective = fold_effective_state(
-            session.reuse_state().governance_ledger(),
-            session.review_ledger(),
-            &canonical,
-        );
-        let scope = session.reuse_state().project_scope().expect("scope");
-        let snapshot = build_reusable_influence_snapshot(
-            scope,
-            session.reuse_state().governance_ledger(),
-            &effective,
-        )
-        .expect("snapshot");
-        let projection =
-            resolve_exact_input_projection(scope, &snapshot, entries).expect("projection");
-        run_reuse_enabled_term_review(transcript, entries, &projection, &snapshot).expect("run")
-    }
 }
 
 #[test]
