@@ -246,6 +246,20 @@ pub fn validate_accept_reuse_candidate(
     Ok(candidate)
 }
 
+pub fn build_promotion_accepted_event(
+    candidate: &ReuseCandidate,
+    project_scope: &ProjectScope,
+    authority: &DeclaredSessionAuthority,
+) -> ReusableGovernanceEvent {
+    ReusableGovernanceEvent::PromotionAccepted {
+        candidate_key: Box::new(candidate.key.clone()),
+        payload: candidate.exact_payload.clone(),
+        source_locator: Box::new(candidate.key.source_locator.clone()),
+        actor: governance_actor_from_authority(authority),
+        project_scope: Box::new(project_scope.clone()),
+    }
+}
+
 pub fn accept_reuse_candidate(
     parts: ReuseSessionParts<'_>,
     reuse_state: &mut ApplicationReuseState,
@@ -258,16 +272,13 @@ pub fn accept_reuse_candidate(
         .clone();
     let candidate = validate_accept_reuse_candidate(parts, reuse_state, candidate_key)?;
 
-    let event_index =
-        reuse_state
-            .governance_ledger_mut()
-            .append(ReusableGovernanceEvent::PromotionAccepted {
-                candidate_key: Box::new(candidate.key.clone()),
-                payload: candidate.exact_payload.clone(),
-                source_locator: Box::new(candidate.key.source_locator.clone()),
-                actor: governance_actor_from_authority(authority),
-                project_scope: Box::new(project_scope),
-            });
+    let event_index = reuse_state
+        .governance_ledger_mut()
+        .append(build_promotion_accepted_event(
+            &candidate,
+            &project_scope,
+            authority,
+        ));
     Ok(ReusableInfluenceRecordId::from_promotion_event_index(
         event_index,
     ))
@@ -348,19 +359,25 @@ pub fn supersede_reusable_influence(
         }
         .into());
     }
-    validate_accept_reuse_candidate(parts, reuse_state, successor_candidate_key)?;
-    let successor_id =
-        accept_reuse_candidate(parts, reuse_state, authority, successor_candidate_key)?;
+    let project_scope = reuse_state
+        .project_scope()
+        .ok_or(ApplicationReuseError::MissingProjectScope)?
+        .clone();
+    let candidate = validate_accept_reuse_candidate(parts, reuse_state, successor_candidate_key)?;
+    let promotion_index = reuse_state.governance_ledger().events().len();
+    let successor_id = ReusableInfluenceRecordId::from_promotion_event_index(promotion_index);
     if successor_id == predecessor_id {
         return Err(ReusableInfluenceError::SelfSupersession.into());
     }
-    reuse_state.governance_ledger_mut().append(
+    let events = vec![
+        build_promotion_accepted_event(&candidate, &project_scope, authority),
         ReusableGovernanceEvent::ReusableInfluenceSuperseded {
             predecessor_id,
             successor_id,
             actor: governance_actor_from_authority(authority),
         },
-    );
+    ];
+    reuse_state.governance_ledger_mut().append_batch(events);
     Ok(successor_id)
 }
 

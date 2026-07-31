@@ -2,6 +2,7 @@ use crate::analysis::ReuseEnabledAnalysisSnapshot;
 use crate::application_export::{escape_export_text, render_application_decision_log};
 use crate::application_reuse::ApplicationReuseState;
 use crate::application_service::ApplicationReviewExportBundle;
+use crate::candidate::ResolvedExactInputContributionEvidence;
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ReusableGovernanceEvent, ReusableInfluenceLedger,
@@ -32,6 +33,7 @@ pub struct ReuseEnabledProposalProjectionRecord {
     pub promotion_event_indices: Vec<usize>,
     pub source_locators: Vec<crate::reuse_primitives::SourceDecisionLocator>,
     pub record_ids: Vec<crate::reuse_primitives::ReusableInfluenceRecordId>,
+    pub exact_input_contributions: Vec<ResolvedExactInputContributionEvidence>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -110,6 +112,7 @@ fn collect_reuse_enabled_proposal_projections(
                 .iter()
                 .map(|contribution| contribution.record_id)
                 .collect(),
+            exact_input_contributions: evidence.exact_input_contributions.clone(),
         });
     }
     records
@@ -257,6 +260,44 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
                     .map(|id| id.promotion_event_index())
                     .collect::<Vec<_>>()
             ));
+            output.push_str("    exact_input_contributions:\n");
+            for contribution in &record.exact_input_contributions {
+                match contribution {
+                    ResolvedExactInputContributionEvidence::BaseObservedErrorForm {
+                        session_term_canonical,
+                        observed_form,
+                    } => {
+                        output.push_str("      - kind: base_observed_error_form\n");
+                        output.push_str(&format!(
+                            "        session_term_canonical: {}\n",
+                            escape_export_text(session_term_canonical)
+                        ));
+                        output.push_str(&format!(
+                            "        observed_form: {}\n",
+                            escape_export_text(observed_form)
+                        ));
+                    }
+                    ResolvedExactInputContributionEvidence::ReusableInfluenceRecord {
+                        record_id,
+                        promotion_event_index,
+                        source_locator,
+                    } => {
+                        output.push_str("      - kind: reusable_influence_record\n");
+                        output.push_str(&format!(
+                            "        record_id: promotion_event:{}\n",
+                            record_id.promotion_event_index()
+                        ));
+                        output.push_str(&format!(
+                            "        promotion_event: {}\n",
+                            promotion_event_index
+                        ));
+                        output.push_str(&format!(
+                            "        source_case_local: {}\n",
+                            source_locator.source_review_case_id.local_index() + 1
+                        ));
+                    }
+                }
+            }
         }
     }
 

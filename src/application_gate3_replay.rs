@@ -8,8 +8,10 @@ use crate::application_service::{
 };
 use crate::reusable_influence::{
     ReusableGovernanceEvent, ReusableInfluenceLedger, fold_effective_state,
-    resolve_exact_input_projection, verify_source_locator_at_historical_boundary,
+    resolve_exact_input_projection, validate_governance_actor,
+    validate_reuse_candidate_key_at_historical_boundary,
 };
+use crate::reuse_primitives::PromotionCandidateRejectionIdentity;
 
 pub fn verify_gate3_independent_replay(
     session: &ApplicationReviewSession,
@@ -195,38 +197,39 @@ fn validate_governance_event(
 ) -> Result<(), ApplicationReplayError> {
     let replay_effective = fold_effective_state(replay, parts.ledger, parts.canonical_run);
     match event {
-        ReusableGovernanceEvent::PromotionCandidateRejected { candidate_key, .. } => {
+        ReusableGovernanceEvent::PromotionCandidateRejected {
+            candidate_key,
+            actor,
+        } => {
+            validate_governance_actor(actor).map_err(|_| ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
             if candidate_key.project_scope_id != project_scope.stable_id {
                 return Err(ApplicationReplayError::Mismatch {
                     field: ApplicationReplayField::ReuseGovernanceLedger,
                 });
             }
-            let candidates = crate::reusable_influence::derive_reuse_candidates(
-                parts.transcript,
-                parts.canonical_run,
+            validate_reuse_candidate_key_at_historical_boundary(
+                candidate_key.as_ref(),
                 parts.ledger,
-                project_scope,
+                parts.canonical_run,
+                parts.transcript,
                 &replay_effective,
             )
             .map_err(|_| ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ReuseGovernanceLedger,
             })?;
-            if !candidates
-                .iter()
-                .any(|item| &item.key == candidate_key.as_ref())
-            {
-                return Err(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseGovernanceLedger,
-                });
-            }
         }
         ReusableGovernanceEvent::PromotionAccepted {
             candidate_key,
             payload,
             source_locator,
             project_scope: event_scope,
-            ..
+            actor,
         } => {
+            validate_governance_actor(actor).map_err(|_| ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
             if candidate_key.project_scope_id != event_scope.stable_id
                 || event_scope.stable_id != project_scope.stable_id
             {
@@ -234,10 +237,24 @@ fn validate_governance_event(
                     field: ApplicationReplayField::ReuseGovernanceLedger,
                 });
             }
-            verify_source_locator_at_historical_boundary(
+            if candidate_key.source_locator != **source_locator {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ReuseGovernanceLedger,
+                });
+            }
+            if replay_effective.rejected_candidate_identities.contains(
+                &PromotionCandidateRejectionIdentity::from(candidate_key.as_ref()),
+            ) {
+                return Err(ApplicationReplayError::Mismatch {
+                    field: ApplicationReplayField::ReuseGovernanceLedger,
+                });
+            }
+            validate_reuse_candidate_key_at_historical_boundary(
+                candidate_key.as_ref(),
                 parts.ledger,
-                source_locator.as_ref(),
                 parts.canonical_run,
+                parts.transcript,
+                &replay_effective,
             )
             .map_err(|_| ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ReuseGovernanceLedger,
@@ -288,7 +305,10 @@ fn validate_governance_event(
                 });
             }
         }
-        ReusableGovernanceEvent::ReusableInfluenceRevoked { record_id, .. } => {
+        ReusableGovernanceEvent::ReusableInfluenceRevoked { record_id, actor } => {
+            validate_governance_actor(actor).map_err(|_| ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
             if !replay_effective
                 .active_records
                 .iter()
@@ -302,8 +322,11 @@ fn validate_governance_event(
         ReusableGovernanceEvent::ReusableInfluenceSuperseded {
             predecessor_id,
             successor_id,
-            ..
+            actor,
         } => {
+            validate_governance_actor(actor).map_err(|_| ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
             if predecessor_id == successor_id {
                 return Err(ApplicationReplayError::Mismatch {
                     field: ApplicationReplayField::ReuseGovernanceLedger,

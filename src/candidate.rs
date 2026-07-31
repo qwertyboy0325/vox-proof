@@ -160,12 +160,26 @@ pub struct ReusableProvenanceContribution {
     pub source_locator: crate::reuse_primitives::SourceDecisionLocator,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ResolvedExactInputContributionEvidence {
+    BaseObservedErrorForm {
+        session_term_canonical: String,
+        observed_form: String,
+    },
+    ReusableInfluenceRecord {
+        record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+        promotion_event_index: usize,
+        source_locator: crate::reuse_primitives::SourceDecisionLocator,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReusableExactObservedFormEvidence {
     pub observed_text: String,
     pub confirmed_replacement: String,
     pub project_scope_id: crate::reuse_primitives::ProjectScopeId,
     pub snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    pub exact_input_contributions: Vec<ResolvedExactInputContributionEvidence>,
     pub contributions: Vec<ReusableProvenanceContribution>,
     pub promotion_event_indices: Vec<usize>,
 }
@@ -292,6 +306,7 @@ pub enum DetectionError {
         canonical_term: String,
     },
     ProjectionSnapshotIdentityMismatch,
+    ProjectionContentMismatch,
     MissingReusableRecordProvenance {
         record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
     },

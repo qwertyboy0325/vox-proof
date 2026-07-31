@@ -698,21 +698,41 @@ impl ReviewApp {
                                     Err(error) => self.error = Some(error.to_string()),
                                 }
                             }
-                            if let Some(candidate) = candidates.iter().find(|candidate| {
+                        let eligible: Vec<_> = candidates
+                            .iter()
+                            .filter(|candidate| {
                                 candidate.key.source_locator != record.source_locator
-                            }) {
-                                let key = candidate.key.clone();
-                                if ui.button("Supersede with eligible candidate").clicked() {
-                                    match self.controller.supersede_reusable_influence(
-                                        generation,
-                                        record.record_id,
-                                        &key,
-                                    ) {
-                                        Ok(()) => self.status = "Record superseded.".to_owned(),
-                                        Err(error) => self.error = Some(error.to_string()),
-                                    }
+                            })
+                            .collect();
+                        for candidate in eligible {
+                            let key = candidate.key.clone();
+                            let label = format!(
+                                "Supersede with: {} → {} (case local:{}, digest:{:08x}…)",
+                                candidate.exact_payload.observed_text,
+                                candidate.exact_payload.confirmed_replacement,
+                                candidate
+                                    .key
+                                    .source_locator
+                                    .source_review_case_id
+                                    .local_index()
+                                    + 1,
+                                u32::from_be_bytes(
+                                    candidate.key.source_locator.decision_digest[..4]
+                                        .try_into()
+                                        .unwrap_or([0; 4]),
+                                )
+                            );
+                            if ui.button(label).clicked() {
+                                match self.controller.supersede_reusable_influence(
+                                    generation,
+                                    record.record_id,
+                                    &key,
+                                ) {
+                                    Ok(()) => self.status = "Record superseded.".to_owned(),
+                                    Err(error) => self.error = Some(error.to_string()),
                                 }
                             }
+                        }
                         });
                     });
                 }

@@ -4,7 +4,8 @@ use std::fmt;
 use crate::analysis::AnalysisSnapshot;
 use crate::candidate::{
     CandidateAlternative, CandidateSpan, DetectionKind, DetectorProvenance, Evidence,
-    ReusableExactObservedFormEvidence, ReusableProvenanceContribution, SessionTermEntry,
+    ResolvedExactInputContributionEvidence, ReusableExactObservedFormEvidence,
+    ReusableProvenanceContribution, SessionTermEntry,
 };
 use crate::pipeline::CanonicalTermReviewRun;
 use crate::reuse_primitives::{
@@ -111,6 +112,14 @@ impl ReusableInfluenceLedger {
         self.events.push(event);
         index
     }
+
+    pub(crate) fn append_batch(&mut self, events: Vec<ReusableGovernanceEvent>) -> Vec<usize> {
+        let mut indices = Vec::with_capacity(events.len());
+        for event in events {
+            indices.push(self.append(event));
+        }
+        indices
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -147,7 +156,7 @@ pub enum ExactInputContributionKind {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ExactInputContribution {
+pub(crate) struct ExactInputContribution {
     pub kind: ExactInputContributionKind,
     pub observed_text: String,
     pub confirmed_replacement: String,
@@ -156,7 +165,7 @@ pub struct ExactInputContribution {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExactInputMatcherEntry {
+pub(crate) struct ExactInputMatcherEntry {
     pub observed_text: String,
     pub confirmed_replacement: String,
     pub contributions: Vec<ExactInputContribution>,
@@ -164,9 +173,15 @@ pub struct ExactInputMatcherEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedExactInputProjection {
-    pub project_scope_id: ProjectScopeId,
-    pub snapshot_identity: ReusableInfluenceSnapshotIdentity,
-    pub entries: Vec<ExactInputMatcherEntry>,
+    project_scope_id: ProjectScopeId,
+    snapshot_identity: ReusableInfluenceSnapshotIdentity,
+    entries: Vec<ExactInputMatcherEntry>,
+}
+
+impl ResolvedExactInputProjection {
+    pub(crate) fn entries(&self) -> &[ExactInputMatcherEntry] {
+        &self.entries
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -190,6 +205,9 @@ pub enum ReusableInfluenceError {
         observed_text: String,
     },
     ProjectionSnapshotIdentityMismatch,
+    ProjectionContentMismatch,
+    InvalidGovernanceActor,
+    CandidateKeySourceLocatorMismatch,
     MissingReusableRecordProvenance {
         record_id: ReusableInfluenceRecordId,
     },
@@ -203,6 +221,14 @@ impl fmt::Display for ReusableInfluenceError {
 }
 
 impl std::error::Error for ReusableInfluenceError {}
+
+pub fn locate_effective_manual_replacement_at_prefix(
+    ledger: &ReviewLedger,
+    case_id: ReviewCaseId,
+    prefix_length: usize,
+) -> Option<usize> {
+    ledger.locate_effective_manual_replacement_at_prefix(case_id, prefix_length)
+}
 
 pub fn locate_effective_manual_replacement_event(
     ledger: &ReviewLedger,
@@ -518,7 +544,18 @@ pub fn resolve_exact_input_projection(
     if snapshot.project_scope_id != project_scope.stable_id {
         return Err(ReusableInfluenceError::WrongProjectScope);
     }
+    let entries = build_exact_input_projection_entries(snapshot, base_session_terms)?;
+    Ok(ResolvedExactInputProjection {
+        project_scope_id: project_scope.stable_id.clone(),
+        snapshot_identity: snapshot.identity,
+        entries,
+    })
+}
 
+fn build_exact_input_projection_entries(
+    snapshot: &ReusableInfluenceSnapshot,
+    base_session_terms: &[SessionTermEntry],
+) -> Result<Vec<ExactInputMatcherEntry>, ReusableInfluenceError> {
     let mut mapping: BTreeMap<String, ExactInputMatcherEntry> = BTreeMap::new();
 
     for entry in base_session_terms {
@@ -551,12 +588,7 @@ pub fn resolve_exact_input_projection(
 
     let mut entries = mapping.into_values().collect::<Vec<_>>();
     entries.sort_by(|left, right| left.observed_text.cmp(&right.observed_text));
-
-    Ok(ResolvedExactInputProjection {
-        project_scope_id: project_scope.stable_id.clone(),
-        snapshot_identity: snapshot.identity,
-        entries,
-    })
+    Ok(entries)
 }
 
 fn insert_exact_contribution(
@@ -627,10 +659,106 @@ pub fn verify_source_locator_at_historical_boundary(
     locator: &SourceDecisionLocator,
     canonical_run: &CanonicalTermReviewRun,
 ) -> Result<(), ReusableInfluenceError> {
+    verify_source_locator_effective_at_historical_boundary(ledger, locator, canonical_run)
+}
+
+pub fn verify_source_locator_effective_at_historical_boundary(
+    ledger: &ReviewLedger,
+    locator: &SourceDecisionLocator,
+    canonical_run: &CanonicalTermReviewRun,
+) -> Result<(), ReusableInfluenceError> {
     if locator.effective_at_ledger_length > ledger.events().len() {
         return Err(ReusableInfluenceError::InvalidSourceLocator);
     }
-    verify_source_locator_event_fields(ledger, locator, canonical_run)
+    verify_source_locator_event_fields(ledger, locator, canonical_run)?;
+    let case_id = locator.source_review_case_id;
+    let ReviewCaseStatus::Decided {
+        observed_revision,
+        decision: CorrectionDecision::ManualReplacement { replacement },
+    } = ledger.status_for_at_prefix(case_id, locator.effective_at_ledger_length)
+    else {
+        return Err(ReusableInfluenceError::SourceDecisionNotEffective);
+    };
+    if decision_digest(case_id, observed_revision, &replacement) != locator.decision_digest {
+        return Err(ReusableInfluenceError::InvalidSourceLocator);
+    }
+    let effective_position = locate_effective_manual_replacement_at_prefix(
+        ledger,
+        case_id,
+        locator.effective_at_ledger_length,
+    )
+    .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
+    if effective_position != locator.review_ledger_position {
+        return Err(ReusableInfluenceError::SourceDecisionNotEffective);
+    }
+    Ok(())
+}
+
+pub const DECLARED_LOCAL_OWNER_ROLE: &str = "declared_local_owner_operator";
+pub const DECLARED_REVIEWER_ROLE: &str = "declared_authorized_human_reviewer";
+
+pub fn validate_governance_actor(
+    actor: &GovernanceActorContext,
+) -> Result<(), ReusableInfluenceError> {
+    match actor.role_label.as_str() {
+        DECLARED_LOCAL_OWNER_ROLE | DECLARED_REVIEWER_ROLE => {}
+        _ => return Err(ReusableInfluenceError::InvalidGovernanceActor),
+    }
+    if actor.display_label.trim().is_empty() {
+        return Err(ReusableInfluenceError::InvalidGovernanceActor);
+    }
+    Ok(())
+}
+
+pub fn validate_reuse_candidate_key_at_historical_boundary(
+    candidate_key: &ReuseCandidateKey,
+    review_ledger: &ReviewLedger,
+    canonical_run: &CanonicalTermReviewRun,
+    transcript: &Transcript,
+    replay_effective: &ReusableInfluenceEffectiveState,
+) -> Result<(), ReusableInfluenceError> {
+    verify_source_locator_effective_at_historical_boundary(
+        review_ledger,
+        &candidate_key.source_locator,
+        canonical_run,
+    )?;
+    let review_case = canonical_run
+        .review_cases()
+        .get(
+            candidate_key
+                .source_locator
+                .source_review_case_id
+                .local_index(),
+        )
+        .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
+    let observed = transcript
+        .resolve(review_case.candidate_span().anchor())
+        .ok_or(ReusableInfluenceError::SourceTextMismatch)?;
+    if observed.is_empty() {
+        return Err(ReusableInfluenceError::SourceTextMismatch);
+    }
+    let event = review_ledger
+        .events()
+        .get(candidate_key.source_locator.review_ledger_position)
+        .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
+    let ReviewLedgerEvent::DecisionRecorded { decision, .. } = event;
+    let CorrectionDecision::ManualReplacement { .. } = decision else {
+        return Err(ReusableInfluenceError::SourceDecisionNotManualReplacement);
+    };
+    if replay_effective
+        .rejected_candidate_identities
+        .contains(&PromotionCandidateRejectionIdentity::from(candidate_key))
+    {
+        return Err(ReusableInfluenceError::CandidateAlreadyRejected);
+    }
+    if replay_effective
+        .active_records
+        .iter()
+        .any(|record| record.source_locator == candidate_key.source_locator)
+    {
+        return Err(ReusableInfluenceError::CandidateAlreadyPromoted);
+    }
+    Ok(())
 }
 
 fn verify_source_locator_event_fields(
@@ -665,12 +793,25 @@ fn verify_source_locator_event_fields(
 pub fn validate_projection_against_snapshot(
     projection: &ResolvedExactInputProjection,
     snapshot: &ReusableInfluenceSnapshot,
+    base_terms: &[SessionTermEntry],
+) -> Result<(), ReusableInfluenceError> {
+    assert_projection_matches_expected(projection, snapshot, base_terms)
+}
+
+pub fn assert_projection_matches_expected(
+    projection: &ResolvedExactInputProjection,
+    snapshot: &ReusableInfluenceSnapshot,
+    base_terms: &[SessionTermEntry],
 ) -> Result<(), ReusableInfluenceError> {
     if projection.snapshot_identity != snapshot.identity {
         return Err(ReusableInfluenceError::ProjectionSnapshotIdentityMismatch);
     }
     if projection.project_scope_id != snapshot.project_scope_id {
         return Err(ReusableInfluenceError::WrongProjectScope);
+    }
+    let expected_entries = build_exact_input_projection_entries(snapshot, base_terms)?;
+    if projection.entries != expected_entries {
+        return Err(ReusableInfluenceError::ProjectionContentMismatch);
     }
     Ok(())
 }
@@ -683,15 +824,20 @@ pub fn detect_resolved_exact_observed_form_matches(
     snapshot: &ReusableInfluenceSnapshot,
 ) -> Result<Vec<CandidateSpan>, crate::candidate::DetectionError> {
     crate::candidate::validate_reuse_enabled_detection_inputs(run, transcript, entries)?;
-    validate_projection_against_snapshot(projection, snapshot).map_err(|error| match error {
-        ReusableInfluenceError::ProjectionSnapshotIdentityMismatch => {
-            crate::candidate::DetectionError::ProjectionSnapshotIdentityMismatch
-        }
-        ReusableInfluenceError::MissingReusableRecordProvenance { record_id } => {
-            crate::candidate::DetectionError::MissingReusableRecordProvenance { record_id }
-        }
-        _ => crate::candidate::DetectionError::ProjectionSnapshotIdentityMismatch,
-    })?;
+    assert_projection_matches_expected(projection, snapshot, entries).map_err(
+        |error| match error {
+            ReusableInfluenceError::ProjectionSnapshotIdentityMismatch => {
+                crate::candidate::DetectionError::ProjectionSnapshotIdentityMismatch
+            }
+            ReusableInfluenceError::ProjectionContentMismatch => {
+                crate::candidate::DetectionError::ProjectionContentMismatch
+            }
+            ReusableInfluenceError::MissingReusableRecordProvenance { record_id } => {
+                crate::candidate::DetectionError::MissingReusableRecordProvenance { record_id }
+            }
+            _ => crate::candidate::DetectionError::ProjectionContentMismatch,
+        },
+    )?;
 
     let record_lookup: HashMap<ReusableInfluenceRecordId, &EffectiveReusableInfluenceRecord> =
         snapshot
@@ -706,31 +852,68 @@ pub fn detect_resolved_exact_observed_form_matches(
     );
     let mut spans = Vec::new();
 
-    for entry in &projection.entries {
+    for entry in projection.entries() {
+        let mut exact_input_contributions = Vec::new();
         let mut provenance_contributions = Vec::new();
         let mut promotion_event_indices = Vec::new();
         for contribution in &entry.contributions {
-            if let ExactInputContributionKind::ReusableInfluenceRecord = contribution.kind {
-                let Some(record_id) = contribution.reusable_record_id else {
-                    return Err(
-                        crate::candidate::DetectionError::MissingReusableRecordProvenance {
-                            record_id: ReusableInfluenceRecordId::from_promotion_event_index(0),
+            match contribution.kind {
+                ExactInputContributionKind::BaseObservedErrorForm => {
+                    let canonical = contribution
+                        .session_term_canonical
+                        .as_deref()
+                        .ok_or(crate::candidate::DetectionError::ProjectionContentMismatch)?;
+                    if !entries.iter().any(|term| {
+                        term.canonical_term == canonical
+                            && term
+                                .observed_error_forms
+                                .iter()
+                                .any(|form| form == &contribution.observed_text)
+                    }) {
+                        return Err(crate::candidate::DetectionError::ProjectionContentMismatch);
+                    }
+                    exact_input_contributions.push(
+                        ResolvedExactInputContributionEvidence::BaseObservedErrorForm {
+                            session_term_canonical: canonical.to_owned(),
+                            observed_form: contribution.observed_text.clone(),
                         },
                     );
-                };
-                let Some(record) = record_lookup.get(&record_id) else {
-                    return Err(
-                        crate::candidate::DetectionError::MissingReusableRecordProvenance {
+                }
+                ExactInputContributionKind::ReusableInfluenceRecord => {
+                    let Some(record_id) = contribution.reusable_record_id else {
+                        return Err(
+                            crate::candidate::DetectionError::MissingReusableRecordProvenance {
+                                record_id: ReusableInfluenceRecordId::from_promotion_event_index(0),
+                            },
+                        );
+                    };
+                    let Some(record) = record_lookup.get(&record_id) else {
+                        return Err(
+                            crate::candidate::DetectionError::MissingReusableRecordProvenance {
+                                record_id,
+                            },
+                        );
+                    };
+                    if record.payload.observed_text != contribution.observed_text
+                        || record.payload.confirmed_replacement
+                            != contribution.confirmed_replacement
+                    {
+                        return Err(crate::candidate::DetectionError::ProjectionContentMismatch);
+                    }
+                    exact_input_contributions.push(
+                        ResolvedExactInputContributionEvidence::ReusableInfluenceRecord {
                             record_id,
+                            promotion_event_index: record_id.promotion_event_index(),
+                            source_locator: record.source_locator.clone(),
                         },
                     );
-                };
-                promotion_event_indices.push(record_id.promotion_event_index());
-                provenance_contributions.push(ReusableProvenanceContribution {
-                    record_id,
-                    promotion_event_index: record_id.promotion_event_index(),
-                    source_locator: record.source_locator.clone(),
-                });
+                    promotion_event_indices.push(record_id.promotion_event_index());
+                    provenance_contributions.push(ReusableProvenanceContribution {
+                        record_id,
+                        promotion_event_index: record_id.promotion_event_index(),
+                        source_locator: record.source_locator.clone(),
+                    });
+                }
             }
         }
         promotion_event_indices.sort_unstable();
@@ -749,6 +932,7 @@ pub fn detect_resolved_exact_observed_form_matches(
                         confirmed_replacement: entry.confirmed_replacement.clone(),
                         project_scope_id: projection.project_scope_id.clone(),
                         snapshot_identity: projection.snapshot_identity,
+                        exact_input_contributions: exact_input_contributions.clone(),
                         contributions: provenance_contributions.clone(),
                         promotion_event_indices: promotion_event_indices.clone(),
                     });
@@ -765,4 +949,56 @@ pub fn detect_resolved_exact_observed_form_matches(
     }
 
     Ok(spans)
+}
+
+#[cfg(test)]
+mod projection_authenticity_tests {
+    use super::*;
+    use crate::candidate::DetectionError;
+    use crate::pipeline::run_canonical_term_review;
+
+    fn sample_scope() -> ProjectScope {
+        ProjectScope::new(
+            ProjectScopeId::new("proj-test").expect("scope id"),
+            crate::reuse_primitives::ProjectScopeDisplayName::new("Project Test").expect("name"),
+        )
+    }
+
+    #[test]
+    fn forged_projection_with_legitimate_snapshot_identity_fails_detection() {
+        let transcript =
+            crate::srt::parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("valid");
+        let terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec![],
+            vec!["Kafak".to_string()],
+        )];
+        let canonical = run_canonical_term_review(&transcript, &terms).expect("canonical");
+        let scope = sample_scope();
+        let ledger = ReviewLedger::new();
+        let effective = fold_effective_state(&ReusableInfluenceLedger::new(), &ledger, &canonical);
+        let snapshot =
+            build_reusable_influence_snapshot(&scope, &ReusableInfluenceLedger::new(), &effective);
+        let projection =
+            resolve_exact_input_projection(&scope, &snapshot, &terms).expect("projection");
+        let mut forged_entries = projection.entries.clone();
+        forged_entries[0].confirmed_replacement = "Evil".to_owned();
+        let forged = ResolvedExactInputProjection {
+            project_scope_id: projection.project_scope_id.clone(),
+            snapshot_identity: projection.snapshot_identity,
+            entries: forged_entries,
+        };
+        let run =
+            crate::analysis::AnalysisRun::for_reuse_enabled_session_terms(&transcript, &terms);
+        assert!(matches!(
+            detect_resolved_exact_observed_form_matches(
+                &run,
+                &transcript,
+                &terms,
+                &forged,
+                &snapshot,
+            ),
+            Err(DetectionError::ProjectionContentMismatch)
+        ));
+    }
 }

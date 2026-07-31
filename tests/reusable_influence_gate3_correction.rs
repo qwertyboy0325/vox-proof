@@ -6,9 +6,8 @@ use vox_proof::application_service::{
 use vox_proof::candidate::SessionTermEntry;
 use vox_proof::pipeline::run_canonical_term_review;
 use vox_proof::reusable_influence::{
-    ReusableGovernanceEvent, ReusableInfluenceError, ReusableInfluenceLedger,
+    ReusableGovernanceEvent, ReusableInfluenceError, assert_projection_matches_expected,
     build_reusable_influence_snapshot, fold_effective_state, resolve_exact_input_projection,
-    validate_projection_against_snapshot,
 };
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
 use vox_proof::review::CorrectionDecision;
@@ -197,16 +196,17 @@ fn mismatched_projection_snapshot_identity_refuses_detection() {
     let projection = resolve_exact_input_projection(scope, &snapshot, &terms).expect("projection");
     let canonical = run_canonical_term_review(session.source(), &terms).expect("canonical");
     let bare_effective = fold_effective_state(
-        &ReusableInfluenceLedger::new(),
+        &vox_proof::reusable_influence::ReusableInfluenceLedger::new(),
         session.review_ledger(),
         &canonical,
     );
-    let bare_snapshot =
-        build_reusable_influence_snapshot(scope, &ReusableInfluenceLedger::new(), &bare_effective);
-    let mut mismatched = projection.clone();
-    mismatched.snapshot_identity = bare_snapshot.identity;
+    let bare_snapshot = build_reusable_influence_snapshot(
+        scope,
+        &vox_proof::reusable_influence::ReusableInfluenceLedger::new(),
+        &bare_effective,
+    );
     assert!(matches!(
-        validate_projection_against_snapshot(&mismatched, &snapshot),
+        assert_projection_matches_expected(&projection, &bare_snapshot, &terms),
         Err(ReusableInfluenceError::ProjectionSnapshotIdentityMismatch)
     ));
 }

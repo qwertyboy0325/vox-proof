@@ -219,6 +219,54 @@ impl ReviewLedger {
         &self.events
     }
 
+    pub fn status_for_at_prefix(
+        &self,
+        case_id: ReviewCaseId,
+        prefix_length: usize,
+    ) -> ReviewCaseStatus {
+        let mut status = ReviewCaseStatus::Undecided;
+        for event in self.events.iter().take(prefix_length) {
+            let ReviewLedgerEvent::DecisionRecorded {
+                case_id: event_case_id,
+                observed_revision,
+                decision,
+            } = event;
+            if *event_case_id == case_id {
+                status = ReviewCaseStatus::Decided {
+                    observed_revision: *observed_revision,
+                    decision: decision.clone(),
+                };
+            }
+        }
+        status
+    }
+
+    pub fn locate_effective_manual_replacement_at_prefix(
+        &self,
+        case_id: ReviewCaseId,
+        prefix_length: usize,
+    ) -> Option<usize> {
+        self.events()
+            .iter()
+            .take(prefix_length)
+            .enumerate()
+            .rev()
+            .find_map(|(index, event)| {
+                let ReviewLedgerEvent::DecisionRecorded {
+                    case_id: event_case_id,
+                    decision,
+                    ..
+                } = event;
+                if *event_case_id == case_id
+                    && matches!(decision, CorrectionDecision::ManualReplacement { .. })
+                {
+                    Some(index)
+                } else {
+                    None
+                }
+            })
+    }
+
     #[cfg(test)]
     pub(crate) fn from_events(events: Vec<ReviewLedgerEvent>) -> Self {
         Self { events }

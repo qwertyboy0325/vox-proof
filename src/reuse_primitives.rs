@@ -145,8 +145,8 @@ impl ReusableInfluenceSnapshotIdentity {
     pub fn to_tagged_string(self) -> String {
         const HEX: &[u8; 16] = b"0123456789abcdef";
         let mut encoded =
-            String::with_capacity("reusable-influence-snapshot:sha256-v1:".len() + 64);
-        encoded.push_str("reusable-influence-snapshot:sha256-v1:");
+            String::with_capacity("reusable-influence-snapshot:sha256-v2:".len() + 64);
+        encoded.push_str("reusable-influence-snapshot:sha256-v2:");
         for byte in self.0 {
             encoded.push(HEX[(byte >> 4) as usize] as char);
             encoded.push(HEX[(byte & 0x0f) as usize] as char);
