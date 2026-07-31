@@ -10,6 +10,7 @@ pub mod candidates;
 mod canonical_sql_reader;
 #[cfg(feature = "persistence-spike")]
 mod cross_platform;
+pub mod current_contract;
 #[cfg(feature = "persistence-spike")]
 mod durability;
 mod fixture;
@@ -33,6 +34,17 @@ mod sqlite_scenario_runner;
 pub use aggregation::{
     aggregate_readiness_from_json, aggregate_validated_metadata_internal_error_test,
     evaluate_persistence_readiness, serialize_readiness_result,
+};
+pub use current_contract::{
+    CURRENT_CONTRACT_FIXTURE_ID, CURRENT_CONTRACT_FIXTURE_VERSION, CURRENT_CONTRACT_ORACLE_VERSION,
+    CandidateEligibilityStatus, CandidateEquivalenceRequirements, ComparativeMeasurementContract,
+    CurrentContractFixture, CurrentContractOracle, CurrentContractReadiness, CurrentContractState,
+    FIELD_CLASSIFICATION_REGISTRY, FaultLayer, FieldClassification, MEASUREMENT_CONTRACT_VERSION,
+    OracleViolationCodeV3, SCENARIO_CONTRACT_VERSION, build_golden_small_session,
+    build_golden_small_state, candidate_equivalence_requirements, canonical_classes,
+    canonical_fingerprint, comparative_measurement_contract, current_contract_readiness,
+    derived_classes, excluded_classes, golden_small, project_current_contract_state,
+    scenario_contract_v3, validate_measurement_contract, validate_scenario_contract_v3,
 };
 pub use metadata::{
     MetadataValidationError, SUPPORTED_CONTRACT_VERSION, SUPPORTED_SCENARIO_CATALOG_VERSION,
