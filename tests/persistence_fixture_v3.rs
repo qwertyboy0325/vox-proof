@@ -4,8 +4,10 @@ use vox_proof::application_service::{
 };
 use vox_proof::persistence_evidence::{
     CURRENT_CONTRACT_FIXTURE_ID, CURRENT_CONTRACT_FIXTURE_VERSION, CurrentContractOracle,
-    build_golden_small_session, build_golden_small_state, canonical_fingerprint, golden_small,
-    project_current_contract_state,
+    VARIANT_PROMOTED_ACTIVE, all_fixture_variants, build_duplicated_session_lineage_state,
+    build_golden_small_state, build_offset_anchor_manual_replacement_state,
+    build_original_for_duplication_fixture, build_promoted_active_session, canonical_fingerprint,
+    golden_small, project_current_contract_state,
 };
 
 #[test]
@@ -94,14 +96,20 @@ fn fixture_metadata_matches_contract() {
     let fixture = golden_small();
     assert_eq!(fixture.fixture_id, CURRENT_CONTRACT_FIXTURE_ID);
     assert_eq!(fixture.fixture_version, CURRENT_CONTRACT_FIXTURE_VERSION);
+    assert_eq!(fixture.variant_id, VARIANT_PROMOTED_ACTIVE);
 }
 
 #[test]
 fn projection_from_session_matches_golden_state() {
-    let session = build_golden_small_session();
+    let session = build_promoted_active_session();
     let material_use =
         ApplicationMaterialUseDeclaration::new(DeclaredApplicationMaterialUseBasis::SelfOwned);
-    let projected = project_current_contract_state(&session, &material_use);
+    let projected = project_current_contract_state(
+        &session,
+        &material_use,
+        "session:current-contract:promoted",
+        "writer:promoted",
+    );
     let golden = build_golden_small_state();
     let oracle = CurrentContractOracle::compare(&golden, &projected);
     assert!(oracle.passed, "{:?}", oracle.violations);
@@ -121,4 +129,56 @@ fn fixture_oracle_production_isolation() {
         "Ezra",
     )
     .expect("authority remains separate type");
+}
+
+#[test]
+fn all_fixture_variants_validate() {
+    for fixture in all_fixture_variants() {
+        let result = CurrentContractOracle::validate(&fixture.expected_state);
+        assert!(
+            result.passed,
+            "variant {} failed: {:?}",
+            fixture.variant_id, result.violations
+        );
+    }
+}
+
+#[test]
+fn non_zero_source_anchor_is_preserved() {
+    let state = build_offset_anchor_manual_replacement_state();
+    let review_case = &state.review_cases[0];
+    assert!(review_case.anchor_start_byte > 0);
+    assert_eq!(review_case.observed_source_bytes, "Kafak");
+}
+
+#[test]
+fn duplicated_session_has_new_identity_and_lineage() {
+    let duplicate = build_duplicated_session_lineage_state();
+    let original = build_original_for_duplication_fixture();
+    assert_ne!(duplicate.session_id, original.session_id);
+    assert_eq!(
+        duplicate.duplicated_from_session_id.as_deref(),
+        Some(original.session_id.as_str())
+    );
+    assert_ne!(
+        duplicate.durable_command_tokens.evidence_writer_token,
+        original.durable_command_tokens.evidence_writer_token
+    );
+}
+
+#[test]
+fn original_session_unchanged_in_duplication_fixture() {
+    let original = build_original_for_duplication_fixture();
+    let duplicate = build_duplicated_session_lineage_state();
+    assert_eq!(
+        original.review_ledger_events,
+        duplicate.review_ledger_events
+    );
+    assert_eq!(
+        original.reuse_governance_events,
+        duplicate.reuse_governance_events
+    );
+    assert_eq!(original.review_cases, duplicate.review_cases);
+    assert_eq!(original.session_id, "session:current-contract:promoted");
+    assert_ne!(duplicate.session_id, original.session_id);
 }

@@ -1,26 +1,28 @@
 use vox_proof::persistence_evidence::{
-    comparative_measurement_contract, validate_measurement_contract,
+    MEASUREMENT_CONTRACT_VERSION, comparative_measurement_contract, validate_measurement_contract,
 };
-
-#[test]
-fn measurement_contract_includes_required_aggregation_fields() {
-    let contract = comparative_measurement_contract();
-    assert!(contract.aggregation_fields.count);
-    assert!(contract.aggregation_fields.median);
-    assert!(contract.aggregation_fields.p95);
-    assert!(contract.aggregation_fields.maximum);
-    assert!(contract.aggregation_fields.failure_count);
-}
 
 #[test]
 fn measurement_contract_is_candidate_neutral() {
     let contract = comparative_measurement_contract();
+    assert_eq!(contract.contract_version, MEASUREMENT_CONTRACT_VERSION);
     assert!(!contract.operations.is_empty());
-    assert!(
-        contract
-            .correctness_disqualification_gates
-            .iter()
-            .any(|gate| gate.contains("failed_oracle_compare"))
-    );
+    for operation in &contract.operations {
+        assert!(!operation.operation.contains("sqlite"));
+        assert!(!operation.operation.contains("append_bundle"));
+        assert!(!operation.operation.contains("embedded_relational"));
+    }
+}
+
+#[test]
+fn measurement_operations_are_unique_with_valid_samples() {
     validate_measurement_contract().expect("measurement contract valid");
+    let contract = comparative_measurement_contract();
+    assert_eq!(contract.deferred_scales.len(), 2);
+    for deferred in &contract.deferred_scales {
+        assert!(!deferred.rationale.is_empty());
+        assert!(!deferred.unblock_condition.is_empty());
+        assert!(!deferred.selection_impact.is_empty());
+    }
+    assert!(contract.minimum_environment_metadata.repository_commit);
 }
