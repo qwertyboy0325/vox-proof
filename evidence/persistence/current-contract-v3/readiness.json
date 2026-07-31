@@ -1,13 +1,15 @@
 {
   "package": "VP-GATE4-EVIDENCE-COMPLETION-01A",
+  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
   "scenario_contract_version": "3",
-  "measurement_contract_version": "1",
+  "measurement_contract_version": "2",
   "mechanism_comparison_readiness": "not_ready",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
   "selected_path": "A_corrected_append_authoritative_comparator",
-  "note": "Contract package only; equivalent candidate execution not completed"
+  "tracker_status": "GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_01_REMOTE_REVIEW_PENDING",
+  "note": "Correction-01 completed after remote review; complete typed locator, independent oracle derivation, fixture variants, corrected scenario semantics, measurement deferral semantics. Contract package only; equivalent candidate execution not completed. 01A not owner-accepted; 01B not authorized."
 }
