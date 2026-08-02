@@ -792,9 +792,29 @@ pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Resul
                 scenario.scenario_id
             ));
         }
+        if scenario
+            .oracle_assertions
+            .iter()
+            .any(|assertion| assertion.trim().is_empty())
+        {
+            return Err(format!(
+                "scenario {} has an empty oracle assertion",
+                scenario.scenario_id
+            ));
+        }
         if scenario.allowed_evidence_strength.is_empty() {
             return Err(format!(
                 "scenario {} missing allowed evidence strength",
+                scenario.scenario_id
+            ));
+        }
+        if scenario
+            .allowed_evidence_strength
+            .iter()
+            .any(|strength| strength.trim().is_empty())
+        {
+            return Err(format!(
+                "scenario {} has an empty evidence strength",
                 scenario.scenario_id
             ));
         }
@@ -807,13 +827,21 @@ pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Resul
             }
         }
         validate_fault_semantics(scenario)?;
+        if scenario.expected_recovery_class == ExpectedRecoveryClass::SafeAutomaticRecovery
+            && !scenario.reopen_required
+        {
+            return Err(format!(
+                "recovery scenario {} must require reopen",
+                scenario.scenario_id
+            ));
+        }
         if scenario.scenario_id == "unknown-newer-format" {
             if scenario.writable_open {
                 return Err("unknown-newer-format must forbid writable open".to_owned());
             }
             match &scenario.read_only_open {
                 ReadOnlyOpenPolicy::ConditionallyAllowed { required_condition } => {
-                    if required_condition.trim().is_empty() {
+                    if required_condition != "interpretation_demonstrably_safe" {
                         return Err(
                             "unknown-newer-format must declare a demonstrably-safe condition"
                                 .to_owned(),
@@ -826,14 +854,28 @@ pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Resul
                             .to_owned(),
                     );
                 }
-                ReadOnlyOpenPolicy::Forbidden => {}
+                ReadOnlyOpenPolicy::Forbidden => {
+                    return Err(
+                        "unknown-newer-format must declare conditionally safe read-only access"
+                            .to_owned(),
+                    );
+                }
             }
         }
         if scenario.requirement == ScenarioRequirementLevel::CapabilityDependent
-            && scenario.capability_requirement.is_none()
+            && scenario
+                .capability_requirement
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
         {
             return Err(format!(
                 "capability-dependent scenario {} missing capability requirement",
+                scenario.scenario_id
+            ));
+        }
+        if scenario.platform_requirement.is_empty() {
+            return Err(format!(
+                "scenario {} missing platform requirement",
                 scenario.scenario_id
             ));
         }
@@ -845,6 +887,14 @@ pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Resul
                 ));
             }
         }
+    }
+    let required = scenario_contract_v3()
+        .into_iter()
+        .filter(|scenario| scenario.requirement == ScenarioRequirementLevel::Required)
+        .map(|scenario| format!("{}@{}", scenario.scenario_id, scenario.scenario_version))
+        .collect::<std::collections::BTreeSet<_>>();
+    if !required.is_subset(&ids) {
+        return Err("scenario catalog is missing a required scenario".to_owned());
     }
     Ok(())
 }
@@ -866,15 +916,17 @@ fn validate_fault_semantics(scenario: &ScenarioContractV3) -> Result<(), String>
                     scenario.scenario_id
                 ));
             }
-            if !scenario
-                .prohibited_claims
-                .iter()
-                .any(|claim| claim == "FilesystemDurability")
-            {
-                return Err(format!(
-                    "process interruption scenario {} must prohibit filesystem durability claims",
-                    scenario.scenario_id
-                ));
+            for claim in ["FilesystemDurability", "HardwarePowerLoss", "OsCrash"] {
+                if !scenario
+                    .prohibited_claims
+                    .iter()
+                    .any(|prohibited| prohibited == claim)
+                {
+                    return Err(format!(
+                        "process interruption scenario {} must prohibit {claim} claims",
+                        scenario.scenario_id
+                    ));
+                }
             }
         }
         FaultLayer::MultiProcessConcurrency => {}

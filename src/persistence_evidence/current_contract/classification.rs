@@ -77,6 +77,11 @@ pub const FIELD_CLASSIFICATION_REGISTRY: &[ClassifiedField] = &[
         ),
     },
     ClassifiedField {
+        field_path: "project_scope",
+        classification: FieldClassification::CanonicalAuthority,
+        reconstruction_requirement: None,
+    },
+    ClassifiedField {
         field_path: "project_scope.stable_id",
         classification: FieldClassification::CanonicalAuthority,
         reconstruction_requirement: None,

@@ -231,6 +231,11 @@ pub fn validate_measurement_contract_value(
     if contract.contract_version != MEASUREMENT_CONTRACT_VERSION {
         return Err("measurement contract version mismatch".to_owned());
     }
+    if contract.fixture_id != super::model::CURRENT_CONTRACT_FIXTURE_ID
+        || contract.fixture_version != super::model::CURRENT_CONTRACT_FIXTURE_VERSION
+    {
+        return Err("measurement fixture identity mismatch".to_owned());
+    }
     let fields = &contract.aggregation_fields;
     if !fields.count
         || !fields.minimum
@@ -260,6 +265,19 @@ pub fn validate_measurement_contract_value(
                 operation.operation
             ));
         }
+        if operation.fixture_scales.is_empty()
+            || operation.fixture_scales.len()
+                != operation
+                    .fixture_scales
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+        {
+            return Err(format!(
+                "operation {} must have unique non-empty fixture scales",
+                operation.operation
+            ));
+        }
         if operation.warmup_count > operation.sample_count {
             return Err(format!(
                 "operation {} warmup_count must not exceed sample_count",
@@ -274,6 +292,8 @@ pub fn validate_measurement_contract_value(
         }
         if operation.operation.contains("sqlite")
             || operation.operation.contains("embedded_relational")
+            || operation.operation.contains("append_bundle")
+            || operation.operation.contains("append_authoritative")
         {
             return Err(format!(
                 "operation {} must remain candidate-neutral",
@@ -332,6 +352,9 @@ pub fn validate_measurement_contract_value(
         if !deferred_scales.insert(deferred.scale) {
             return Err(format!("duplicate deferred scale {:?}", deferred.scale));
         }
+    }
+    if deferred_scales.contains(&MeasurementFixtureScale::Small) {
+        return Err("small fixture scale must not be deferred".to_owned());
     }
     if !deferred_scales.contains(&MeasurementFixtureScale::Medium)
         || !deferred_scales.contains(&MeasurementFixtureScale::Stress)

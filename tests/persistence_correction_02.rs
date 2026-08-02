@@ -1,6 +1,7 @@
 use std::panic;
 
 use vox_proof::application_reuse::reusable_influence_snapshot_for_parts;
+use vox_proof::persistence_evidence::current_contract::classification::FIELD_CLASSIFICATION_REGISTRY;
 use vox_proof::persistence_evidence::current_contract::measurement::comparative_measurement_contract;
 use vox_proof::persistence_evidence::current_contract::scenario_contract::scenario_contract_v3;
 use vox_proof::persistence_evidence::{
@@ -108,4 +109,35 @@ fn oracle_anchor_validation_does_not_panic_on_mid_codepoint() {
     let result = panic::catch_unwind(|| CurrentContractOracle::validate(&state));
     assert!(result.is_ok());
     assert!(!result.unwrap().passed);
+}
+
+#[test]
+fn classification_registry_covers_every_current_contract_top_level_field() {
+    let required = [
+        "session_id",
+        "duplicated_from_session_id",
+        "session_authority",
+        "material_use_declaration",
+        "source_revisions",
+        "session_terms_identity",
+        "analysis_snapshots",
+        "review_cases",
+        "review_ledger_events",
+        "effective_review_status",
+        "project_scope",
+        "reuse_governance_events",
+        "effective_reusable_records",
+        "historical_reusable_records",
+        "reusable_snapshot_identity",
+        "reuse_enabled_analysis_binding",
+        "derived_queue_projection",
+        "durable_command_tokens",
+    ];
+    for field in required {
+        assert!(
+            FIELD_CLASSIFICATION_REGISTRY
+                .iter()
+                .any(|entry| entry.field_path == field)
+        );
+    }
 }

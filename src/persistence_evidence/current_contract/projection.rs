@@ -76,6 +76,7 @@ pub fn project_current_contract_state(
                 anchor_start_byte: anchor.start_byte(),
                 anchor_end_byte: anchor.end_byte(),
                 observed_source_bytes,
+                alternative_count: span.alternatives().len(),
             }
         })
         .collect();

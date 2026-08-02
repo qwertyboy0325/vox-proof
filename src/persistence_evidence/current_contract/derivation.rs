@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use crate::review::{CorrectionDecision, ManualReplacementText, ReviewCaseStatus};
+use crate::review::{CorrectionDecision, ManualReplacementText};
 
 use super::model::{
     CurrentContractState, DerivedContractProjection, EvidenceEffectiveReviewStatus,
@@ -9,8 +9,10 @@ use super::model::{
     REUSABLE_INFLUENCE_PROJECTION_VERSION,
 };
 use super::production_bridge::{
-    compute_production_snapshot_identity, parse_decision_digest_hex, parse_review_case_id,
-    parse_revision_id, production_decision_digest_hex, validate_governance_actor_session_bound,
+    compute_production_snapshot_identity, is_canonical_analysis_snapshot,
+    is_reuse_enabled_analysis_snapshot, parse_decision_digest_hex, parse_review_case_id,
+    production_decision_digest_hex, validate_analysis_snapshot,
+    validate_governance_actor_session_bound, validate_revision_id,
 };
 use super::serialization::rejection_identity_digest;
 use super::violations::{OracleDiagnosticV3, OracleViolationCodeV3, diagnostic};
@@ -74,22 +76,15 @@ fn fold_effective_review_status(
         let Some(decision) = validate_and_decode_review_event(state, event, violations) else {
             continue;
         };
-        let observed_revision = match parse_revision_id(&event.observed_revision_id) {
-            Ok(value) => value,
-            Err(diagnostic) => {
-                violations.push(diagnostic);
-                continue;
-            }
-        };
-        let status = ReviewCaseStatus::Decided {
-            observed_revision,
-            decision,
-        };
+        if let Err(diagnostic) = validate_revision_id(&event.observed_revision_id) {
+            violations.push(diagnostic);
+            continue;
+        }
         latest.insert(
             event.case_id.clone(),
             EvidenceEffectiveReviewStatus {
                 case_id: event.case_id.clone(),
-                status: format!("{:?}", status),
+                status: format!("Decided {{ decision: {:?} }}", decision),
             },
         );
     }
@@ -114,6 +109,14 @@ fn validate_and_decode_review_event(
         ));
         return None;
     };
+    if event.target_event_index.is_some() {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::MalformedReviewLedgerEvent,
+            &path,
+            "target_event_index is not part of an MD-017 review action",
+        ));
+        return None;
+    }
     if parse_review_case_id(&event.case_id).is_err() {
         violations.push(diagnostic(
             OracleViolationCodeV3::MalformedReviewCaseId,
@@ -220,6 +223,14 @@ fn validate_and_decode_review_event(
                 ));
                 return None;
             };
+            if alternative_index >= review_case.alternative_count {
+                violations.push(diagnostic(
+                    OracleViolationCodeV3::MalformedReviewLedgerEvent,
+                    &path,
+                    "accept alternative index is outside the recorded review-case alternatives",
+                ));
+                return None;
+            }
             Some(CorrectionDecision::AcceptAlternative { alternative_index })
         }
         "reject" | "defer" | "needs_manual_correction" => {
@@ -293,7 +304,20 @@ fn fold_reuse_governance(
     Vec<String>,
 ) {
     let mut fold = GovernanceFoldState::new();
-    for event in state.reuse_governance_events.iter().take(event_limit) {
+    for (expected_event_index, event) in state
+        .reuse_governance_events
+        .iter()
+        .take(event_limit)
+        .enumerate()
+    {
+        if governance_event_index(event) != expected_event_index {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::ReuseGovernanceIndexGap,
+                "reuse_governance_events",
+                "reuse governance event index is not contiguous",
+            ));
+            continue;
+        }
         apply_governance_event(state, event, &mut fold, violations);
     }
     let rejected: Vec<String> = fold.rejected.iter().cloned().collect();
@@ -388,7 +412,9 @@ fn apply_governance_event(
                 ));
                 return;
             }
-            validate_locator_integrity(state, source_locator, payload, violations);
+            if !validate_locator_integrity(state, source_locator, payload, violations) {
+                return;
+            }
             if project_scope_stable_id != &state.project_scope.stable_id {
                 violations.push(diagnostic(
                     OracleViolationCodeV3::CrossProjectRecordReference,
@@ -416,14 +442,6 @@ fn apply_governance_event(
                     OracleViolationCodeV3::DuplicateAcceptedRecordId,
                     &path,
                     "duplicate promotion accepted record id",
-                ));
-                return;
-            }
-            if *event_index != fold.records_by_id.len() {
-                violations.push(diagnostic(
-                    OracleViolationCodeV3::InvalidGovernanceTransition,
-                    &path,
-                    "record id must equal promotion event index",
                 ));
                 return;
             }
@@ -555,14 +573,15 @@ pub fn validate_locator_integrity(
     locator: &EvidenceSourceDecisionLocator,
     payload: &EvidenceExactReusableCorrection,
     violations: &mut Vec<OracleDiagnosticV3>,
-) {
+) -> bool {
+    let before = violations.len();
     if parse_review_case_id(&locator.source_review_case_id).is_err() {
         violations.push(diagnostic(
             OracleViolationCodeV3::MalformedReviewCaseId,
             "source_locator.source_review_case_id",
             "malformed review case id in source locator",
         ));
-        return;
+        return false;
     }
     if parse_decision_digest_hex(&locator.decision_digest).is_err() {
         violations.push(diagnostic(
@@ -570,7 +589,7 @@ pub fn validate_locator_integrity(
             "source_locator.decision_digest",
             "malformed decision digest in source locator",
         ));
-        return;
+        return false;
     }
     if !state
         .source_revisions
@@ -594,6 +613,28 @@ pub fn validate_locator_integrity(
             "referenced analysis snapshot does not exist",
         ));
     }
+    if let Some(snapshot) = state
+        .analysis_snapshots
+        .iter()
+        .find(|snapshot| snapshot.identity == locator.source_analysis_snapshot_identity)
+    {
+        if snapshot.source_revision_id != locator.source_revision_id {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::SourceLocatorBoundaryViolation,
+                "source_locator.source_analysis_snapshot_identity",
+                "analysis snapshot source revision differs from source locator revision",
+            ));
+        }
+        if snapshot.session_terms_identity != state.session_terms_identity
+            || !is_canonical_analysis_snapshot(snapshot)
+        {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::SourceLocatorBoundaryViolation,
+                "source_locator.source_analysis_snapshot_identity",
+                "source locator must bind the canonical session-term analysis snapshot",
+            ));
+        }
+    }
     let Some(review_case) = state
         .review_cases
         .iter()
@@ -604,7 +645,7 @@ pub fn validate_locator_integrity(
             "source_locator.source_review_case_id",
             "referenced review case does not exist",
         ));
-        return;
+        return false;
     };
     if review_case.observed_revision_id != locator.source_revision_id
         || review_case.anchor_revision_id != locator.source_revision_id
@@ -621,7 +662,7 @@ pub fn validate_locator_integrity(
             "source_locator.review_ledger_position",
             "review ledger position out of bounds",
         ));
-        return;
+        return false;
     }
     if locator.review_ledger_position >= locator.effective_at_ledger_length
         || locator.effective_at_ledger_length == 0
@@ -678,6 +719,7 @@ pub fn validate_locator_integrity(
             "decision is not effective at declared ledger prefix",
         ));
     }
+    violations.len() == before
 }
 
 fn validate_candidate_key(
@@ -698,14 +740,31 @@ fn validate_candidate_key(
         &candidate_key.source_locator,
         &candidate_key.exact_payload,
         violations,
-    );
-    true
+    )
 }
 
 fn validate_review_cases_and_ledger(
     state: &CurrentContractState,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) {
+    for snapshot in &state.analysis_snapshots {
+        if let Err(diagnostic) = validate_analysis_snapshot(snapshot) {
+            violations.push(diagnostic);
+            continue;
+        }
+        if !state
+            .source_revisions
+            .iter()
+            .any(|revision| revision.revision_id == snapshot.source_revision_id)
+            || snapshot.session_terms_identity != state.session_terms_identity
+        {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::MalformedAnalysisSnapshot,
+                "analysis_snapshots",
+                "analysis snapshot does not bind a canonical source revision and session terms identity",
+            ));
+        }
+    }
     let mut seen_case_ids = HashSet::new();
     for review_case in &state.review_cases {
         if parse_review_case_id(&review_case.case_id).is_err() {
@@ -713,6 +772,13 @@ fn validate_review_cases_and_ledger(
                 OracleViolationCodeV3::MalformedReviewCaseId,
                 "review_cases",
                 "malformed review case id",
+            ));
+        }
+        if review_case.origin != "detector_raised" {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::HumanRaisedCasePresent,
+                "review_cases",
+                "only detector_raised review cases are valid in current-contract fixture v3",
             ));
         }
         if !seen_case_ids.insert(review_case.case_id.clone()) {
@@ -741,21 +807,55 @@ fn validate_review_cases_and_ledger(
             ));
         }
     }
-    if state
-        .review_cases
-        .iter()
-        .any(|case| case.origin == "human_raised")
-    {
-        violations.push(diagnostic(
-            OracleViolationCodeV3::HumanRaisedCasePresent,
-            "review_cases",
-            "HumanRaised cases are excluded from current-contract fixture v3",
-        ));
-    }
 }
 
 fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<OracleDiagnosticV3>) {
+    let mut seen_revisions = HashSet::new();
+    for revision in &state.source_revisions {
+        if !seen_revisions.insert(revision.revision_id.clone()) {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::ChangedSourceRevisionIdentity,
+                "source_revisions",
+                "duplicate source revision id",
+            ));
+        }
+        match crate::srt::parse_srt(&revision.transcript_bytes) {
+            Ok(transcript)
+                if transcript.revision_id().to_tagged_string() == revision.revision_id => {}
+            Ok(_) => violations.push(diagnostic(
+                OracleViolationCodeV3::ChangedSourceRevisionIdentity,
+                "source_revisions",
+                "declared source revision id does not match transcript bytes",
+            )),
+            Err(_) => violations.push(diagnostic(
+                OracleViolationCodeV3::MalformedTranscriptRepresentation,
+                "source_revisions",
+                "malformed transcript representation for source revision validation",
+            )),
+        }
+        if let Some(predecessor) = &revision.predecessor_revision_id
+            && (predecessor == &revision.revision_id
+                || !state
+                    .source_revisions
+                    .iter()
+                    .any(|candidate| &candidate.revision_id == predecessor))
+        {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::ChangedSourceRevisionIdentity,
+                "source_revisions.predecessor_revision_id",
+                "source revision predecessor is missing or self-referential",
+            ));
+        }
+    }
     for review_case in &state.review_cases {
+        if review_case.observed_revision_id != review_case.anchor_revision_id {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::SourceAnchorRevisionMismatch,
+                "review_cases",
+                "observed revision differs from anchor revision",
+            ));
+            continue;
+        }
         let Some(revision) = state
             .source_revisions
             .iter()
@@ -831,14 +931,7 @@ fn validate_governance_events(
 ) {
     let mut seen_indices = HashSet::new();
     for (offset, event) in state.reuse_governance_events.iter().enumerate() {
-        let event_index = match event {
-            EvidenceReuseGovernanceEvent::PromotionCandidateRejected { event_index, .. }
-            | EvidenceReuseGovernanceEvent::PromotionAccepted { event_index, .. }
-            | EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked { event_index, .. }
-            | EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded { event_index, .. } => {
-                *event_index
-            }
-        };
+        let event_index = governance_event_index(event);
         if event_index != offset {
             violations.push(diagnostic(
                 OracleViolationCodeV3::ReuseGovernanceIndexGap,
@@ -856,6 +949,17 @@ fn validate_governance_events(
     }
 }
 
+fn governance_event_index(event: &EvidenceReuseGovernanceEvent) -> usize {
+    match event {
+        EvidenceReuseGovernanceEvent::PromotionCandidateRejected { event_index, .. }
+        | EvidenceReuseGovernanceEvent::PromotionAccepted { event_index, .. }
+        | EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked { event_index, .. }
+        | EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded { event_index, .. } => {
+            *event_index
+        }
+    }
+}
+
 fn validate_historical_binding(
     state: &CurrentContractState,
     violations: &mut Vec<OracleDiagnosticV3>,
@@ -863,6 +967,42 @@ fn validate_historical_binding(
     let Some(binding) = state.reuse_enabled_analysis_binding.as_ref() else {
         return;
     };
+    if binding.governance_event_boundary > state.reuse_governance_events.len() {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,
+            "reuse_enabled_analysis_binding.governance_event_boundary",
+            "historical binding governance boundary is outside governance history",
+        ));
+        return;
+    }
+    if let Err(diagnostic) = validate_analysis_snapshot(&binding.analysis_snapshot) {
+        violations.push(diagnostic);
+        return;
+    }
+    if !is_reuse_enabled_analysis_snapshot(&binding.analysis_snapshot) {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,
+            "reuse_enabled_analysis_binding.analysis_snapshot",
+            "historical binding must use the reuse-enabled analysis configuration",
+        ));
+    }
+    if binding.analysis_snapshot.source_revision_id.is_empty()
+        || !state
+            .source_revisions
+            .iter()
+            .any(|revision| revision.revision_id == binding.analysis_snapshot.source_revision_id)
+        || binding.analysis_snapshot.session_terms_identity != state.session_terms_identity
+        || !state
+            .analysis_snapshots
+            .iter()
+            .any(|snapshot| snapshot == &binding.analysis_snapshot)
+    {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,
+            "reuse_enabled_analysis_binding.analysis_snapshot",
+            "historical binding analysis snapshot is not an exact canonical session snapshot",
+        ));
+    }
     if binding.projection_version != REUSABLE_INFLUENCE_PROJECTION_VERSION {
         violations.push(diagnostic(
             OracleViolationCodeV3::HistoricalBindingAnalysisMismatch,

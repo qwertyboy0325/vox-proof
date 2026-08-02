@@ -98,24 +98,23 @@ pub fn build_promoted_active_state() -> CurrentContractState {
 
 pub fn build_revoked_historical_state() -> CurrentContractState {
     let session_before_revoke = build_promoted_active_session();
-    let binding = session_before_revoke
-        .reuse_enabled_run()
-        .map(|reuse_run| {
-            let revision = session_before_revoke.source().revision_id().to_tagged_string();
-            let analysis_snapshot = super::projection::map_analysis_snapshot_for_export(
-                reuse_run.analysis_run().snapshot(),
-                revision,
-            );
-            super::model::EvidenceReuseEnabledAnalysisBinding {
-                analysis_snapshot_identity: analysis_snapshot.identity.clone(),
-                analysis_snapshot,
-                reusable_snapshot_identity: reuse_run
-                    .reusable_snapshot_identity()
-                    .to_tagged_string(),
-                governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
-                projection_version: super::model::REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
-            }
-        });
+    let binding = session_before_revoke.reuse_enabled_run().map(|reuse_run| {
+        let revision = session_before_revoke
+            .source()
+            .revision_id()
+            .to_tagged_string();
+        let analysis_snapshot = super::projection::map_analysis_snapshot_for_export(
+            reuse_run.analysis_run().snapshot(),
+            revision,
+        );
+        super::model::EvidenceReuseEnabledAnalysisBinding {
+            analysis_snapshot_identity: analysis_snapshot.identity.clone(),
+            analysis_snapshot,
+            reusable_snapshot_identity: reuse_run.reusable_snapshot_identity().to_tagged_string(),
+            governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
+            projection_version: super::model::REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
+        }
+    });
     let mut session = session_before_revoke;
     let record_id = ReusableInfluenceRecordId::from_promotion_event_index(0);
     session
@@ -127,6 +126,11 @@ pub fn build_revoked_historical_state() -> CurrentContractState {
         "writer:revoked",
     );
     state.reuse_enabled_analysis_binding = binding;
+    if let Some(binding) = &state.reuse_enabled_analysis_binding {
+        state
+            .analysis_snapshots
+            .push(binding.analysis_snapshot.clone());
+    }
     super::derivation::finalize_derived_fields(&mut state);
     state.normalize()
 }

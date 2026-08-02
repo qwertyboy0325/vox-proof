@@ -71,6 +71,7 @@ pub struct EvidenceReviewCase {
     pub anchor_start_byte: usize,
     pub anchor_end_byte: usize,
     pub observed_source_bytes: String,
+    pub alternative_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
