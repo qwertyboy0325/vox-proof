@@ -86,6 +86,13 @@ fn acknowledged_append_reopens_at_the_exact_committed_transition() {
     let opened = adapter
         .open(&session, AppendOpenMode::Writable)
         .expect("open writer");
+    assert_eq!(
+        adapter
+            .open(&session, AppendOpenMode::Writable)
+            .expect_err("second writer refused")
+            .code,
+        "writer-already-open"
+    );
     let mut next = state.clone();
     next.durable_command_tokens.evidence_writer_token = "writer-token-committed".to_owned();
     let acknowledgement = adapter
@@ -108,6 +115,24 @@ fn acknowledged_append_reopens_at_the_exact_committed_transition() {
         adapter
             .append_authoritative_transition(&writable, 2, &state)
             .expect_err("historical duplicate rejected before acknowledgement")
+            .code,
+        "semantic-duplicate-transition"
+    );
+
+    let reordered_adapter = new_adapter("normalized-duplicate");
+    let reordered_state = build_superseded_state();
+    let reordered_session = reordered_adapter
+        .create(&reordered_state)
+        .expect("create reordered state");
+    let reordered_opened = reordered_adapter
+        .open(&reordered_session, AppendOpenMode::Writable)
+        .expect("open reordered state");
+    let mut same_canonical_state = reordered_state.clone();
+    same_canonical_state.review_cases.swap(0, 1);
+    assert_eq!(
+        reordered_adapter
+            .append_authoritative_transition(&reordered_opened, 1, &same_canonical_state)
+            .expect_err("normalized duplicate rejected before acknowledgement")
             .code,
         "semantic-duplicate-transition"
     );
