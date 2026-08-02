@@ -1,3 +1,5 @@
+#[cfg(feature = "persistence-spike")]
+pub mod append_authoritative;
 pub mod candidate_equivalence;
 pub mod classification;
 pub mod derivation;
@@ -12,6 +14,13 @@ pub mod scenario_contract;
 pub mod serialization;
 pub mod violations;
 
+#[cfg(feature = "persistence-spike")]
+pub use append_authoritative::{
+    APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
+    APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
+    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan, DurableAppendAck,
+    OpenedAppendAuthoritySession,
+};
 pub use candidate_equivalence::{
     CandidateEligibilityStatus, CandidateEquivalenceRequirements,
     candidate_equivalence_requirements,

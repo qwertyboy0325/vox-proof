@@ -14,6 +14,8 @@ Real candidate adapters live behind the `persistence-spike` Cargo feature:
 
 - `embedded-relational-sqlite-spike` — embedded transactional relational store
 - `append-bundle-log-spike` — append-oriented bundle/log mechanism
+- `current-contract-append-authoritative-candidate` — bounded current-contract
+  v3 append-authority adapter for package 01B; not a selected mechanism
 
 Production modules must not depend on candidate code.
 

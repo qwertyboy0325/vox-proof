@@ -78,6 +78,13 @@ pub use candidates::{AppendBundleAdapter, EmbeddedRelationalAdapter};
 #[cfg(feature = "persistence-spike")]
 pub use cross_platform::{PlatformMatrixDocument, build_platform_matrix, compare_scenario};
 #[cfg(feature = "persistence-spike")]
+pub use current_contract::{
+    APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
+    APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
+    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan, DurableAppendAck,
+    OpenedAppendAuthoritySession,
+};
+#[cfg(feature = "persistence-spike")]
 pub use durability::{
     DurabilityExperimentSpec, DurabilityTrialResult, DurabilityTrialRunner, MIN_TRIALS_PER_POINT,
     TrialOutcome, durability_experiments,
