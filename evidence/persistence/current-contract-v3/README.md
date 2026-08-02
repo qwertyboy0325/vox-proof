@@ -78,6 +78,13 @@ tails are detected but never authoritative; malformed records, stale append
 preconditions, duplicate canonical identities, unsafe session paths, oversized
 records, and unknown newer writable formats fail closed.
 
+Correction-01 adds fresh-process `open_existing` from only the bounded storage
+root and validated session ID; OS-released exclusive writer ownership with
+child-abort takeover coverage; committed-prefix truncation recovery for terminal
+incomplete or partial records; commit-to-state canonical fingerprint binding;
+mutable, non-clonable writer command guards; and duplication from the latest
+replayed authority. The equivalence contract names this exact candidate ID.
+
 This is a bounded candidate adapter for future 01C evaluation, not a selected
 mechanism, generated evidence artifact, or production session store.
 
@@ -102,5 +109,5 @@ remains `not_ready`; 01C evidence execution is not authorized.
 
 ## Artifacts
 
-See `readiness.json` and repository module
-`src/persistence_evidence/current_contract/`.
+See `readiness.json`, [the Correction-01 reviewer package](reviewer-correction-01.md),
+and repository module `src/persistence_evidence/current_contract/`.

@@ -36,7 +36,7 @@ pub fn candidate_equivalence_requirements() -> CandidateEquivalenceRequirements 
         scenario_contract_version: super::scenario_contract::SCENARIO_CONTRACT_VERSION.to_owned(),
         measurement_contract_version: super::measurement::MEASUREMENT_CONTRACT_VERSION.to_owned(),
         sqlite_candidate_id: "embedded-relational-sqlite-spike".to_owned(),
-        append_candidate_id: "append-bundle-log-spike".to_owned(),
+        append_candidate_id: "current-contract-append-authoritative-candidate".to_owned(),
         sqlite_status: CandidateEligibilityStatus::ImplementationNotYetEvaluated,
         append_status: CandidateEligibilityStatus::ImplementationNotYetEvaluated,
         shared_required_scenarios:

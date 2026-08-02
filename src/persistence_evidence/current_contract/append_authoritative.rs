@@ -8,7 +8,6 @@ use std::collections::BTreeSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
@@ -41,12 +40,13 @@ pub enum AppendTailStatus {
     IncompleteUncommitted { sequence: u64 },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct OpenedAppendAuthoritySession {
     pub session: AppendAuthoritySession,
     pub committed_sequence: u64,
     pub tail_status: AppendTailStatus,
     open_mode: AppendOpenMode,
+    writer_guard: Option<File>,
     writer_token: Option<String>,
     normalized_state: CurrentContractState,
 }
@@ -108,6 +108,7 @@ enum AppendRecord {
     },
     Commit {
         sequence: u64,
+        canonical_fingerprint: String,
     },
 }
 
@@ -120,7 +121,6 @@ pub enum AppendOpenMode {
 /// Candidate-only append storage surface for package 01B.
 pub struct AppendAuthoritativeCandidateAdapter {
     storage_root: PathBuf,
-    next_writer_token: AtomicU64,
 }
 
 impl AppendAuthoritativeCandidateAdapter {
@@ -128,10 +128,7 @@ impl AppendAuthoritativeCandidateAdapter {
         let storage_root = storage_root.into();
         fs::create_dir_all(&storage_root)
             .map_err(|error| io_error("create-storage-root", error))?;
-        Ok(Self {
-            storage_root,
-            next_writer_token: AtomicU64::new(0),
-        })
+        Ok(Self { storage_root })
     }
 
     pub fn candidate_id(&self) -> &'static str {
@@ -149,13 +146,17 @@ impl AppendAuthoritativeCandidateAdapter {
         validate_state(state)?;
         validate_session_id(&state.session_id)?;
         let root = self.storage_root.join(&state.session_id);
-        if root.exists() {
-            return Err(AppendAuthorityError::new(
-                "session-already-exists",
-                "candidate session already exists",
-            ));
-        }
-        fs::create_dir_all(root.join("temporary"))
+        fs::create_dir(&root).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                AppendAuthorityError::new(
+                    "session-already-exists",
+                    "candidate session already exists",
+                )
+            } else {
+                io_error("create-session-root", error)
+            }
+        })?;
+        fs::create_dir(root.join("temporary"))
             .map_err(|error| io_error("create-session-root", error))?;
         let session = AppendAuthoritySession {
             session_id: state.session_id.clone(),
@@ -174,30 +175,53 @@ impl AppendAuthoritativeCandidateAdapter {
         Ok(session)
     }
 
+    /// Reconstructs a session reference from only this adapter's bounded root and a validated ID.
+    pub fn open_existing(
+        &self,
+        session_id: impl Into<String>,
+        mode: AppendOpenMode,
+    ) -> Result<OpenedAppendAuthoritySession, AppendAuthorityError> {
+        let session_id = session_id.into();
+        validate_session_id(&session_id)?;
+        self.open(
+            &AppendAuthoritySession {
+                root: self.storage_root.join(&session_id),
+                session_id,
+            },
+            mode,
+        )
+    }
+
     pub fn open(
         &self,
         session: &AppendAuthoritySession,
         mode: AppendOpenMode,
     ) -> Result<OpenedAppendAuthoritySession, AppendAuthorityError> {
+        let (writer_guard, writer_token) = if mode == AppendOpenMode::Writable {
+            let (guard, token) = self.acquire_writer_lock(session)?;
+            (Some(guard), Some(token))
+        } else {
+            (None, None)
+        };
         let manifest = read_manifest(session)?;
         validate_manifest(session, &manifest, mode)?;
-        let replayed = replay(session)?;
+        let mut replayed = replay(session)?;
         if manifest.committed_sequence > replayed.committed_sequence {
             return Err(AppendAuthorityError::new(
                 "manifest-ahead-of-append-authority",
                 "manifest claims an uncommitted authoritative boundary",
             ));
         }
-        let writer_token = if mode == AppendOpenMode::Writable {
-            Some(self.acquire_writer_lock(session)?)
-        } else {
-            None
-        };
+        if mode == AppendOpenMode::Writable && replayed.tail_status != AppendTailStatus::Clean {
+            recover_committed_prefix(session, &replayed)?;
+            replayed = replay(session)?;
+        }
         Ok(OpenedAppendAuthoritySession {
             session: session.clone(),
             committed_sequence: replayed.committed_sequence,
             tail_status: replayed.tail_status,
             open_mode: mode,
+            writer_guard,
             writer_token,
             normalized_state: replayed.state,
         })
@@ -205,7 +229,7 @@ impl AppendAuthoritativeCandidateAdapter {
 
     pub fn append_authoritative_transition(
         &self,
-        opened: &OpenedAppendAuthoritySession,
+        opened: &mut OpenedAppendAuthoritySession,
         expected_committed_sequence: u64,
         next_state: &CurrentContractState,
     ) -> Result<DurableAppendAck, AppendAuthorityError> {
@@ -216,15 +240,13 @@ impl AppendAuthoritativeCandidateAdapter {
             ));
         }
         self.validate_writer_lock(opened)?;
-        if opened.tail_status != AppendTailStatus::Clean {
-            return Err(AppendAuthorityError::new(
-                "incomplete-authoritative-tail",
-                "an incomplete tail must be recovered or rejected before another write",
-            ));
-        }
         let manifest = read_manifest(&opened.session)?;
         validate_manifest(&opened.session, &manifest, AppendOpenMode::Writable)?;
-        let current = replay(&opened.session)?;
+        let mut current = replay(&opened.session)?;
+        if current.tail_status != AppendTailStatus::Clean {
+            recover_committed_prefix(&opened.session, &current)?;
+            current = replay(&opened.session)?;
+        }
         if manifest.committed_sequence > current.committed_sequence {
             return Err(AppendAuthorityError::new(
                 "manifest-ahead-of-append-authority",
@@ -252,40 +274,44 @@ impl AppendAuthoritativeCandidateAdapter {
                 "an append transition must add distinct canonical authority",
             ));
         }
-        self.append_committed_state(
+        let acknowledgement = self.append_committed_state(
             &opened.session,
             current.committed_sequence,
             &canonical_next_state,
-        )
+        )?;
+        opened.committed_sequence = acknowledgement.committed_sequence;
+        opened.tail_status = AppendTailStatus::Clean;
+        opened.normalized_state = canonical_next_state;
+        Ok(acknowledgement)
     }
 
     pub fn close(&self, opened: OpenedAppendAuthoritySession) -> Result<(), AppendAuthorityError> {
-        let Some(token) = opened.writer_token else {
-            return Ok(());
-        };
-        let path = writer_lock_path(&opened.session);
-        let actual =
-            fs::read_to_string(&path).map_err(|error| io_error("read-writer-lock", error))?;
-        if actual != token {
-            return Err(AppendAuthorityError::new(
-                "writer-lock-token-mismatch",
-                "writer lock was replaced before close",
-            ));
-        }
-        fs::remove_file(path).map_err(|error| io_error("release-writer-lock", error))?;
+        drop(opened);
         Ok(())
     }
 
     pub fn duplicate(
         &self,
-        source: &OpenedAppendAuthoritySession,
+        source: &mut OpenedAppendAuthoritySession,
         new_session_id: impl Into<String>,
     ) -> Result<AppendAuthoritySession, AppendAuthorityError> {
         let new_session_id = new_session_id.into();
         validate_session_id(&new_session_id)?;
-        let mut copied = source.normalized_state.clone();
+        self.validate_writer_lock(source)?;
+        let replayed = replay(&source.session)?;
+        if replayed.tail_status != AppendTailStatus::Clean {
+            recover_committed_prefix(&source.session, &replayed)?;
+        }
+        let mut copied = replay(&source.session)?.state;
         copied.duplicated_from_session_id = Some(copied.session_id.clone());
         copied.session_id = new_session_id;
+        let duplicate_token_suffix = copied
+            .session_id
+            .rsplit(':')
+            .next()
+            .unwrap_or(copied.session_id.as_str());
+        copied.durable_command_tokens.evidence_writer_token =
+            format!("writer:{duplicate_token_suffix}");
         self.create(&copied)
     }
 
@@ -372,6 +398,27 @@ impl AppendAuthoritativeCandidateAdapter {
         fs::remove_file(log_path(session)).map_err(|error| io_error("remove-canonical-log", error))
     }
 
+    /// Harness hook: modifies a committed state payload without changing its commit binding.
+    pub fn tamper_committed_state_for_test(
+        &self,
+        session: &AppendAuthoritySession,
+        from: &str,
+        to: &str,
+    ) -> Result<(), AppendAuthorityError> {
+        let path = log_path(session);
+        let bytes = fs::read(&path).map_err(|error| io_error("read-append-log", error))?;
+        let text = String::from_utf8(bytes)
+            .map_err(|error| AppendAuthorityError::new("append-log-not-utf8", error.to_string()))?;
+        let updated = text.replacen(from, to, 1);
+        if updated == text {
+            return Err(AppendAuthorityError::new(
+                "tamper-source-not-found",
+                "requested committed payload text was not found",
+            ));
+        }
+        fs::write(path, updated).map_err(|error| io_error("tamper-append-log", error))
+    }
+
     fn append_committed_state(
         &self,
         session: &AppendAuthoritySession,
@@ -387,7 +434,15 @@ impl AppendAuthoritativeCandidateAdapter {
                 state: Box::new(canonical_state.clone()),
             },
         )?;
-        append_record(session, &AppendRecord::Commit { sequence })?;
+        append_record(
+            session,
+            &AppendRecord::Commit {
+                sequence,
+                canonical_fingerprint: canonical_fingerprint(
+                    &canonical_state.canonical_projection(),
+                ),
+            },
+        )?;
         let mut manifest = read_manifest(session)?;
         manifest.committed_sequence = sequence;
         write_manifest(session, &manifest)?;
@@ -400,30 +455,23 @@ impl AppendAuthoritativeCandidateAdapter {
     fn acquire_writer_lock(
         &self,
         session: &AppendAuthoritySession,
-    ) -> Result<String, AppendAuthorityError> {
-        let token = format!(
-            "append-authoritative-writer:{}",
-            self.next_writer_token.fetch_add(1, Ordering::Relaxed) + 1
-        );
-        let mut lock = OpenOptions::new()
+    ) -> Result<(File, String), AppendAuthorityError> {
+        let token = format!("append-authoritative-writer:{}", uuid::Uuid::new_v4());
+        let lock = OpenOptions::new()
+            .read(true)
             .write(true)
-            .create_new(true)
+            .create(true)
+            .truncate(false)
             .open(writer_lock_path(session))
-            .map_err(|error| {
-                if error.kind() == std::io::ErrorKind::AlreadyExists {
-                    AppendAuthorityError::new(
-                        "writer-already-open",
-                        "candidate session already has an authoritative writer",
-                    )
-                } else {
-                    io_error("acquire-writer-lock", error)
-                }
-            })?;
-        lock.write_all(token.as_bytes())
-            .map_err(|error| io_error("write-writer-lock", error))?;
-        lock.sync_all()
-            .map_err(|error| io_error("sync-writer-lock", error))?;
-        Ok(token)
+            .map_err(|error| io_error("open-writer-lock", error))?;
+        lock.try_lock().map_err(|error| match error {
+            std::fs::TryLockError::WouldBlock => AppendAuthorityError::new(
+                "writer-already-open",
+                "candidate session already has an authoritative writer",
+            ),
+            std::fs::TryLockError::Error(error) => io_error("acquire-writer-lock", error),
+        })?;
+        Ok((lock, token))
     }
 
     fn validate_writer_lock(
@@ -436,9 +484,7 @@ impl AppendAuthoritativeCandidateAdapter {
                 "writable handle lacks a writer lock",
             ));
         };
-        let actual = fs::read_to_string(writer_lock_path(&opened.session))
-            .map_err(|error| io_error("read-writer-lock", error))?;
-        if actual == token {
+        if opened.writer_guard.is_some() && !token.is_empty() {
             Ok(())
         } else {
             Err(AppendAuthorityError::new(
@@ -454,10 +500,15 @@ struct ReplayResult {
     tail_status: AppendTailStatus,
     state: CurrentContractState,
     canonical_fingerprints: BTreeSet<String>,
+    committed_byte_boundary: u64,
 }
 
 fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthorityError> {
     let file = File::open(log_path(session)).map_err(|error| io_error("open-append-log", error))?;
+    let file_len = file
+        .metadata()
+        .map_err(|error| io_error("stat-append-log", error))?
+        .len();
     let mut reader = BufReader::new(file);
     let mut line = Vec::new();
     let mut expected_sequence = 1_u64;
@@ -465,11 +516,17 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
     let mut pending: Option<(u64, CurrentContractState)> = None;
     let mut committed: Option<CurrentContractState> = None;
     let mut fingerprints = BTreeSet::new();
+    let mut byte_offset = 0_u64;
+    let mut committed_byte_boundary = 0_u64;
     loop {
-        let read = read_bounded_record(&mut reader, &mut line)?;
+        let (read, terminated) = read_bounded_record(&mut reader, &mut line)?;
         if !read {
             break;
         }
+        if !terminated {
+            break;
+        }
+        byte_offset += line.len() as u64;
         record_count += 1;
         if record_count > MAX_RECORD_COUNT {
             return Err(AppendAuthorityError::new(
@@ -492,7 +549,10 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
                 validate_state(&state)?;
                 pending = Some((sequence, state));
             }
-            AppendRecord::Commit { sequence } => {
+            AppendRecord::Commit {
+                sequence,
+                canonical_fingerprint: persisted_fingerprint,
+            } => {
                 let Some((pending_sequence, state)) = pending.take() else {
                     return Err(AppendAuthorityError::new(
                         "commit-without-state",
@@ -506,6 +566,12 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
                     ));
                 }
                 let fingerprint = canonical_fingerprint(&state.canonical_projection());
+                if persisted_fingerprint != fingerprint {
+                    return Err(AppendAuthorityError::new(
+                        "commit-fingerprint-mismatch",
+                        "commit does not bind the preceding canonical state",
+                    ));
+                }
                 if !fingerprints.insert(fingerprint) {
                     return Err(AppendAuthorityError::new(
                         "duplicate-canonical-identity",
@@ -514,6 +580,7 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
                 }
                 committed = Some(state);
                 expected_sequence += 1;
+                committed_byte_boundary = byte_offset;
             }
         }
     }
@@ -524,15 +591,39 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
         ));
     };
     let committed_sequence = expected_sequence - 1;
-    let tail_status = pending
-        .map(|(sequence, _)| AppendTailStatus::IncompleteUncommitted { sequence })
-        .unwrap_or(AppendTailStatus::Clean);
+    let tail_status = if let Some((sequence, _)) = pending {
+        AppendTailStatus::IncompleteUncommitted { sequence }
+    } else if byte_offset < file_len {
+        AppendTailStatus::IncompleteUncommitted {
+            sequence: expected_sequence,
+        }
+    } else {
+        AppendTailStatus::Clean
+    };
     Ok(ReplayResult {
         committed_sequence,
         tail_status,
         state,
         canonical_fingerprints: fingerprints,
+        committed_byte_boundary,
     })
+}
+
+fn recover_committed_prefix(
+    session: &AppendAuthoritySession,
+    replayed: &ReplayResult,
+) -> Result<(), AppendAuthorityError> {
+    if replayed.tail_status == AppendTailStatus::Clean {
+        return Ok(());
+    }
+    let file = OpenOptions::new()
+        .write(true)
+        .open(log_path(session))
+        .map_err(|error| io_error("open-recovery-log", error))?;
+    file.set_len(replayed.committed_byte_boundary)
+        .map_err(|error| io_error("truncate-incomplete-tail", error))?;
+    file.sync_all()
+        .map_err(|error| io_error("sync-recovered-prefix", error))
 }
 
 fn canonicalized_state(mut state: CurrentContractState) -> CurrentContractState {
@@ -656,14 +747,14 @@ fn append_record(
 fn read_bounded_record(
     reader: &mut BufReader<File>,
     line: &mut Vec<u8>,
-) -> Result<bool, AppendAuthorityError> {
+) -> Result<(bool, bool), AppendAuthorityError> {
     line.clear();
     loop {
         let available = reader
             .fill_buf()
             .map_err(|error| io_error("read-append-log", error))?;
         if available.is_empty() {
-            return Ok(!line.is_empty());
+            return Ok((!line.is_empty(), false));
         }
         let take = available
             .iter()
@@ -679,7 +770,7 @@ fn read_bounded_record(
         line.extend_from_slice(&available[..take]);
         reader.consume(take);
         if line.last() == Some(&b'\n') {
-            return Ok(true);
+            return Ok((true, true));
         }
     }
 }
