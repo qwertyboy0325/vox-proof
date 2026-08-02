@@ -4,9 +4,10 @@ Status: evidence contract package (VP-GATE4-EVIDENCE-COMPLETION-01A)
 
 Correction-05 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-05`)
 closes remote-review blockers in anchor-validated ReviewCase authority and
-production/evidence lifecycle identity cross-checks. 01A is **not**
-owner-accepted; next gate is fresh remote review and owner acceptance of
-corrected 01A.
+production/evidence lifecycle identity cross-checks. Corrected 01A was
+owner-accepted by Ezra on 2026-08-02 at
+`9be1e99ca45db2dcd6b2b7fbe03137e6cc28e241`. Package 01B is authorized only for
+the bounded candidate append-authoritative storage adapter and its review.
 
 Correction-01 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01`)
 addresses remote-review blockers F1–F4. 01A is **not** owner-accepted; next gate is
@@ -61,10 +62,10 @@ aligned with owner-accepted Gate 1–3 application semantics.
 ## Not in scope
 
 - persistence mechanism selection
-- candidate storage implementation
 - evidence run generation (package 01C)
 - production persistence integration
-- package 01B (not authorized)
+- candidate-mechanism selection or a Material Decision
+- real-session migration or product persistence integration
 
 ## Readiness
 
@@ -72,14 +73,14 @@ aligned with owner-accepted Gate 1–3 application semantics.
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_05_REMOTE_REVIEW_PENDING
+tracker_status: GATE4_EVIDENCE_COMPLETION_01B_IMPLEMENTATION_AUTHORIZED
 ```
 
 ## Selected owner path
 
 ```yaml
 selected_path: A_corrected_append_authoritative_comparator
-next_package: VP-GATE4-EVIDENCE-COMPLETION-01B  # not authorized until corrected 01A accepted
+next_package: VP-GATE4-EVIDENCE-COMPLETION-01B  # bounded candidate adapter only
 ```
 
 ## Artifacts
