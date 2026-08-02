@@ -1,8 +1,9 @@
 use std::panic;
 
 use vox_proof::persistence_evidence::{
-    CurrentContractOracle, EvidenceReuseGovernanceEvent, OracleViolationCodeV3,
-    build_promoted_active_state, build_superseded_state, comparative_measurement_contract,
+    CurrentContractOracle, EvidenceCorrectionDecision, EvidenceReuseGovernanceEvent,
+    OracleViolationCodeV3, build_candidate_rejected_state, build_promoted_active_state,
+    build_revoked_historical_state, build_superseded_state, comparative_measurement_contract,
     derive_contract_projection, scenario_contract_v3, validate_measurement_contract_value,
     validate_scenario_contracts_v3,
 };
@@ -59,6 +60,85 @@ fn invalid_governance_events_do_not_mutate_the_fold() {
     let (derived, violations) = derive_contract_projection(&state);
     assert!(!violations.is_empty());
     assert!(derived.effective_reusable_records.is_empty());
+}
+
+#[test]
+fn malformed_review_event_cannot_supply_reuse_provenance() {
+    let mut state = build_promoted_active_state();
+    state.review_ledger_events[0].action_kind = "reject".to_owned();
+
+    let (derived, violations) = derive_contract_projection(&state);
+    assert!(
+        violations.iter().any(|violation| {
+            violation.code == OracleViolationCodeV3::MalformedReviewLedgerEvent
+        })
+    );
+    assert!(derived.effective_review_status.is_empty());
+    assert!(derived.effective_reusable_records.is_empty());
+    assert!(derived.historical_reusable_records.is_empty());
+    assert!(!CurrentContractOracle::validate(&state).passed);
+}
+
+#[test]
+fn reusable_observed_text_must_match_review_case_bytes_for_promotion_and_rejection() {
+    let mut promoted = build_promoted_active_state();
+    if let EvidenceReuseGovernanceEvent::PromotionAccepted {
+        candidate_key,
+        payload,
+        ..
+    } = &mut promoted.reuse_governance_events[0]
+    {
+        candidate_key.exact_payload.observed_text = "unbound bytes".to_owned();
+        payload.observed_text = "unbound bytes".to_owned();
+    }
+    let (derived, violations) = derive_contract_projection(&promoted);
+    assert!(violations.iter().any(|violation| {
+        violation.code == OracleViolationCodeV3::SourceLocatorBoundaryViolation
+    }));
+    assert!(derived.effective_reusable_records.is_empty());
+    assert!(!CurrentContractOracle::validate(&promoted).passed);
+
+    let mut rejected = build_candidate_rejected_state();
+    if let EvidenceReuseGovernanceEvent::PromotionCandidateRejected { candidate_key, .. } =
+        &mut rejected.reuse_governance_events[0]
+    {
+        candidate_key.exact_payload.observed_text = "unbound bytes".to_owned();
+    }
+    let (derived, violations) = derive_contract_projection(&rejected);
+    assert!(violations.iter().any(|violation| {
+        violation.code == OracleViolationCodeV3::SourceLocatorBoundaryViolation
+    }));
+    assert!(derived.rejected_candidate_identities.is_empty());
+    assert!(!CurrentContractOracle::validate(&rejected).passed);
+}
+
+#[test]
+fn effective_review_status_preserves_revision_and_typed_decision() {
+    let mut state = build_promoted_active_state();
+    let expected_revision = state.review_ledger_events[0].observed_revision_id.clone();
+    let (derived, violations) = derive_contract_projection(&state);
+    assert!(violations.is_empty(), "{violations:?}");
+    assert_eq!(
+        derived.effective_review_status[0].observed_revision_id,
+        expected_revision
+    );
+    assert_eq!(
+        derived.effective_review_status[0].decision,
+        EvidenceCorrectionDecision::ManualReplacement {
+            replacement: "Kafka".to_owned(),
+        }
+    );
+
+    let mut later = state.review_ledger_events[0].clone();
+    later.event_index = 1;
+    later.action_kind = "defer".to_owned();
+    later.manual_replacement_bytes = None;
+    state.review_ledger_events.push(later);
+    let (derived, _) = derive_contract_projection(&state);
+    assert_eq!(
+        derived.effective_review_status[0].decision,
+        EvidenceCorrectionDecision::Defer
+    );
 }
 
 #[test]
@@ -318,4 +398,53 @@ fn malformed_binding_does_not_pass_as_historical_provenance() {
     assert!(result.violations.iter().any(
         |violation| violation.code == OracleViolationCodeV3::HistoricalBindingAnalysisMismatch
     ));
+}
+
+#[test]
+fn historical_binding_requires_exact_canonical_reuse_enabled_snapshot() {
+    let mut wrong_revision = build_revoked_historical_state();
+    wrong_revision
+        .reuse_enabled_analysis_binding
+        .as_mut()
+        .expect("binding")
+        .analysis_snapshot
+        .source_revision_id = "rev:sha256-v1:missing".to_owned();
+    assert!(!CurrentContractOracle::validate(&wrong_revision).passed);
+
+    let mut wrong_terms = build_revoked_historical_state();
+    wrong_terms
+        .reuse_enabled_analysis_binding
+        .as_mut()
+        .expect("binding")
+        .analysis_snapshot
+        .session_terms_identity = "terms:sha256-v1:missing".to_owned();
+    assert!(!CurrentContractOracle::validate(&wrong_terms).passed);
+
+    let mut wrong_identity = build_revoked_historical_state();
+    wrong_identity
+        .reuse_enabled_analysis_binding
+        .as_mut()
+        .expect("binding")
+        .analysis_snapshot_identity = "analysis-snapshot:sha256-v1:missing".to_owned();
+    assert!(!CurrentContractOracle::validate(&wrong_identity).passed);
+
+    let mut wrong_snapshot = build_revoked_historical_state();
+    let binding = wrong_snapshot
+        .reuse_enabled_analysis_binding
+        .as_mut()
+        .expect("binding");
+    binding.analysis_snapshot.detector_config_id = "not-reuse-enabled".to_owned();
+    assert!(!CurrentContractOracle::validate(&wrong_snapshot).passed);
+
+    let mut missing_snapshot = build_revoked_historical_state();
+    let bound_snapshot = missing_snapshot
+        .reuse_enabled_analysis_binding
+        .as_ref()
+        .expect("binding")
+        .analysis_snapshot
+        .clone();
+    missing_snapshot
+        .analysis_snapshots
+        .retain(|snapshot| snapshot != &bound_snapshot);
+    assert!(!CurrentContractOracle::validate(&missing_snapshot).passed);
 }

@@ -2,10 +2,11 @@
 
 Status: evidence contract package (VP-GATE4-EVIDENCE-COMPLETION-01A)
 
-Correction-02 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-02`)
-closes remaining remote-review blockers: production-equivalent snapshot identity,
-historical reuse-enabled analysis binding, fail-closed oracle folds, Unicode-safe
-anchor validation, and strengthened scenario/measurement input validators.
+Correction-04 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-04`)
+closes remote-review blockers in retained-index canonical event ordering,
+validated typed review decisions, exact observed-text binding, and historical
+reuse-enabled analysis-binding coverage. 01A is **not** owner-accepted; next
+gate is fresh remote review and owner acceptance of corrected 01A.
 
 Correction-01 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01`)
 addresses remote-review blockers F1–F4. 01A is **not** owner-accepted; next gate is
@@ -32,6 +33,14 @@ aligned with owner-accepted Gate 1–3 application semantics.
 - `ReadOnlyOpenPolicy` for unknown-newer-format conditional safe read
 - `validate_scenario_contracts_v3` and `validate_measurement_contract_value` input validators
 
+## Correction-04 highlights
+
+- canonical review-ledger and reuse-governance vector order is preserved for validation
+- effective review status retains the observed revision and a typed MD-017 decision
+- promotion and rejection payload observed bytes must equal the locator-bound review-case bytes
+- malformed review events cannot authorize reusable promotion or historical provenance
+- historical binding tests cover canonical snapshot, source revision, terms, identity, and reuse-enabled configuration
+
 ## Correction-01 highlights
 
 - complete typed `EvidenceSourceDecisionLocator` (all MD-018 fields)
@@ -56,7 +65,7 @@ aligned with owner-accepted Gate 1–3 application semantics.
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_02_REMOTE_REVIEW_PENDING
+tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_04_REMOTE_REVIEW_PENDING
 ```
 
 ## Selected owner path

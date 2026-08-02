@@ -3,10 +3,10 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use crate::review::{CorrectionDecision, ManualReplacementText};
 
 use super::model::{
-    CurrentContractState, DerivedContractProjection, EvidenceEffectiveReviewStatus,
-    EvidenceExactReusableCorrection, EvidenceReusableRecord, EvidenceReuseCandidateKey,
-    EvidenceReuseGovernanceEvent, EvidenceReviewLedgerEvent, EvidenceSourceDecisionLocator,
-    REUSABLE_INFLUENCE_PROJECTION_VERSION,
+    CurrentContractState, DerivedContractProjection, EvidenceCorrectionDecision,
+    EvidenceEffectiveReviewStatus, EvidenceExactReusableCorrection, EvidenceReusableRecord,
+    EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent, EvidenceReviewLedgerEvent,
+    EvidenceSourceDecisionLocator, REUSABLE_INFLUENCE_PROJECTION_VERSION,
 };
 use super::production_bridge::{
     compute_production_snapshot_identity, is_canonical_analysis_snapshot,
@@ -33,11 +33,17 @@ pub fn derive_contract_projection(
     validate_review_cases_and_ledger(state, &mut violations);
     validate_source_anchors(state, &mut violations);
     validate_governance_events(state, &mut violations);
-    validate_historical_binding(state, &mut violations);
+    let validated_review_decisions = validate_review_ledger(state, &mut violations);
+    validate_historical_binding(state, &validated_review_decisions, &mut violations);
 
-    let effective_review_status = fold_effective_review_status(state, &mut violations);
+    let effective_review_status = fold_effective_review_status(&validated_review_decisions);
     let (effective_reusable_records, historical_reusable_records, rejected_candidate_identities) =
-        fold_reuse_governance(state, state.reuse_governance_events.len(), &mut violations);
+        fold_reuse_governance(
+            state,
+            &validated_review_decisions,
+            state.reuse_governance_events.len(),
+            &mut violations,
+        );
     let reusable_snapshot_identity = recompute_snapshot_identity(
         state,
         &effective_reusable_records,
@@ -67,28 +73,84 @@ pub fn derive_contract_projection(
     )
 }
 
-fn fold_effective_review_status(
+#[derive(Debug, Clone)]
+struct ValidatedReviewDecision {
+    case_id: String,
+    observed_revision_id: String,
+    decision: CorrectionDecision,
+}
+
+fn validate_review_ledger(
     state: &CurrentContractState,
     violations: &mut Vec<OracleDiagnosticV3>,
-) -> Vec<EvidenceEffectiveReviewStatus> {
-    let mut latest: BTreeMap<String, EvidenceEffectiveReviewStatus> = BTreeMap::new();
-    for event in &state.review_ledger_events {
+) -> Vec<Option<ValidatedReviewDecision>> {
+    let mut validated = Vec::with_capacity(state.review_ledger_events.len());
+    for (position, event) in state.review_ledger_events.iter().enumerate() {
+        if event.event_index != position {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::ReviewLedgerIndexGap,
+                "review_ledger_events",
+                "review ledger event index is not contiguous",
+            ));
+            validated.push(None);
+            continue;
+        }
         let Some(decision) = validate_and_decode_review_event(state, event, violations) else {
+            validated.push(None);
             continue;
         };
         if let Err(diagnostic) = validate_revision_id(&event.observed_revision_id) {
             violations.push(diagnostic);
+            validated.push(None);
             continue;
         }
+        validated.push(Some(ValidatedReviewDecision {
+            case_id: event.case_id.clone(),
+            observed_revision_id: event.observed_revision_id.clone(),
+            decision,
+        }));
+    }
+    validated
+}
+
+fn fold_effective_review_status(
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
+) -> Vec<EvidenceEffectiveReviewStatus> {
+    let mut latest: BTreeMap<String, EvidenceEffectiveReviewStatus> = BTreeMap::new();
+    for validated in validated_review_decisions {
+        let Some(validated) = validated else {
+            continue;
+        };
         latest.insert(
-            event.case_id.clone(),
+            validated.case_id.clone(),
             EvidenceEffectiveReviewStatus {
-                case_id: event.case_id.clone(),
-                status: format!("Decided {{ decision: {:?} }}", decision),
+                case_id: validated.case_id.clone(),
+                observed_revision_id: validated.observed_revision_id.clone(),
+                decision: evidence_decision(&validated.decision),
             },
         );
     }
     latest.into_values().collect()
+}
+
+fn evidence_decision(decision: &CorrectionDecision) -> EvidenceCorrectionDecision {
+    match decision {
+        CorrectionDecision::AcceptAlternative { alternative_index } => {
+            EvidenceCorrectionDecision::AcceptAlternative {
+                alternative_index: *alternative_index,
+            }
+        }
+        CorrectionDecision::ManualReplacement { replacement } => {
+            EvidenceCorrectionDecision::ManualReplacement {
+                replacement: replacement.as_str().to_owned(),
+            }
+        }
+        CorrectionDecision::Reject => EvidenceCorrectionDecision::Reject,
+        CorrectionDecision::Defer => EvidenceCorrectionDecision::Defer,
+        CorrectionDecision::NeedsManualCorrection => {
+            EvidenceCorrectionDecision::NeedsManualCorrection
+        }
+    }
 }
 
 fn validate_and_decode_review_event(
@@ -296,6 +358,7 @@ impl GovernanceFoldState {
 
 fn fold_reuse_governance(
     state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     event_limit: usize,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> (
@@ -318,7 +381,13 @@ fn fold_reuse_governance(
             ));
             continue;
         }
-        apply_governance_event(state, event, &mut fold, violations);
+        apply_governance_event(
+            state,
+            validated_review_decisions,
+            event,
+            &mut fold,
+            violations,
+        );
     }
     let rejected: Vec<String> = fold.rejected.iter().cloned().collect();
     let (effective, historical) = fold.finalize();
@@ -327,6 +396,7 @@ fn fold_reuse_governance(
 
 fn apply_governance_event(
     state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     event: &EvidenceReuseGovernanceEvent,
     fold: &mut GovernanceFoldState,
     violations: &mut Vec<OracleDiagnosticV3>,
@@ -346,7 +416,8 @@ fn apply_governance_event(
             ) {
                 return;
             }
-            if !validate_candidate_key(state, candidate_key, violations) {
+            if !validate_candidate_key(state, validated_review_decisions, candidate_key, violations)
+            {
                 return;
             }
             let identity = rejection_identity_digest(
@@ -393,7 +464,8 @@ fn apply_governance_event(
             ) {
                 return;
             }
-            if !validate_candidate_key(state, candidate_key, violations) {
+            if !validate_candidate_key(state, validated_review_decisions, candidate_key, violations)
+            {
                 return;
             }
             if candidate_key.exact_payload != *payload {
@@ -412,7 +484,13 @@ fn apply_governance_event(
                 ));
                 return;
             }
-            if !validate_locator_integrity(state, source_locator, payload, violations) {
+            if !validate_locator_integrity(
+                state,
+                validated_review_decisions,
+                source_locator,
+                payload,
+                violations,
+            ) {
                 return;
             }
             if project_scope_stable_id != &state.project_scope.stable_id {
@@ -568,8 +646,9 @@ fn apply_governance_event(
     }
 }
 
-pub fn validate_locator_integrity(
+fn validate_locator_integrity(
     state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     locator: &EvidenceSourceDecisionLocator,
     payload: &EvidenceExactReusableCorrection,
     violations: &mut Vec<OracleDiagnosticV3>,
@@ -656,6 +735,13 @@ pub fn validate_locator_integrity(
             "review case revision binding mismatch",
         ));
     }
+    if payload.observed_text != review_case.observed_source_bytes {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::SourceLocatorBoundaryViolation,
+            "source_locator.source_review_case_id",
+            "reusable observed text does not match exact review-case source bytes",
+        ));
+    }
     if locator.review_ledger_position >= state.review_ledger_events.len() {
         violations.push(diagnostic(
             OracleViolationCodeV3::SourceLocatorBoundaryViolation,
@@ -674,15 +760,30 @@ pub fn validate_locator_integrity(
             "invalid effective ledger prefix",
         ));
     }
-    let event = &state.review_ledger_events[locator.review_ledger_position];
-    if event.case_id != locator.source_review_case_id {
+    let Some(Some(validated)) = validated_review_decisions.get(locator.review_ledger_position)
+    else {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::SourceLocatorBoundaryViolation,
+            "source_locator.review_ledger_position",
+            "locator references an invalid review ledger event",
+        ));
+        return false;
+    };
+    if validated.case_id != locator.source_review_case_id {
         violations.push(diagnostic(
             OracleViolationCodeV3::SourceLocatorBoundaryViolation,
             "source_locator.review_ledger_position",
             "ledger event case mismatch",
         ));
     }
-    let replacement = event.manual_replacement_bytes.as_deref().unwrap_or("");
+    let Some(replacement) = manual_replacement_bytes(&validated.decision) else {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::ManualReplacementByteMismatch,
+            "source_locator.review_ledger_position",
+            "locator must reference a validated manual replacement decision",
+        ));
+        return false;
+    };
     if replacement != payload.confirmed_replacement {
         violations.push(diagnostic(
             OracleViolationCodeV3::ManualReplacementByteMismatch,
@@ -708,7 +809,7 @@ pub fn validate_locator_integrity(
         Err(diagnostic) => violations.push(diagnostic),
     }
     if !prefix_effective_at(
-        state,
+        validated_review_decisions,
         &locator.source_review_case_id,
         locator.effective_at_ledger_length,
         replacement,
@@ -724,6 +825,7 @@ pub fn validate_locator_integrity(
 
 fn validate_candidate_key(
     state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     candidate_key: &EvidenceReuseCandidateKey,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> bool {
@@ -737,6 +839,7 @@ fn validate_candidate_key(
     }
     validate_locator_integrity(
         state,
+        validated_review_decisions,
         &candidate_key.source_locator,
         &candidate_key.exact_payload,
         violations,
@@ -962,6 +1065,7 @@ fn governance_event_index(event: &EvidenceReuseGovernanceEvent) -> usize {
 
 fn validate_historical_binding(
     state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     violations: &mut Vec<OracleDiagnosticV3>,
 ) {
     let Some(binding) = state.reuse_enabled_analysis_binding.as_ref() else {
@@ -1017,8 +1121,12 @@ fn validate_historical_binding(
             "historical binding analysis snapshot identity mismatch",
         ));
     }
-    let (active_at_boundary, _, _) =
-        fold_reuse_governance(state, binding.governance_event_boundary, violations);
+    let (active_at_boundary, _, _) = fold_reuse_governance(
+        state,
+        validated_review_decisions,
+        binding.governance_event_boundary,
+        violations,
+    );
     match compute_production_snapshot_identity(
         &state.project_scope.stable_id,
         binding.governance_event_boundary,
@@ -1039,20 +1147,31 @@ fn validate_historical_binding(
 }
 
 fn prefix_effective_at(
-    state: &CurrentContractState,
+    validated_review_decisions: &[Option<ValidatedReviewDecision>],
     case_id: &str,
     prefix_length: usize,
     replacement: &str,
 ) -> bool {
-    let mut effective: Option<&EvidenceReviewLedgerEvent> = None;
-    for event in state.review_ledger_events.iter().take(prefix_length) {
-        if event.case_id == case_id {
-            effective = Some(event);
+    let mut effective: Option<&ValidatedReviewDecision> = None;
+    for validated in validated_review_decisions
+        .iter()
+        .take(prefix_length)
+        .flatten()
+    {
+        if validated.case_id == case_id {
+            effective = Some(validated);
         }
     }
     effective
-        .and_then(|event| event.manual_replacement_bytes.as_deref())
+        .and_then(|decision| manual_replacement_bytes(&decision.decision))
         .is_some_and(|bytes| bytes == replacement)
+}
+
+fn manual_replacement_bytes(decision: &CorrectionDecision) -> Option<&str> {
+    match decision {
+        CorrectionDecision::ManualReplacement { replacement } => Some(replacement.as_str()),
+        _ => None,
+    }
 }
 
 fn recompute_snapshot_identity(

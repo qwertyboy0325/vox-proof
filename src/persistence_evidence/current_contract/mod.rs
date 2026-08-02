@@ -39,7 +39,8 @@ pub use measurement::{
 pub use model::{
     CURRENT_CONTRACT_FIXTURE_ID, CURRENT_CONTRACT_FIXTURE_VERSION, CurrentContractFixture,
     CurrentContractFixtureScale, CurrentContractState, DerivedContractProjection,
-    EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent, EvidenceSourceDecisionLocator,
+    EvidenceCorrectionDecision, EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent,
+    EvidenceSourceDecisionLocator,
 };
 pub use oracle::{
     CURRENT_CONTRACT_ORACLE_VERSION, CurrentContractOracle, OracleDiagnosticV3, OracleResultV3,

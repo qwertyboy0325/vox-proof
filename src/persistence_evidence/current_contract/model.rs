@@ -89,7 +89,18 @@ pub struct EvidenceReviewLedgerEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EvidenceEffectiveReviewStatus {
     pub case_id: String,
-    pub status: String,
+    pub observed_revision_id: String,
+    pub decision: EvidenceCorrectionDecision,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "decision_kind", rename_all = "snake_case")]
+pub enum EvidenceCorrectionDecision {
+    AcceptAlternative { alternative_index: usize },
+    ManualReplacement { replacement: String },
+    Reject,
+    Defer,
+    NeedsManualCorrection,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,21 +230,8 @@ impl CurrentContractState {
             .sort_by(|left, right| left.identity.cmp(&right.identity));
         self.review_cases
             .sort_by(|left, right| left.case_id.cmp(&right.case_id));
-        self.review_ledger_events
-            .sort_by_key(|event| event.event_index);
         self.effective_review_status
             .sort_by(|left, right| left.case_id.cmp(&right.case_id));
-        self.reuse_governance_events
-            .sort_by_key(|event| match event {
-                EvidenceReuseGovernanceEvent::PromotionCandidateRejected {
-                    event_index, ..
-                }
-                | EvidenceReuseGovernanceEvent::PromotionAccepted { event_index, .. }
-                | EvidenceReuseGovernanceEvent::ReusableInfluenceRevoked { event_index, .. }
-                | EvidenceReuseGovernanceEvent::ReusableInfluenceSuperseded {
-                    event_index, ..
-                } => *event_index,
-            });
         self.effective_reusable_records
             .sort_by_key(|record| record.record_id);
         self.historical_reusable_records

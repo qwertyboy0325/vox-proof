@@ -7,32 +7,28 @@ use vox_proof::persistence_evidence::{
 
 #[test]
 fn review_ledger_order_change_fails_oracle() {
-    let expected = build_golden_small_state();
+    let expected = build_superseded_state();
     let mut actual = expected.clone();
-    if actual.review_ledger_events.len() >= 2 {
-        actual.review_ledger_events.swap(0, 1);
-    } else {
-        actual
-            .review_ledger_events
-            .push(actual.review_ledger_events[0].clone());
-    }
+    actual.review_ledger_events.swap(0, 1);
     let result = CurrentContractOracle::compare(&expected, &actual);
     assert!(!result.passed);
+    assert!(result.violations.iter().any(|violation| {
+        violation.code == OracleViolationCodeV3::ChangedReviewLedgerOrder
+            || violation.code == OracleViolationCodeV3::ReviewLedgerIndexGap
+    }));
 }
 
 #[test]
 fn reuse_governance_order_change_fails_oracle() {
-    let expected = build_golden_small_state();
+    let expected = build_superseded_state();
     let mut actual = expected.clone();
-    if actual.reuse_governance_events.len() >= 2 {
-        actual.reuse_governance_events.swap(0, 1);
-    } else {
-        actual
-            .reuse_governance_events
-            .push(actual.reuse_governance_events[0].clone());
-    }
+    actual.reuse_governance_events.swap(0, 1);
     let result = CurrentContractOracle::compare(&expected, &actual);
     assert!(!result.passed);
+    assert!(result.violations.iter().any(|violation| {
+        violation.code == OracleViolationCodeV3::ChangedReuseGovernanceOrder
+            || violation.code == OracleViolationCodeV3::ReuseGovernanceIndexGap
+    }));
 }
 
 #[test]
