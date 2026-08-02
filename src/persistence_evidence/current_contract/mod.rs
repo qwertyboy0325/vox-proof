@@ -28,8 +28,10 @@ pub use fixture::{
     build_base_manual_replacement_state, build_candidate_rejected_state,
     build_duplicated_session_lineage_state, build_golden_small_session, build_golden_small_state,
     build_offset_anchor_manual_replacement_state, build_original_for_duplication_fixture,
-    build_promoted_active_session, build_promoted_active_state, build_revoked_historical_state,
-    build_superseded_state, golden_small,
+    build_pre_supersession_run_session, build_promoted_active_session, build_promoted_active_state,
+    build_promoted_then_run_then_superseded_state, build_revoked_historical_state,
+    build_superseded_session, build_superseded_state, build_superseded_with_reuse_run_state,
+    golden_small,
 };
 pub use measurement::{
     ComparativeMeasurementContract, DeferredFixtureScale, MEASUREMENT_CONTRACT_VERSION,

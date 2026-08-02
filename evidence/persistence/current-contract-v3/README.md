@@ -2,11 +2,11 @@
 
 Status: evidence contract package (VP-GATE4-EVIDENCE-COMPLETION-01A)
 
-Correction-04 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-04`)
-closes remote-review blockers in retained-index canonical event ordering,
-validated typed review decisions, exact observed-text binding, and historical
-reuse-enabled analysis-binding coverage. 01A is **not** owner-accepted; next
-gate is fresh remote review and owner acceptance of corrected 01A.
+Correction-05 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-05`)
+closes remote-review blockers in anchor-validated ReviewCase authority and
+production/evidence lifecycle identity cross-checks. 01A is **not**
+owner-accepted; next gate is fresh remote review and owner acceptance of
+corrected 01A.
 
 Correction-01 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01`)
 addresses remote-review blockers F1–F4. 01A is **not** owner-accepted; next gate is
@@ -41,6 +41,13 @@ aligned with owner-accepted Gate 1–3 application semantics.
 - malformed review events cannot authorize reusable promotion or historical provenance
 - historical binding tests cover canonical snapshot, source revision, terms, identity, and reuse-enabled configuration
 
+## Correction-05 highlights
+
+- governance accepts only ReviewCases whose Unicode-safe SourceAnchor resolves to their exact observed bytes
+- synchronized forged ReviewCase and promotion/rejection payload bytes cannot mutate either governance fold
+- production snapshot identities are compared for promoted active, retained pre-revoke, retained pre-supersession, and fresh post-supersession runs
+- the bounded application retains only its latest reuse-enabled run; governance mutation clears that run, while evidence may retain one explicit historical binding
+
 ## Correction-01 highlights
 
 - complete typed `EvidenceSourceDecisionLocator` (all MD-018 fields)
@@ -65,7 +72,7 @@ aligned with owner-accepted Gate 1–3 application semantics.
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_04_REMOTE_REVIEW_PENDING
+tracker_status: GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_05_REMOTE_REVIEW_PENDING
 ```
 
 ## Selected owner path

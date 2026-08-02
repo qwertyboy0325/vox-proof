@@ -1,6 +1,6 @@
 {
   "package": "VP-GATE4-EVIDENCE-COMPLETION-01A",
-  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-04",
+  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-05",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
@@ -10,6 +10,6 @@
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
   "selected_path": "A_corrected_append_authoritative_comparator",
-  "tracker_status": "GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_04_REMOTE_REVIEW_PENDING",
-  "note": "Correction-04 completed after remote review; retained-index canonical history, validated typed review decisions, exact observed-text binding, and historical binding coverage are fail-closed. Contract package only; 01A not owner-accepted; 01B not authorized."
+  "tracker_status": "GATE4_EVIDENCE_COMPLETION_01A_CORRECTION_05_REMOTE_REVIEW_PENDING",
+  "note": "Correction-05 completed after remote review; governance consumes only anchor-validated ReviewCases and lifecycle identities cross-check against production while documenting latest-run-only retention. Contract package only; 01A not owner-accepted; 01B not authorized."
 }

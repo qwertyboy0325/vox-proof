@@ -143,6 +143,56 @@ pub fn build_superseded_state() -> CurrentContractState {
     )
 }
 
+pub fn build_superseded_with_reuse_run_state() -> CurrentContractState {
+    let mut session = build_superseded_session();
+    session
+        .run_reuse_enabled_review()
+        .expect("reuse-enabled run after supersession");
+    project_session(
+        &session,
+        "session:current-contract:superseded-fresh-run",
+        "writer:superseded-fresh-run",
+    )
+}
+
+pub fn build_promoted_then_run_then_superseded_state() -> CurrentContractState {
+    let mut session = build_pre_supersession_run_session();
+    let binding = session.reuse_enabled_run().map(|reuse_run| {
+        let revision = session.source().revision_id().to_tagged_string();
+        let analysis_snapshot = super::projection::map_analysis_snapshot_for_export(
+            reuse_run.analysis_run().snapshot(),
+            revision,
+        );
+        super::model::EvidenceReuseEnabledAnalysisBinding {
+            analysis_snapshot_identity: analysis_snapshot.identity.clone(),
+            analysis_snapshot,
+            reusable_snapshot_identity: reuse_run.reusable_snapshot_identity().to_tagged_string(),
+            governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
+            projection_version: super::model::REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
+        }
+    });
+    let candidates = session.reuse_candidates().expect("candidates");
+    session
+        .supersede_reusable_influence(
+            ReusableInfluenceRecordId::from_promotion_event_index(0),
+            &candidates[0].key,
+        )
+        .expect("supersede");
+    let mut state = project_session(
+        &session,
+        "session:current-contract:superseded-historical-run",
+        "writer:superseded-historical-run",
+    );
+    state.reuse_enabled_analysis_binding = binding;
+    if let Some(binding) = &state.reuse_enabled_analysis_binding {
+        state
+            .analysis_snapshots
+            .push(binding.analysis_snapshot.clone());
+    }
+    super::derivation::finalize_derived_fields(&mut state);
+    state.normalize()
+}
+
 pub fn build_offset_anchor_manual_replacement_state() -> CurrentContractState {
     project_session(
         &build_offset_anchor_session(),
@@ -247,7 +297,7 @@ pub fn build_promoted_active_session() -> ApplicationReviewSession {
     session
 }
 
-fn build_superseded_session() -> ApplicationReviewSession {
+pub fn build_pre_supersession_run_session() -> ApplicationReviewSession {
     let transcript = parse_srt(SUPERSESSION_TRANSCRIPT).expect("supersession transcript");
     let terms = vec![SessionTermEntry::new(
         "Kafka",
@@ -274,9 +324,18 @@ fn build_superseded_session() -> ApplicationReviewSession {
     session
         .accept_reuse_candidate(&candidates[0].key)
         .expect("accept first");
+    session
+        .run_reuse_enabled_review()
+        .expect("reuse-enabled run before supersession");
+    session
+}
+
+pub fn build_superseded_session() -> ApplicationReviewSession {
+    let mut session = build_pre_supersession_run_session();
+    let candidates = session.reuse_candidates().expect("candidates");
     let predecessor = ReusableInfluenceRecordId::from_promotion_event_index(0);
     session
-        .supersede_reusable_influence(predecessor, &candidates[1].key)
+        .supersede_reusable_influence(predecessor, &candidates[0].key)
         .expect("supersede");
     session
 }

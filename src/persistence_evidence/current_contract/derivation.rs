@@ -31,15 +31,22 @@ pub fn derive_contract_projection(
 ) -> (DerivedContractProjection, Vec<OracleDiagnosticV3>) {
     let mut violations = Vec::new();
     validate_review_cases_and_ledger(state, &mut violations);
-    validate_source_anchors(state, &mut violations);
+    let validated_review_cases = validate_source_anchors(state, &mut violations);
     validate_governance_events(state, &mut violations);
-    let validated_review_decisions = validate_review_ledger(state, &mut violations);
-    validate_historical_binding(state, &validated_review_decisions, &mut violations);
+    let validated_review_decisions =
+        validate_review_ledger(state, &validated_review_cases, &mut violations);
+    validate_historical_binding(
+        state,
+        &validated_review_cases,
+        &validated_review_decisions,
+        &mut violations,
+    );
 
     let effective_review_status = fold_effective_review_status(&validated_review_decisions);
     let (effective_reusable_records, historical_reusable_records, rejected_candidate_identities) =
         fold_reuse_governance(
             state,
+            &validated_review_cases,
             &validated_review_decisions,
             state.reuse_governance_events.len(),
             &mut violations,
@@ -80,8 +87,17 @@ struct ValidatedReviewDecision {
     decision: CorrectionDecision,
 }
 
+#[derive(Debug, Clone)]
+struct ValidatedReviewCase {
+    observed_revision_id: String,
+    anchor_revision_id: String,
+    observed_source_bytes: String,
+    alternative_count: usize,
+}
+
 fn validate_review_ledger(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> Vec<Option<ValidatedReviewDecision>> {
     let mut validated = Vec::with_capacity(state.review_ledger_events.len());
@@ -95,7 +111,9 @@ fn validate_review_ledger(
             validated.push(None);
             continue;
         }
-        let Some(decision) = validate_and_decode_review_event(state, event, violations) else {
+        let Some(decision) =
+            validate_and_decode_review_event(state, validated_review_cases, event, violations)
+        else {
             validated.push(None);
             continue;
         };
@@ -155,6 +173,7 @@ fn evidence_decision(decision: &CorrectionDecision) -> EvidenceCorrectionDecisio
 
 fn validate_and_decode_review_event(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     event: &EvidenceReviewLedgerEvent,
     violations: &mut Vec<OracleDiagnosticV3>,
 ) -> Option<CorrectionDecision> {
@@ -168,6 +187,14 @@ fn validate_and_decode_review_event(
             OracleViolationCodeV3::MissingReviewCaseReference,
             &path,
             "review ledger references missing review case",
+        ));
+        return None;
+    };
+    let Some(validated_review_case) = validated_review_cases.get(&event.case_id) else {
+        violations.push(diagnostic(
+            OracleViolationCodeV3::SourceAnchorResolvedBytesMismatch,
+            &path,
+            "review ledger cannot consume a review case with an invalid source anchor",
         ));
         return None;
     };
@@ -255,7 +282,7 @@ fn validate_and_decode_review_event(
             }
             match ManualReplacementText::new(
                 replacement_text,
-                review_case.observed_source_bytes.as_str(),
+                validated_review_case.observed_source_bytes.as_str(),
             ) {
                 Ok(replacement) => Some(CorrectionDecision::ManualReplacement { replacement }),
                 Err(_) => {
@@ -285,7 +312,7 @@ fn validate_and_decode_review_event(
                 ));
                 return None;
             };
-            if alternative_index >= review_case.alternative_count {
+            if alternative_index >= validated_review_case.alternative_count {
                 violations.push(diagnostic(
                     OracleViolationCodeV3::MalformedReviewLedgerEvent,
                     &path,
@@ -358,6 +385,7 @@ impl GovernanceFoldState {
 
 fn fold_reuse_governance(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     validated_review_decisions: &[Option<ValidatedReviewDecision>],
     event_limit: usize,
     violations: &mut Vec<OracleDiagnosticV3>,
@@ -383,6 +411,7 @@ fn fold_reuse_governance(
         }
         apply_governance_event(
             state,
+            validated_review_cases,
             validated_review_decisions,
             event,
             &mut fold,
@@ -396,6 +425,7 @@ fn fold_reuse_governance(
 
 fn apply_governance_event(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     validated_review_decisions: &[Option<ValidatedReviewDecision>],
     event: &EvidenceReuseGovernanceEvent,
     fold: &mut GovernanceFoldState,
@@ -416,8 +446,13 @@ fn apply_governance_event(
             ) {
                 return;
             }
-            if !validate_candidate_key(state, validated_review_decisions, candidate_key, violations)
-            {
+            if !validate_candidate_key(
+                state,
+                validated_review_cases,
+                validated_review_decisions,
+                candidate_key,
+                violations,
+            ) {
                 return;
             }
             let identity = rejection_identity_digest(
@@ -464,8 +499,13 @@ fn apply_governance_event(
             ) {
                 return;
             }
-            if !validate_candidate_key(state, validated_review_decisions, candidate_key, violations)
-            {
+            if !validate_candidate_key(
+                state,
+                validated_review_cases,
+                validated_review_decisions,
+                candidate_key,
+                violations,
+            ) {
                 return;
             }
             if candidate_key.exact_payload != *payload {
@@ -486,6 +526,7 @@ fn apply_governance_event(
             }
             if !validate_locator_integrity(
                 state,
+                validated_review_cases,
                 validated_review_decisions,
                 source_locator,
                 payload,
@@ -648,6 +689,7 @@ fn apply_governance_event(
 
 fn validate_locator_integrity(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     validated_review_decisions: &[Option<ValidatedReviewDecision>],
     locator: &EvidenceSourceDecisionLocator,
     payload: &EvidenceExactReusableCorrection,
@@ -714,15 +756,11 @@ fn validate_locator_integrity(
             ));
         }
     }
-    let Some(review_case) = state
-        .review_cases
-        .iter()
-        .find(|case| case.case_id == locator.source_review_case_id)
-    else {
+    let Some(review_case) = validated_review_cases.get(&locator.source_review_case_id) else {
         violations.push(diagnostic(
-            OracleViolationCodeV3::MissingReviewCaseReference,
+            OracleViolationCodeV3::SourceAnchorResolvedBytesMismatch,
             "source_locator.source_review_case_id",
-            "referenced review case does not exist",
+            "referenced review case is missing or does not resolve to its source anchor bytes",
         ));
         return false;
     };
@@ -825,6 +863,7 @@ fn validate_locator_integrity(
 
 fn validate_candidate_key(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     validated_review_decisions: &[Option<ValidatedReviewDecision>],
     candidate_key: &EvidenceReuseCandidateKey,
     violations: &mut Vec<OracleDiagnosticV3>,
@@ -839,6 +878,7 @@ fn validate_candidate_key(
     }
     validate_locator_integrity(
         state,
+        validated_review_cases,
         validated_review_decisions,
         &candidate_key.source_locator,
         &candidate_key.exact_payload,
@@ -912,8 +952,13 @@ fn validate_review_cases_and_ledger(
     }
 }
 
-fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<OracleDiagnosticV3>) {
+fn validate_source_anchors(
+    state: &CurrentContractState,
+    violations: &mut Vec<OracleDiagnosticV3>,
+) -> BTreeMap<String, ValidatedReviewCase> {
+    let mut validated = BTreeMap::new();
     let mut seen_revisions = HashSet::new();
+    let mut anchor_eligible_revisions = HashSet::new();
     for revision in &state.source_revisions {
         if !seen_revisions.insert(revision.revision_id.clone()) {
             violations.push(diagnostic(
@@ -924,7 +969,10 @@ fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<Or
         }
         match crate::srt::parse_srt(&revision.transcript_bytes) {
             Ok(transcript)
-                if transcript.revision_id().to_tagged_string() == revision.revision_id => {}
+                if transcript.revision_id().to_tagged_string() == revision.revision_id =>
+            {
+                anchor_eligible_revisions.insert(revision.revision_id.clone());
+            }
             Ok(_) => violations.push(diagnostic(
                 OracleViolationCodeV3::ChangedSourceRevisionIdentity,
                 "source_revisions",
@@ -971,6 +1019,14 @@ fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<Or
             ));
             continue;
         };
+        if !anchor_eligible_revisions.contains(&review_case.anchor_revision_id) {
+            violations.push(diagnostic(
+                OracleViolationCodeV3::SourceAnchorRevisionMismatch,
+                "review_cases",
+                "anchor revision transcript bytes do not validate to the declared revision",
+            ));
+            continue;
+        }
         let transcript = match crate::srt::parse_srt(&revision.transcript_bytes) {
             Ok(value) => value,
             Err(_) => {
@@ -1024,8 +1080,19 @@ fn validate_source_anchors(state: &CurrentContractState, violations: &mut Vec<Or
                 "review_cases",
                 "resolved anchor bytes do not match observed source bytes",
             ));
+            continue;
         }
+        validated.insert(
+            review_case.case_id.clone(),
+            ValidatedReviewCase {
+                observed_revision_id: review_case.observed_revision_id.clone(),
+                anchor_revision_id: review_case.anchor_revision_id.clone(),
+                observed_source_bytes: resolved.to_owned(),
+                alternative_count: review_case.alternative_count,
+            },
+        );
     }
+    validated
 }
 
 fn validate_governance_events(
@@ -1065,6 +1132,7 @@ fn governance_event_index(event: &EvidenceReuseGovernanceEvent) -> usize {
 
 fn validate_historical_binding(
     state: &CurrentContractState,
+    validated_review_cases: &BTreeMap<String, ValidatedReviewCase>,
     validated_review_decisions: &[Option<ValidatedReviewDecision>],
     violations: &mut Vec<OracleDiagnosticV3>,
 ) {
@@ -1123,6 +1191,7 @@ fn validate_historical_binding(
     }
     let (active_at_boundary, _, _) = fold_reuse_governance(
         state,
+        validated_review_cases,
         validated_review_decisions,
         binding.governance_event_boundary,
         violations,
