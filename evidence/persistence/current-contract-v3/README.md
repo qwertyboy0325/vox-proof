@@ -67,13 +67,27 @@ aligned with owner-accepted Gate 1–3 application semantics.
 - candidate-mechanism selection or a Material Decision
 - real-session migration or product persistence integration
 
+## 01B bounded candidate adapter
+
+`current-contract-append-authoritative-candidate` version `01B-1` is available
+only behind the `persistence-spike` feature. It writes deterministic
+current-contract v3 state records followed by an explicit append commit
+acknowledgement, rehydrates from the committed canonical prefix, and recomputes
+derived fields before the existing v3 oracle validates the result. Incomplete
+tails are detected but never authoritative; malformed records, stale append
+preconditions, duplicate canonical identities, unsafe session paths, oversized
+records, and unknown newer writable formats fail closed.
+
+This is a bounded candidate adapter for future 01C evaluation, not a selected
+mechanism, generated evidence artifact, or production session store.
+
 ## Readiness
 
 ```yaml
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01B_IMPLEMENTATION_AUTHORIZED
+tracker_status: GATE4_EVIDENCE_COMPLETION_01B_REMOTE_REVIEW_PENDING
 ```
 
 ## Selected owner path
@@ -82,6 +96,9 @@ tracker_status: GATE4_EVIDENCE_COMPLETION_01B_IMPLEMENTATION_AUTHORIZED
 selected_path: A_corrected_append_authoritative_comparator
 next_package: VP-GATE4-EVIDENCE-COMPLETION-01B  # bounded candidate adapter only
 ```
+
+01B implementation is pending fresh remote review and owner acceptance. Readiness
+remains `not_ready`; 01C evidence execution is not authorized.
 
 ## Artifacts
 
