@@ -1,29 +1,36 @@
 {
-  "package": "VP-GATE4-01C-PRECONDITION-SQLITE-V3-CANDIDATE-01",
-  "predecessor": "VP-GATE4-01C-READINESS-WINDOWS-CLOSURE-01",
-  "candidate_id": "current-contract-sqlite-authoritative-candidate",
-  "candidate_version": "01C-SQLITE-2",
-  "accepted_base": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
+  "package": "VP-GATE4-EVIDENCE-COMPLETION-01C",
+  "predecessor": "VP-GATE4-01C-PRECONDITION-SQLITE-V3-CANDIDATE-01",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
   "scenario_contract_version": "3",
   "measurement_contract_version": "2",
-  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_comparison_readiness": "pending_cross_platform_evidence",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
   "selected_path": "A_corrected_append_authoritative_comparator",
-  "tracker_status": "GATE4_01C_SQLITE_V3_CANDIDATE_REVIEW_PENDING",
-  "01B_2": {
+  "tracker_status": "GATE4_01C_EQUIVALENT_EXECUTION_IN_PROGRESS",
+  "append_01B_2": {
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-2",
     "accepted_head": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
     "owner_accepted": true
   },
+  "sqlite_01C_SQLITE_2": {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "semantic_head": "c62dac64bb05d5714946b5741f474d7e640f07a9",
+    "accepted_history_head": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
+    "owner_accepted": true,
+    "windows_validation": {
+      "run_id": "31476489821",
+      "exact_semantic_sha": "c62dac64bb05d5714946b5741f474d7e640f07a9"
+    }
+  },
   "01C": {
     "authorized": true,
-    "blocked_on": "current_contract_v3_sqlite_candidate"
+    "execution_status": "harness_committed_pending_final_evidence"
   },
-  "sqlite_v3_candidate": {
-    "status": "implementation_or_review_pending"
-  },
-  "note": "This is a separate current-contract-v3 SQLite candidate under bounded implementation and review. It directly reconstructs CurrentContractState through typed relational authority and CurrentContractOracle v3; it does not reinterpret the historical embedded-relational SQLite candidate. It does not execute 01C, select a mechanism, create a Material Decision, integrate product persistence, or migrate sessions. Static aliases are rejected where filesystem identity is checked; active same-privilege namespace replacement, filesystem durability, and hardware power-loss resilience are not claimed."
+  "note": "Gate 4 package 01C equivalent candidate evidence compares owner-accepted append 01B-2 and SQLite 01C-SQLITE-2 under frozen fixture/oracle/scenario/measurement contracts. This does not select a mechanism, create a Material Decision, integrate product persistence, or migrate sessions."
 }

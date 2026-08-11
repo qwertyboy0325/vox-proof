@@ -38,10 +38,11 @@ pub use aggregation::{
 pub use current_contract::{
     CURRENT_CONTRACT_FIXTURE_ID, CURRENT_CONTRACT_FIXTURE_VERSION, CURRENT_CONTRACT_ORACLE_VERSION,
     CandidateEligibilityStatus, CandidateEquivalenceRequirements, ComparativeMeasurementContract,
-    CurrentContractFixture, CurrentContractOracle, CurrentContractReadiness, CurrentContractState,
-    EvidenceCorrectionDecision, EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent,
-    EvidenceSourceDecisionLocator, ExpectedOpenState, ExpectedRecoveryClass,
-    FIELD_CLASSIFICATION_REGISTRY, FaultLayer, FieldClassification, MEASUREMENT_CONTRACT_VERSION,
+    CurrentContractFixture, CurrentContractFixtureScale, CurrentContractOracle,
+    CurrentContractReadiness, CurrentContractState, EvidenceCorrectionDecision,
+    EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent, EvidenceSourceDecisionLocator,
+    ExpectedOpenState, ExpectedRecoveryClass, FIELD_CLASSIFICATION_REGISTRY, FaultLayer,
+    FieldClassification, MEASUREMENT_CONTRACT_VERSION, MeasurementFixtureScale,
     OracleViolationCodeV3, SCENARIO_CONTRACT_VERSION, ScenarioRequirementLevel,
     VARIANT_PROMOTED_ACTIVE, all_fixture_variants, build_base_manual_replacement_state,
     build_candidate_rejected_state, build_duplicated_session_lineage_state,
@@ -82,11 +83,12 @@ pub use current_contract::{
     APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
     APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
     AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan,
-    CurrentContractPreconditions, DurableAppendAck, DurableSqliteAck, OpenedAppendAuthoritySession,
-    OpenedSqliteAuthoritySession, SQLITE_AUTHORITATIVE_CANDIDATE_ID,
+    CurrentContractPreconditions, DurableAppendAck, DurableSqliteAck, EVIDENCE_01C_HARNESS_VERSION,
+    OpenedAppendAuthoritySession, OpenedSqliteAuthoritySession, SQLITE_AUTHORITATIVE_CANDIDATE_ID,
     SQLITE_AUTHORITATIVE_CANDIDATE_VERSION, SQLITE_AUTHORITATIVE_FORMAT_VERSION,
     SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError, SqliteAuthoritySession,
-    SqliteOpenMode,
+    SqliteOpenMode, build_medium_fixture_state, medium_fixture_dimensions, methodology_record,
+    run_01c_evidence,
 };
 #[cfg(feature = "persistence-spike")]
 pub use durability::{

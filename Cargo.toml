@@ -23,7 +23,7 @@ sha2 = "0.10"
 unicode-normalization = "0.1.24"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
 
 [dev-dependencies]
 uuid = { version = "1", features = ["v4"] }
@@ -46,6 +46,11 @@ required-features = ["persistence-spike"]
 [[bin]]
 name = "persistence_evidence_v3_run"
 path = "src/bin/persistence_evidence_v3_run.rs"
+required-features = ["persistence-spike"]
+
+[[bin]]
+name = "persistence_evidence_01c_run"
+path = "src/bin/persistence_evidence_01c_run.rs"
 required-features = ["persistence-spike"]
 
 [[test]]

@@ -18,7 +18,7 @@ fn measurement_contract_is_candidate_neutral() {
 fn measurement_operations_are_unique_with_valid_samples() {
     validate_measurement_contract().expect("measurement contract valid");
     let contract = comparative_measurement_contract();
-    assert_eq!(contract.deferred_scales.len(), 2);
+    assert_eq!(contract.deferred_scales.len(), 1);
     for deferred in &contract.deferred_scales {
         assert!(!deferred.rationale.is_empty());
         assert!(!deferred.unblock_condition.is_empty());

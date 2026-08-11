@@ -214,7 +214,7 @@ pub enum CurrentContractFixtureScale {
 
 impl CurrentContractFixtureScale {
     pub fn is_implemented(self) -> bool {
-        matches!(self, Self::Small)
+        matches!(self, Self::Small | Self::Medium)
     }
 }
 

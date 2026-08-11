@@ -13,6 +13,7 @@ on:
     paths:
       - "src/persistence_evidence/**"
       - "src/bin/persistence_evidence_v3_run.rs"
+      - "src/bin/persistence_evidence_01c_run.rs"
       - "src/bin/persistence_evidence_worker.rs"
       - "tests/persistence_*.rs"
       - "Cargo.toml"
@@ -23,6 +24,7 @@ on:
     paths:
       - "src/persistence_evidence/**"
       - "src/bin/persistence_evidence_v3_run.rs"
+      - "src/bin/persistence_evidence_01c_run.rs"
       - "src/bin/persistence_evidence_worker.rs"
       - "tests/persistence_*.rs"
       - "Cargo.toml"
@@ -56,6 +58,8 @@ jobs:
         run: cargo test --features persistence-spike --test persistence_append_authoritative_01b
       - name: Run current-contract SQLite candidate Windows tests
         run: cargo test --features persistence-spike --test persistence_sqlite_authoritative_01c
+      - name: Run Gate 4 01C evidence harness tests
+        run: cargo test --features persistence-spike --test persistence_01c_evidence
       - name: Run workspace clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Run persistence tests
@@ -88,3 +92,30 @@ jobs:
         with:
           name: persistence-v3-windows-evidence
           path: evidence/persistence/${{ env.VOXPROOF_RUN_ID }}/
+      - name: Run Gate 4 01C equivalent candidate evidence
+        shell: bash
+        run: |
+          RUN_ID="current-contract-v3-01c-windows-${{ github.run_id }}"
+          export VOXPROOF_01C_RUN_ID="$RUN_ID"
+          export VOXPROOF_PLATFORM_LABEL="windows-github-actions"
+          export VOXPROOF_EXECUTION_ENVIRONMENT="github-actions-windows-latest"
+          export VOXPROOF_FILESYSTEM="ntfs-github-actions-runner"
+          cargo run --features persistence-spike --bin persistence_evidence_01c_run
+          echo "VOXPROOF_01C_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+      - name: Validate 01C evidence JSON
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / "${{ env.VOXPROOF_01C_RUN_ID }}"
+          if not root.exists():
+              sys.exit(f"missing 01c evidence root {root}")
+          for p in root.rglob("*.json"):
+              json.loads(p.read_text())
+          print("01c json ok")
+          PY
+      - name: Upload Gate 4 01C Windows evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistence-01c-windows-evidence
+          path: evidence/persistence/current-contract-v3/01c/${{ env.VOXPROOF_01C_RUN_ID }}/

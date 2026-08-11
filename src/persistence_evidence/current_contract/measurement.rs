@@ -89,65 +89,30 @@ const REQUIRED_OPERATIONS: &[&str] = &[
     "compaction_where_supported",
 ];
 
+const SMALL_MEDIUM: &[MeasurementFixtureScale] = &[
+    MeasurementFixtureScale::Small,
+    MeasurementFixtureScale::Medium,
+];
+
 pub fn comparative_measurement_contract() -> ComparativeMeasurementContract {
     ComparativeMeasurementContract {
         contract_version: MEASUREMENT_CONTRACT_VERSION.to_owned(),
         fixture_id: super::model::CURRENT_CONTRACT_FIXTURE_ID.to_owned(),
         fixture_version: super::model::CURRENT_CONTRACT_FIXTURE_VERSION.to_owned(),
         operations: vec![
-            op("create_session", &[MeasurementFixtureScale::Small], 5, 1),
-            op("open_cold", &[MeasurementFixtureScale::Small], 5, 1),
-            op("open_warm", &[MeasurementFixtureScale::Small], 5, 2),
-            op(
-                "append_review_decision",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op(
-                "append_manual_replacement",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op(
-                "append_reusable_promotion",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op(
-                "append_reusable_revocation",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op(
-                "append_reusable_supersession",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op("close", &[MeasurementFixtureScale::Small], 5, 1),
-            op(
-                "reopen_and_validate",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op(
-                "semantic_duplication",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
-            op("derived_rebuild", &[MeasurementFixtureScale::Small], 5, 1),
-            op(
-                "compaction_where_supported",
-                &[MeasurementFixtureScale::Small],
-                5,
-                1,
-            ),
+            op("create_session", SMALL_MEDIUM, 5, 1),
+            op("open_cold", SMALL_MEDIUM, 5, 1),
+            op("open_warm", SMALL_MEDIUM, 5, 2),
+            op("append_review_decision", SMALL_MEDIUM, 5, 1),
+            op("append_manual_replacement", SMALL_MEDIUM, 5, 1),
+            op("append_reusable_promotion", SMALL_MEDIUM, 5, 1),
+            op("append_reusable_revocation", SMALL_MEDIUM, 5, 1),
+            op("append_reusable_supersession", SMALL_MEDIUM, 5, 1),
+            op("close", SMALL_MEDIUM, 5, 1),
+            op("reopen_and_validate", SMALL_MEDIUM, 5, 1),
+            op("semantic_duplication", SMALL_MEDIUM, 5, 1),
+            op("derived_rebuild", SMALL_MEDIUM, 5, 1),
+            op("compaction_where_supported", SMALL_MEDIUM, 5, 1),
         ],
         aggregation_fields: MeasurementAggregationFields {
             count: true,
@@ -173,13 +138,6 @@ pub fn comparative_measurement_contract() -> ComparativeMeasurementContract {
             "no_unbounded_startup_or_memory_for_small_fixture".to_owned(),
         ],
         deferred_scales: vec![
-            DeferredFixtureScale {
-                scale: MeasurementFixtureScale::Medium,
-                rationale: "Medium fixture variants and multi-case lifecycle projections are not yet materialized in package 01A correction.".to_owned(),
-                required_future_package: "VP-GATE4-EVIDENCE-COMPLETION-01C".to_owned(),
-                unblock_condition: "fixture variants at medium scale implemented and validated by oracle v3".to_owned(),
-                selection_impact: "Mechanism selection remains blocked until medium-scale comparative measurements are executed for both candidates.".to_owned(),
-            },
             DeferredFixtureScale {
                 scale: MeasurementFixtureScale::Stress,
                 rationale: "Stress-scale measurements require authorized evidence execution infrastructure and larger fixture corpora not defined in correction-01.".to_owned(),
@@ -356,10 +314,29 @@ pub fn validate_measurement_contract_value(
     if deferred_scales.contains(&MeasurementFixtureScale::Small) {
         return Err("small fixture scale must not be deferred".to_owned());
     }
-    if !deferred_scales.contains(&MeasurementFixtureScale::Medium)
-        || !deferred_scales.contains(&MeasurementFixtureScale::Stress)
-    {
-        return Err("medium and stress deferred scales must each be declared".to_owned());
+    let medium_implemented = contract.operations.iter().any(|operation| {
+        operation
+            .fixture_scales
+            .contains(&MeasurementFixtureScale::Medium)
+    });
+    if !medium_implemented {
+        return Err("medium fixture scale must be implemented".to_owned());
+    }
+    if !contract.operations.iter().any(|operation| {
+        operation
+            .fixture_scales
+            .contains(&MeasurementFixtureScale::Small)
+    }) {
+        return Err("small fixture scale must be implemented".to_owned());
+    }
+    if !deferred_scales.contains(&MeasurementFixtureScale::Stress) {
+        return Err("stress deferred scale must be declared".to_owned());
+    }
+    if deferred_scales.contains(&MeasurementFixtureScale::Medium) {
+        return Err("medium fixture scale must not remain deferred once implemented".to_owned());
+    }
+    if deferred_scales.contains(&MeasurementFixtureScale::Small) {
+        return Err("small fixture scale must not be deferred".to_owned());
     }
     let metadata = &contract.minimum_environment_metadata;
     if !metadata.repository_commit

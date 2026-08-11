@@ -339,3 +339,147 @@ pub fn build_superseded_session() -> ApplicationReviewSession {
         .expect("supersede");
     session
 }
+
+/// Deterministic medium-scale fixture for Gate 4 01C comparative measurements.
+pub struct MediumFixtureDimensions {
+    pub source_revision_count: usize,
+    pub analysis_snapshot_count: usize,
+    pub detector_count_per_snapshot: usize,
+    pub review_case_count: usize,
+    pub review_ledger_event_count: usize,
+    pub reuse_governance_event_count: usize,
+}
+
+const MEDIUM_TRANSCRIPT_SEGMENT_COUNT: usize = 12;
+const MEDIUM_SUPERSESSION_CYCLES: usize = 3;
+
+pub fn medium_fixture_dimensions() -> MediumFixtureDimensions {
+    dimensions_from_state(&build_medium_fixture_state())
+}
+
+fn dimensions_from_state(state: &CurrentContractState) -> MediumFixtureDimensions {
+    MediumFixtureDimensions {
+        source_revision_count: state.source_revisions.len(),
+        analysis_snapshot_count: state.analysis_snapshots.len(),
+        detector_count_per_snapshot: state
+            .analysis_snapshots
+            .first()
+            .map(|snapshot| snapshot.detectors.len())
+            .unwrap_or(0),
+        review_case_count: state.review_cases.len(),
+        review_ledger_event_count: state.review_ledger_events.len(),
+        reuse_governance_event_count: state.reuse_governance_events.len(),
+    }
+}
+
+fn build_medium_transcript_srt(segment_count: usize) -> String {
+    let mut out = String::new();
+    for index in 0..segment_count {
+        let cue = index + 1;
+        let start = format_srt_timestamp(index as u64 * 1_000);
+        let end = format_srt_timestamp((index as u64 + 1) * 1_000);
+        out.push_str(&format!("{cue}\n{start} --> {end}\nKafak\n\n"));
+    }
+    out
+}
+
+fn format_srt_timestamp(ms: u64) -> String {
+    let hours = ms / 3_600_000;
+    let minutes = (ms % 3_600_000) / 60_000;
+    let seconds = (ms % 60_000) / 1_000;
+    let millis = ms % 1_000;
+    format!("{hours:02}:{minutes:02}:{seconds:02},{millis:03}")
+}
+
+fn build_medium_fixture_session() -> ApplicationReviewSession {
+    let transcript = parse_srt(&build_medium_transcript_srt(
+        MEDIUM_TRANSCRIPT_SEGMENT_COUNT,
+    ))
+    .expect("medium srt");
+    let terms = vec![SessionTermEntry::new(
+        "Kafka",
+        vec!["Kafak".to_owned()],
+        Vec::new(),
+    )];
+    let mut session =
+        begin_application_review(transcript, terms, material_use(), session_authority())
+            .expect("medium session");
+    for target in session
+        .review_items()
+        .iter()
+        .map(|item| item.target)
+        .collect::<Vec<_>>()
+    {
+        session
+            .record_manual_replacement(target, "Kafka")
+            .expect("manual replacement");
+    }
+    session
+        .initialize_project_scope("proj-medium", "Project Medium")
+        .expect("scope");
+    let initial_candidates = session.reuse_candidates().expect("initial candidates");
+    for candidate in &initial_candidates {
+        session
+            .accept_reuse_candidate(&candidate.key)
+            .expect("promotion");
+    }
+    session
+        .run_reuse_enabled_review()
+        .expect("initial reuse-enabled run");
+    for cycle in 0..MEDIUM_SUPERSESSION_CYCLES {
+        let candidates = session
+            .reuse_candidates()
+            .expect("candidates for supersession");
+        if candidates.is_empty() {
+            break;
+        }
+        let predecessor = ReusableInfluenceRecordId::from_promotion_event_index(
+            cycle.min(initial_candidates.len().saturating_sub(1)),
+        );
+        session
+            .supersede_reusable_influence(predecessor, &candidates[0].key)
+            .expect("supersession");
+        session
+            .run_reuse_enabled_review()
+            .expect("reuse-enabled run after supersession");
+    }
+    session
+}
+
+pub fn build_medium_fixture_state() -> CurrentContractState {
+    let session = build_medium_fixture_session();
+    let mut state = project_session(&session, "session:current-contract:medium", "writer:medium");
+    if let Some(binding) = session.reuse_enabled_run().map(|reuse_run| {
+        let revision = session.source().revision_id().to_tagged_string();
+        let analysis_snapshot = super::projection::map_analysis_snapshot_for_export(
+            reuse_run.analysis_run().snapshot(),
+            revision,
+        );
+        super::model::EvidenceReuseEnabledAnalysisBinding {
+            analysis_snapshot_identity: analysis_snapshot.identity.clone(),
+            analysis_snapshot: analysis_snapshot.clone(),
+            reusable_snapshot_identity: reuse_run.reusable_snapshot_identity().to_tagged_string(),
+            governance_event_boundary: reuse_run.governance_event_boundary_at_run(),
+            projection_version: super::model::REUSABLE_INFLUENCE_PROJECTION_VERSION.to_owned(),
+        }
+    }) {
+        state.reuse_enabled_analysis_binding = Some(binding.clone());
+        if !state
+            .analysis_snapshots
+            .iter()
+            .any(|snapshot| snapshot.identity == binding.analysis_snapshot_identity)
+        {
+            state
+                .analysis_snapshots
+                .push(binding.analysis_snapshot.clone());
+        }
+    }
+    super::derivation::finalize_derived_fields(&mut state);
+    state.normalize()
+}
+
+pub fn medium_fixture_serialized_semantic_size_bytes(state: &CurrentContractState) -> u64 {
+    serde_json::to_string(&state.canonical_projection())
+        .map(|value| value.len() as u64)
+        .unwrap_or(0)
+}
