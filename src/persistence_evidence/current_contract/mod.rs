@@ -18,8 +18,8 @@ pub mod violations;
 pub use append_authoritative::{
     APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
     APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
-    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan, DurableAppendAck,
-    OpenedAppendAuthoritySession,
+    AppendAuthoritySession, AppendCheckpointStatus, AppendOpenMode, AppendTailStatus, CleanupPlan,
+    DurableAppendAck, OpenedAppendAuthoritySession,
 };
 pub use candidate_equivalence::{
     CandidateEligibilityStatus, CandidateEquivalenceRequirements,

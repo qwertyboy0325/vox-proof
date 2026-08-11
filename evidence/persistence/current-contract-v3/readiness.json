@@ -1,6 +1,6 @@
 {
   "package": "VP-GATE4-EVIDENCE-COMPLETION-01B",
-  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01B-REMOTE-REVIEW-CORRECTION-01",
+  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01B-REMOTE-REVIEW-CORRECTION-02",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
@@ -11,5 +11,5 @@
   "selection_status": "none",
   "selected_path": "A_corrected_append_authoritative_comparator",
   "tracker_status": "GATE4_EVIDENCE_COMPLETION_01B_REMOTE_REVIEW_PENDING",
-  "note": "Corrected 01A was owner-accepted by Ezra on 2026-08-02 at 9be1e99ca45db2dcd6b2b7fbe03137e6cc28e241. 01B Correction-01 adds fresh-process reopen, OS-released writer takeover, committed-prefix recovery, commit fingerprint binding, mutable writer serialization, and latest-replay duplication. It awaits fresh remote review and owner acceptance; it does not authorize mechanism selection, evidence runs or generated artifacts (01C), a Material Decision, production persistence integration, or real-session migration."
+  "note": "Corrected 01A was owner-accepted by Ezra on 2026-08-02 at 9be1e99ca45db2dcd6b2b7fbe03137e6cc28e241. The bounded 01B Correction-02 follow-up adds handle-based static hard-link containment for manifest, canonical append log, writer lock, and manifest checkpoint temporaries on top of Correction-01 symlink refusal, bounded manifest and outbound-record handling, non-openable incomplete creation, Commit-boundary checkpoint reporting and repair, writer-owned fault injection, and latest-replay duplication with independent collision-safe identity. It awaits fresh independent review, ChatGPT final review, and Ezra owner acceptance. It does not claim protection from active same-privilege namespace replacement, Windows runtime validation, filesystem durability, or hardware power-loss resilience, and it does not authorize mechanism selection, evidence runs or generated artifacts (01C), a Material Decision, production persistence integration, or real-session migration."
 }

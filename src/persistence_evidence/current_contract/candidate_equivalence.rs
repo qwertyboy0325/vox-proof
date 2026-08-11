@@ -50,8 +50,17 @@ pub fn candidate_equivalence_requirements() -> CandidateEquivalenceRequirements 
             "compaction preserves event identity, order, and provenance".to_owned(),
             "interrupted compaction does not expose mixed generations".to_owned(),
             "writer ownership and takeover are validated".to_owned(),
+            "canonical storage root rejects static filesystem aliases".to_owned(),
+            "manifest and append records are allocation-bounded before authority exposure"
+                .to_owned(),
+            "outbound state and commit records are replayable before append acknowledgement"
+                .to_owned(),
+            "commit acknowledgement reports and repairs a behind manifest checkpoint".to_owned(),
+            "incomplete session creation is never exposed as authority".to_owned(),
+            "fault injection cannot bypass live writer ownership".to_owned(),
             "unknown newer format refuses writable open".to_owned(),
-            "semantic duplication creates new identity and independent ownership".to_owned(),
+            "semantic duplication creates collision-safe identity and independent ownership"
+                .to_owned(),
         ],
         sqlite_obligations: vec![
             "same fixture version".to_owned(),

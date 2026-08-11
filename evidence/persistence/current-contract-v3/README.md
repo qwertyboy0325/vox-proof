@@ -9,10 +9,6 @@ owner-accepted by Ezra on 2026-08-02 at
 `9be1e99ca45db2dcd6b2b7fbe03137e6cc28e241`. Package 01B is authorized only for
 the bounded candidate append-authoritative storage adapter and its review.
 
-Correction-01 (`VP-GATE4-EVIDENCE-COMPLETION-01A-REMOTE-REVIEW-CORRECTION-01`)
-addresses remote-review blockers F1–F4. 01A is **not** owner-accepted; next gate is
-ChatGPT remote review and owner acceptance of corrected 01A.
-
 This directory records the mechanism-independent persistence evidence contracts
 aligned with owner-accepted Gate 1–3 application semantics.
 
@@ -79,11 +75,25 @@ preconditions, duplicate canonical identities, unsafe session paths, oversized
 records, and unknown newer writable formats fail closed.
 
 Correction-01 adds fresh-process `open_existing` from only the bounded storage
-root and validated session ID; OS-released exclusive writer ownership with
-child-abort takeover coverage; committed-prefix truncation recovery for terminal
-incomplete or partial records; commit-to-state canonical fingerprint binding;
-mutable, non-clonable writer command guards; and duplication from the latest
-replayed authority. The equivalence contract names this exact candidate ID.
+root and validated session ID. Correction-02 adds handle-based static hard-link
+containment for every authority-bearing leaf. The final bounded correction
+canonicalizes that root, rejects static filesystem aliases for the session and
+authority leaves,
+bounds manifest reads and outbound append serialization, prevents incomplete
+creation from being opened, and preflights remaining record capacity. The synced
+Commit record is the semantic acknowledgement boundary; a failed manifest
+checkpoint is reported in the acknowledgement and repaired under writer
+ownership before another append. Mutating fault hooks require the live writer,
+and duplication uses the latest replayed authority with a collision-safe,
+independent evidence-writer identity. OS-released exclusive ownership retains
+child-abort takeover coverage. The equivalence contract names this exact
+candidate ID.
+
+Static on-disk aliases (symlinks and hard links) are treated as hostile input.
+This candidate does not claim protection against active same-privilege namespace
+replacement races.
+Windows reparse and file-sharing behavior remain pending external runtime
+evidence; macOS behavior does not establish Windows behavior.
 
 This is a bounded candidate adapter for future 01C evaluation, not a selected
 mechanism, generated evidence artifact, or production session store.
@@ -110,4 +120,5 @@ remains `not_ready`; 01C evidence execution is not authorized.
 ## Artifacts
 
 See `readiness.json`, [the Correction-01 reviewer package](reviewer-correction-01.md),
+[the Correction-02 reviewer package](reviewer-correction-02.md),
 and repository module `src/persistence_evidence/current_contract/`.
