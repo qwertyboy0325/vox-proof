@@ -30,7 +30,7 @@ use super::oracle::{CurrentContractOracle, canonical_fingerprint};
 
 pub const SQLITE_AUTHORITATIVE_CANDIDATE_ID: &str =
     "current-contract-sqlite-authoritative-candidate";
-pub const SQLITE_AUTHORITATIVE_CANDIDATE_VERSION: &str = "01C-SQLITE-1";
+pub const SQLITE_AUTHORITATIVE_CANDIDATE_VERSION: &str = "01C-SQLITE-2";
 pub const SQLITE_AUTHORITATIVE_FORMAT_VERSION: u32 = 1;
 
 const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
@@ -288,11 +288,12 @@ impl SqliteAuthoritativeCandidateAdapter {
         let mut connection = self.open_existing_database(&session, mode)?;
         // Validate the format and complete relational authority before any
         // writable open mutates a lease, journal mode, or derived cache.
-        let (mut metadata, mut state) = load_authority(&connection, false)?;
+        let (mut metadata, mut state) =
+            load_authority_for_session(&connection, &session.session_id, false)?;
         let writer = if mode == SqliteOpenMode::Writable {
             configure_writable_persistence(&connection)?;
             let writer = acquire_writer_ownership(&mut connection, &self.adapter_identity)?;
-            let reloaded = load_authority(&connection, false);
+            let reloaded = load_authority_for_session(&connection, &session.session_id, false);
             let (reloaded_metadata, reloaded_state) = match reloaded {
                 Ok(value) => value,
                 Err(error) => {
@@ -355,7 +356,8 @@ impl SqliteAuthoritativeCandidateAdapter {
             SqliteAuthorityError::new("not-authoritative-writer", "missing writer epoch")
         })?;
         validate_writer_ownership(&connection, token, epoch)?;
-        let (metadata, _) = load_authority(&connection, false)?;
+        let (metadata, _) =
+            load_authority_for_session(&connection, &opened.session.session_id, false)?;
         validate_preconditions(&metadata, preconditions)?;
         configure_writable_persistence(&connection)?;
 
@@ -459,7 +461,8 @@ impl SqliteAuthoritativeCandidateAdapter {
             SqliteAuthorityError::new("not-authoritative-writer", "missing writer epoch")
         })?;
         validate_writer_ownership(&connection, token, epoch)?;
-        let (_, mut copied) = load_authority(&connection, false)?;
+        let (_, mut copied) =
+            load_authority_for_session(&connection, &source.session.session_id, false)?;
         configure_writable_persistence(&connection)?;
         copied.duplicated_from_session_id = Some(copied.session_id.clone());
         copied.session_id = new_session_id;
@@ -745,7 +748,7 @@ impl SqliteAuthoritativeCandidateAdapter {
             Connection::open_with_flags(database_path(session), OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(sql_error("sqlite-independent-reopen"))?;
         configure_connection(&connection, false)?;
-        load_authority(&connection, false)
+        load_authority_for_session(&connection, &session.session_id, false)
     }
 
     fn validate_session_layout_for_verification(
@@ -1399,12 +1402,19 @@ fn governance_storage_row(
     }
 }
 
-fn load_authority(
+fn load_authority_for_session(
     connection: &Connection,
+    expected_session_id: &str,
     should_rebuild_cache: bool,
 ) -> Result<(SessionMetadata, CurrentContractState), SqliteAuthorityError> {
     integrity_check(connection)?;
     let metadata = load_session_metadata(connection)?;
+    if metadata.session_id != expected_session_id {
+        return Err(SqliteAuthorityError::new(
+            "session-identity-mismatch",
+            "persisted semantic session identity does not match the requested session",
+        ));
+    }
     if metadata.format_version != SQLITE_AUTHORITATIVE_FORMAT_VERSION {
         return Err(
             if metadata.format_version > SQLITE_AUTHORITATIVE_FORMAT_VERSION {
@@ -1420,7 +1430,7 @@ fn load_authority(
             },
         );
     }
-    validate_storage_bounds(connection)?;
+    validate_canonical_storage_bounds(connection)?;
     validate_authority_transitions(connection, &metadata)?;
     let source_revisions = load_source_revisions(connection)?;
     let analysis_snapshots = load_analysis_snapshots(connection)?;
@@ -2084,7 +2094,7 @@ fn load_reuse_binding(
     }))
 }
 
-fn validate_storage_bounds(connection: &Connection) -> Result<(), SqliteAuthorityError> {
+fn validate_canonical_storage_bounds(connection: &Connection) -> Result<(), SqliteAuthorityError> {
     for (table, columns) in [
         (
             "session_meta",
@@ -2180,14 +2190,6 @@ fn validate_storage_bounds(connection: &Connection) -> Result<(), SqliteAuthorit
             &["canonical_fingerprint", "acknowledgement_status"][..],
         ),
         ("writer_ownership", &["token", "process_instance_id"][..]),
-        (
-            "derived_contract_cache",
-            &[
-                "canonical_fingerprint",
-                "derived_fingerprint",
-                "payload_json",
-            ][..],
-        ),
     ] {
         let count = table_count(connection, table)?;
         if count > MAX_ROWS_PER_TABLE {
@@ -2204,13 +2206,8 @@ fn validate_storage_bounds(connection: &Connection) -> Result<(), SqliteAuthorit
                 .optional()
                 .map_err(sql_error("canonical-corruption"))?;
             if oversized.is_some() {
-                let code = if table == "derived_contract_cache" {
-                    "derived-cache-too-large"
-                } else {
-                    "canonical-payload-too-large"
-                };
                 return Err(SqliteAuthorityError::new(
-                    code,
+                    "canonical-payload-too-large",
                     format!("{table}.{column} exceeds the bounded candidate payload limit"),
                 ));
             }

@@ -2,7 +2,7 @@
   "package": "VP-GATE4-01C-PRECONDITION-SQLITE-V3-CANDIDATE-01",
   "predecessor": "VP-GATE4-01C-READINESS-WINDOWS-CLOSURE-01",
   "candidate_id": "current-contract-sqlite-authoritative-candidate",
-  "candidate_version": "01C-SQLITE-1",
+  "candidate_version": "01C-SQLITE-2",
   "accepted_base": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",

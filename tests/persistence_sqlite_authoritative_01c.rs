@@ -36,13 +36,13 @@ fn updated_state(
 fn candidate_identity_and_equivalence_contract_name_the_distinct_v3_sqlite_candidate() {
     let adapter = new_adapter("identity");
     assert_eq!(adapter.candidate_id(), SQLITE_AUTHORITATIVE_CANDIDATE_ID);
-    assert_eq!(adapter.candidate_version(), "01C-SQLITE-1");
+    assert_eq!(adapter.candidate_version(), "01C-SQLITE-2");
     assert_eq!(adapter.format_version(), 1);
     assert_eq!(
         vox_proof::persistence_evidence::candidate_equivalence_requirements().sqlite_candidate_id,
         SQLITE_AUTHORITATIVE_CANDIDATE_ID
     );
-    assert_eq!(SQLITE_AUTHORITATIVE_CANDIDATE_VERSION, "01C-SQLITE-1");
+    assert_eq!(SQLITE_AUTHORITATIVE_CANDIDATE_VERSION, "01C-SQLITE-2");
 }
 
 #[test]
@@ -488,17 +488,87 @@ fn hostile_bounds_are_refused_without_replacing_last_committed_authority() {
     adapter
         .inject_oversized_derived_cache_for_test(&writer)
         .expect("inject hostile cache");
+    adapter.close(writer).expect("close writer before reopen");
     let bounded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         adapter.open_existing(session.session_id(), SqliteOpenMode::ReadOnly)
     }));
     assert!(bounded.is_ok(), "hostile stored payload must not panic");
+    let reopened = bounded
+        .expect("no panic")
+        .expect("read-only reopen ignores invalid derived cache");
+    assert!(CurrentContractOracle::compare(&state, reopened.normalized_state()).passed);
+    adapter.close(reopened).expect("close read-only reopen");
+    let rebuilt = adapter
+        .open_existing(session.session_id(), SqliteOpenMode::Writable)
+        .expect("writable reopen rebuilds derived cache from canonical authority");
+    assert!(CurrentContractOracle::compare(&state, rebuilt.normalized_state()).passed);
+    adapter.close(rebuilt).expect("close rebuilt writer");
+}
+
+fn copy_sqlite_authority_leaves(from: &std::path::Path, to: &std::path::Path) {
+    for leaf in [
+        "current-contract-v3.sqlite",
+        "current-contract-v3.sqlite-wal",
+        "current-contract-v3.sqlite-shm",
+    ] {
+        let source = from.join(leaf);
+        if source.exists() {
+            std::fs::copy(&source, to.join(leaf)).expect("copy authority leaf");
+        }
+    }
+}
+
+#[test]
+fn relocated_database_fails_closed_on_semantic_session_identity_mismatch() {
+    let adapter = new_adapter("session-identity-binding");
+    let state_a = build_golden_small_state();
+    let state_b = build_candidate_rejected_state();
+    let session_a = adapter.create(&state_a).expect("create session A");
+    let session_b = adapter.create(&state_b).expect("create session B");
+    let path_a = session_a.storage_path_for_test().to_path_buf();
+    let path_b = session_b.storage_path_for_test().to_path_buf();
+    let backup_b = path_b.with_extension("backup-before-copy");
+    std::fs::create_dir_all(&backup_b).expect("create backup dir");
+    copy_sqlite_authority_leaves(&path_b, &backup_b);
+    copy_sqlite_authority_leaves(&path_a, &path_b);
     assert_eq!(
-        bounded
-            .expect("no panic")
-            .expect_err("oversized derived cache refused")
+        adapter
+            .open_existing(session_b.session_id(), SqliteOpenMode::ReadOnly)
+            .expect_err("read-only open rejects foreign persisted identity")
             .code,
-        "derived-cache-too-large"
+        "session-identity-mismatch"
     );
+    assert_eq!(
+        adapter
+            .open_existing(session_b.session_id(), SqliteOpenMode::Writable)
+            .expect_err("writable open rejects foreign persisted identity before writer lease")
+            .code,
+        "session-identity-mismatch"
+    );
+    assert_eq!(
+        adapter
+            .open_existing(session_b.session_id(), SqliteOpenMode::Writable)
+            .expect_err("failed writable open must not acquire writer ownership")
+            .code,
+        "session-identity-mismatch"
+    );
+    let reopened_a = adapter
+        .open_existing(session_a.session_id(), SqliteOpenMode::ReadOnly)
+        .expect("source session remains intact");
+    assert!(CurrentContractOracle::compare(&state_a, reopened_a.normalized_state()).passed);
+    assert_ne!(
+        reopened_a.normalized_state().session_id,
+        session_b.session_id(),
+        "foreign session state must not be exposed under the requested identity"
+    );
+    adapter.close(reopened_a).expect("close source session");
+    copy_sqlite_authority_leaves(&backup_b, &path_b);
+    let restored_b = adapter
+        .open_existing(session_b.session_id(), SqliteOpenMode::ReadOnly)
+        .expect("restored session B authority remains under its semantic identity");
+    assert!(CurrentContractOracle::compare(&state_b, restored_b.normalized_state()).passed);
+    adapter.close(restored_b).expect("close session B");
+    let _ = std::fs::remove_dir_all(&backup_b);
 }
 
 #[cfg(unix)]
@@ -558,5 +628,103 @@ fn static_database_aliases_and_hard_links_fail_closed() {
             expected_code
         );
         std::fs::remove_file(&alias).expect("remove alias");
+    }
+}
+
+#[cfg(windows)]
+fn create_windows_junction(link: &std::path::Path, target: &std::path::Path) {
+    let output = Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(link)
+        .arg(target)
+        .output()
+        .expect("start mklink junction command");
+    assert!(
+        output.status.success(),
+        "mklink /J failed for {} -> {}: {}",
+        link.display(),
+        target.display(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn static_windows_database_aliases_and_hard_links_fail_closed() {
+    let adapter = new_adapter("windows-static-alias");
+    let state = build_golden_small_state();
+    let session = adapter.create(&state).expect("create");
+    let database = session
+        .storage_path_for_test()
+        .join("current-contract-v3.sqlite");
+    let hard_link = session
+        .storage_path_for_test()
+        .join("current-contract-v3.sqlite.hard-link");
+    std::fs::hard_link(&database, &hard_link).expect("create hard link");
+    assert_eq!(
+        adapter
+            .open_existing(session.session_id(), SqliteOpenMode::ReadOnly)
+            .expect_err("hard-linked authority leaf rejected")
+            .code,
+        "authority-leaf-hard-linked"
+    );
+    std::fs::remove_file(&hard_link).expect("remove test hard link");
+
+    let session_adapter = new_adapter("windows-reparse-session");
+    let junction_session = session_adapter.create(&state).expect("create session");
+    let external_adapter = new_adapter("windows-reparse-external");
+    let external_session = external_adapter
+        .create(&state)
+        .expect("create external session");
+    let session_path = junction_session.storage_path_for_test().to_path_buf();
+    std::fs::remove_dir_all(&session_path).expect("remove session before junction fixture");
+    create_windows_junction(&session_path, external_session.storage_path_for_test());
+    assert_eq!(
+        session_adapter
+            .open_existing(junction_session.session_id(), SqliteOpenMode::ReadOnly)
+            .expect_err("junction session root rejected")
+            .code,
+        "aliased-session-path"
+    );
+
+    let leaf_adapter = new_adapter("windows-reparse-leaves");
+    let leaf_session = leaf_adapter.create(&state).expect("create leaf session");
+    let session_root = leaf_session.storage_path_for_test().to_path_buf();
+    let reparse_target = session_root.join("reparse-target");
+    std::fs::create_dir(&reparse_target).expect("create reparse target");
+    let database = session_root.join("current-contract-v3.sqlite");
+    let database_backup = session_root.join("current-contract-v3.sqlite.real");
+    std::fs::rename(&database, &database_backup).expect("move authority leaf");
+    create_windows_junction(&database, &reparse_target);
+    assert_eq!(
+        leaf_adapter
+            .open_existing(leaf_session.session_id(), SqliteOpenMode::ReadOnly)
+            .expect_err("junction authority database rejected")
+            .code,
+        "aliased-sqlite-database"
+    );
+    std::fs::remove_dir(&database).expect("remove database junction");
+    std::fs::rename(&database_backup, &database).expect("restore database");
+
+    for (leaf, expected_code) in [
+        ("current-contract-v3.sqlite-wal", "aliased-sqlite-wal"),
+        ("current-contract-v3.sqlite-shm", "aliased-sqlite-shm"),
+    ] {
+        let path = session_root.join(leaf);
+        if !path.exists() {
+            std::fs::write(&path, b"not-authority").expect("create auxiliary leaf");
+        }
+        let backup = session_root.join(format!("{leaf}.real"));
+        std::fs::rename(&path, &backup).expect("move auxiliary leaf");
+        create_windows_junction(&path, &reparse_target);
+        assert_eq!(
+            leaf_adapter
+                .open_existing(leaf_session.session_id(), SqliteOpenMode::ReadOnly)
+                .expect_err("junction auxiliary authority leaf rejected")
+                .code,
+            expected_code
+        );
+        std::fs::remove_dir(&path).expect("remove auxiliary junction");
+        std::fs::rename(&backup, &path).expect("restore auxiliary leaf");
     }
 }
