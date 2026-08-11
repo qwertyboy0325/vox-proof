@@ -124,19 +124,26 @@ macOS behavior does not establish Windows behavior.
 ## Readiness
 
 ```yaml
-mechanism_comparison_readiness: not_ready
-mechanism_selection_readiness: not_ready
+mechanism_comparison_readiness: ready_for_owner_decision
+mechanism_selection_readiness: ready_for_owner_decision
 selection_status: none
-tracker_status: GATE4_01C_SQLITE_V3_CANDIDATE_REVIEW_PENDING
+tracker_status: GATE4_01C_EQUIVALENT_EXECUTION_COMPLETE
+harness_semantic_sha: 970b3c38bfbf07fd9750df93b285527b73beb43c
 01B_2:
   accepted_head: cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0
   owner_accepted: true
+  equivalence_status: ELIGIBLE_FOR_EQUIVALENT_EXECUTION
 01C:
   authorized: true
-  blocked_on: current_contract_v3_sqlite_candidate
-sqlite_v3_candidate:
-  status: implementation_or_review_pending
+  execution_status: completed
+sqlite_01C_SQLITE_2:
+  owner_accepted: true
+  equivalence_status: ELIGIBLE_FOR_EQUIVALENT_EXECUTION
 ```
+
+Gate 4 package 01C evidence is recorded at
+`evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3/`.
+This records comparative evidence only; it does not select a mechanism.
 
 ## Selected owner path
 

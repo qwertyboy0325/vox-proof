@@ -1,0 +1,87 @@
+{
+  "work_package_id": "VP-GATE4-EVIDENCE-COMPLETION-01C",
+  "harness_semantic_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+  "evidence_record_head": null,
+  "methodology_freeze_id": "VP-GATE4-EVIDENCE-COMPLETION-01C-methodology-freeze-v1",
+  "mechanism_comparison_readiness": "ready_for_owner_decision",
+  "mechanism_selection_readiness": "ready_for_owner_decision",
+  "selection_status": "none",
+  "platforms": {
+    "macos_native": {
+      "run_id": "macos-native-final",
+      "environment": {
+        "repository_commit": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+        "harness_version": "gate4-01c-evidence-v1",
+        "platform_label": "macos_native",
+        "operating_system": "macos",
+        "operating_system_version": "Darwin 27.0.0",
+        "architecture": "aarch64",
+        "execution_environment": "macos-native-host",
+        "filesystem": "apfs-assumed-native",
+        "hardware_summary": "Apple M4 Max",
+        "rustc_version": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+        "dependency_versions": {
+          "rusqlite": "0.32",
+          "serde": "1",
+          "serde_json": "1"
+        },
+        "timing_source": "std::time::Instant wall clock",
+        "start_timestamp": "1786442664Z",
+        "end_timestamp": "1786442665Z",
+        "configuration": {
+          "feature": "persistence-spike",
+          "measurement_contract_version": "2"
+        }
+      }
+    },
+    "windows_github_actions": {
+      "workflow_run_id": "31480549319",
+      "job_id": "93744250581",
+      "artifact_id": "9097127230",
+      "artifact_sha256": "ee19eb896887153ba4b891ea1d783a9f68c096a8c4cbbdc014a8c8434d82baa4",
+      "run_id": "current-contract-v3-01c-windows-31480549319",
+      "environment": {
+        "repository_commit": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+        "harness_version": "gate4-01c-evidence-v1",
+        "platform_label": "windows-github-actions",
+        "operating_system": "windows",
+        "operating_system_version": "Microsoft Windows [Version 10.0.26100.33158]",
+        "architecture": "x86_64",
+        "execution_environment": "github-actions-windows-latest",
+        "filesystem": "ntfs-github-actions-runner",
+        "hardware_summary": "github-actions-windows-latest-runner",
+        "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+        "dependency_versions": {
+          "rusqlite": "0.32",
+          "serde": "1",
+          "serde_json": "1"
+        },
+        "timing_source": "std::time::Instant wall clock",
+        "start_timestamp": "1786442891Z",
+        "end_timestamp": "1786442898Z",
+        "configuration": {
+          "feature": "persistence-spike",
+          "measurement_contract_version": "2"
+        }
+      }
+    }
+  },
+  "eligibility": [
+    {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "rationale": "required scenarios completed without correctness disqualification"
+    },
+    {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "rationale": "required scenarios completed without correctness disqualification"
+    }
+  ],
+  "limitations": [
+    "stress fixture not implemented",
+    "bytes_read/bytes_written unavailable"
+  ]
+}
