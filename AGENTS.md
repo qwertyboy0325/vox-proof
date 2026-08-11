@@ -43,6 +43,7 @@ If a proposed change implicitly resolves, assumes, or bypasses an open research 
 ## Canonical Topic Map
 
 - v0.1 scope: `docs/product/v0.1.md`
+- Product thesis and strategic horizons: `docs/product/strategic-direction.md`
 - Current global execution goal and order: `docs/product/v0.2-execution-order.md`
 - v0.1 historical execution and establishment context: `docs/product/v0.1-execution-order.md`
 - Hypotheses: `docs/product/hypotheses.md`

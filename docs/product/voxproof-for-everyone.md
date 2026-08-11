@@ -1,6 +1,6 @@
 Status: current
-Owns: A bilingual, non-technical explanation of what VoxProof does today, why it exists, and the long-term product vision.
-Does not own: Current release acceptance, detailed architecture, implementation status, roadmap commitments, pricing, or final market positioning.
+Owns: A bilingual, non-technical explanation of what VoxProof does today, why it exists, and a public articulation of the long-term direction.
+Does not own: Current release acceptance, canonical product thesis or strategic-horizon status, detailed architecture, implementation status, roadmap commitments, pricing, or final market positioning.
 Last reviewed against project direction: v0.1 bounded transcript review core established; v0.2 authoritative real-transcript loop under active development; long-term vision remains aspirational.
 
 # VoxProof for Everyone / 給每個人的 VoxProof
@@ -127,19 +127,22 @@ VoxProof 最終不只是字幕校正工具。
 
 > **概率型 AI 與正式可信紀錄之間的治理、證據與承諾層。**
 
+完整的產品論述與策略地平線由
+[VoxProof Strategic Direction](strategic-direction.md) 擁有。本頁不會把這些
+方向轉換成已接受的架構或實作授權。
+
 AI 很適合探索大量可能性：它可以發現線索、整合跨段資訊、提出多個假設、找出衝突、推測時間狀態，甚至主動修正自己的判斷。
 
 但 AI 的推論不應因為看起來合理，就自動成為正式真相。
 
-VoxProof 希望建立的結構是：
+這個長期產品論述可用以下概念順序表達；它不是已接受的架構、資料模型或實作計畫：
 
 ```text
-來源觀察
-→ 高召回、可競爭、可修正的 AI 推論
-→ 非正式候選與信念
-→ 嚴格的權限邊界
-→ 被接受的決定
-→ 可重建、可稽核、可逆的正式結果
+推論（Inference）
+→ 證據（Evidence）
+→ 權限（Authority）
+→ 受治理的承諾（Commitment）
+→ 可重建、可稽核的投影（Projection）
 ```
 
 簡化成一句話：
@@ -392,19 +395,23 @@ Its long-term goal is to become:
 
 > **The governance, evidence, and commitment layer between probabilistic AI and authoritative records.**
 
+The full product thesis and strategic-horizon boundary are owned by
+[VoxProof Strategic Direction](strategic-direction.md). This page does not
+turn them into accepted architecture or implementation authority.
+
 AI is well suited to exploring possibilities. It can discover signals, connect distant evidence, propose competing hypotheses, detect conflicts, reason about time, and revise its own conclusions.
 
 But a plausible inference should not automatically become official truth.
 
-The architecture VoxProof aims to enable is:
+This long-term product thesis can be expressed with the following conceptual
+path. It is not accepted architecture, a data model, or an implementation plan:
 
 ```text
-source observations
-→ high-recall, competing, revisable AI inference
-→ non-authoritative candidate beliefs
-→ strict authority boundary
-→ accepted decisions
-→ rebuildable, auditable, reversible official output
+Inference
+→ Evidence
+→ Authority
+→ Commitment
+→ rebuildable, auditable Projection
 ```
 
 In one phrase:
