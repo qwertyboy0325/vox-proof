@@ -12,6 +12,8 @@ pub mod projection;
 pub mod readiness;
 pub mod scenario_contract;
 pub mod serialization;
+#[cfg(feature = "persistence-spike")]
+pub mod sqlite_authoritative;
 pub mod violations;
 
 #[cfg(feature = "persistence-spike")]
@@ -69,4 +71,11 @@ pub use scenario_contract::{
 pub use serialization::{
     CANDIDATE_KEY_SERIALIZATION_VERSION, LOCATOR_SERIALIZATION_VERSION,
     candidate_key_canonical_digest, locator_canonical_digest,
+};
+#[cfg(feature = "persistence-spike")]
+pub use sqlite_authoritative::{
+    CurrentContractPreconditions, DurableSqliteAck, OpenedSqliteAuthoritySession,
+    SQLITE_AUTHORITATIVE_CANDIDATE_ID, SQLITE_AUTHORITATIVE_CANDIDATE_VERSION,
+    SQLITE_AUTHORITATIVE_FORMAT_VERSION, SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError,
+    SqliteAuthoritySession, SqliteOpenMode,
 };

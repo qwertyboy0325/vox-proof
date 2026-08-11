@@ -67,8 +67,9 @@ aligned with owner-accepted Gate 1–3 application semantics.
 
 `current-contract-append-authoritative-candidate` version `01B-1` is the
 historical Correction-02 candidate owner-accepted by Ezra on 2026-08-11 at
-`2229a36ff09fa56482673151a0ae010f3b9ec099`. Its `01B-2` successor remains
-behind the `persistence-spike` feature and is Windows-readiness review pending.
+`2229a36ff09fa56482673151a0ae010f3b9ec099`. Its `01B-2` successor is separately
+accepted at `cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0` and remains a distinct
+append-authoritative candidate.
 It writes deterministic
 current-contract v3 state records followed by an explicit append commit
 acknowledgement, rehydrates from the committed canonical prefix, and recomputes
@@ -96,11 +97,28 @@ Static on-disk aliases (symlinks, hard links, and Windows reparse points) are
 treated as hostile input.
 This candidate does not claim protection against active same-privilege namespace
 replacement races.
-Windows runtime evidence remains pending; macOS behavior does not establish
-Windows behavior.
 
 This is a bounded candidate adapter for future 01C evaluation, not a selected
 mechanism, generated evidence artifact, or production session store.
+
+## Current SQLite-v3 candidate precondition
+
+`current-contract-sqlite-authoritative-candidate` version `01C-SQLITE-1` is a
+separate current-contract-v3 SQLite candidate. Its canonical authority is a
+typed relational mapping of `CurrentContractState`; it does not route through
+the historical `EvidenceFixture` / `NormalizedSemanticState` candidate. The
+current implementation and review package is bounded to candidate work only:
+it does not execute 01C, select a mechanism, integrate product persistence, or
+introduce migration behavior.
+
+The candidate uses a SQLite transaction as the committed authority boundary,
+then independently reopens and validates the relational rows with
+`CurrentContractOracle` v3 before returning acknowledgement. It keeps derived
+cache data non-authoritative, uses a bounded SHA-256 physical key distinct from
+the semantic session ID, rejects static filesystem aliases at authority leaves,
+and does not claim protection from active same-privilege namespace replacement.
+Its Windows runtime evidence remains pending; macOS behavior does not establish
+Windows behavior.
 
 ## Readiness
 
@@ -108,7 +126,15 @@ mechanism, generated evidence artifact, or production session store.
 mechanism_comparison_readiness: not_ready
 mechanism_selection_readiness: not_ready
 selection_status: none
-tracker_status: GATE4_EVIDENCE_COMPLETION_01B_REMOTE_REVIEW_PENDING
+tracker_status: GATE4_01C_SQLITE_V3_CANDIDATE_REVIEW_PENDING
+01B_2:
+  accepted_head: cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0
+  owner_accepted: true
+01C:
+  authorized: true
+  blocked_on: current_contract_v3_sqlite_candidate
+sqlite_v3_candidate:
+  status: implementation_or_review_pending
 ```
 
 ## Selected owner path
@@ -118,9 +144,8 @@ selected_path: A_corrected_append_authoritative_comparator
 next_package: VP-GATE4-EVIDENCE-COMPLETION-01B  # bounded candidate adapter only
 ```
 
-The `01B-2` Windows-readiness successor is pending Windows runtime validation
-and final review; it has not received owner acceptance. Readiness remains
-`not_ready`; 01C evidence execution is not authorized.
+The SQLite-v3 candidate is pending Windows runtime validation and final review.
+Its implementation does not make 01C authorized for equivalent execution.
 
 ## Artifacts
 

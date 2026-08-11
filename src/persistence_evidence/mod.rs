@@ -81,8 +81,12 @@ pub use cross_platform::{PlatformMatrixDocument, build_platform_matrix, compare_
 pub use current_contract::{
     APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
     APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
-    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan, DurableAppendAck,
-    OpenedAppendAuthoritySession,
+    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan,
+    CurrentContractPreconditions, DurableAppendAck, DurableSqliteAck, OpenedAppendAuthoritySession,
+    OpenedSqliteAuthoritySession, SQLITE_AUTHORITATIVE_CANDIDATE_ID,
+    SQLITE_AUTHORITATIVE_CANDIDATE_VERSION, SQLITE_AUTHORITATIVE_FORMAT_VERSION,
+    SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError, SqliteAuthoritySession,
+    SqliteOpenMode,
 };
 #[cfg(feature = "persistence-spike")]
 pub use durability::{

@@ -35,7 +35,7 @@ pub fn candidate_equivalence_requirements() -> CandidateEquivalenceRequirements 
         oracle_version: super::oracle::CURRENT_CONTRACT_ORACLE_VERSION.to_owned(),
         scenario_contract_version: super::scenario_contract::SCENARIO_CONTRACT_VERSION.to_owned(),
         measurement_contract_version: super::measurement::MEASUREMENT_CONTRACT_VERSION.to_owned(),
-        sqlite_candidate_id: "embedded-relational-sqlite-spike".to_owned(),
+        sqlite_candidate_id: "current-contract-sqlite-authoritative-candidate".to_owned(),
         append_candidate_id: "current-contract-append-authoritative-candidate".to_owned(),
         sqlite_status: CandidateEligibilityStatus::ImplementationNotYetEvaluated,
         append_status: CandidateEligibilityStatus::ImplementationNotYetEvaluated,
