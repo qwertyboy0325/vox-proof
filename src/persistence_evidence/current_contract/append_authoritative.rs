@@ -1108,12 +1108,12 @@ fn validate_opened_authority_leaf(
 
 fn authority_hard_link_count(
     _file: &File,
-    metadata: &fs::Metadata,
+    _metadata: &fs::Metadata,
 ) -> Result<u64, AppendAuthorityError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        Ok(metadata.nlink())
+        Ok(_metadata.nlink())
     }
     #[cfg(windows)]
     {
