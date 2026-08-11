@@ -103,7 +103,7 @@ mechanism, generated evidence artifact, or production session store.
 
 ## Current SQLite-v3 candidate precondition
 
-`current-contract-sqlite-authoritative-candidate` version `01C-SQLITE-1` is a
+`current-contract-sqlite-authoritative-candidate` version `01C-SQLITE-2` is a
 separate current-contract-v3 SQLite candidate. Its canonical authority is a
 typed relational mapping of `CurrentContractState`; it does not route through
 the historical `EvidenceFixture` / `NormalizedSemanticState` candidate. The
@@ -117,8 +117,9 @@ then independently reopens and validates the relational rows with
 cache data non-authoritative, uses a bounded SHA-256 physical key distinct from
 the semantic session ID, rejects static filesystem aliases at authority leaves,
 and does not claim protection from active same-privilege namespace replacement.
-Its Windows runtime evidence remains pending; macOS behavior does not establish
-Windows behavior.
+Its Windows runtime evidence was collected on `windows-latest` at commit
+`c62dac64bb05d5714946b5741f474d7e640f07a9` (workflow run `31476489821`);
+macOS behavior does not establish Windows behavior.
 
 ## Readiness
 
