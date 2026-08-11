@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - persistence-package-2d-cross-platform-durability
+      - v0.2-real-transcript-authoritative-loop
     paths:
       - "src/persistence_evidence/**"
       - "src/bin/persistence_evidence_v3_run.rs"
@@ -49,9 +50,12 @@ jobs:
             echo "- rustc: $(rustc --version)"
             echo "- features: persistence-spike"
             echo "- command: cargo test --features persistence-spike --test persistence_append_authoritative_01b"
+            echo "- sqlite-v3 command: cargo test --features persistence-spike --test persistence_sqlite_authoritative_01c"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Run append-authoritative 01B Windows readiness tests
         run: cargo test --features persistence-spike --test persistence_append_authoritative_01b
+      - name: Run current-contract SQLite candidate Windows tests
+        run: cargo test --features persistence-spike --test persistence_sqlite_authoritative_01c
       - name: Run workspace clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Run persistence tests
