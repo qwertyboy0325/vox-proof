@@ -834,6 +834,11 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
         .expect("hard link canonical log");
 
     let linked_log = session_b_root.join("canonical.append.jsonl");
+    assert_eq!(
+        std::fs::read(&linked_log).expect("linked log bytes"),
+        source_bytes,
+        "hard-linked canonical log must retain source bytes"
+    );
     assert_ne!(
         session_a
             .storage_path_for_test()
