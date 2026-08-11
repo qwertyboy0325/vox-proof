@@ -65,8 +65,11 @@ aligned with owner-accepted Gate 1–3 application semantics.
 
 ## 01B bounded candidate adapter
 
-`current-contract-append-authoritative-candidate` version `01B-1` is available
-only behind the `persistence-spike` feature. It writes deterministic
+`current-contract-append-authoritative-candidate` version `01B-1` is the
+historical Correction-02 candidate owner-accepted by Ezra on 2026-08-11 at
+`2229a36ff09fa56482673151a0ae010f3b9ec099`. Its `01B-2` successor remains
+behind the `persistence-spike` feature and is Windows-readiness review pending.
+It writes deterministic
 current-contract v3 state records followed by an explicit append commit
 acknowledgement, rehydrates from the committed canonical prefix, and recomputes
 derived fields before the existing v3 oracle validates the result. Incomplete
@@ -89,11 +92,12 @@ independent evidence-writer identity. OS-released exclusive ownership retains
 child-abort takeover coverage. The equivalence contract names this exact
 candidate ID.
 
-Static on-disk aliases (symlinks and hard links) are treated as hostile input.
+Static on-disk aliases (symlinks, hard links, and Windows reparse points) are
+treated as hostile input.
 This candidate does not claim protection against active same-privilege namespace
 replacement races.
-Windows reparse and file-sharing behavior remain pending external runtime
-evidence; macOS behavior does not establish Windows behavior.
+Windows runtime evidence remains pending; macOS behavior does not establish
+Windows behavior.
 
 This is a bounded candidate adapter for future 01C evaluation, not a selected
 mechanism, generated evidence artifact, or production session store.
@@ -114,8 +118,9 @@ selected_path: A_corrected_append_authoritative_comparator
 next_package: VP-GATE4-EVIDENCE-COMPLETION-01B  # bounded candidate adapter only
 ```
 
-01B implementation is pending fresh remote review and owner acceptance. Readiness
-remains `not_ready`; 01C evidence execution is not authorized.
+The `01B-2` Windows-readiness successor is pending Windows runtime validation
+and final review; it has not received owner acceptance. Readiness remains
+`not_ready`; 01C evidence execution is not authorized.
 
 ## Artifacts
 

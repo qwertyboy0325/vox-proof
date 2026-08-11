@@ -7,9 +7,10 @@
 use std::collections::BTreeSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use super::derivation::finalize_derived_fields;
 use super::model::CurrentContractState;
@@ -17,7 +18,7 @@ use super::oracle::{CurrentContractOracle, canonical_fingerprint};
 
 pub const APPEND_AUTHORITATIVE_CANDIDATE_ID: &str =
     "current-contract-append-authoritative-candidate";
-pub const APPEND_AUTHORITATIVE_CANDIDATE_VERSION: &str = "01B-1";
+pub const APPEND_AUTHORITATIVE_CANDIDATE_VERSION: &str = "01B-2";
 pub const APPEND_AUTHORITATIVE_FORMAT_VERSION: u32 = 1;
 const MAX_RECORD_BYTES: usize = 2 * 1024 * 1024;
 const MAX_RECORD_COUNT: usize = 4_096;
@@ -33,6 +34,13 @@ pub struct AppendAuthoritySession {
 impl AppendAuthoritySession {
     pub fn session_id(&self) -> &str {
         &self.session_id
+    }
+
+    /// Test-support access to the physical candidate directory; it is not a
+    /// semantic session identifier or persistence-format field.
+    #[doc(hidden)]
+    pub fn storage_path_for_test(&self) -> &Path {
+        &self.root
     }
 }
 
@@ -162,7 +170,7 @@ impl AppendAuthoritativeCandidateAdapter {
     ) -> Result<AppendAuthoritySession, AppendAuthorityError> {
         validate_state(state)?;
         validate_session_id(&state.session_id)?;
-        let root = self.storage_root.join(&state.session_id);
+        let root = self.session_root(&state.session_id);
         fs::create_dir(&root).map_err(|error| {
             if error.kind() == std::io::ErrorKind::AlreadyExists {
                 AppendAuthorityError::new(
@@ -215,7 +223,7 @@ impl AppendAuthoritativeCandidateAdapter {
         validate_session_id(&session_id)?;
         self.open(
             &AppendAuthoritySession {
-                root: self.storage_root.join(&session_id),
+                root: self.session_root(&session_id),
                 session_id,
             },
             mode,
@@ -601,7 +609,7 @@ impl AppendAuthoritativeCandidateAdapter {
         session: &AppendAuthoritySession,
     ) -> Result<(), AppendAuthorityError> {
         validate_session_id(&session.session_id)?;
-        let expected_root = self.storage_root.join(&session.session_id);
+        let expected_root = self.session_root(&session.session_id);
         if session.root != expected_root {
             return Err(AppendAuthorityError::new(
                 "foreign-session-handle",
@@ -610,7 +618,7 @@ impl AppendAuthoritativeCandidateAdapter {
         }
         let metadata = fs::symlink_metadata(&expected_root)
             .map_err(|error| io_error("stat-session-root", error))?;
-        if metadata.file_type().is_symlink() {
+        if is_static_filesystem_alias(&metadata) {
             return Err(AppendAuthorityError::new(
                 "aliased-session-path",
                 "session root must not be a filesystem alias",
@@ -642,13 +650,17 @@ impl AppendAuthoritativeCandidateAdapter {
         let temporary = session.root.join("temporary");
         let temporary_metadata = fs::symlink_metadata(&temporary)
             .map_err(|error| io_error("stat-temporary-root", error))?;
-        if temporary_metadata.file_type().is_symlink() || !temporary_metadata.is_dir() {
+        if is_static_filesystem_alias(&temporary_metadata) || !temporary_metadata.is_dir() {
             return Err(AppendAuthorityError::new(
                 "aliased-temporary-path",
                 "temporary path must be an owned directory",
             ));
         }
         Ok(())
+    }
+
+    fn session_root(&self, session_id: &str) -> PathBuf {
+        self.storage_root.join(physical_storage_key(session_id))
     }
 }
 
@@ -820,6 +832,17 @@ fn validate_session_id(session_id: &str) -> Result<(), AppendAuthorityError> {
     Ok(())
 }
 
+fn physical_storage_key(session_id: &str) -> String {
+    let digest = Sha256::digest(session_id.as_bytes());
+    let mut encoded = String::with_capacity("vp-session-v1-".len() + (digest.len() * 2));
+    encoded.push_str("vp-session-v1-");
+    for byte in digest {
+        use std::fmt::Write as _;
+        write!(&mut encoded, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    encoded
+}
+
 fn validate_temporary_name(name: &str) -> Result<(), AppendAuthorityError> {
     if name.is_empty() || name.contains('/') || name.contains('\\') || name == "." || name == ".." {
         return Err(AppendAuthorityError::new(
@@ -873,12 +896,27 @@ fn write_manifest(
     let path = manifest_path(session);
     let temporary = path.with_extension("tmp");
     validate_optional_regular_file(&path, "aliased-manifest-path")?;
-    if temporary.exists() {
-        validate_regular_file(&temporary, "aliased-manifest-temporary-path")?;
-        return Err(AppendAuthorityError::new(
-            "manifest-temporary-exists",
-            "manifest checkpoint temporary already exists",
-        ));
+    match fs::symlink_metadata(&temporary) {
+        Ok(metadata) if is_static_filesystem_alias(&metadata) => {
+            return Err(AppendAuthorityError::new(
+                "aliased-manifest-temporary-path",
+                "candidate authority path must not be a filesystem alias",
+            ));
+        }
+        Ok(metadata) if !metadata.is_file() => {
+            return Err(AppendAuthorityError::new(
+                "canonical-path-not-regular-file",
+                "candidate authority path is not a regular file",
+            ));
+        }
+        Ok(_) => {
+            return Err(AppendAuthorityError::new(
+                "manifest-temporary-exists",
+                "manifest checkpoint temporary already exists",
+            ));
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(io_error("stat-candidate-path", error)),
     }
     let mut temporary_file = OpenOptions::new()
         .write(true)
@@ -1058,7 +1096,7 @@ fn validate_opened_authority_leaf(
             format!("{leaf_category} is not a regular file"),
         ));
     }
-    let link_count = authority_hard_link_count(&metadata)?;
+    let link_count = authority_hard_link_count(file, &metadata)?;
     if link_count != 1 {
         return Err(AppendAuthorityError::new(
             "authority-leaf-hard-linked",
@@ -1068,7 +1106,10 @@ fn validate_opened_authority_leaf(
     Ok(())
 }
 
-fn authority_hard_link_count(metadata: &fs::Metadata) -> Result<u64, AppendAuthorityError> {
+fn authority_hard_link_count(
+    _file: &File,
+    metadata: &fs::Metadata,
+) -> Result<u64, AppendAuthorityError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
@@ -1076,7 +1117,7 @@ fn authority_hard_link_count(metadata: &fs::Metadata) -> Result<u64, AppendAutho
     }
     #[cfg(windows)]
     {
-        authority_hard_link_count_windows(metadata)
+        authority_hard_link_count_windows(_file)
     }
     #[cfg(not(any(unix, windows)))]
     {
@@ -1088,14 +1129,28 @@ fn authority_hard_link_count(metadata: &fs::Metadata) -> Result<u64, AppendAutho
 }
 
 #[cfg(windows)]
-fn authority_hard_link_count_windows(_metadata: &fs::Metadata) -> Result<u64, AppendAuthorityError> {
-    // Stable Rust std exposes `MetadataExt::number_of_links` only behind the
-    // `windows_by_handle` feature gate. Fail closed until that API is stable or
-    // Windows runtime evidence authorizes an alternate handle-backed probe.
-    Err(AppendAuthorityError::new(
-        "authority-link-count-unavailable",
-        "authority leaf link count cannot be verified on Windows stable std",
-    ))
+fn authority_hard_link_count_windows(file: &File) -> Result<u64, AppendAuthorityError> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::Storage::FileSystem::{
+        BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+    };
+
+    let mut information = std::mem::MaybeUninit::<BY_HANDLE_FILE_INFORMATION>::zeroed();
+    // SAFETY: `file` is a live, borrowed `std::fs::File` for the exact authority
+    // operation being validated. `AsRawHandle` yields its valid Windows HANDLE,
+    // and `information` points to writable storage of the documented ABI type.
+    let succeeded = unsafe {
+        GetFileInformationByHandle(file.as_raw_handle() as HANDLE, information.as_mut_ptr())
+    };
+    if succeeded == 0 {
+        return Err(AppendAuthorityError::new(
+            "authority-link-count-unavailable",
+            std::io::Error::last_os_error().to_string(),
+        ));
+    }
+    // SAFETY: a successful GetFileInformationByHandle initializes every field.
+    Ok(unsafe { information.assume_init() }.nNumberOfLinks as u64)
 }
 
 fn validate_regular_file(
@@ -1104,7 +1159,7 @@ fn validate_regular_file(
 ) -> Result<(), AppendAuthorityError> {
     let metadata =
         fs::symlink_metadata(path).map_err(|error| io_error("stat-candidate-path", error))?;
-    if metadata.file_type().is_symlink() {
+    if is_static_filesystem_alias(&metadata) {
         return Err(AppendAuthorityError::new(
             alias_code,
             "candidate authority path must not be a filesystem alias",
@@ -1124,7 +1179,7 @@ fn validate_optional_regular_file(
     alias_code: &'static str,
 ) -> Result<(), AppendAuthorityError> {
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => Err(AppendAuthorityError::new(
+        Ok(metadata) if is_static_filesystem_alias(&metadata) => Err(AppendAuthorityError::new(
             alias_code,
             "candidate authority path must not be a filesystem alias",
         )),
@@ -1135,6 +1190,23 @@ fn validate_optional_regular_file(
         Ok(_) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(io_error("stat-candidate-path", error)),
+    }
+}
+
+fn is_static_filesystem_alias(metadata: &fs::Metadata) -> bool {
+    if metadata.file_type().is_symlink() {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT;
+
+        (metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
+    }
+    #[cfg(not(windows))]
+    {
+        false
     }
 }
 

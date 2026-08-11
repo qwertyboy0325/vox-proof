@@ -1,6 +1,9 @@
 {
-  "package": "VP-GATE4-EVIDENCE-COMPLETION-01B",
-  "correction": "VP-GATE4-EVIDENCE-COMPLETION-01B-REMOTE-REVIEW-CORRECTION-02",
+  "package": "VP-GATE4-01C-READINESS-WINDOWS-CLOSURE-01",
+  "predecessor": "VP-GATE4-EVIDENCE-COMPLETION-01B-REMOTE-REVIEW-CORRECTION-02",
+  "candidate_id": "current-contract-append-authoritative-candidate",
+  "candidate_version": "01B-2",
+  "accepted_base": "2229a36ff09fa56482673151a0ae010f3b9ec099",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
@@ -10,6 +13,6 @@
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
   "selected_path": "A_corrected_append_authoritative_comparator",
-  "tracker_status": "GATE4_EVIDENCE_COMPLETION_01B_REMOTE_REVIEW_PENDING",
-  "note": "Corrected 01A was owner-accepted by Ezra on 2026-08-02 at 9be1e99ca45db2dcd6b2b7fbe03137e6cc28e241. The bounded 01B Correction-02 follow-up adds handle-based static hard-link containment for manifest, canonical append log, writer lock, and manifest checkpoint temporaries on top of Correction-01 symlink refusal, bounded manifest and outbound-record handling, non-openable incomplete creation, Commit-boundary checkpoint reporting and repair, writer-owned fault injection, and latest-replay duplication with independent collision-safe identity. It awaits fresh independent review, ChatGPT final review, and Ezra owner acceptance. It does not claim protection from active same-privilege namespace replacement, Windows runtime validation, filesystem durability, or hardware power-loss resilience, and it does not authorize mechanism selection, evidence runs or generated artifacts (01C), a Material Decision, production persistence integration, or real-session migration."
+  "tracker_status": "GATE4_01B_WINDOWS_READINESS_REVIEW_PENDING",
+  "note": "Correction-02 is owner-accepted by Ezra at 2229a36ff09fa56482673151a0ae010f3b9ec099 on 2026-08-11. Its 01B-2 successor separates semantic session identity from a bounded SHA-256 physical directory key and adds Windows exact-handle link-count and static-reparse containment implementation plus Windows-targeted regressions. Windows runtime validation and final review remain pending. It does not claim protection from active same-privilege namespace replacement, filesystem durability, or hardware power-loss resilience, and it does not authorize mechanism selection, evidence runs or generated artifacts (01C), a Material Decision, production persistence integration, or real-session migration."
 }

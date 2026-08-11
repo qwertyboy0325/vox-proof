@@ -16,6 +16,47 @@ fn equivalence_contract_identifies_the_versioned_01b_append_candidate() {
         vox_proof::persistence_evidence::candidate_equivalence_requirements().append_candidate_id,
         "current-contract-append-authoritative-candidate"
     );
+    assert_eq!(
+        vox_proof::persistence_evidence::APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
+        "01B-2"
+    );
+}
+
+#[test]
+fn semantic_session_id_uses_a_bounded_cross_platform_storage_key() {
+    let adapter = new_adapter("physical-storage-key");
+    let state = build_golden_small_state();
+    let session = adapter.create(&state).expect("create");
+    assert_eq!(session.session_id(), "session:current-contract:promoted");
+    assert_eq!(
+        session
+            .storage_path_for_test()
+            .file_name()
+            .and_then(|name| name.to_str()),
+        Some("vp-session-v1-a9ec4fa4eee3fd549c78a8aae7c8030635d920e5acf2f71e6f2a628d4058af23")
+    );
+}
+
+#[test]
+fn mismatched_manifest_identity_fails_closed_at_the_physical_session_key() {
+    let adapter = new_adapter("manifest-identity-mismatch");
+    let state = build_golden_small_state();
+    let session = adapter.create(&state).expect("create");
+    let manifest = session.storage_path_for_test().join("manifest.json");
+    let bytes = std::fs::read_to_string(&manifest).expect("read manifest");
+    let replaced = bytes.replacen(&state.session_id, "session:current-contract:collision", 1);
+    assert_ne!(
+        replaced, bytes,
+        "manifest contains semantic session identity"
+    );
+    std::fs::write(&manifest, replaced).expect("write mismatched manifest");
+    assert_eq!(
+        adapter
+            .open_existing(session.session_id(), AppendOpenMode::ReadOnly)
+            .expect_err("physical key cannot silently merge another semantic identity")
+            .code,
+        "manifest-session-identity-mismatch"
+    );
 }
 
 fn new_adapter(label: &str) -> AppendAuthoritativeCandidateAdapter {
@@ -219,7 +260,7 @@ fn canonical_storage_root_and_static_authority_aliases_fail_closed() {
         .open_existing(session.session_id(), AppendOpenMode::ReadOnly)
         .expect("canonicalized adapter remains usable");
 
-    let session_root = actual_root.join(session.session_id());
+    let session_root = session.storage_path_for_test().to_path_buf();
     for (name, expected_code) in [
         ("manifest.json", "aliased-manifest-path"),
         ("canonical.append.jsonl", "aliased-append-log-path"),
@@ -265,7 +306,7 @@ fn bounded_manifest_and_outbound_record_preflight_preserve_last_commit() {
     let adapter = AppendAuthoritativeCandidateAdapter::new(&root).expect("adapter");
     let state = build_golden_small_state();
     let session = adapter.create(&state).expect("create");
-    let manifest = root.join(session.session_id()).join("manifest.json");
+    let manifest = session.storage_path_for_test().join("manifest.json");
     std::fs::write(&manifest, vec![b' '; 64 * 1024 + 1]).expect("oversized manifest");
     assert_eq!(
         adapter
@@ -318,7 +359,7 @@ fn commit_ack_survives_checkpoint_failure_and_repairs_before_next_write() {
     let mut writer = adapter
         .open_existing(session.session_id(), AppendOpenMode::Writable)
         .expect("writer");
-    let manifest_temporary = root.join(session.session_id()).join("manifest.tmp");
+    let manifest_temporary = session.storage_path_for_test().join("manifest.tmp");
     std::fs::create_dir(&manifest_temporary).expect("block manifest checkpoint");
     let mut committed = state.clone();
     committed.durable_command_tokens.evidence_writer_token = "writer:checkpoint-behind".to_owned();
@@ -754,9 +795,10 @@ fn canonical_loss_anchor_forgery_duplication_and_cleanup_are_bounded() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn shared_canonical_log_distinct_writer_locks_fail_closed() {
+    #[cfg(unix)]
     use std::os::unix::fs::MetadataExt;
 
     let nonce = SystemTime::now()
@@ -771,10 +813,11 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
 
     let adapter_a = AppendAuthoritativeCandidateAdapter::new(&root_a).expect("adapter a");
     let session_a = adapter_a.create(&state_a).expect("create session a");
-    let source_log = root_a
-        .join(session_a.session_id())
+    let source_log = session_a
+        .storage_path_for_test()
         .join("canonical.append.jsonl");
     let source_bytes = std::fs::read(&source_log).expect("source log bytes");
+    #[cfg(unix)]
     assert_eq!(
         std::fs::metadata(&source_log)
             .expect("source log metadata")
@@ -782,36 +825,22 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
         1
     );
 
-    std::fs::create_dir_all(&root_b).expect("root b");
-    let session_b_root = root_b.join(&state_b.session_id);
-    std::fs::create_dir(&session_b_root).expect("session b root");
-    std::fs::create_dir(session_b_root.join("temporary")).expect("session b temporary");
-    std::fs::copy(
-        root_a.join(session_a.session_id()).join("manifest.json"),
-        session_b_root.join("manifest.json"),
-    )
-    .expect("copy manifest b");
-    let mut manifest_b: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(session_b_root.join("manifest.json")).unwrap())
-            .expect("manifest json");
-    manifest_b["session_id"] = serde_json::Value::String(state_b.session_id.clone());
-    std::fs::write(
-        session_b_root.join("manifest.json"),
-        serde_json::to_vec(&manifest_b).expect("manifest bytes"),
-    )
-    .expect("write manifest b");
+    let adapter_b = AppendAuthoritativeCandidateAdapter::new(&root_b).expect("adapter b");
+    let session_b = adapter_b.create(&state_b).expect("create session b");
+    let session_b_root = session_b.storage_path_for_test().to_path_buf();
+    std::fs::remove_file(session_b_root.join("canonical.append.jsonl"))
+        .expect("remove independent canonical log");
     std::fs::hard_link(&source_log, session_b_root.join("canonical.append.jsonl"))
         .expect("hard link canonical log");
-    std::fs::write(session_b_root.join("authoritative.writer.lock"), b"lock-b")
-        .expect("distinct writer lock");
 
     let linked_log = session_b_root.join("canonical.append.jsonl");
     assert_ne!(
-        root_a
-            .join(session_a.session_id())
+        session_a
+            .storage_path_for_test()
             .join("authoritative.writer.lock"),
         session_b_root.join("authoritative.writer.lock")
     );
+    #[cfg(unix)]
     assert!(
         std::fs::metadata(&linked_log)
             .expect("linked log metadata")
@@ -820,7 +849,6 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
         "canonical log must be hard-linked across session roots"
     );
 
-    let adapter_b = AppendAuthoritativeCandidateAdapter::new(&root_b).expect("adapter b");
     assert_eq!(
         adapter_a
             .open_existing(session_a.session_id(), AppendOpenMode::ReadOnly)
@@ -837,14 +865,14 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
     );
     assert_eq!(
         adapter_b
-            .open_existing(&state_b.session_id, AppendOpenMode::ReadOnly)
+            .open_existing(session_b.session_id(), AppendOpenMode::ReadOnly)
             .expect_err("session b read-only rejects aliased canonical log")
             .code,
         "authority-leaf-hard-linked"
     );
     assert_eq!(
         adapter_b
-            .open_existing(&state_b.session_id, AppendOpenMode::Writable)
+            .open_existing(session_b.session_id(), AppendOpenMode::Writable)
             .expect_err("session b writable rejects aliased canonical log")
             .code,
         "authority-leaf-hard-linked"
@@ -855,9 +883,10 @@ fn shared_canonical_log_distinct_writer_locks_fail_closed() {
     );
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn hard_linked_manifest_fail_closed_before_parse() {
+    #[cfg(unix)]
     use std::os::unix::fs::MetadataExt;
 
     let nonce = SystemTime::now()
@@ -868,11 +897,12 @@ fn hard_linked_manifest_fail_closed_before_parse() {
     let adapter = AppendAuthoritativeCandidateAdapter::new(&root).expect("adapter");
     let state = build_golden_small_state();
     let session = adapter.create(&state).expect("create");
-    let session_root = root.join(session.session_id());
+    let session_root = session.storage_path_for_test();
     let manifest = session_root.join("manifest.json");
     let manifest_backup = session_root.join("manifest.real.json");
     std::fs::rename(&manifest, &manifest_backup).expect("move manifest");
     std::fs::hard_link(&manifest_backup, &manifest).expect("hard link manifest");
+    #[cfg(unix)]
     assert!(
         std::fs::metadata(&manifest)
             .expect("manifest metadata")
@@ -892,9 +922,10 @@ fn hard_linked_manifest_fail_closed_before_parse() {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[test]
 fn hard_linked_writer_lock_fail_closed_before_authority() {
+    #[cfg(unix)]
     use std::os::unix::fs::MetadataExt;
 
     let nonce = SystemTime::now()
@@ -905,11 +936,12 @@ fn hard_linked_writer_lock_fail_closed_before_authority() {
     let adapter = AppendAuthoritativeCandidateAdapter::new(&root).expect("adapter");
     let state = build_golden_small_state();
     let session = adapter.create(&state).expect("create");
-    let session_root = root.join(session.session_id());
+    let session_root = session.storage_path_for_test();
     let lock = session_root.join("authoritative.writer.lock");
     let lock_backup = session_root.join("authoritative.writer.real.lock");
     std::fs::rename(&lock, &lock_backup).expect("move lock");
     std::fs::hard_link(&lock_backup, &lock).expect("hard link lock");
+    #[cfg(unix)]
     assert!(
         std::fs::metadata(&lock).expect("lock metadata").nlink() > 1,
         "writer lock must be hard-linked"
@@ -925,4 +957,108 @@ fn hard_linked_writer_lock_fail_closed_before_authority() {
     adapter
         .open_existing(session.session_id(), AppendOpenMode::ReadOnly)
         .expect("read-only open does not acquire writer lock");
+}
+
+#[cfg(windows)]
+fn create_windows_junction(link: &std::path::Path, target: &std::path::Path) {
+    let output = Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(link)
+        .arg(target)
+        .output()
+        .expect("start mklink junction command");
+    assert!(
+        output.status.success(),
+        "mklink /J failed for {} -> {}: {}",
+        link.display(),
+        target.display(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn static_windows_reparse_aliases_fail_closed() {
+    let state = build_golden_small_state();
+
+    let session_adapter = new_adapter("windows-reparse-session");
+    let session = session_adapter.create(&state).expect("create session");
+    let external_adapter = new_adapter("windows-reparse-external");
+    let external_session = external_adapter
+        .create(&state)
+        .expect("create external session");
+    let session_path = session.storage_path_for_test().to_path_buf();
+    std::fs::remove_dir_all(&session_path).expect("remove session before junction fixture");
+    create_windows_junction(&session_path, external_session.storage_path_for_test());
+    assert_eq!(
+        session_adapter
+            .open_existing(session.session_id(), AppendOpenMode::ReadOnly)
+            .expect_err("junction session root rejected")
+            .code,
+        "aliased-session-path"
+    );
+
+    let adapter = new_adapter("windows-reparse-leaves");
+    let session = adapter.create(&state).expect("create leaf session");
+    let session_root = session.storage_path_for_test().to_path_buf();
+    let reparse_target = session_root.join("reparse-target");
+    std::fs::create_dir(&reparse_target).expect("create reparse target");
+    for (name, expected_code, mode) in [
+        (
+            "manifest.json",
+            "aliased-manifest-path",
+            AppendOpenMode::ReadOnly,
+        ),
+        (
+            "canonical.append.jsonl",
+            "aliased-append-log-path",
+            AppendOpenMode::ReadOnly,
+        ),
+        (
+            "authoritative.writer.lock",
+            "aliased-writer-lock-path",
+            AppendOpenMode::Writable,
+        ),
+    ] {
+        let path = session_root.join(name);
+        let backup = session_root.join(format!("{name}.real"));
+        std::fs::rename(&path, &backup).expect("move authority leaf");
+        create_windows_junction(&path, &reparse_target);
+        assert_eq!(
+            adapter
+                .open_existing(session.session_id(), mode)
+                .expect_err("junction authority leaf rejected")
+                .code,
+            expected_code
+        );
+        std::fs::remove_dir(&path).expect("remove authority leaf junction");
+        std::fs::rename(&backup, &path).expect("restore authority leaf");
+    }
+
+    let temporary = session_root.join("temporary");
+    let temporary_backup = session_root.join("temporary.real");
+    std::fs::rename(&temporary, &temporary_backup).expect("move temporary directory");
+    create_windows_junction(&temporary, &reparse_target);
+    assert_eq!(
+        adapter
+            .open_existing(session.session_id(), AppendOpenMode::ReadOnly)
+            .expect_err("junction temporary directory rejected")
+            .code,
+        "aliased-temporary-path"
+    );
+    std::fs::remove_dir(&temporary).expect("remove temporary junction");
+    std::fs::rename(&temporary_backup, &temporary).expect("restore temporary directory");
+
+    let manifest_temporary = session_root.join("manifest.tmp");
+    create_windows_junction(&manifest_temporary, &reparse_target);
+    let mut writer = adapter
+        .open_existing(session.session_id(), AppendOpenMode::Writable)
+        .expect("open writer before checkpoint");
+    assert_eq!(
+        adapter
+            .set_format_version_for_test(&mut writer, 2)
+            .expect_err("junction checkpoint temporary rejected")
+            .code,
+        "aliased-manifest-temporary-path"
+    );
 }

@@ -37,6 +37,23 @@ jobs:
         id: rustc
         shell: bash
         run: echo "version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+      - name: Capture append-authoritative readiness context
+        shell: bash
+        run: |
+          {
+            echo "### Append-authoritative Windows readiness"
+            echo "- repository: ${{ github.repository }}"
+            echo "- ref: ${{ github.ref }}"
+            echo "- commit: $(git rev-parse HEAD)"
+            echo "- runner: $RUNNER_OS"
+            echo "- rustc: $(rustc --version)"
+            echo "- features: persistence-spike"
+            echo "- command: cargo test --features persistence-spike --test persistence_append_authoritative_01b"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Run append-authoritative 01B Windows readiness tests
+        run: cargo test --features persistence-spike --test persistence_append_authoritative_01b
+      - name: Run workspace clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Run persistence tests
         run: cargo test --features persistence-spike --test persistence_sqlite_evidence --test persistence_sqlite_mechanism --test persistence_cross_platform --test persistence_durability --test persistence_scenarios
       - name: Run Package 2D v3 evidence
