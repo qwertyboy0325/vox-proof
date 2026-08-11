@@ -267,8 +267,8 @@ fn child_abort_expires_lease_and_new_writer_takes_over_without_old_authority() {
     let state = build_golden_small_state();
     let session = adapter.create(&state).expect("create");
     adapter
-        .set_lease_duration_for_test(&session, 50)
-        .expect("short child lease");
+        .set_lease_duration_for_test(&session, 1_000)
+        .expect("child lease long enough to prove live-writer exclusion");
     let ready = root.join("child.ready");
     let release = root.join("child.release");
     let mut child = Command::new(std::env::current_exe().expect("test executable"))
@@ -298,7 +298,7 @@ fn child_abort_expires_lease_and_new_writer_takes_over_without_old_authority() {
     );
     std::fs::write(&release, b"abort").expect("release child");
     assert!(!child.wait().expect("wait child").success(), "child aborts");
-    std::thread::sleep(Duration::from_millis(80));
+    std::thread::sleep(Duration::from_millis(1_100));
     let takeover = fresh
         .open_existing(session.session_id(), SqliteOpenMode::Writable)
         .expect("expired child lease can be taken over");

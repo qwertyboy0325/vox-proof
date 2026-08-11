@@ -2667,6 +2667,7 @@ fn authority_hard_link_count(
     }
     #[cfg(windows)]
     {
+        let _ = metadata;
         authority_hard_link_count_windows(file)
     }
     #[cfg(not(any(unix, windows)))]
