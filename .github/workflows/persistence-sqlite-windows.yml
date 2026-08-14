@@ -1,10 +1,23 @@
 # Package 2D Windows persistence evidence (authoritative for SQLite spike v3).
 # Supersedes the retired Package 1 workflow `persistence-evidence-windows.yml`
 # (spike-v1 candidate comparison via persistence_candidates.rs).
+#
+# Correction-06: workflow control-plane SHA (trigger commit) is recorded separately
+# from evidence_checkout_sha (frozen harness ref). Dispatch with evidence_ref to
+# run compile/test/generate at an explicit harness revision without conflating
+# workflow-only commits with harness semantic SHA.
 name: persistence-sqlite-windows
 
 on:
   workflow_dispatch:
+    inputs:
+      evidence_ref:
+        description: >-
+          Git ref (commit SHA, branch, or tag) for checkout/compile/test/01C evidence
+          generation. Defaults to frozen Gate 4 harness revision 91e258c.
+        required: false
+        default: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+        type: string
   push:
     branches:
       - main
@@ -30,11 +43,42 @@ on:
       - "Cargo.toml"
       - ".github/workflows/persistence-sqlite-windows.yml"
 
+env:
+  FROZEN_EVIDENCE_REF: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+  WORKFLOW_CONTROL_PLANE_SHA: ${{ github.sha }}
+  EVIDENCE_REF: ${{ github.event.inputs.evidence_ref || '91e258cf00cbaa5100c14678454f13fb8c2f14b5' }}
+
 jobs:
   windows-v3-evidence:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Record workflow vs evidence provenance
+        shell: bash
+        run: |
+          {
+            echo "### Windows persistence provenance (Correction-06)"
+            echo "- workflow_control_plane_sha: $WORKFLOW_CONTROL_PLANE_SHA"
+            echo "- evidence_checkout_sha: $EVIDENCE_REF"
+            echo "- harness_semantic_sha (expected): $EVIDENCE_REF"
+            echo "- workflow_run_id: ${{ github.run_id }}"
+            echo "- dispatch_evidence_ref_input: ${{ github.event.inputs.evidence_ref || '(default frozen harness)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout frozen harness revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EVIDENCE_REF }}
+          fetch-depth: 1
+      - name: Verify evidence checkout SHA
+        shell: bash
+        run: |
+          CHECKOUT_SHA="$(git rev-parse HEAD)"
+          REQUESTED_SHA="$(git rev-parse "${EVIDENCE_REF}^{commit}")"
+          echo "EVIDENCE_CHECKOUT_SHA=$CHECKOUT_SHA" >> "$GITHUB_ENV"
+          if [ "$CHECKOUT_SHA" != "$REQUESTED_SHA" ]; then
+            echo "checkout $CHECKOUT_SHA != evidence ref $REQUESTED_SHA"
+            exit 1
+          fi
+          echo "evidence checkout ok: $CHECKOUT_SHA"
       - uses: dtolnay/rust-toolchain@stable
       - name: Capture rustc version
         id: rustc
@@ -46,8 +90,9 @@ jobs:
           {
             echo "### Append-authoritative Windows readiness"
             echo "- repository: ${{ github.repository }}"
+            echo "- workflow_control_plane_sha: $WORKFLOW_CONTROL_PLANE_SHA"
+            echo "- evidence_checkout_sha: $EVIDENCE_CHECKOUT_SHA"
             echo "- ref: ${{ github.ref }}"
-            echo "- commit: $(git rev-parse HEAD)"
             echo "- runner: $RUNNER_OS"
             echo "- rustc: $(rustc --version)"
             echo "- features: persistence-spike"
@@ -59,7 +104,7 @@ jobs:
       - name: Run current-contract SQLite candidate Windows tests
         run: cargo test --features persistence-spike --test persistence_sqlite_authoritative_01c
       - name: Run Gate 4 01C evidence harness tests
-        run: cargo test --features persistence-spike --test persistence_01c_evidence
+        run: cargo test --features persistence-spike --test persistence_correction_05 --test persistence_01c_evidence
       - name: Run workspace clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Run persistence tests
@@ -93,6 +138,7 @@ jobs:
           name: persistence-v3-windows-evidence
           path: evidence/persistence/${{ env.VOXPROOF_RUN_ID }}/
       - name: Run Gate 4 01C equivalent candidate evidence
+        id: run_01c
         shell: bash
         run: |
           RUN_ID="current-contract-v3-01c-windows-${{ github.run_id }}"
@@ -102,28 +148,73 @@ jobs:
           export VOXPROOF_FILESYSTEM="ntfs-github-actions-runner"
           cargo run --features persistence-spike --bin persistence_evidence_01c_run
           echo "VOXPROOF_01C_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-      - name: Validate 01C evidence JSON and readiness gate
+      - name: Write Windows provenance record
+        if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
         shell: bash
         run: |
           python - <<'PY'
-          import json, pathlib, sys
+          import json, pathlib
           root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / "${{ env.VOXPROOF_01C_RUN_ID }}"
-          if not root.exists():
-              sys.exit(f"missing 01c evidence root {root}")
-          for p in root.rglob("*.json"):
-              json.loads(p.read_text())
-          readiness = json.loads((root / "readiness.json").read_text())
-          manifest = json.loads((root / "manifest.json").read_text())
-          assert manifest["methodology"]["harness_version"] == "gate4-01c-evidence-v4"
-          assert readiness["single_platform_readiness"] in ("ready_for_owner_decision", "not_ready")
-          if readiness["single_platform_readiness"] == "ready_for_owner_decision":
-              blockers = readiness.get("blockers", [])
-              cross_only = blockers == ["cross_platform: awaiting peer platform evidence aggregation"]
-              assert cross_only or not blockers, blockers
-          print("01c json ok")
+          provenance = {
+              "workflow_control_plane_sha": "${{ env.WORKFLOW_CONTROL_PLANE_SHA }}",
+              "evidence_checkout_sha": "${{ env.EVIDENCE_CHECKOUT_SHA }}",
+              "harness_semantic_sha": "${{ env.EVIDENCE_CHECKOUT_SHA }}",
+              "workflow_run_id": ${{ github.run_id }},
+              "01c_run_id": "${{ env.VOXPROOF_01C_RUN_ID }}",
+              "platform_label": "windows-github-actions",
+              "work_package_id": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
+          }
+          root.mkdir(parents=True, exist_ok=True)
+          (root / "windows-provenance.json").write_text(
+              json.dumps(provenance, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print("windows-provenance.json written")
           PY
       - name: Upload Gate 4 01C Windows evidence
+        if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: persistence-01c-windows-evidence
           path: evidence/persistence/current-contract-v3/01c/${{ env.VOXPROOF_01C_RUN_ID }}/
+      - name: Validate 01C evidence JSON and readiness gate
+        if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+
+          root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / "${{ env.VOXPROOF_01C_RUN_ID }}"
+          if not root.exists():
+              sys.exit(f"missing 01c evidence root {root}")
+
+          for p in root.rglob("*.json"):
+              json.loads(p.read_text())
+
+          readiness = json.loads((root / "readiness.json").read_text())
+          manifest = json.loads((root / "manifest.json").read_text())
+          evidence_checkout_sha = "${{ env.EVIDENCE_CHECKOUT_SHA }}"
+
+          assert manifest["methodology"]["harness_version"] == "gate4-01c-evidence-v6", manifest["methodology"]["harness_version"]
+          assert manifest["methodology"]["scenario_contract_version"] == "4", manifest["methodology"]["scenario_contract_version"]
+          assert manifest.get("harness_semantic_sha") == evidence_checkout_sha, manifest.get("harness_semantic_sha")
+
+          assert readiness["mechanism_comparison_readiness"] == "not_ready", readiness["mechanism_comparison_readiness"]
+          assert readiness["mechanism_selection_readiness"] == "not_ready", readiness["mechanism_selection_readiness"]
+          assert readiness["single_platform_readiness"] == "ready_for_owner_decision", readiness["single_platform_readiness"]
+
+          comparison_blockers = readiness.get("comparison_blockers", [])
+          selection_blockers = readiness.get("selection_blockers", [])
+          legacy_blockers = readiness.get("blockers", [])
+
+          assert legacy_blockers == comparison_blockers, (legacy_blockers, comparison_blockers)
+          assert comparison_blockers == [
+              "cross_platform: awaiting peer platform evidence aggregation"
+          ], comparison_blockers
+          assert selection_blockers == [
+              "cross_platform: awaiting peer platform evidence aggregation",
+              "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness",
+          ], selection_blockers
+
+          print("01c json and readiness ok")
+          PY
