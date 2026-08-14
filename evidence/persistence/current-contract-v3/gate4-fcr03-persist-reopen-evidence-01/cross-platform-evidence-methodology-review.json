@@ -1,0 +1,66 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-PERSIST-REOPEN-CROSS-PLATFORM-EVIDENCE-METHODOLOGY-REVIEW",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-15",
+  "prior_cross_platform_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/cross-platform-evidence-methodology-review.json",
+  "prior_cross_platform_review_verdict": "PASS_WITH_CAVEATS",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "windows_provenance_ref": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen/windows-provenance.json",
+  "cross_platform_readiness_ref": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen/cross-platform-readiness.json",
+  "frozen_comparison_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "windows_run": {
+    "accepted_workflow_run_id": 31819274526,
+    "accepted_conclusion": "SUCCESS",
+    "failed_predecessor_run_id": 31818699362,
+    "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+    "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "platform_append_preserved_macos_native": true
+  },
+  "harness_identity": {
+    "harness_sha_match": true,
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+    "workflow_control_plane_may_differ": true
+  },
+  "agent_verdict_line": "EVIDENCE REVIEW: PASS",
+  "overall_verdict": "PASS_WITH_CAVEATS",
+  "verdict_rationale": "FCR-03 persist+reopen fields for Append 01B-3 and SQLite 01C-SQLITE-3 match on macos_native and windows-github-actions at frozen harness 1510e3d. Stale and U1 acceptance bars met on both platforms with close/reopen durability. harness_sha_match true. Superseded 9ec3b07 not accepted. Do not promote to CrossPlatform taxonomy or FilesystemDurability; mechanism comparison/selection remain not_ready; frozen 91e258c unchanged.",
+  "comparison_blockers_may_be_lifted": "YES",
+  "mechanism_selection_still_not_ready": true,
+  "may_claim": [
+    "FCR-03 persist+reopen fields true for 01B-3 and 01C-SQLITE-3 on both platforms at harness 1510e3d",
+    "same-harness identity across platforms",
+    "24 passed + 2 unsupported + 0 failed per candidate per platform",
+    "FCR-03 persist-reopen aggregation/identity comparison_blocker may be lifted on this record"
+  ],
+  "may_not_claim": [
+    "CrossPlatform evidence-strength taxonomy",
+    "FilesystemDurability",
+    "mechanism_comparison_readiness ready_for_owner_decision",
+    "mechanism_selection_readiness or mechanism selection",
+    "READY_FOR_OWNER_GATE",
+    "replacement of frozen 91e258c",
+    "acceptance of superseded 9ec3b07 for final gate"
+  ],
+  "claim_downgrades_required": [],
+  "comparison_readiness_recommendation": {
+    "mechanism_comparison_readiness": "not_ready",
+    "lift_comparison_blockers": true,
+    "lift_scope": "FCR-03 persist-reopen same-harness aggregation/identity blocker on gate4-01c-29d76bd-fcr03-persist-reopen only",
+    "retain_or_replace_blockers": [
+      "mechanism_comparison: FCR-03 persist-reopen record; frozen 91e258c remains comparison baseline"
+    ]
+  },
+  "selection_readiness_recommendation": {
+    "mechanism_selection_readiness": "not_ready",
+    "authorize_mechanism_selection": false
+  },
+  "ready_for_owner_gate": false
+}

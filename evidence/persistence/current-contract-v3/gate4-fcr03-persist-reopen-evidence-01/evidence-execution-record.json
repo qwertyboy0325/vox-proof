@@ -1,0 +1,29 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-EXECUTION-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "status": "CROSS_PLATFORM_COMPLETE",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "macos_execution": {
+    "platform": "macos_native",
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "single_platform_readiness": "ready_for_owner_decision"
+  },
+  "windows_execution": {
+    "platform": "windows-github-actions",
+    "workflow_run_id": 31819274526,
+    "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31819274526",
+    "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+    "conclusion": "success",
+    "single_platform_readiness": "ready_for_owner_decision",
+    "failed_predecessor_run_id": 31818699362,
+    "failed_predecessor_reason": "macos-native not at harness checkout; workflow fixed at 2293259"
+  },
+  "cross_platform_methodology_review": "cross-platform-evidence-methodology-review.json",
+  "cross_platform_methodology_verdict": "PASS_WITH_CAVEATS",
+  "cross_platform_methodology_reviewer_model": "Cursor Grok 4.6",
+  "harness_sha_match": true,
+  "fcr03_persist_reopen_parity": true,
+  "accept_9ec3b07_for_final_gate": false
+}

@@ -3,42 +3,41 @@
   "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
   "owner_authorization": "windows-replacement-owner-authorization.json",
   "dispatched_on": "2026-08-15",
-  "status": "RETRY_DISPATCHED",
+  "completed_on": "2026-08-15",
+  "status": "SUCCESS",
   "workflow": "persistence-sqlite-windows",
   "branch": "v0.2-real-transcript-authoritative-loop",
-  "attempts": [
-    {
-      "workflow_run_id": 31818699362,
-      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
-      "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
-      "conclusion": "failure",
-      "failure_phase": "Validate 01C evidence JSON and readiness gate",
-      "failure_reason": "macos-native peer artifacts absent at harness checkout 1510e3d; tracker commit f020020 not restored before platform-append",
-      "windows_01c_generation": "success",
-      "accepted_for_final_gate": false
-    }
-  ],
-  "workflow_run_id": null,
-  "workflow_run_url": null,
+  "workflow_run_id": 31819274526,
+  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31819274526",
+  "conclusion": "success",
   "provenance": {
     "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
     "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
-    "workflow_control_plane_sha": "pending_retry_dispatch_commit",
-    "workflow_control_plane_note": "Harness semantic authority remains 1510e3d; workflow may restore macos-native from tracker branch"
+    "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c"
   },
   "dispatch_inputs": {
     "dual_scoped_fcr03": "true",
     "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
     "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9"
   },
+  "attempts": [
+    {
+      "workflow_run_id": 31818699362,
+      "conclusion": "failure",
+      "failure_reason": "macos-native absent at harness checkout 1510e3d",
+      "accepted_for_final_gate": false
+    },
+    {
+      "workflow_run_id": 31819274526,
+      "conclusion": "success",
+      "workflow_correction": "2293259 restore macos-native from workflow branch",
+      "accepted_for_final_gate": true
+    }
+  ],
   "target_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
-  "platform_append_mode": "VOXPROOF_01C_PLATFORM_APPEND=1",
-  "workflow_correction": "Restore macos-native from workflow branch before platform-append when harness checkout predates tracker evidence commit",
   "superseded_run": {
     "workflow_run_id": 31811807394,
     "evidence_checkout_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
-    "accepted_for_final_gate": false,
-    "preserve_as_negative_provenance": true
-  },
-  "acceptance_bar_ref": "windows-replacement-owner-authorization.json#acceptance_bar"
+    "accepted_for_final_gate": false
+  }
 }

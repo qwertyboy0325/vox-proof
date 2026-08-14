@@ -3,7 +3,7 @@
   "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
   "owner_authorization_ref": "owner-authorization.json",
   "harness_freeze_ref": "evidence-harness-freeze.json",
-  "status": "WINDOWS_REPLACEMENT_DISPATCHED",
+  "status": "CROSS_PLATFORM_COMPLETE",
   "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
   "evidence_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
   "macos_execution": {

@@ -1,0 +1,12 @@
+{
+  "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+  "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "workflow_run_id": 31819274526,
+  "01c_run_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+  "platform_label": "windows-github-actions",
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "dual_scoped_fcr03": true,
+  "append_candidate_variant": "01B-3",
+  "sqlite_candidate_variant": "01C-SQLITE-3"
+}

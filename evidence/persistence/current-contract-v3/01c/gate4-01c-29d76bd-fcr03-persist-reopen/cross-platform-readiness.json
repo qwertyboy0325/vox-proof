@@ -1,0 +1,48 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "append_candidate_variant": "01B-3",
+  "sqlite_candidate_variant": "01C-SQLITE-3",
+  "aggregation_status": "both_platforms_executed_methodology_review_PASS_WITH_CAVEATS",
+  "owner_authorization_ref": "../../gate4-fcr03-persist-reopen-evidence-01/owner-authorization.json",
+  "windows_replacement_authorization_ref": "../../gate4-fcr03-persist-reopen-evidence-01/windows-replacement-owner-authorization.json",
+  "cross_platform_methodology_review_ref": "../../gate4-fcr03-persist-reopen-evidence-01/cross-platform-evidence-methodology-review.json",
+  "required_platforms": ["macos_native", "windows-github-actions"],
+  "platforms": {
+    "macos_native": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "macos-native",
+      "execution_harness_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "fcr03_persist_reopen_fields_in_scenario_results": true
+    },
+    "windows-github-actions": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "windows-github-actions",
+      "provenance_file": "windows-provenance.json",
+      "execution_harness_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+      "workflow_run_id": 31819274526,
+      "fcr03_persist_reopen_fields_in_scenario_results": true
+    }
+  },
+  "parity_checks": {
+    "harness_sha_match": true,
+    "fcr03_persist_reopen_fields_true_both_platforms": true,
+    "stale_failure_codes_match_across_platforms": true,
+    "macos_native_preserved_in_platform_append": true
+  },
+  "programmatic_readiness": {
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "comparison_blockers": [
+      "mechanism_comparison: FCR-03 persist-reopen record; frozen 91e258c remains comparison baseline"
+    ]
+  },
+  "frozen_comparison_evidence": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "unchanged": true
+  },
+  "mechanism_selection": "none"
+}

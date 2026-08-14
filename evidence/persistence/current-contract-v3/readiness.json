@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "FCR03_EVIDENCE_EXECUTION_ELIGIBLE_PENDING_SHA_FREEZE",
+  "tracker_status": "FCR03_CROSS_PLATFORM_EVIDENCE_COMPLETE_PENDING_SOL_RETRY",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -93,7 +93,7 @@
   "bounded_remediation": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
     "status": "MACOS_PERSIST_REOPEN_EVIDENCE_COMPLETE",
-    "phase": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS",
+    "phase": "SOL_STRONG_FINAL_RETRY",
     "m1_l1_reverification": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
     "m1_l1_reverification_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/m1-l1-reverification-record.json",
     "m1_l1_verdict": "PASS_WITH_CAVEATS",
@@ -115,36 +115,37 @@
       "FCR-04-MISSING-ESCALATION-CONDITIONS",
       "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"
     ],
-    "open_after_m1_l1": [
-      "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT (pending replacement run at 1510e3d)"
-    ]
+    "open_after_m1_l1": []
   },
   "fcr03_persist_reopen_evidence": {
     "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
-    "status": "macos_single_platform_complete",
+    "status": "cross_platform_complete",
     "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
     "harness_semantic_sha_short": "1510e3d",
-    "wiring_base_sha": "29d76bdde5815e1e9effa3e787f10547036500d1",
-    "observation_fix_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
     "record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
-    "harness_freeze": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/evidence-harness-freeze.json",
-    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/owner-authorization.json",
-    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/execution-plan.json",
-    "single_platform_readiness": "ready_for_owner_decision",
-    "fcr03_persist_reopen_fields_populated": true,
+    "cross_platform_readiness": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen/cross-platform-readiness.json",
+    "cross_platform_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/cross-platform-evidence-methodology-review.json",
+    "cross_platform_methodology_verdict": "PASS_WITH_CAVEATS",
+    "cross_platform_methodology_reviewer_model": "Cursor Grok 4.6",
+    "evidence_execution_record": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/evidence-execution-record.json",
+    "harness_sha_match": true,
+    "fcr03_persist_reopen_parity_both_platforms": true,
     "accept_9ec3b07_for_final_gate": false,
-    "windows_dispatch": {
-      "status": "IN_PROGRESS",
-      "workflow_run_id": 31818699362,
-      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
-      "dispatch_record": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/windows-replacement-dispatch-record.json",
-      "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/windows-replacement-owner-authorization.json",
-      "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
-      "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
-      "dual_scoped_fcr03": "true",
-      "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
-      "VOXPROOF_01C_PLATFORM_APPEND": "1"
-    }
+    "windows_replacement_run": {
+      "workflow_run_id": 31819274526,
+      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31819274526",
+      "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c",
+      "dispatch_record": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/windows-replacement-dispatch-record.json"
+    },
+    "comparison_blockers_lifted": {
+      "aggregation_identity_blocker": true,
+      "scope": "FCR-03 persist-reopen same-harness record only",
+      "retained_blocker": "mechanism_comparison: frozen 91e258c remains comparison baseline"
+    },
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready"
+  },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
@@ -164,8 +165,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
-    "status": "WINDOWS_REPLACEMENT_DISPATCHED",
-    "phase": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS"
+    "status": "CROSS_PLATFORM_COMPLETE",
+    "phase": "SOL_STRONG_FINAL_RETRY"
   },
   "gate_sequence": {
     "completed": [
@@ -196,9 +197,12 @@
       "harness_SHA_frozen_1510e3d",
       "macos_persist_reopen_fcr03_evidence_complete",
       "owner_AUTHORIZE_WINDOWS_FCR03_REPLACEMENT_RUN",
-      "windows_replacement_dispatch_run_31818699362"
+      "windows_replacement_dispatch_run_31818699362",
+      "windows_replacement_success_run_31819274526",
+      "cross_platform_methodology_review_PASS_WITH_CAVEATS_grok_4_6_persist_reopen",
+      "dual_platform_readiness_rebuilt_1510e3d"
     ],
-    "current": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS",
+    "current": "SOL_STRONG_FINAL_RETRY",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -206,10 +210,8 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "Windows replacement run at 1510e3d (not 9ec3b07)",
-      "cross-platform methodology review",
-      "rebuild readiness",
-      "Sol STRONG_FINAL retry"
+      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)",
+      "FINAL_GATE_GOVERNANCE_CHECK if Sol PASS"
     ]
   },
   "still_closed": [
@@ -221,5 +223,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Windows FCR-03 replacement run dispatched (run 31818699362) at evidence checkout 1510e3d; workflow control plane f020020. macOS persist+reopen evidence complete. Awaiting Windows completion then cross-platform review and Sol retry. 9ec3b07 not accepted."
+  "note": "Dual-platform FCR-03 persist+reopen evidence complete at harness 1510e3d (run 31819274526). Cross-platform methodology PASS_WITH_CAVEATS (Grok 4.6); harness_sha_match true; aggregation blocker lifted. FCR-R-01 closed. Next: Sol STRONG_FINAL retry. mechanism_selection and READY_FOR_OWNER_GATE remain closed. 9ec3b07 not accepted."
 }
