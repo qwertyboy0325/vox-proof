@@ -6,7 +6,7 @@
   "scenario_contract_version": "4",
   "append_candidate_variant": "01B-3",
   "sqlite_candidate_variant": "01C-SQLITE-3",
-  "aggregation_status": "both_platforms_executed_pending_aggregation_review",
+  "aggregation_status": "both_platforms_executed_methodology_review_PASS_WITH_CAVEATS",
   "owner_evidence_execution_decision_ref": "../../gate4-fcr03-observation-wiring-01/owner-evidence-execution-decision.json",
   "windows_owner_authorization_ref": "../../gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json",
   "required_platforms": [
@@ -69,5 +69,5 @@
     "unchanged": true
   },
   "mechanism_selection": "none",
-  "note": "Dual-scoped FCR-03 evidence on macOS + Windows. Cross-platform aggregation review required before comparison readiness upgrade."
+  "note": "Dual-scoped FCR-03 evidence on macOS + Windows. Cross-platform methodology review PASS_WITH_CAVEATS (Grok 4.6). Comparison/selection remain not_ready due to harness SHA mismatch."
 }

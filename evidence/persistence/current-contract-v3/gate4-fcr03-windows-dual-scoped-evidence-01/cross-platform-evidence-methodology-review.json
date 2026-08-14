@@ -1,0 +1,100 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-CROSS-PLATFORM-EVIDENCE-METHODOLOGY-REVIEW",
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-14",
+  "prior_macos_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
+  "prior_macos_review_verdict": "PASS_WITH_CAVEATS",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "windows_execution_record_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/evidence-execution-record.json",
+  "windows_provenance_ref": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/windows-provenance.json",
+  "cross_platform_readiness_ref": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/cross-platform-readiness.json",
+  "frozen_comparison_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "windows_run": {
+    "workflow_run_id": 31811807394,
+    "harness_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+    "platform_append_preserved_macos_native": true
+  },
+  "harness_identity": {
+    "macos_execution_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+    "fcr03_wiring_commit_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+    "windows_execution_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+    "harness_sha_match": false,
+    "declared_wiring_equivalence": "FCR-03 observation path declared equivalent; not same-harness identity"
+  },
+  "agent_verdict_line": "EVIDENCE REVIEW: PASS",
+  "overall_verdict": "PASS_WITH_CAVEATS",
+  "verdict_rationale": "Windows github-actions dual-scoped artifacts persist FCR-03 minimum observation fields for both Append 01B-3 and SQLite 01C-SQLITE-3. Independent inspection shows 3x fcr03_stale_rejection plus 1x fcr03_unrelated_success per candidate on both platforms, with matching scoped failure codes and required booleans. Status counts are 24 passed + 2 unsupported + 0 failed per candidate per platform. macos-native/ preserved under platform-append. Frozen 91e258c unchanged. Remaining caveats are comparison-identity caveats: harness_sha_match false (d267f0d vs 9ec3b07); comparison_blockers must not be lifted; mechanism comparison and selection remain not_ready. Do not promote FCR-03 to CrossPlatform or FilesystemDurability.",
+  "review_questions": {
+    "fcr03_observation_fidelity_windows": {
+      "answer": "SUPPORTED",
+      "append_01B_3": "InterfaceBehavior (stale) + LogicalStateTransition (U1) on windows-github-actions",
+      "sqlite_01C_SQLITE_3": "InterfaceBehavior (stale) + LogicalStateTransition (U1) on windows-github-actions",
+      "not_a_persist_reopen_proof": true
+    },
+    "cross_platform_scenario_parity": {
+      "answer": "PARITY_CONFIRMED_FOR_DECLARED_FIELDS",
+      "status_counts_match": true,
+      "fcr03_fields_match": true,
+      "stale_failure_codes_match": true,
+      "eligibility_match": true,
+      "append_eligibility_both": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "sqlite_eligibility_both": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION"
+    },
+    "comparison_blockers_may_be_lifted": {
+      "answer": "NO",
+      "keep_mechanism_comparison_readiness": "not_ready",
+      "rationale": "harness_sha_match false; d267f0d does not uniquely identify wired macOS harness; Windows at 9ec3b07 not owner-authorized abe8f9a checkout; result-field parity is not same-harness identity"
+    },
+    "mechanism_selection_still_not_ready": {
+      "answer": "YES_STILL_NOT_READY",
+      "authorize_mechanism_selection": false
+    },
+    "claim_downgrades": {
+      "answer": "NONE_FOR_FCR03_OBSERVATION; DO_NOT_UPGRADE_COMPARISON_OR_CROSSPLATFORM"
+    }
+  },
+  "claim_downgrades_required": [],
+  "may_claim": [
+    "FCR-03 minimum observation fields persisted for 01B-3 and 01C-SQLITE-3 on macos_native and windows-github-actions",
+    "24 passed + 2 unsupported per candidate per platform; 0 failed",
+    "both candidates ELIGIBLE_FOR_EQUIVALENT_EXECUTION on both platforms",
+    "macos-native/ preserved; frozen 91e258c unchanged",
+    "single_platform_readiness ready_for_owner_decision per platform"
+  ],
+  "may_not_claim": [
+    "CrossPlatform evidence-strength taxonomy for FCR-03",
+    "mechanism_comparison_readiness ready_for_owner_decision",
+    "mechanism_selection_readiness or mechanism selection",
+    "same-harness identity across platforms",
+    "replacement or FCR-03 backfill of frozen 91e258c",
+    "persist+reopen or FilesystemDurability proof"
+  ],
+  "comparison_readiness_recommendation": {
+    "mechanism_comparison_readiness": "not_ready",
+    "lift_comparison_blockers": false,
+    "retain_comparison_blockers": [
+      "cross_platform: harness_sha mismatch between platforms requires aggregation review"
+    ]
+  },
+  "selection_readiness_recommendation": {
+    "mechanism_selection_readiness": "not_ready",
+    "authorize_mechanism_selection": false
+  },
+  "validation_summary": {
+    "macos_append_status_count": { "passed": 24, "unsupported": 2, "failed": 0 },
+    "macos_sqlite_status_count": { "passed": 24, "unsupported": 2, "failed": 0 },
+    "windows_append_status_count": { "passed": 24, "unsupported": 2, "failed": 0 },
+    "windows_sqlite_status_count": { "passed": 24, "unsupported": 2, "failed": 0 },
+    "fcr03_fields_both_platforms": true,
+    "harness_sha_match": false,
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready"
+  },
+  "requested_owner_decision": "Accept dual-platform FCR-03 observation-fidelity for 01B-3 and 01C-SQLITE-3 at InterfaceBehavior / LogicalStateTransition on macos_native and windows-github-actions. Do not lift comparison_blockers. Keep mechanism_comparison_readiness and mechanism_selection_readiness not_ready. Keep frozen 91e258c unchanged. Do not authorize mechanism selection."
+}

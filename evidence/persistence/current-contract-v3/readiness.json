@@ -6,7 +6,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE_COMPLETE_PENDING_CROSS_PLATFORM_REVIEW",
+  "tracker_status": "CROSS_PLATFORM_FCR03_METHODOLOGY_REVIEW_PASS_WITH_CAVEATS",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -43,7 +43,9 @@
     "execution_record": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-execution-record.json",
     "methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
     "methodology_review_verdict": "PASS_WITH_CAVEATS",
-    "methodology_reviewer_model": "Cursor Grok 4.6"
+    "methodology_reviewer_model": "Cursor Grok 4.6",
+    "cross_platform_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/cross-platform-evidence-methodology-review.json",
+    "cross_platform_methodology_review_verdict": "PASS_WITH_CAVEATS"
   },
   "append_01b3_evidence": {
     "status": "superseded_for_fcr03_by_dual_scoped_record",
@@ -83,13 +85,14 @@
       "unit_u1_c1_c3": "proven",
       "fcr03_harness_wired": true,
       "fcr03_in_macos_evidence": true,
+      "fcr03_in_windows_evidence": true,
       "successor_freeze": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/successor-candidate-freeze.json"
     }
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-    "status": "WINDOWS_EVIDENCE_COMPLETE",
-    "phase": "CROSS_PLATFORM_AGGREGATION_REVIEW"
+    "status": "CROSS_PLATFORM_METHODOLOGY_REVIEW_COMPLETE",
+    "phase": "GOVERNANCE_CHAIN_RETRY"
   },
   "gate_sequence": {
     "completed": [
@@ -106,15 +109,15 @@
       "evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
       "fcr03_wiring_commit_abe8f9a_harness_sha_updated",
       "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE",
-      "windows_dual_scoped_fcr03_evidence_execution_run_31811807394"
+      "windows_dual_scoped_fcr03_evidence_execution_run_31811807394",
+      "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6"
     ],
-    "current": "CROSS_PLATFORM_AGGREGATION_REVIEW",
+    "current": "GOVERNANCE_CHAIN_RETRY",
     "blocked": [
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "cross-platform evidence-methodology review of dual-scoped record",
       "Sol retry on governance chain"
     ]
   },
@@ -127,5 +130,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Windows dual-scoped FCR-03 evidence complete (run 31811807394). FCR-03 fields on both platforms. Cross-platform aggregation review pending. Mechanism selection closed."
+  "note": "Cross-platform FCR-03 methodology review PASS_WITH_CAVEATS (Grok 4.6). Dual-platform observation fidelity supported; comparison/selection remain not_ready (harness SHA mismatch). Mechanism selection closed."
 }
