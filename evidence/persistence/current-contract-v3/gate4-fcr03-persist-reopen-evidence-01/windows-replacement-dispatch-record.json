@@ -1,0 +1,31 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-WINDOWS-REPLACEMENT-WORKFLOW-DISPATCH-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "owner_authorization": "windows-replacement-owner-authorization.json",
+  "dispatched_on": "2026-08-15",
+  "status": "IN_PROGRESS",
+  "workflow": "persistence-sqlite-windows",
+  "branch": "v0.2-real-transcript-authoritative-loop",
+  "workflow_run_id": 31818699362,
+  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
+  "provenance": {
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
+    "workflow_control_plane_note": "Evidence-only tracker commit; harness semantic authority is 1510e3d"
+  },
+  "dispatch_inputs": {
+    "dual_scoped_fcr03": "true",
+    "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+    "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9"
+  },
+  "target_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "platform_append_mode": "VOXPROOF_01C_PLATFORM_APPEND=1",
+  "superseded_run": {
+    "workflow_run_id": 31811807394,
+    "evidence_checkout_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+    "accepted_for_final_gate": false,
+    "preserve_as_negative_provenance": true
+  },
+  "acceptance_bar_ref": "windows-replacement-owner-authorization.json#acceptance_bar"
+}

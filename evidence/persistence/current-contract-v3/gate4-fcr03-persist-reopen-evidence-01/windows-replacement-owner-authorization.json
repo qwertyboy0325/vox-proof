@@ -1,0 +1,86 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-WINDOWS-REPLACEMENT-OWNER-AUTHORIZATION-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "owner_decision": "AUTHORIZE_WINDOWS_FCR03_REPLACEMENT_RUN",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-15",
+  "dispatch_parameters": {
+    "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "dual_scoped_fcr03": true,
+    "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+    "VOXPROOF_01C_PLATFORM_APPEND": true
+  },
+  "workflow_control_plane": {
+    "may_be_later_than_evidence_checkout_sha": true,
+    "must_be_recorded_separately": true,
+    "workflow": ".github/workflows/persistence-sqlite-windows.yml",
+    "branch": "v0.2-real-transcript-authoritative-loop"
+  },
+  "required_provenance": {
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "workflow_control_plane_sha": "exact_dispatch_commit",
+    "workflow_run_id": "required"
+  },
+  "superseded_windows_run": {
+    "sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+    "workflow_run_id": 31811807394,
+    "accepted_for_final_gate": false,
+    "preserve_as_negative_provenance": true,
+    "record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03"
+  },
+  "acceptance_bar": {
+    "parity_with_macos": true,
+    "fcr03_stale_rejection": [
+      "exact failure code",
+      "transition_applied = false",
+      "in-handle authority unchanged",
+      "close/reopen authority still unchanged",
+      "oracle pass",
+      "persist_reopen_oracle_compare = true",
+      "persist_reopen_authority_unchanged = true"
+    ],
+    "fcr03_unrelated_success": [
+      "transition_applied = true",
+      "unrelated scope preserved",
+      "close/reopen merged authority survives",
+      "no unrelated rewind",
+      "oracle pass",
+      "persist_reopen_oracle_compare = true",
+      "persist_reopen_authority_unchanged = true",
+      "no_unrelated_scope_rewind_after_close_reopen = true"
+    ],
+    "per_candidate_status_counts": "24 passed + 2 unsupported + 0 failed"
+  },
+  "downstream_sequence": [
+    "Windows replacement evidence",
+    "cross-platform methodology review",
+    "rebuild dual-candidate readiness",
+    "PRE_FINAL governance audit if required by chain",
+    "Sol STRONG_FINAL retry",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "owner mechanism-selection gate only after above"
+  ],
+  "still_forbidden": {
+    "mechanism_selection": "none",
+    "comparison_blockers_lift": "forbidden_until_review",
+    "READY_FOR_OWNER_GATE": false,
+    "frozen_91e258c": "unchanged",
+    "accept_9ec3b07": false
+  },
+  "preconditions_satisfied": [
+    "macOS persist+reopen FCR-03 evidence complete at 1510e3d",
+    "U1 observation fix 1510e3d committed",
+    "M1+L1 storage re-verification PASS",
+    "harness freeze recorded at 1510e3d"
+  ],
+  "may_not_claim": [
+    "mechanism selection readiness",
+    "comparison_blockers lift before cross-platform review",
+    "READY_FOR_OWNER_GATE",
+    "acceptance of superseded 9ec3b07 run for final gate"
+  ]
+}

@@ -134,7 +134,13 @@
     "fcr03_persist_reopen_fields_populated": true,
     "accept_9ec3b07_for_final_gate": false,
     "windows_dispatch": {
+      "status": "IN_PROGRESS",
+      "workflow_run_id": 31818699362,
+      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
+      "dispatch_record": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/windows-replacement-dispatch-record.json",
+      "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/windows-replacement-owner-authorization.json",
       "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
       "dual_scoped_fcr03": "true",
       "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
       "VOXPROOF_01C_PLATFORM_APPEND": "1"
@@ -158,8 +164,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
-    "status": "MACOS_COMPLETE_WINDOWS_PENDING",
-    "phase": "WINDOWS_REPLACEMENT_RUN"
+    "status": "WINDOWS_REPLACEMENT_DISPATCHED",
+    "phase": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS"
   },
   "gate_sequence": {
     "completed": [
@@ -188,9 +194,11 @@
       "storage_specialist_M1_L1_reverification_PASS_grok_4_6_29d76bd",
       "fcr03_u1_observation_fix_1510e3d",
       "harness_SHA_frozen_1510e3d",
-      "macos_persist_reopen_fcr03_evidence_complete"
+      "macos_persist_reopen_fcr03_evidence_complete",
+      "owner_AUTHORIZE_WINDOWS_FCR03_REPLACEMENT_RUN",
+      "windows_replacement_dispatch_run_31818699362"
     ],
-    "current": "WINDOWS_REPLACEMENT_RUN",
+    "current": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -213,5 +221,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "macOS FCR-03 persist+reopen evidence PASS at frozen harness 1510e3d (29d76bd wiring + U1 observation fix). single_platform_readiness ready_for_owner_decision. Next: Windows replacement run at 1510e3d, then cross-platform review and Sol retry. 9ec3b07 not accepted."
+  "note": "Windows FCR-03 replacement run dispatched (run 31818699362) at evidence checkout 1510e3d; workflow control plane f020020. macOS persist+reopen evidence complete. Awaiting Windows completion then cross-platform review and Sol retry. 9ec3b07 not accepted."
 }
