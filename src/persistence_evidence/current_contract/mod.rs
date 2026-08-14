@@ -1,5 +1,7 @@
 #[cfg(feature = "persistence-spike")]
 pub mod append_authoritative;
+#[cfg(feature = "persistence-spike")]
+pub mod append_authoritative_01b3;
 pub mod candidate_equivalence;
 pub mod classification;
 pub mod derivation;
@@ -24,6 +26,12 @@ pub use append_authoritative::{
     APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
     AppendAuthoritySession, AppendCheckpointStatus, AppendOpenMode, AppendTailStatus, CleanupPlan,
     DurableAppendAck, OpenedAppendAuthoritySession,
+};
+#[cfg(feature = "persistence-spike")]
+pub use append_authoritative_01b3::{
+    infer_command_scope, AppendCommandScope, AppendScopedCommand,
+    AppendScopedPreconditionCandidateAdapter, AppendScopedPreconditions,
+    APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
 };
 pub use candidate_equivalence::{
     CandidateEligibilityStatus, CandidateEquivalenceRequirements,

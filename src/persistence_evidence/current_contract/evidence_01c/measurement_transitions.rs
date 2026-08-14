@@ -34,6 +34,63 @@ pub fn measurement_transition_states(
     }
 }
 
+/// MD-015 U1 proof fixture: reuse-only advance leaves review scope unchanged so a
+/// review command prepared at the initial authority remains valid.
+pub fn unrelated_scope_success_fixture(
+    scale: MeasurementFixtureScale,
+) -> (CurrentContractState, CurrentContractState, CurrentContractState) {
+    let scale = match scale {
+        MeasurementFixtureScale::Small => MeasurementFixtureScale::Medium,
+        other => other,
+    };
+    let (session_id, writer_token) = measurement_identity(scale);
+    let mut session = pending_review_session(scale);
+    let first = session.review_items()[0].target;
+    session
+        .record_manual_replacement(first, "Kafka")
+        .expect("partial review advance");
+    session
+        .initialize_project_scope("proj-a", "Project A")
+        .expect("project scope");
+    let initial = project_measurement(&session, session_id, writer_token);
+    let key = session.reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    session
+        .accept_reuse_candidate(&key)
+        .expect("reuse-only promotion");
+    let reuse_only = project_measurement(&session, session_id, writer_token);
+    assert_eq!(
+        initial.durable_command_tokens.review_ledger_head,
+        reuse_only.durable_command_tokens.review_ledger_head,
+        "reuse-only advance must not change review scope"
+    );
+    assert_ne!(
+        initial.durable_command_tokens.reuse_governance_head,
+        reuse_only.durable_command_tokens.reuse_governance_head,
+        "reuse scope must advance"
+    );
+
+    let mut review_session = pending_review_session(scale);
+    review_session
+        .record_manual_replacement(first, "Kafka")
+        .expect("partial review advance");
+    review_session
+        .initialize_project_scope("proj-a", "Project A")
+        .expect("project scope");
+    let second = review_session.review_items()[1].target;
+    review_session
+        .record_manual_replacement(second, "Kafka")
+        .expect("review-scope advance");
+    let review_target = project_measurement(&review_session, session_id, writer_token);
+    assert_ne!(
+        initial.durable_command_tokens.review_ledger_head,
+        review_target.durable_command_tokens.review_ledger_head,
+        "review command must advance review scope"
+    );
+    (initial, reuse_only, review_target)
+}
+
 fn review_decision_transition(scale: MeasurementFixtureScale) -> (CurrentContractState, CurrentContractState) {
     let (session_id, writer_token) = measurement_identity(scale);
     let mut session = pending_review_session(scale);

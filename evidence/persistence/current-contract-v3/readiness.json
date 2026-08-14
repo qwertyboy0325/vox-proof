@@ -6,7 +6,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "APPEND_01B_3_IMPLEMENTATION_AUTHORIZED",
+  "tracker_status": "APPEND_01B_3_IMPLEMENTATION_COMPLETE",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -26,9 +26,11 @@
       "modify_in_current_wp": false
     },
     "append_01B_3": {
-      "status": "implementation_authorized",
+      "status": "implementation_complete_pending_specialist_review",
+      "md_015_scoped_validity": "u1_c1_c3_proven_in_unit_tests",
       "work_package": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/work-package.json",
-      "architecture_spec": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/architecture-spec.json"
+      "architecture_spec": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/architecture-spec.json",
+      "implementation_self_check": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/implementation-self-check.json"
     },
     "sqlite_01C_SQLITE_2": {
       "status": "historical_accepted",
@@ -47,24 +49,24 @@
   ],
   "active_work_package": {
     "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
-    "status": "AUTHORIZED",
+    "status": "IMPLEMENTATION_COMPLETE_PENDING_SPECIALIST_REVIEW",
     "phase": "GOLDEN_PATH_IMPLEMENTATION_GATE"
   },
   "gate_sequence": {
     "completed": [
       "comparison_evidence_owner_accepted",
       "preflight_PROCEED_01B_3",
-      "owner_AUTHORIZE_01B_3"
+      "owner_AUTHORIZE_01B_3",
+      "append_01B_3_U1_C1_C3_unit_proof"
     ],
-    "current": "APPEND_01B_3_IMPLEMENTATION",
+    "current": "APPEND_01B_3_SPECIALIST_REVIEW",
     "blocked": [
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK",
       "STRONG_FINAL_CONFLICT_REVIEW_PASS"
     ],
     "downstream": [
-      "01B-3 U1/C1 proof",
-      "Append specialist review",
+      "Append specialist/storage-systems code review",
       "SQLite scoped-validity preflight",
       "dual-candidate selection-eligible evidence rebuild",
       "Sol retry on governance chain"

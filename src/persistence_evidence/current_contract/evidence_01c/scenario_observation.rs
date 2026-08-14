@@ -17,6 +17,60 @@ pub const OBSERVED_OPEN_UNRECOVERABLE: &str = "unrecoverable";
 pub const APPEND_STALE_ASYMMETRY_LIMITATION: &str =
     "append: equivalent generation stale only; sqlite-specific precondition classes not exercised";
 
+pub const APPEND_01B3_STALE_SCOPED_LIMITATION: &str =
+    "append-01b-3: scoped stale precondition classes exercised; generation-only stale not used for semantic validity";
+
+/// FCR-03 minimum observation fields for stale scoped-command rejection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fcr03StaleRejectionObservation {
+    pub observed_failure_code: String,
+    pub transition_applied: bool,
+    pub post_rejection_oracle_compare: bool,
+    pub post_rejection_authority_unchanged: bool,
+}
+
+/// FCR-03 minimum observation fields for unrelated-scope command success.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fcr03UnrelatedSuccessObservation {
+    pub transition_applied: bool,
+    pub post_apply_oracle_compare: bool,
+    pub unrelated_scope_preserved: bool,
+    pub stale_full_state_not_persisted: bool,
+}
+
+impl Fcr03StaleRejectionObservation {
+    pub fn record(
+        observed_failure_code: impl Into<String>,
+        expected: &super::super::model::CurrentContractState,
+        actual: &super::super::model::CurrentContractState,
+        oracle_compare: bool,
+    ) -> Self {
+        Self {
+            observed_failure_code: observed_failure_code.into(),
+            transition_applied: false,
+            post_rejection_oracle_compare: oracle_compare,
+            post_rejection_authority_unchanged: expected == actual,
+        }
+    }
+}
+
+impl Fcr03UnrelatedSuccessObservation {
+    pub fn record(
+        expected: &super::super::model::CurrentContractState,
+        actual: &super::super::model::CurrentContractState,
+        unrelated_scope_preserved: bool,
+    ) -> Self {
+        let oracle_compare =
+            super::super::oracle::CurrentContractOracle::compare(expected, actual).passed;
+        Self {
+            transition_applied: true,
+            post_apply_oracle_compare: oracle_compare,
+            unrelated_scope_preserved,
+            stale_full_state_not_persisted: unrelated_scope_preserved,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ScenarioOutcome {
     pub status: ScenarioExecutionStatus,

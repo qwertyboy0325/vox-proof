@@ -3,8 +3,8 @@ use std::time::{Duration, Instant};
 
 use super::super::measurement::MeasurementFixtureScale;
 use super::scenario_observation::{
-    corruption_tamper_limitation, ScenarioOutcome, APPEND_STALE_ASYMMETRY_LIMITATION,
-    OBSERVED_RECOVERY_SAFE_AUTOMATIC,
+    corruption_tamper_limitation, ScenarioOutcome, APPEND_01B3_STALE_SCOPED_LIMITATION,
+    APPEND_STALE_ASYMMETRY_LIMITATION, OBSERVED_RECOVERY_SAFE_AUTOMATIC,
 };
 use super::super::scenario_contract::{
     scenario_contract_v4, ScenarioContractV3,
@@ -372,6 +372,11 @@ fn run_stale_precondition(
     {
         limitations.push(APPEND_STALE_ASYMMETRY_LIMITATION.to_owned());
     }
+    if matches!(candidate.kind(), CurrentContractCandidateKind::Append01B3)
+        && scenario_id.starts_with("stale-")
+    {
+        limitations.push(APPEND_01B3_STALE_SCOPED_LIMITATION.to_owned());
+    }
     match stale_result {
         Err(code) if code == expected => {
             adapter.close(writer).map_err(err_string)?;
@@ -421,6 +426,7 @@ fn expected_corruption_refusal_code(
 ) -> &'static str {
     match kind {
         CurrentContractCandidateKind::Append => "commit-fingerprint-mismatch",
+        CurrentContractCandidateKind::Append01B3 => "commit-fingerprint-mismatch",
         CurrentContractCandidateKind::Sqlite => "canonical-corruption",
     }
 }
@@ -491,6 +497,7 @@ fn run_writer_takeover(
             "VOXPROOF_CHILD_KIND",
             match candidate.kind() {
                 CurrentContractCandidateKind::Append => "append",
+                CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
             },
         )
@@ -558,6 +565,10 @@ fn candidate_for_root(
     match candidate.kind() {
         super::candidate::CurrentContractCandidateKind::Append => CurrentContractCandidate::append(root)
             .map_err(|code| (ScenarioExecutionStatus::Failed, code)),
+        super::candidate::CurrentContractCandidateKind::Append01B3 => {
+            CurrentContractCandidate::append_01b3(root)
+                .map_err(|code| (ScenarioExecutionStatus::Failed, code))
+        }
         super::candidate::CurrentContractCandidateKind::Sqlite => {
             CurrentContractCandidate::sqlite(root)
                 .map_err(|code| (ScenarioExecutionStatus::Failed, code))
@@ -573,6 +584,12 @@ fn set_format_version(
     match (candidate, writer) {
         (
             CurrentContractCandidate::Append { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+        ) => adapter
+            .set_format_version_for_test(handle, version)
+            .map_err(|error| error.code.to_owned()),
+        (
+            CurrentContractCandidate::Append01B3 { adapter, .. },
             super::candidate::OpenedCandidateSession::Append(handle),
         ) => adapter
             .set_format_version_for_test(handle, version)
@@ -702,11 +719,68 @@ fn tamper_for_scenario(
                 .map_err(|error| error.code.to_owned())?;
             "tamper_committed_state_for_test:reuse-governance-order-corruption".to_owned()
         }
+        (
+            CurrentContractCandidate::Append01B3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "canonical-reference-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:canonical-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:canonical-reference-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append01B3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "source-locator-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:locator-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:source-locator-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append01B3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "review-ledger-order-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:ledger-order-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:review-ledger-order-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append01B3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "reuse-governance-order-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:governance-order-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:reuse-governance-order-corruption".to_owned()
+        }
         _ => return Err(format!("unsupported tamper for {scenario_id}")),
     };
     scoped.close(writer).map_err(err_string)?;
     let candidate_label = match scoped.kind() {
         CurrentContractCandidateKind::Append => "append",
+        CurrentContractCandidateKind::Append01B3 => "append-01b-3",
         CurrentContractCandidateKind::Sqlite => "sqlite",
     };
     Ok(corruption_tamper_limitation(
@@ -738,6 +812,7 @@ fn spawn_child_interrupt(
             "VOXPROOF_CHILD_KIND",
             match candidate.kind() {
                 CurrentContractCandidateKind::Append => "append",
+                CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
             },
         )
@@ -768,6 +843,26 @@ fn stale_preconditions(
             expected_generation: baseline.expected_generation.saturating_sub(1),
             ..baseline.clone()
         },
+        CurrentContractCandidateKind::Append01B3 => match scenario_id {
+            "stale-review-ledger-command" => super::super::CurrentContractPreconditions {
+                review_ledger_head: baseline.review_ledger_head + 1,
+                ..baseline.clone()
+            },
+            "stale-reuse-governance-command" => super::super::CurrentContractPreconditions {
+                reuse_governance_head: baseline.reuse_governance_head + 1,
+                ..baseline.clone()
+            },
+            "stale-analysis-attachment-or-selection" => {
+                super::super::CurrentContractPreconditions {
+                    active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+                    ..baseline.clone()
+                }
+            }
+            _ => super::super::CurrentContractPreconditions {
+                expected_generation: baseline.expected_generation.saturating_sub(1),
+                ..baseline.clone()
+            },
+        },
         CurrentContractCandidateKind::Sqlite => match scenario_id {
             "stale-review-ledger-command" => super::super::CurrentContractPreconditions {
                 review_ledger_head: baseline.review_ledger_head + 1,
@@ -793,12 +888,14 @@ fn stale_preconditions(
 
 fn expected_stale_code(kind: CurrentContractCandidateKind, scenario_id: &str) -> &'static str {
     match kind {
-        CurrentContractCandidateKind::Sqlite => match scenario_id {
-            "stale-review-ledger-command" => "stale-review-ledger-precondition",
-            "stale-reuse-governance-command" => "stale-reuse-governance-precondition",
-            "stale-analysis-attachment-or-selection" => "stale-analysis-selection-precondition",
-            _ => "stale-generation-precondition",
-        },
+        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Append01B3 => {
+            match scenario_id {
+                "stale-review-ledger-command" => "stale-review-ledger-precondition",
+                "stale-reuse-governance-command" => "stale-reuse-governance-precondition",
+                "stale-analysis-attachment-or-selection" => "stale-analysis-selection-precondition",
+                _ => "stale-generation-precondition",
+            }
+        }
         CurrentContractCandidateKind::Append => "stale-append-precondition",
     }
 }

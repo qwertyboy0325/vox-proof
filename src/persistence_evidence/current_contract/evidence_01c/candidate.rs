@@ -4,6 +4,10 @@ use std::time::Instant;
 use super::super::append_authoritative::{
     AppendAuthoritativeCandidateAdapter, AppendOpenMode, OpenedAppendAuthoritySession,
 };
+use super::super::append_authoritative_01b3::{
+    infer_command_scope, AppendScopedCommand, AppendScopedPreconditionCandidateAdapter,
+    AppendScopedPreconditions,
+};
 use super::super::fixture::{
     build_base_manual_replacement_state, build_candidate_rejected_state, build_golden_small_state,
     build_promoted_active_state, build_revoked_historical_state, build_superseded_state,
@@ -20,12 +24,17 @@ pub const SQLITE_LEASE_EXPIRY_WAIT_MS: u64 = 1_100;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurrentContractCandidateKind {
     Append,
+    Append01B3,
     Sqlite,
 }
 
 pub enum CurrentContractCandidate {
     Append {
         adapter: AppendAuthoritativeCandidateAdapter,
+        storage_root: PathBuf,
+    },
+    Append01B3 {
+        adapter: AppendScopedPreconditionCandidateAdapter,
         storage_root: PathBuf,
     },
     Sqlite {
@@ -57,6 +66,16 @@ impl CurrentContractCandidate {
             .map_err(|error| error.code.to_owned())
     }
 
+    pub fn append_01b3(root: impl Into<PathBuf>) -> Result<Self, String> {
+        let storage_root = root.into();
+        AppendScopedPreconditionCandidateAdapter::new(&storage_root)
+            .map(|adapter| Self::Append01B3 {
+                adapter,
+                storage_root,
+            })
+            .map_err(|error| error.code.to_owned())
+    }
+
     pub fn sqlite(root: impl Into<PathBuf>) -> Result<Self, String> {
         let storage_root = root.into();
         SqliteAuthoritativeCandidateAdapter::new(&storage_root)
@@ -70,6 +89,7 @@ impl CurrentContractCandidate {
     pub fn kind(&self) -> CurrentContractCandidateKind {
         match self {
             Self::Append { .. } => CurrentContractCandidateKind::Append,
+            Self::Append01B3 { .. } => CurrentContractCandidateKind::Append01B3,
             Self::Sqlite { .. } => CurrentContractCandidateKind::Sqlite,
         }
     }
@@ -77,6 +97,7 @@ impl CurrentContractCandidate {
     pub fn candidate_id(&self) -> &str {
         match self {
             Self::Append { adapter, .. } => adapter.candidate_id(),
+            Self::Append01B3 { adapter, .. } => adapter.candidate_id(),
             Self::Sqlite { adapter, .. } => adapter.candidate_id(),
         }
     }
@@ -84,6 +105,7 @@ impl CurrentContractCandidate {
     pub fn candidate_version(&self) -> &str {
         match self {
             Self::Append { adapter, .. } => adapter.candidate_version(),
+            Self::Append01B3 { adapter, .. } => adapter.candidate_version(),
             Self::Sqlite { adapter, .. } => adapter.candidate_version(),
         }
     }
@@ -102,7 +124,9 @@ impl CurrentContractCandidate {
 
     pub fn storage_root(&self) -> &Path {
         match self {
-            Self::Append { storage_root, .. } | Self::Sqlite { storage_root, .. } => storage_root,
+            Self::Append { storage_root, .. }
+            | Self::Append01B3 { storage_root, .. }
+            | Self::Sqlite { storage_root, .. } => storage_root,
         }
     }
 
@@ -112,6 +136,13 @@ impl CurrentContractCandidate {
     ) -> Result<(String, PathBuf), String> {
         match self {
             Self::Append { adapter, .. } => adapter
+                .create(state)
+                .map(|session| {
+                    let path = session.storage_path_for_test().to_path_buf();
+                    (session.session_id().to_owned(), path)
+                })
+                .map_err(|error| error.code.to_owned()),
+            Self::Append01B3 { adapter, .. } => adapter
                 .create(state)
                 .map(|session| {
                     let path = session.storage_path_for_test().to_path_buf();
@@ -134,6 +165,10 @@ impl CurrentContractCandidate {
                 .open_existing(session_id, AppendOpenMode::Writable)
                 .map(OpenedCandidateSession::Append)
                 .map_err(|error| error.code.to_owned()),
+            Self::Append01B3 { adapter, .. } => adapter
+                .open_existing(session_id, AppendOpenMode::Writable)
+                .map(OpenedCandidateSession::Append)
+                .map_err(|error| error.code.to_owned()),
             Self::Sqlite { adapter, .. } => adapter
                 .open_existing(session_id, SqliteOpenMode::Writable)
                 .map(OpenedCandidateSession::Sqlite)
@@ -147,6 +182,10 @@ impl CurrentContractCandidate {
                 .open_existing(session_id, AppendOpenMode::ReadOnly)
                 .map(OpenedCandidateSession::Append)
                 .map_err(|error| error.code.to_owned()),
+            Self::Append01B3 { adapter, .. } => adapter
+                .open_existing(session_id, AppendOpenMode::ReadOnly)
+                .map(OpenedCandidateSession::Append)
+                .map_err(|error| error.code.to_owned()),
             Self::Sqlite { adapter, .. } => adapter
                 .open_existing(session_id, SqliteOpenMode::ReadOnly)
                 .map(OpenedCandidateSession::Sqlite)
@@ -157,6 +196,9 @@ impl CurrentContractCandidate {
     pub fn close(&self, opened: OpenedCandidateSession) -> Result<(), String> {
         match (self, opened) {
             (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                adapter.close(handle).map_err(|error| error.code.to_owned())
+            }
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
                 adapter.close(handle).map_err(|error| error.code.to_owned())
             }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
@@ -180,6 +222,10 @@ impl CurrentContractCandidate {
                 .duplicate(handle, new_session_id)
                 .map(|session| session.session_id().to_owned())
                 .map_err(|error| error.code.to_owned()),
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
+                .duplicate(handle, new_session_id)
+                .map(|session| session.session_id().to_owned())
+                .map_err(|error| error.code.to_owned()),
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .duplicate(handle, new_session_id)
                 .map(|session| session.session_id().to_owned())
@@ -198,6 +244,9 @@ impl CurrentContractCandidate {
                 .append_authoritative_transition(handle, 0, next_state)
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                apply_scoped_transition_stale(adapter, handle, next_state)
+            }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
                 let preconditions = handle.authoritative_preconditions();
                 let stale = CurrentContractPreconditions {
@@ -227,6 +276,9 @@ impl CurrentContractCandidate {
                 .append_authoritative_transition(handle, handle.committed_sequence, next_state)
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                apply_scoped_transition(adapter, handle, next_state)
+            }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
                 let preconditions = handle.authoritative_preconditions();
                 let mapped = CurrentContractPreconditions {
@@ -314,6 +366,9 @@ impl CurrentContractCandidate {
             (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
                 lag_append_checkpoint_for_test(adapter, handle)
             }
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                lag_append_checkpoint_for_test_01b3(adapter, handle)
+            }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
                 .map_err(|error| error.code.to_owned()),
@@ -330,6 +385,9 @@ impl CurrentContractCandidate {
             (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
                 .append_incomplete_tail_for_test(handle, next_state)
                 .map_err(|error| error.code.to_owned()),
+            (Self::Append01B3 { .. }, OpenedCandidateSession::Append(_)) => {
+                Err("incomplete-tail-unsupported".to_owned())
+            }
             _ => Err("incomplete-tail-unsupported".to_owned()),
         }
     }
@@ -349,7 +407,7 @@ impl CurrentContractCandidate {
             Self::Sqlite { adapter, .. } => adapter
                 .set_lease_duration_for_session_id_for_test(session_id, lease_duration_ms)
                 .map_err(|error| error.code.to_owned()),
-            Self::Append { .. } => Ok(()),
+            Self::Append { .. } | Self::Append01B3 { .. } => Ok(()),
         }
     }
 
@@ -368,6 +426,14 @@ impl CurrentContractCandidate {
                 )
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                apply_scoped_transition_with_preconditions(
+                    adapter,
+                    handle,
+                    preconditions,
+                    next_state,
+                )
+            }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .apply_authoritative_transition(handle, preconditions, next_state)
                 .map(|_| ())
@@ -414,6 +480,10 @@ impl CurrentContractCandidate {
     pub fn session_storage_bytes(&self, session_id: &str) -> u64 {
         match self {
             Self::Append { adapter, .. } => adapter
+                .open_existing(session_id, AppendOpenMode::ReadOnly)
+                .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
+                .unwrap_or(0),
+            Self::Append01B3 { adapter, .. } => adapter
                 .open_existing(session_id, AppendOpenMode::ReadOnly)
                 .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
                 .unwrap_or(0),
@@ -475,10 +545,82 @@ pub fn measurement_transition_states(
     super::measurement_transitions::measurement_transition_states(operation, scale)
 }
 
+fn apply_scoped_transition(
+    adapter: &AppendScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+    next_state: &CurrentContractState,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_scoped_transition_stale(
+    adapter: &AppendScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+    next_state: &CurrentContractState,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let mut command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
+    match scope {
+        super::super::append_authoritative_01b3::AppendCommandScope::ReviewLedger => {
+            command.preconditions.review_ledger_head = 0;
+        }
+        super::super::append_authoritative_01b3::AppendCommandScope::ReuseGovernance => {
+            command.preconditions.reuse_governance_head = 0;
+        }
+        super::super::append_authoritative_01b3::AppendCommandScope::ActiveAnalysis => {
+            command.preconditions.active_analysis_snapshot_identity.clear();
+        }
+    }
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_scoped_transition_with_preconditions(
+    adapter: &AppendScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+    preconditions: &CurrentContractPreconditions,
+    next_state: &CurrentContractState,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let mut command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
+    command.preconditions = AppendScopedPreconditions {
+        review_ledger_head: preconditions.review_ledger_head,
+        reuse_governance_head: preconditions.reuse_governance_head,
+        active_analysis_snapshot_identity: preconditions
+            .active_analysis_snapshot_identity
+            .clone(),
+    };
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
 fn lag_append_checkpoint_for_test(
     _adapter: &AppendAuthoritativeCandidateAdapter,
     handle: &mut OpenedAppendAuthoritySession,
 ) -> Result<(), String> {
+    lag_append_manifest_checkpoint(handle)
+}
+
+fn lag_append_checkpoint_for_test_01b3(
+    _adapter: &AppendScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+) -> Result<(), String> {
+    lag_append_manifest_checkpoint(handle)
+}
+
+fn lag_append_manifest_checkpoint(handle: &OpenedAppendAuthoritySession) -> Result<(), String> {
     let manifest_path = handle.session.storage_path_for_test().join("manifest.json");
     let bytes = std::fs::read_to_string(&manifest_path).map_err(|error| error.to_string())?;
     let mut manifest: serde_json::Value =

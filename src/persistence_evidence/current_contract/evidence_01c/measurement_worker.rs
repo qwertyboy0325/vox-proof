@@ -22,6 +22,7 @@ pub fn run_sample_in_worker(
             "VOXPROOF_MEASURE_KIND",
             match kind {
                 CurrentContractCandidateKind::Append => "append",
+                CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
             },
         )
@@ -73,6 +74,7 @@ pub fn measure_sample_main() -> Result<(), String> {
     };
     let candidate = match kind.as_str() {
         "append" => CurrentContractCandidate::append(&root)?,
+        "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
         other => return Err(format!("unknown kind {other}")),
     };
@@ -92,6 +94,7 @@ pub fn child_hold_writer_main() -> Result<(), String> {
     let kind = std::env::var("VOXPROOF_CHILD_KIND").map_err(|_| "kind")?;
     let candidate = match kind.as_str() {
         "append" => CurrentContractCandidate::append(&root)?,
+        "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
         other => return Err(format!("unknown child kind {other}")),
     };
@@ -116,6 +119,7 @@ pub fn child_interrupt_transition_main() -> Result<(), String> {
         serde_json::from_str(&next_state_json).map_err(|error| error.to_string())?;
     let candidate = match kind.as_str() {
         "append" => CurrentContractCandidate::append(&root)?,
+        "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
         other => return Err(format!("unknown child kind {other}")),
     };
@@ -123,6 +127,9 @@ pub fn child_interrupt_transition_main() -> Result<(), String> {
     match kind.as_str() {
         "append" => {
             candidate.append_incomplete_tail_for_test(&mut writer, &next_state)?;
+        }
+        "append-01b3" => {
+            candidate.apply_transition(&mut writer, &next_state)?;
         }
         "sqlite" => {
             candidate.arm_fail_before_commit_for_test();

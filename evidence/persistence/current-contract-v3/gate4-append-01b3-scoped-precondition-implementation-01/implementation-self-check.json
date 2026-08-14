@@ -1,0 +1,56 @@
+{
+  "artifact_id": "VP-GATE4-APPEND-01B-3-IMPLEMENTATION-SELF-CHECK",
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+  "status": "IMPLEMENTATION_COMPLETE_PENDING_SPECIALIST_REVIEW",
+  "completed_on": "2026-08-14",
+  "candidate_version": "01B-3",
+  "predecessor_preserved": "01B-2",
+  "implementation_summary": {
+    "module": "src/persistence_evidence/current_contract/append_authoritative_01b3.rs",
+    "write_api": "apply_scoped_command(AppendScopedCommand)",
+    "disqualified_api": "append_authoritative_transition(expected_committed_sequence, next_state) as sole write path",
+    "committed_sequence_role": "physical ordering only; not semantic global CAS"
+  },
+  "proof_obligations": {
+    "U1": {
+      "test": "tests/persistence_append_scoped_precondition_01b3.rs::u1_review_succeeds_after_unrelated_reuse_advance_preserving_reuse_authority",
+      "status": "pass"
+    },
+    "C1": {
+      "test": "tests/persistence_append_scoped_precondition_01b3.rs::c1_stale_review_command_rejected_with_authority_unchanged",
+      "status": "pass"
+    },
+    "C3": {
+      "test": "tests/persistence_append_scoped_precondition_01b3.rs::c3_stale_full_state_proposal_cannot_rewind_unrelated_reuse_authority",
+      "status": "pass"
+    },
+    "01B_2_regression": {
+      "test": "tests/persistence_append_authoritative_01b.rs",
+      "status": "pass"
+    }
+  },
+  "fcr03_observations": {
+    "module": "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "types": [
+      "Fcr03StaleRejectionObservation",
+      "Fcr03UnrelatedSuccessObservation"
+    ],
+    "wired_in_tests": true
+  },
+  "harness_wiring": {
+    "candidate_constructor": "CurrentContractCandidate::append_01b3",
+    "kind": "Append01B3",
+    "frozen_01c_evidence_default": "Append (01B-2) unchanged"
+  },
+  "out_of_scope_preserved": [
+    "MD-015 unchanged",
+    "frozen 91e258c evidence",
+    "SQLite candidate",
+    "mechanism selection",
+    "01B-2 behavior and version constant"
+  ],
+  "required_next": [
+    "voxproof-storage-systems-reviewer code-depth review",
+    "Append 01B-3 specialist/evidence review before selection-eligible evidence rebuild"
+  ]
+}

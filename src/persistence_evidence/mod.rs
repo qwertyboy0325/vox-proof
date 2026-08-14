@@ -83,14 +83,16 @@ pub use cross_platform::{PlatformMatrixDocument, build_platform_matrix, compare_
 #[cfg(feature = "persistence-spike")]
 pub use current_contract::{
     APPEND_AUTHORITATIVE_CANDIDATE_ID, APPEND_AUTHORITATIVE_CANDIDATE_VERSION,
-    APPEND_AUTHORITATIVE_FORMAT_VERSION, AppendAuthoritativeCandidateAdapter, AppendAuthorityError,
-    AppendAuthoritySession, AppendOpenMode, AppendTailStatus, CleanupPlan,
-    CurrentContractPreconditions, DurableAppendAck, DurableSqliteAck, EVIDENCE_01C_HARNESS_VERSION,
-    OpenedAppendAuthoritySession, OpenedSqliteAuthoritySession, SQLITE_AUTHORITATIVE_CANDIDATE_ID,
-    SQLITE_AUTHORITATIVE_CANDIDATE_VERSION, SQLITE_AUTHORITATIVE_FORMAT_VERSION,
-    SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError, SqliteAuthoritySession,
-    SqliteOpenMode, build_medium_fixture_state, medium_fixture_dimensions, methodology_record,
-    run_01c_evidence,
+    APPEND_AUTHORITATIVE_FORMAT_VERSION, APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
+    AppendAuthoritativeCandidateAdapter, AppendAuthorityError, AppendAuthoritySession,
+    AppendCommandScope, AppendOpenMode, AppendScopedCommand,
+    AppendScopedPreconditionCandidateAdapter, AppendScopedPreconditions, AppendTailStatus,
+    CleanupPlan, CurrentContractPreconditions, DurableAppendAck, DurableSqliteAck,
+    EVIDENCE_01C_HARNESS_VERSION, OpenedAppendAuthoritySession, OpenedSqliteAuthoritySession,
+    SQLITE_AUTHORITATIVE_CANDIDATE_ID, SQLITE_AUTHORITATIVE_CANDIDATE_VERSION,
+    SQLITE_AUTHORITATIVE_FORMAT_VERSION, SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError,
+    SqliteAuthoritySession, SqliteOpenMode, build_medium_fixture_state, infer_command_scope,
+    medium_fixture_dimensions, methodology_record, run_01c_evidence,
 };
 #[cfg(feature = "persistence-spike")]
 pub use durability::{

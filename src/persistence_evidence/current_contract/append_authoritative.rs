@@ -73,6 +73,14 @@ impl OpenedAppendAuthoritySession {
     pub fn normalized_state(&self) -> &CurrentContractState {
         &self.normalized_state
     }
+
+    pub(crate) fn set_normalized_state(&mut self, state: CurrentContractState) {
+        self.normalized_state = state;
+    }
+
+    pub(crate) fn is_writable(&self) -> bool {
+        self.open_mode == AppendOpenMode::Writable
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,7 +103,7 @@ pub struct AppendAuthorityError {
 }
 
 impl AppendAuthorityError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -112,10 +120,10 @@ impl std::fmt::Display for AppendAuthorityError {
 impl std::error::Error for AppendAuthorityError {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct AppendManifest {
-    format_version: u32,
-    session_id: String,
-    committed_sequence: u64,
+pub(crate) struct AppendManifest {
+    pub(crate) format_version: u32,
+    pub(crate) session_id: String,
+    pub(crate) committed_sequence: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,6 +146,7 @@ pub enum AppendOpenMode {
 }
 
 /// Candidate-only append storage surface for package 01B.
+#[derive(Clone)]
 pub struct AppendAuthoritativeCandidateAdapter {
     storage_root: PathBuf,
     adapter_identity: String,
@@ -490,6 +499,32 @@ impl AppendAuthoritativeCandidateAdapter {
             .map_err(|error| io_error("remove-canonical-log", error))
     }
 
+    pub(crate) fn append_committed_state_for_scoped_apply(
+        &self,
+        session: &AppendAuthoritySession,
+        committed_sequence: u64,
+        current_record_count: usize,
+        state: &CurrentContractState,
+        manifest: &AppendManifest,
+        require_manifest_checkpoint: bool,
+    ) -> Result<DurableAppendAck, AppendAuthorityError> {
+        self.append_committed_state(
+            session,
+            committed_sequence,
+            current_record_count,
+            state,
+            manifest,
+            require_manifest_checkpoint,
+        )
+    }
+
+    pub(crate) fn validate_writer_lock_for_scoped_apply(
+        &self,
+        opened: &OpenedAppendAuthoritySession,
+    ) -> Result<(), AppendAuthorityError> {
+        self.validate_writer_lock(opened)
+    }
+
     /// Harness hook: modifies a committed state payload without changing its commit binding.
     pub fn tamper_committed_state_for_test(
         &self,
@@ -664,16 +699,16 @@ impl AppendAuthoritativeCandidateAdapter {
     }
 }
 
-struct ReplayResult {
-    committed_sequence: u64,
-    tail_status: AppendTailStatus,
-    state: CurrentContractState,
-    canonical_fingerprints: BTreeSet<String>,
-    committed_byte_boundary: u64,
-    record_count: usize,
+pub(crate) struct ReplayResult {
+    pub(crate) committed_sequence: u64,
+    pub(crate) tail_status: AppendTailStatus,
+    pub(crate) state: CurrentContractState,
+    pub(crate) canonical_fingerprints: BTreeSet<String>,
+    pub(crate) committed_byte_boundary: u64,
+    pub(crate) record_count: usize,
 }
 
-fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthorityError> {
+pub(crate) fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthorityError> {
     let file = File::open(log_path(session)).map_err(|error| io_error("open-append-log", error))?;
     validate_opened_authority_leaf(&file, "canonical append log")?;
     let file_len = file
@@ -781,7 +816,7 @@ fn replay(session: &AppendAuthoritySession) -> Result<ReplayResult, AppendAuthor
     })
 }
 
-fn recover_committed_prefix(
+pub(crate) fn recover_committed_prefix(
     session: &AppendAuthoritySession,
     replayed: &ReplayResult,
 ) -> Result<(), AppendAuthorityError> {
@@ -799,12 +834,12 @@ fn recover_committed_prefix(
         .map_err(|error| io_error("sync-recovered-prefix", error))
 }
 
-fn canonicalized_state(mut state: CurrentContractState) -> CurrentContractState {
+pub(crate) fn canonicalized_state(mut state: CurrentContractState) -> CurrentContractState {
     finalize_derived_fields(&mut state);
     state.normalize()
 }
 
-fn validate_state(state: &CurrentContractState) -> Result<(), AppendAuthorityError> {
+pub(crate) fn validate_state(state: &CurrentContractState) -> Result<(), AppendAuthorityError> {
     let result = CurrentContractOracle::validate(&canonicalized_state(state.clone()));
     if result.passed {
         Ok(())
@@ -869,7 +904,7 @@ fn creation_marker_path(session: &AppendAuthoritySession) -> PathBuf {
     session.root.join(CREATION_MARKER_NAME)
 }
 
-fn read_manifest(session: &AppendAuthoritySession) -> Result<AppendManifest, AppendAuthorityError> {
+pub(crate) fn read_manifest(session: &AppendAuthoritySession) -> Result<AppendManifest, AppendAuthorityError> {
     let path = manifest_path(session);
     validate_regular_file(&path, "aliased-manifest-path")?;
     let mut file = File::open(&path).map_err(|error| io_error("read-manifest", error))?;
@@ -940,7 +975,7 @@ fn write_manifest(
     fs::rename(&temporary, &path).map_err(|error| io_error("commit-manifest", error))
 }
 
-fn repair_manifest_checkpoint(
+pub(crate) fn repair_manifest_checkpoint(
     session: &AppendAuthoritySession,
     manifest: &AppendManifest,
     committed_sequence: u64,
@@ -950,7 +985,7 @@ fn repair_manifest_checkpoint(
     write_manifest(session, &repaired)
 }
 
-fn validate_manifest(
+pub(crate) fn validate_manifest(
     session: &AppendAuthoritySession,
     manifest: &AppendManifest,
     mode: AppendOpenMode,
