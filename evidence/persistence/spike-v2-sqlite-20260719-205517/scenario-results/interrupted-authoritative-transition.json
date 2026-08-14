@@ -1,0 +1,27 @@
+{
+  "scenario_identity": {
+    "scenario_id": "interrupted-authoritative-transition",
+    "scenario_version": 1,
+    "category": "Recovery",
+    "description": "Interrupt an authoritative transition around acknowledgement",
+    "failure_model": "ProcessInterruption",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Failed",
+  "oracle_result": null,
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 2180,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": null,
+  "limitations": [
+    "committed-only retry reconciliation failed"
+  ],
+  "raw_artifact_references": []
+}

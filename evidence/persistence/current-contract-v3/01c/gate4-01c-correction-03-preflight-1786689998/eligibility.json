@@ -1,0 +1,14 @@
+[
+  {
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-2",
+    "status": "DISQUALIFIED_BY_DEMONSTRATED_FAILURE",
+    "rationale": "semantic-duplication status Failed; 1 correctness disqualification(s)"
+  },
+  {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "status": "DISQUALIFIED_BY_DEMONSTRATED_FAILURE",
+    "rationale": "semantic-duplication status Failed; 1 correctness disqualification(s)"
+  }
+]

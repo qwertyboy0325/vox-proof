@@ -1,0 +1,124 @@
+{
+  "schema_revision": "voxproof-ami-phase-b-pre-review-detached-seal-v1",
+  "zip_filename": "voxproof-v5-phase-b-pre-review-handoff-20260716-090021.zip",
+  "zip_sha256": "4f18816bce826805b3d39737c52d3dd3e935cf6cb2946bbeb40adea8dfdea012",
+  "zip_entry_count": 23,
+  "entries": [
+    {
+      "path": "handoff-summary.json",
+      "sha256": "8b85f301004530dd194fe3302f8478e3846c9d8910cb213b38a07882798edcd7",
+      "bytes": 8242
+    },
+    {
+      "path": "preflight-verification.json",
+      "sha256": "6221f04277eebce5abebab19c9a68e2efd2ba2c0e1257f44d0c1c39c374d896b",
+      "bytes": 871
+    },
+    {
+      "path": "stage-chronology.json",
+      "sha256": "f56735da118e5e4286b516d85b618d226b9e63ec4388cb0ac2f5e45dc6ccbd61",
+      "bytes": 1049
+    },
+    {
+      "path": "phase-b/stage-state.json",
+      "sha256": "b80a9f56b876dad44f612b9fb3c4342742adcfa77b1514209ff47dddbd0a1198",
+      "bytes": 7616
+    },
+    {
+      "path": "phase-b/structural-preflight-report.json",
+      "sha256": "d009e336e2397f185a1aeb0ff4c840b7e9655a0616490766d383d77ce0bac2ac",
+      "bytes": 2843
+    },
+    {
+      "path": "phase-b/build-primary/input.srt",
+      "sha256": "9c996f0a797a5bbc9649576371fbf5439844c2179ee03a626170458736ba315d",
+      "bytes": 16845
+    },
+    {
+      "path": "phase-b/build-primary/layer_manifest.json",
+      "sha256": "808d4435d692606cc3363337ab7c26b918bea4117877908806ad1c90903f5a13",
+      "bytes": 1614
+    },
+    {
+      "path": "phase-b/build-primary/parsed/asr_cues.json",
+      "sha256": "c6c5d512d724f3c2388ca83f61f99177b47e58f6d3ca8e24f4bdee558bc3d53f",
+      "bytes": 97755
+    },
+    {
+      "path": "phase-b/probe/candidate-inventory.json",
+      "sha256": "cb781dcf27558f8b34256a909eadbec793187098933142a7dad34151d2cb0456",
+      "bytes": 1281
+    },
+    {
+      "path": "phase-b/build-primary/reference-layer-manifest.json",
+      "sha256": "59f4e97ee8ef965654fc06a694200cac3ced08cb11838133fdca5f1b6d31abdf",
+      "bytes": 1117
+    },
+    {
+      "path": "phase-b/build-primary/scoring_tokens.json",
+      "sha256": "2e1c42dff3717bc6ec3c0aaf344a6db601b0aa42ff374e5e4c280bc172a742af",
+      "bytes": 39794
+    },
+    {
+      "path": "console/preflight.stdout",
+      "sha256": "952628af694719586be478bc13ddbbd953564afd3df6467509fd603df49aabae",
+      "bytes": 144
+    },
+    {
+      "path": "console/preflight.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/build-binary.stdout",
+      "sha256": "fb0ed4c3fe1d0d330a5b5370fd81e5e87114b5c978516db5ec099d55453833ac",
+      "bytes": 305
+    },
+    {
+      "path": "console/build-binary.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/structural-preflight.stdout",
+      "sha256": "d7d46572063885a7f41fb0fc6d8ae031873a45fff92910cd4fc8f482616d4f66",
+      "bytes": 1131
+    },
+    {
+      "path": "console/structural-preflight.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/hypothesis.stdout",
+      "sha256": "c827cb57cc1fb9803ca90a3dd5daac90c2e6ad0133aa6fa220e37167aec14d85",
+      "bytes": 1456
+    },
+    {
+      "path": "console/hypothesis.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/probe-candidates.stdout",
+      "sha256": "d95ada9e4876fa18031150e6ded464914888b2c848ad3ca972a5c8b83c3ce825",
+      "bytes": 1120
+    },
+    {
+      "path": "console/probe-candidates.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/reference.stdout",
+      "sha256": "2fb5f379fa25566970e314c9beefa383a1ef0d30555e3e4848baef4b7491dd57",
+      "bytes": 1450
+    },
+    {
+      "path": "console/reference.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ],
+  "sealed_at_utc": "2026-07-16T09:00:21Z"
+}

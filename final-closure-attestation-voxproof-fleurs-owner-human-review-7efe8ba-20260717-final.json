@@ -1,0 +1,792 @@
+{
+  "schema": "voxproof-owner-human-review-final-closure-attestation-v1",
+  "created_at_utc": "2026-07-17T08:53:42.665961+00:00",
+  "binding_direction": "This detached attestation verifies the immutable ZIP and final seal. The final seal intentionally does not bind this attestation hash.",
+  "package_filename": "voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.zip",
+  "package_bytes": 88513,
+  "package_sha256": "e57681bf386d819eefe63542d3164448934e03f480e8c824af98cc6a1525e42f",
+  "seal_filename": "package-seal-voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.json",
+  "seal_bytes": 5636,
+  "seal_sha256": "e36f4c6a9b807042d04d08f5a99691b2bd7f9ef5e896f443c7aa2adde11b3151",
+  "entry_count": 58,
+  "entry_manifest_sha256": "cb1b6ed8a184a86b54a80f8588307fd5588d96106a74abe9a5f08ca771b55241",
+  "all_pass": true,
+  "check_count": 155,
+  "checks": [
+    {
+      "name": "zip_size",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "zip_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_bytes_match_file",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_sha256_matches_attestation_input",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_sha256_not_stale_provisional",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_package_filename",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_package_bytes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_package_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_entry_count",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_manifest_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "seal_non_circular_closure_binding",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "zip_entry_count",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "zip_manifest_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "manifest_paths_match_zip",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no_undeclared_entries",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "no_duplicate_entries",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/decision-log.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/decision-log.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/first-case-prompt-capture.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/first-case-prompt-capture.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/interactive-decisions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/interactive-decisions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/interactive-session-metadata.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/interactive-session-metadata.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/interactive-session-state.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/interactive-session-state.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/reviewed-output.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/reviewed-output.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/session-stdout-stderr-capture.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/session-stdout-stderr-capture.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_authoritative-review/session-summary.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_authoritative-review/session-summary.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_build/binary-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_build/binary-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_final-human-review-handoff.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_final-human-review-handoff.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_governance/MD-007-v0.1-establishment-evidence-and-release-gates.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_governance/MD-007-v0.1-establishment-evidence-and-release-gates.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_human-input/.finalized.lock",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_human-input/.finalized.lock",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_human-input/human-final.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_human-input/human-final.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_human-input/human-review-completion.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_human-input/human-review-completion.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_human-input/human-review-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_human-input/human-review-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_inputs/raw.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_inputs/raw.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_inputs/reference-final.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_inputs/reference-final.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/claim-boundary.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/claim-boundary.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/exclusions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/exclusions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/preexisting-untracked-artifacts-baseline.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/preexisting-untracked-artifacts-baseline.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/repository-identity.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/repository-identity.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/source-provenance-bindings.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/source-provenance-bindings.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_metadata/study-identity.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_metadata/study-identity.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/artifact-loss-incident.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/artifact-loss-incident.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/audio-playback-repair-provenance.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/audio-playback-repair-provenance.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/descriptive-distributions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/descriptive-distributions.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/finalized-human-input-binding.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/finalized-human-input-binding.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/handoff-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/handoff-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/human-input-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/human-input-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/materialization-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/materialization-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/md007-gate-evaluation.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/md007-gate-evaluation.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/research-artifact-rehash.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/research-artifact-rehash.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_post-review/reviewer-disclosure-clarification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_post-review/reviewer-disclosure-clarification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_pre-review/canonical-only-session-terms.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_pre-review/canonical-only-session-terms.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_pre-review/pre-review-freeze-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_pre-review/pre-review-freeze-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_pre-review/served-file-inventory.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_pre-review/served-file-inventory.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_pre-review/source-package-seal.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_pre-review/source-package-seal.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/evaluate-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/evaluate-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/evaluate-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/evaluate-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/raw-vs-human-final-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/raw-vs-human-final-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/raw-vs-human-final-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/raw-vs-human-final-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/raw-vs-reviewed-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/raw-vs-reviewed-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/raw-vs-reviewed-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/raw-vs-reviewed-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/report-hashes.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/report-hashes.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_reports/reviewer-reference-disagreement-inventory.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_reports/reviewer-reference-disagreement-inventory.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/README-STUDY-LOCAL-TOOLING.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/README-STUDY-LOCAL-TOOLING.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/served/cues.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/served/cues.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/served/index.html",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/served/index.html",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/served/static/app.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/served/static/app.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/served/static/style.css",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/served/static/style.css",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/server.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/server.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/start-server.sh",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/start-server.sh",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_review-ui/stop-server.sh",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_review-ui/stop-server.sh",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_verification/audio-playback-repair-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_verification/audio-playback-repair-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_verification/audio-playback-repair-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_verification/audio-playback-repair-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_verification/preparation-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_verification/preparation-verification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_verification/verify_package_closure.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_verification/verify_package_closure.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_size_verification/verify_preparation.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "entry_hash_verification/verify_preparation.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "missing_patch_absent",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_human-input/human-review-record.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_human-input/human-final.srt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_human-input/human-review-completion.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_human-input/.finalized.lock",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_post-review/reviewer-disclosure-clarification.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "locked_final-human-review-handoff.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "incident_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "incident_filename",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "incident_size",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "incident_expected_sha256",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "reviewed_contains_asus",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "decision_log_exists",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "session_summary_exists",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_evaluate-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_evaluate-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_raw-vs-human-final-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_raw-vs-human-final-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_raw-vs-reviewed-run1.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "report_hash_raw-vs-reviewed-run2.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "md007_all_pass",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "inventory_language_no_51_physical",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "claim_boundary_blocks_v0_1",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

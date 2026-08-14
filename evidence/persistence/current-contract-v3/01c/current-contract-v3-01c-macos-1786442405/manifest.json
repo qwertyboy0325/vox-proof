@@ -1,0 +1,2904 @@
+{
+  "work_package_id": "VP-GATE4-EVIDENCE-COMPLETION-01C",
+  "harness_semantic_sha": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
+  "environment": {
+    "repository_commit": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
+    "harness_version": "gate4-01c-evidence-v1",
+    "platform_label": "macos_native",
+    "operating_system": "macos",
+    "operating_system_version": "Darwin 27.0.0",
+    "architecture": "aarch64",
+    "execution_environment": "macos-native-host",
+    "filesystem": "apfs-assumed-native",
+    "hardware_summary": "Apple M4 Max",
+    "rustc_version": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "dependency_versions": {
+      "rusqlite": "0.32",
+      "serde": "1",
+      "serde_json": "1"
+    },
+    "timing_source": "std::time::Instant wall clock",
+    "start_timestamp": "1786442420Z",
+    "end_timestamp": "1786442421Z",
+    "configuration": {
+      "feature": "persistence-spike",
+      "measurement_contract_version": "2"
+    }
+  },
+  "methodology": {
+    "freeze_id": "VP-GATE4-EVIDENCE-COMPLETION-01C-methodology-freeze-v1",
+    "harness_version": "gate4-01c-evidence-v1",
+    "work_package_id": "VP-GATE4-EVIDENCE-COMPLETION-01C",
+    "candidates_order": [
+      "current-contract-append-authoritative-candidate",
+      "current-contract-sqlite-authoritative-candidate"
+    ],
+    "fixture_id": "voxproof-persistence-evidence-current-contract",
+    "fixture_version": "3",
+    "oracle_version": "3",
+    "scenario_contract_version": "3",
+    "measurement_contract_version": "2",
+    "small_fixture": "golden_small promoted_active variant",
+    "medium_fixture": "scaled_multi_lifecycle_current_contract_v3",
+    "stress_fixture_policy": "not_implemented_record_limitation",
+    "scenario_execution_order": "scenario_contract_v3 declaration order",
+    "correctness_gate_order": "all required scenarios before any performance samples",
+    "measurement_operation_order": "comparative_measurement_contract declaration order",
+    "warmup_strategy": "contract warmup_count per operation before interleaved samples",
+    "sample_interleaving_strategy": "alternating_per_sample: even sample append-first, odd sqlite-first",
+    "timing_source": "std::time::Instant elapsed wall clock per operation",
+    "peak_memory_strategy": "process peak RSS via getrusage (unix) or GetProcessMemoryInfo PeakWorkingSetSize (windows)",
+    "bytes_read_write_strategy": "unavailable unless candidate-neutral filesystem observation exists",
+    "storage_size_strategy": "recursive byte sum of candidate session storage directory",
+    "environment_metadata_strategy": "capture_environment at run start from live host",
+    "macos_strategy": "native host execution via persistence_evidence_01c_run",
+    "windows_strategy": "github-actions windows-latest workflow step",
+    "comparison_algorithm": "paired within-platform tradeoff report without cross-platform pooling",
+    "missing_metric_policy": "explicit unavailable sentinel; never encode as zero",
+    "capability_dependent_policy": "unsupported capability yields ScenarioExecutionStatus::Unsupported with limitation",
+    "platform_pooling_performed": false
+  },
+  "medium_fixture": {
+    "fixture_id": "voxproof-persistence-evidence-current-contract",
+    "fixture_version": "3",
+    "scale": "medium",
+    "oracle_validated": true,
+    "dimensions": {
+      "analysis_snapshot_count": 2,
+      "detector_count_per_snapshot": 3,
+      "reuse_governance_event_count": 12,
+      "review_case_count": 12,
+      "review_ledger_event_count": 12,
+      "serialized_semantic_size_bytes": 35771,
+      "source_revision_count": 1
+    }
+  },
+  "eligibility": [
+    {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "rationale": "required scenarios completed without correctness disqualification"
+    },
+    {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "rationale": "required scenarios completed without correctness disqualification"
+    }
+  ],
+  "append": {
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-2",
+    "scenario_results": [
+      {
+        "scenario_id": "baseline-create-open-close",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 28,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-review-decision",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 18,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-manual-replacement",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 19,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-promotion-candidate-rejection",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 17,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-promotion",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 20,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-revocation",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 21,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-supersession",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 17,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-review-ledger-command",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 19,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-reuse-governance-command",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 17,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-analysis-attachment-or-selection",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 20,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "concurrent-writer-attempt",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 20,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "writer-crash-and-takeover",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": [
+          "capability verified_writer_ownership_loss not declared"
+        ]
+      },
+      {
+        "scenario_id": "read-only-open-during-writer",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 23,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "unknown-newer-format",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unsupported_version",
+        "open_state": "unsupported_version",
+        "failure_code": null,
+        "elapsed_ms": 27,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "malformed-format-version",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 23,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "canonical-reference-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "manual_review_required",
+        "open_state": "read_only_salvage",
+        "failure_code": null,
+        "elapsed_ms": 20,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "review-ledger-order-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 19,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "reuse-governance-order-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 18,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "source-locator-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "manual_review_required",
+        "open_state": "read_only_salvage",
+        "failure_code": null,
+        "elapsed_ms": 20,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "derived-state-corruption-and-rebuild",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "semantic-duplication",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 39,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-authoritative-review-transition",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-authoritative-reuse-transition",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-compaction",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-cleanup",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": []
+      }
+    ],
+    "measurements": [
+      {
+        "operation": "append_manual_replacement",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_manual_replacement",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_promotion",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_promotion",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_revocation",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_revocation",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_supersession",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_supersession",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_review_decision",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_review_decision",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "close",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "close",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "compaction_where_supported",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "compaction_where_supported",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "create_session",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "create_session",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "derived_rebuild",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "derived_rebuild",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_cold",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_cold",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_warm",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_warm",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "reopen_and_validate",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "reopen_and_validate",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "semantic_duplication",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "semantic_duplication",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-append-authoritative-candidate",
+        "candidate_version": "01B-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      }
+    ],
+    "disqualifications": []
+  },
+  "sqlite": {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "scenario_results": [
+      {
+        "scenario_id": "baseline-create-open-close",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 10,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-review-decision",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 5,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-manual-replacement",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 4,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-promotion-candidate-rejection",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 4,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-promotion",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 4,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-revocation",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 4,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "append-reusable-supersession",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 4,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-review-ledger-command",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-reuse-governance-command",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 7,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "stale-analysis-attachment-or-selection",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "concurrent-writer-attempt",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "writer-crash-and-takeover",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": [
+          "capability verified_writer_ownership_loss not declared"
+        ]
+      },
+      {
+        "scenario_id": "read-only-open-during-writer",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "unknown-newer-format",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unsupported_version",
+        "open_state": "unsupported_version",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "malformed-format-version",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "canonical-reference-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "manual_review_required",
+        "open_state": "read_only_salvage",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "review-ledger-order-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "reuse-governance-order-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "unrecoverable",
+        "open_state": "unrecoverable",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "source-locator-corruption",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "manual_review_required",
+        "open_state": "read_only_salvage",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "derived-state-corruption-and-rebuild",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 8,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "semantic-duplication",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "none",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 10,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-authoritative-review-transition",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 6,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-authoritative-reuse-transition",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "passed",
+        "oracle_compare": true,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 5,
+        "correctness_disqualification": null,
+        "limitations": []
+      },
+      {
+        "scenario_id": "interrupted-compaction",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": [
+          "capability compaction_supported not declared"
+        ]
+      },
+      {
+        "scenario_id": "interrupted-cleanup",
+        "scenario_version": 1,
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "fixture_scale": "small",
+        "status": "unsupported",
+        "oracle_compare": false,
+        "recovery_class": "safe_automatic_recovery",
+        "open_state": "normal",
+        "failure_code": null,
+        "elapsed_ms": 0,
+        "correctness_disqualification": null,
+        "limitations": [
+          "capability destructive_cleanup_supported not declared"
+        ]
+      }
+    ],
+    "measurements": [
+      {
+        "operation": "append_manual_replacement",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_manual_replacement",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_promotion",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_promotion",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_revocation",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_revocation",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_supersession",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_reusable_supersession",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_review_decision",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "append_review_decision",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "close",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "close",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "compaction_where_supported",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "compaction_where_supported",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "create_session",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "create_session",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "derived_rebuild",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "derived_rebuild",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_cold",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_cold",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_warm",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "open_warm",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "reopen_and_validate",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "reopen_and_validate",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "semantic_duplication",
+        "fixture_scale": "small",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      },
+      {
+        "operation": "semantic_duplication",
+        "fixture_scale": "medium",
+        "candidate_id": "current-contract-sqlite-authoritative-candidate",
+        "candidate_version": "01C-SQLITE-2",
+        "platform": "macos_native",
+        "count": 5,
+        "minimum_ms": 0,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "maximum_ms": 0,
+        "failure_count": 5,
+        "peak_memory_bytes": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "bytes_read": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "bytes_written": {
+          "value": null,
+          "status": "unavailable",
+          "reason": "not observed"
+        },
+        "storage_size_before": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        },
+        "storage_size_after": {
+          "value": 0,
+          "status": "available",
+          "reason": null
+        }
+      }
+    ],
+    "disqualifications": []
+  },
+  "comparison": {
+    "platform": "macos_native",
+    "tradeoffs": [],
+    "append_disqualified": false,
+    "sqlite_disqualified": false
+  },
+  "limitations": [
+    "stress fixture not implemented",
+    "bytes_read/bytes_written unavailable"
+  ],
+  "mechanism_comparison_readiness": "ready_for_owner_decision",
+  "mechanism_selection_readiness": "ready_for_owner_decision"
+}

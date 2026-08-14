@@ -1,0 +1,32 @@
+{
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
+  "single_platform_readiness": "not_ready",
+  "limitations": [
+    "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
+    "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
+    "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
+    "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
+    "bytes_read unavailable",
+    "bytes_written unavailable",
+    "compaction_where_supported unsupported for measured candidates",
+    "stress fixture not implemented"
+  ],
+  "blockers": [
+    "scenario writer-crash-and-takeover recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "scenario malformed-format-version recovery_class \"unsupported_version\" != contract unrecoverable",
+    "scenario malformed-format-version open_state \"unsupported_version\" != contract unrecoverable",
+    "required scenario canonical-reference-corruption not passed (Failed)",
+    "required scenario review-ledger-order-corruption not passed (Failed)",
+    "required scenario reuse-governance-order-corruption not passed (Failed)",
+    "required scenario source-locator-corruption not passed (Failed)",
+    "scenario interrupted-authoritative-review-transition recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "scenario interrupted-authoritative-reuse-transition recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "scenario writer-crash-and-takeover recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "scenario malformed-format-version recovery_class \"unsupported_version\" != contract unrecoverable",
+    "scenario malformed-format-version open_state \"unsupported_version\" != contract unrecoverable",
+    "scenario interrupted-authoritative-review-transition recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "scenario interrupted-authoritative-reuse-transition recovery_class \"last_committed_state\" != contract safe_automatic_recovery",
+    "eligibility: candidate disqualified by demonstrated failure"
+  ]
+}

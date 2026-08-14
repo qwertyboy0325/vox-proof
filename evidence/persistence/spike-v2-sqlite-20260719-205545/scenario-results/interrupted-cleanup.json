@@ -1,0 +1,29 @@
+{
+  "scenario_identity": {
+    "scenario_id": "interrupted-cleanup",
+    "scenario_version": 1,
+    "category": "Maintenance",
+    "description": "Interrupt candidate-supported destructive historical cleanup",
+    "failure_model": "ProcessInterruption",
+    "required_capabilities": [
+      "DestructiveHistoricalGc"
+    ],
+    "requirement": "CapabilityDependent",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Unsupported",
+  "oracle_result": null,
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 0,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": null,
+  "limitations": [
+    "cleanup not implemented"
+  ],
+  "raw_artifact_references": []
+}

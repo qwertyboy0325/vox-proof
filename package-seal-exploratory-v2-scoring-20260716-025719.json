@@ -1,0 +1,163 @@
+{
+  "package": "exploratory-v2-scoring",
+  "classification": "post-hoc exploratory fixed-input negative-control evidence",
+  "generated_at_utc": "2026-07-16T02:57:19.275702+00:00",
+  "zip_filename": "voxproof-ami-authoritative-study-2026-07-exploratory-v2-scoring-20260716-025719.zip",
+  "zip_sha256": "20ee80eb97f5bbcd476e5a9511eda442ffcdb1c751e4bcd2330934dae4c447db",
+  "entry_count": 26,
+  "embedded_manifest_sha256": "97bba2baa7a5b122686ec4961d4bcae0755a00cc6a856f84ec16229b39ba3ce9",
+  "entries": [
+    {
+      "path": "inputs/candidate-inventory.json",
+      "sha256": "66819d78720e541aed422e4e40958d5a76519e7e055a014489b6489647795bdf",
+      "bytes": 154
+    },
+    {
+      "path": "inputs/decision-inputs.json",
+      "sha256": "7478e7d941cd6bd87aba625cd1c5f9901e6c207371a2008ec945a356b3f7839f",
+      "bytes": 22
+    },
+    {
+      "path": "inputs/decision-log.txt",
+      "sha256": "d83971e0cffe2262677c7d9497c22e831aee5af09e5bb6200235047ad6d45c6e",
+      "bytes": 25
+    },
+    {
+      "path": "inputs/input.srt",
+      "sha256": "ca220c8a8c9c71c1c08057e7cf364f636bafedd4ec8e87843e3082d0c202d791",
+      "bytes": 8315
+    },
+    {
+      "path": "inputs/metrics.json",
+      "sha256": "6df456734e6357d5461e5871cef5a483eec7e52573caaee3a9b8ae36d13585bb",
+      "bytes": 1675
+    },
+    {
+      "path": "inputs/reviewed-output.srt",
+      "sha256": "ca220c8a8c9c71c1c08057e7cf364f636bafedd4ec8e87843e3082d0c202d791",
+      "bytes": 8315
+    },
+    {
+      "path": "inputs/scoring_tokens.json",
+      "sha256": "a2053f8c7b936fa4941732c378a94dd0e2fcdd7f1fbbf0f0d8a6d4d6409c2241",
+      "bytes": 17298
+    },
+    {
+      "path": "inputs/session-summary.txt",
+      "sha256": "768ae17f8cee387e39e5ae6df126c4642d9c2a5c7cfb41d04c3c5110769ffa8b",
+      "bytes": 1539
+    },
+    {
+      "path": "outputs/alignment-operations.tsv",
+      "sha256": "c7c3cf0b5e3392029f943012146a291b0992587758ab92dc2ddc7453ddf6f401",
+      "bytes": 33826
+    },
+    {
+      "path": "outputs/independent-verifier-output.json",
+      "sha256": "3fff33c57cffc1661a4a365335298513fa6c9587213e4c179379074db1850ccd",
+      "bytes": 1305
+    },
+    {
+      "path": "outputs/independent-verifier-run.txt",
+      "sha256": "3fff33c57cffc1661a4a365335298513fa6c9587213e4c179379074db1850ccd",
+      "bytes": 1305
+    },
+    {
+      "path": "outputs/metrics.json",
+      "sha256": "244628df44595ad30989dea2c5f44a672b5d0909b42f5dcd1092a3ba5b21bb9f",
+      "bytes": 3691
+    },
+    {
+      "path": "outputs/run-summary.json",
+      "sha256": "9a727c07f82dde32a77faba8554861f4d5f6ac8997436acba2221f4cc187145e",
+      "bytes": 516
+    },
+    {
+      "path": "outputs/test-output.txt",
+      "sha256": "b63ec81460164ed60b00a4e1572ffde18a4376b9da145583ac566b0725452a3e",
+      "bytes": 1170
+    },
+    {
+      "path": "package/manifest.json",
+      "sha256": "97bba2baa7a5b122686ec4961d4bcae0755a00cc6a856f84ec16229b39ba3ce9",
+      "bytes": 5012
+    },
+    {
+      "path": "reference/ami_common.py",
+      "sha256": "2548dc949b7b9270143e6d73f5f160e6c209af2eca16a525d25f61d7228db9fa",
+      "bytes": 9931
+    },
+    {
+      "path": "reports/exploratory-report.md",
+      "sha256": "664e20a0f379de69ee7d7499b2198e2745e70a341f5fc788522a7478997e2efa",
+      "bytes": 1702
+    },
+    {
+      "path": "reports/immutable-input-hash-table.json",
+      "sha256": "3a322de236a8a89040b050a19e2aee29f4c49f158776fab5e4232812c7d6104c",
+      "bytes": 2026
+    },
+    {
+      "path": "reports/invariant-report.json",
+      "sha256": "a35b56c6d3b03dc71790c72feb5fca03c56ce7ad3be8bcf1a4ef67081f5fb12a",
+      "bytes": 635
+    },
+    {
+      "path": "reports/scorer-diff.patch",
+      "sha256": "9eaa6cf301c15fbcfe04789b76c6dc04772d66e822f3af4542cdff8084815e29",
+      "bytes": 24104
+    },
+    {
+      "path": "reports/selection-chronology-limitation.md",
+      "sha256": "4199c9c5510b2142ddbf8c471e12043dfb61800602ec34b0080e79585b263e5d",
+      "bytes": 604
+    },
+    {
+      "path": "scripts/alignment_scorer.py",
+      "sha256": "d94dafe5fab58c8aea88e10b436f63cfd20ea3c9bed40e95d0a618c8cef9ac54",
+      "bytes": 13753
+    },
+    {
+      "path": "scripts/independent_verifier.py",
+      "sha256": "4ec67be6b178dc69a010287479bb570a96dc1db437b599f89f031d8cd3e358c1",
+      "bytes": 8189
+    },
+    {
+      "path": "scripts/package_exploratory_v2.py",
+      "sha256": "cbb66458bd045897055ae19f93a5881e21cebf9bc3f6fc313845191d1084cd8f",
+      "bytes": 5545
+    },
+    {
+      "path": "scripts/run_exploratory_v2.py",
+      "sha256": "644ce5b42257cf8d8219893fc928d0a18061eb79c50e5a3172e3ff34f9b9c1ca",
+      "bytes": 10867
+    },
+    {
+      "path": "tests/test_alignment_scorer.py",
+      "sha256": "023e8e55e20c143d0dfbf69f2c10799f7cffd434fb6381bf6574a3de86db5951",
+      "bytes": 5159
+    }
+  ],
+  "verification": {
+    "zip_sha256": "20ee80eb97f5bbcd476e5a9511eda442ffcdb1c751e4bcd2330934dae4c447db",
+    "entry_count": 26,
+    "embedded_manifest_sha256": "97bba2baa7a5b122686ec4961d4bcae0755a00cc6a856f84ec16229b39ba3ce9",
+    "manifest_matches_embedded": true,
+    "entry_hash_mismatches": [],
+    "status": "pass"
+  },
+  "c1_zip_sha256": "3c78e8cf8c19df70aa7c67cf7ab7bb0df1abacd2c9e720359463d74444af0b80",
+  "c1_seal_sha256": "bb83ffa8c401480469c44e35bb4cb40c05ebc30f3ab48ba8a218a6f57e37c901",
+  "scoring_tokens_sha256": "a2053f8c7b936fa4941732c378a94dd0e2fcdd7f1fbbf0f0d8a6d4d6409c2241",
+  "counts": {
+    "N_reference": 705,
+    "H_hypothesis": 699,
+    "matches": 381,
+    "substitutions": 268,
+    "deletions": 56,
+    "insertions": 50,
+    "edit_distance": 374
+  },
+  "wer": 0.5304964539007092,
+  "tie_policy_id": "match-substitution-deletion-insertion-v1"
+}

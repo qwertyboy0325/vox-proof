@@ -1,0 +1,592 @@
+diff --git a/docs/architecture/data-contract.md b/docs/architecture/data-contract.md
+index 7a1d8cc..87c0da8 100644
+--- a/docs/architecture/data-contract.md
++++ b/docs/architecture/data-contract.md
+@@ -1,7 +1,7 @@
+ Status: current
+ Owns: Conceptual domain model and data ownership boundaries.
+ Does not own: Cross-version correction-system product semantics (owned by `product/correction-system-boundaries.md`), final JSON schemas, storage paths, database design, UI state model, or implementation-specific type definitions.
+-Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
++Last reviewed against code: Track 1 local code loop exists. SRT parse/validate, transcript revision identity, effective session-term/detector/config/algorithm analysis identity, native canonical-only session-term entries, source anchors, `AnalysisRun`/`AnalysisSnapshot`, `CandidateSpan`/`CandidateKey`, typed glossary, observed-error-form, and bounded ASCII-Latin phonetic-similarity `Evidence`, non-binding `CandidateAlternative`, exact alias and observed-error-form detectors, the ASCII-Latin phonetic similarity detector, the 1:1 `ReviewCase` wrapper, review decisions, minimal reviewed-output materialization, and session artifacts exist. Durable persistence remains deferred. v0.1 is not established; real-material validation remains pending.
+ 
+ # Conceptual Data Contract
+ 
+@@ -38,6 +38,8 @@ The provisional product terminology distinguishes:
+ 
+ Multiple Domain Collections are allowed by the conceptual product model, although a first runtime may support fewer. Imported, available, selected, and active-for-analysis remain distinct states. The current session-term file is a provisional session-scoped adapter and is not a schema or import format for any of these concepts.
+ 
++The provisional adapter natively represents a canonical-only entry as a canonical term with empty alias and observed-error-form collections. A line may therefore contain a canonical term alone. `alias:` and `error:` prefixes remain required for non-canonical source forms. A canonical-only entry is an effective analysis input, not shorthand for a self-referential alias; those two structures remain distinct in session-term identity. This representation does not establish a public serialization or persistence contract.
++
+ Future session-term, collection, and language-resource adapters may produce a shared resolved terminology input for evidence producers. That intermediate boundary, the refined terminology, and activation/version semantics remain provisional. Product authority, recommendation, and authorization rules are canonical in `product/correction-system-boundaries.md`.
+ 
+ ### Cross-Version Correction-System Placeholders
+diff --git a/docs/architecture/pending-data-contracts.md b/docs/architecture/pending-data-contracts.md
+index 7c056da..cddada8 100644
+--- a/docs/architecture/pending-data-contracts.md
++++ b/docs/architecture/pending-data-contracts.md
+@@ -1,7 +1,7 @@
+ Status: exploratory
+ Owns: Pending data-contract questions, currently converged design direction, explicit constraints, and decision gates before future implementation work.
+ Does not own: Accepted architecture, final schemas, implementation tasks, storage design, current implementation state, or material decisions.
+-Last reviewed against code: v0.1 Track 1 code closed loop, prefixed session-scoped term input with distinct alias and observed-error-form evidence paths, and human-readable session summary exist; real-material/product validation remains pending.
++Last reviewed against code: v0.1 Track 1 code closed loop, native canonical-only and prefixed-source-form session-term input with distinct alias and observed-error-form evidence paths, and human-readable session summary exist; real-material/product validation remains pending.
+ 
+ # Pending Data Contract Decisions
+ 
+@@ -47,10 +47,11 @@ The session summary contains session-scoped run identity, candidate/provenance c
+ The current CLI term input is a provisional, session-scoped UTF-8 line format:
+ 
+ ```text
++canonical term
+ canonical term | alias:alternate form | error:observed ASR form | ...
+ ```
+ 
+-Every source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Domain Collection or pack format. Reusable knowledge schemas and persistence remain deferred.
++A canonical term may appear alone and is represented with empty alias and observed-error-form collections. Every non-canonical source-form field requires an `alias:` or `error:` prefix. Values are trimmed around the prefix boundary while exact Unicode text and case are otherwise preserved. Duplicate or cross-classified source forms are rejected before review. Blank lines and lines beginning with `#` after optional whitespace are ignored. The ASCII `|` is always a delimiter; quoting, escaping, and terms containing a literal `|` are unsupported. Observed forms are user-supplied or human-confirmed session evidence, not automatically learned truth. This is not a Domain Collection or pack format. Reusable knowledge schemas and persistence remain deferred.
+ 
+ ## 2. Current Product Invariants
+ 
+diff --git a/docs/product/v0.1-execution-order.md b/docs/product/v0.1-execution-order.md
+index d6c544d..1c56eef 100644
+--- a/docs/product/v0.1-execution-order.md
++++ b/docs/product/v0.1-execution-order.md
+@@ -1,7 +1,7 @@
+ Status: current
+ Owns: The agreed near-term execution order toward a testable v0.1 closed loop, its global execution goal, its explicit non-goals, the parallel completion-and-validation posture, the pain-point MVP loop targeted by the current phase, the detector evidence ladder and its calibration rules, the conditional GUI boundary, the operational model-use boundary zones, and the validation criteria for the first real-user session.
+ Does not own: v0.1 product scope (owned by `product/v0.1.md`), long-term vision, data contracts, material decisions, or detector semantics.
+-Last reviewed against code/evidence: Track 1 code closed loop, prefixed session-scoped term input, explicit observed-error-form mapping, human-readable session summary with minimum local run metrics, nearby source context in authoritative review prompts (one preceding and one following source cue when available; presentation-only), strict skeleton-compatible raw-versus-final change inventory (`vox-proof compare`), the effective analysis-identity prerequisite, and bounded ASCII-Latin phonetic similarity evidence production are complete. The initial phonetic mechanism-path exercise now includes a zero-candidate AMI path and a reference-supported emitted-candidate FLEURS path. This does not complete broader calibration, mixed zh-EN evaluation, real-user sessions, decided numeric criteria, or v0.1 establishment. Detector-miss joins, category classification, metrics, and mismatched-structure alignment remain incomplete. SessionContext responsibility and policy peer-input/authority boundaries are recorded; the refined pack terminology direction is recorded provisionally. Runtime types, schemas, precedence, activation, persistence, Domain Collections, policies, LLM, automation, and projections remain unimplemented.
++Last reviewed against code/evidence: Track 1 code closed loop, native canonical-only and prefixed-source-form session-term input, explicit observed-error-form mapping, human-readable session summary with minimum local run metrics, nearby source context in authoritative review prompts (one preceding and one following source cue when available; presentation-only), strict skeleton-compatible raw-versus-final change inventory (`vox-proof compare`), the effective analysis-identity prerequisite, and bounded ASCII-Latin phonetic similarity evidence production are complete. The initial phonetic mechanism-path exercise now includes a zero-candidate AMI path and a reference-supported emitted-candidate FLEURS path. This does not complete broader calibration, mixed zh-EN evaluation, real-user sessions, decided numeric criteria, or v0.1 establishment. Detector-miss joins, category classification, metrics, and mismatched-structure alignment remain incomplete. SessionContext responsibility and policy peer-input/authority boundaries are recorded; the refined pack terminology direction is recorded provisionally. Runtime types, schemas, precedence, activation, persistence, Domain Collections, policies, LLM, automation, and projections remain unimplemented.
+ 
+ # v0.1 Execution Order
+ 
+@@ -52,10 +52,11 @@ vox-proof review <input.srt> <session-terms.txt> <reviewed-output.srt> <decision
+ The current CLI requires a provisional, session-scoped UTF-8 term file:
+ 
+ ```text
++canonical term
+ canonical term | alias:alternate form | error:observed ASR form | ...
+ ```
+ 
+-Every non-canonical source form must use either `alias:` or `error:`. Both paths preserve exact Unicode and case and use exact, case-sensitive matching. `error:` forms must be user-supplied or human-confirmed; they are evidence inputs, not ground truth or automatic replacement authority. The current parser also requires at least one prefixed source form for every canonical entry. The FLEURS canonical-only target list therefore used self-referential `alias:<canonical>` entries solely for syntactic compliance; it invented no alternate observed forms. This is a provisional parser/data-contract workaround, not the recommended durable representation of canonical-only phonetic targets. Resolving canonical-only session-term representation remains future v0.1 work and does not authorize a persistence schema. This provisional session format is not automatic learning, correction memory, a Language Pack, persistence format, or product-ready glossary system.
++A line may contain a canonical term alone. Canonical-only entries are represented natively with empty alias and observed-error-form collections; they are effective session-term inputs and are not rewritten as self-referential aliases. Every non-canonical source form must use either `alias:` or `error:`. Both paths preserve exact Unicode and case and use exact, case-sensitive matching. `error:` forms must be user-supplied or human-confirmed; they are evidence inputs, not ground truth or automatic replacement authority. The sealed FLEURS probe predates native canonical-only support and used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; that remains historical sealed-study provenance, not the current required input form. This provisional session format is not automatic learning, correction memory, a Language Pack, persistence format, or product-ready glossary system.
+ 
+ This document records order, not scope. If it conflicts with canonical scope or governance documents, those documents win. Reorder only with an explicit note here.
+ 
+@@ -83,6 +84,7 @@ Implemented:
+ - strict skeleton-compatible raw-versus-final change inventory via `vox-proof compare`
+ - effective canonical analysis identity under MD-004
+ - bounded ASCII-Latin phonetic evidence producer under MD-005
++- native canonical-only session-term entries with empty alias and observed-error-form collections
+ 
+ Track 1 supplies a runnable local code loop. The next build slices make that loop usable for the pain-point MVP and able to emit calibration artifacts. Track 0 still supplies target-cohort evidence when Lead A material becomes available.
+ 
+diff --git a/docs/quality/evaluation.md b/docs/quality/evaluation.md
+index b1d3526..8023e78 100644
+--- a/docs/quality/evaluation.md
++++ b/docs/quality/evaluation.md
+@@ -66,9 +66,9 @@ These package and seal artifacts are local untracked research artifacts; this do
+ 
+ Prohibited interpretations include a true-positive rate, precision or recall, human correctness adjudication, product validation, threshold validation, proof of general effectiveness, or a claim that synthetic reject controls are human decisions.
+ 
+-### Canonical-only session-term limitation
++### Canonical-only session-term provenance
+ 
+-The current session-term parser requires at least one prefixed source form for every canonical entry. The FLEURS canonical-only target list therefore used self-referential `alias:<canonical>` entries solely for syntactic compliance; no alternate observed forms were invented. This is a provisional parser/data-contract workaround, not the recommended durable representation of canonical-only phonetic targets. Resolving canonical-only session-term representation remains future v0.1 work; these observations do not authorize a persistence schema.
++Canonical-only entries are now represented natively with empty alias and observed-error-form collections. Prefixed `alias:` and `error:` fields remain required only for non-canonical source forms. The sealed FLEURS probe ran before this support existed and therefore used self-referential `alias:<canonical>` entries solely for then-required syntactic compliance; no alternate observed forms were invented. Those aliases remain historical sealed-study provenance, not the current required input form, and this implementation change does not rewrite or reinterpret the sealed study or authorize a persistence schema.
+ 
+ ## Fixtures
+ 
+diff --git a/src/analysis.rs b/src/analysis.rs
+index a9277e2..1ce0339 100644
+--- a/src/analysis.rs
++++ b/src/analysis.rs
+@@ -259,6 +259,50 @@ mod tests {
+         assert_eq!(first.snapshot(), second.snapshot());
+     }
+ 
++    #[test]
++    fn canonical_only_session_term_identity_is_deterministic() {
++        let entries = [entry("ASUS", &[], &[])];
++
++        assert_eq!(
++            SessionTermsIdentity::from_entries(&entries),
++            SessionTermsIdentity::from_entries(&entries)
++        );
++    }
++
++    #[test]
++    fn canonical_only_and_self_alias_have_distinct_session_term_identities() {
++        let canonical_only = [entry("ASUS", &[], &[])];
++        let self_alias = [entry("ASUS", &["ASUS"], &[])];
++
++        assert_ne!(
++            SessionTermsIdentity::from_entries(&canonical_only),
++            SessionTermsIdentity::from_entries(&self_alias)
++        );
++    }
++
++    #[test]
++    fn canonical_only_entry_order_changes_session_term_identity() {
++        let first = [entry("ASUS", &[], &[]), entry("Microsoft", &[], &[])];
++        let second = [first[1].clone(), first[0].clone()];
++
++        assert_ne!(
++            SessionTermsIdentity::from_entries(&first),
++            SessionTermsIdentity::from_entries(&second)
++        );
++    }
++
++    #[test]
++    fn canonical_only_entries_bind_into_analysis_snapshot() {
++        let transcript = transcript("ASIS");
++        let entries = [entry("ASUS", &[], &[])];
++        let run = AnalysisRun::for_canonical_session_terms(&transcript, &entries);
++
++        assert_eq!(
++            run.snapshot().session_terms(),
++            SessionTermsIdentity::from_entries(&entries)
++        );
++    }
++
+     #[test]
+     fn transcript_change_changes_snapshot() {
+         let entries = [entry("Apache Kafka", &["Kafka"], &[])];
+diff --git a/src/phonetic.rs b/src/phonetic.rs
+index b13a7b7..7ce3614 100644
+--- a/src/phonetic.rs
++++ b/src/phonetic.rs
+@@ -549,7 +549,7 @@ mod tests {
+     use super::*;
+     use crate::analysis::{
+         AlgorithmIdentity, AnalysisConfigurationIdentity, AnalysisRun,
+-        CanonicalDetectorSetIdentity, DetectorConfigIdentity,
++        CanonicalDetectorSetIdentity, DetectorConfigIdentity, SessionTermsIdentity,
+     };
+     use crate::candidate::{
+         CANONICAL_SESSION_TERM_ALGORITHM, CANONICAL_SESSION_TERM_ANALYSIS_IDENTITY,
+@@ -718,6 +718,76 @@ mod tests {
+         assert_eq!(evidence.comparison.matched_key, "SKL");
+     }
+ 
++    #[test]
++    fn canonical_only_asus_produces_expected_asis_evidence() {
++        let entries = [entry("ASUS", &[], &[])];
++        let transcript = transcript("ASIS");
++        let span = winner_for(&transcript, &entries);
++        let evidence = phonetic_evidence(&span);
++
++        assert_eq!(evidence.observed_surface, "ASIS");
++        assert_eq!(evidence.target_surface, "ASUS");
++        assert_eq!(evidence.target_kind, PhoneticTargetKind::CanonicalTerm);
++        assert_eq!(evidence.canonical_term, "ASUS");
++        assert_eq!(evidence.comparison.edit_distance, 1);
++        assert_eq!(evidence.comparison.ratio_numerator, 3);
++        assert_eq!(evidence.comparison.ratio_denominator, 4);
++        assert_eq!(evidence.comparison.ratio_permille, 750);
++        assert_eq!(evidence.comparison.matched_key, "ASS");
++        assert_eq!(span.alternatives()[0].replacement_text(), "ASUS");
++    }
++
++    #[test]
++    fn canonical_only_and_self_alias_produce_same_canonical_phonetic_case() {
++        let transcript = transcript("ASIS");
++        let canonical_only = [entry("ASUS", &[], &[])];
++        let self_alias = [entry("ASUS", &["ASUS"], &[])];
++
++        assert_ne!(
++            SessionTermsIdentity::from_entries(&canonical_only),
++            SessionTermsIdentity::from_entries(&self_alias)
++        );
++        assert_eq!(
++            run_term_review(&transcript, &canonical_only).expect("canonical-only review"),
++            run_term_review(&transcript, &self_alias).expect("legacy self-alias review")
++        );
++    }
++
++    #[test]
++    fn non_ascii_canonical_only_entry_is_valid_but_not_a_phonetic_target() {
++        let entries = [entry("華碩", &[], &[])];
++        let transcript = transcript("華碩");
++
++        assert!(
++            run_term_review(&transcript, &entries)
++                .expect("valid review")
++                .is_empty()
++        );
++    }
++
++    #[test]
++    fn exact_canonical_occurrence_with_canonical_only_entry_emits_no_case() {
++        let entries = [entry("ASUS", &[], &[])];
++        let transcript = transcript("ASUS");
++        let analysis_run = run(&transcript, &entries);
++
++        assert!(
++            detect_glossary_matches(&analysis_run, &transcript, &entries)
++                .expect("valid exact alias detector")
++                .is_empty()
++        );
++        assert!(
++            detect_observed_error_form_matches(&analysis_run, &transcript, &entries)
++                .expect("valid observed-error detector")
++                .is_empty()
++        );
++        assert!(
++            run_term_review(&transcript, &entries)
++                .expect("valid review")
++                .is_empty()
++        );
++    }
++
+     #[test]
+     fn negative_scale_does_not_match_sql() {
+         let entries = [entry("SQL", &[], &[])];
+@@ -1215,6 +1285,42 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn canonical_only_identity_mismatch_fails_closed_before_findings() {
++        let review_transcript = transcript("ASIS");
++        let canonical_only = [entry("ASUS", &[], &[])];
++        let self_alias = [entry("ASUS", &["ASUS"], &[])];
++        let run = AnalysisRun::for_canonical_session_terms(&review_transcript, &canonical_only);
++
++        assert_eq!(
++            detect_ascii_latin_phonetic_matches(&run, &review_transcript, &self_alias),
++            Err(DetectionError::SessionTermsIdentityMismatch {
++                run_identity: SessionTermsIdentity::from_entries(&canonical_only),
++                provided_identity: SessionTermsIdentity::from_entries(&self_alias),
++            })
++        );
++    }
++
++    #[test]
++    fn canonical_only_review_case_order_and_ids_ignore_entry_order() {
++        let transcript = transcript("ASIS then Postgre sequel");
++        let first = [entry("ASUS", &[], &[]), entry("PostgreSQL", &[], &[])];
++        let second = [first[1].clone(), first[0].clone()];
++
++        let first_cases = run_term_review(&transcript, &first).expect("valid");
++        let second_cases = run_term_review(&transcript, &second).expect("valid");
++
++        assert_eq!(first_cases, second_cases);
++        assert!(!first_cases.is_empty());
++        assert_eq!(
++            first_cases
++                .iter()
++                .map(|review_case| review_case.id().local_index())
++                .collect::<Vec<_>>(),
++            (0..first_cases.len()).collect::<Vec<_>>()
++        );
++    }
++
+     #[test]
+     fn canonical_review_cases_remain_order_independent() {
+         let transcript = transcript("Postgre sequel then Postgres");
+diff --git a/src/session_terms.rs b/src/session_terms.rs
+index 8c270a3..2366e82 100644
+--- a/src/session_terms.rs
++++ b/src/session_terms.rs
+@@ -8,6 +8,9 @@ pub enum SessionTermsError {
+     EmptyCanonicalTerm {
+         line: usize,
+     },
++    /// Legacy compatibility variant. Canonical-only entries are valid and current
++    /// parsing/validation paths do not emit this error solely because source-form
++    /// collections are empty.
+     MissingSourceForm {
+         line: usize,
+     },
+@@ -123,7 +126,7 @@ impl std::error::Error for SessionTermsError {}
+ 
+ /// Parses provisional, session-scoped term input.
+ ///
+-/// Each non-comment line is
++/// Each non-comment line is either `canonical term` or
+ /// `canonical term | alias:alternate form | error:observed ASR form | ...`.
+ /// The ASCII pipe is always a delimiter; quoting and escaping are unsupported.
+ pub fn parse_session_terms(input: &str) -> Result<Vec<SessionTermEntry>, SessionTermsError> {
+@@ -143,9 +146,6 @@ pub fn parse_session_terms(input: &str) -> Result<Vec<SessionTermEntry>, Session
+         if canonical_term.is_empty() {
+             return Err(SessionTermsError::EmptyCanonicalTerm { line });
+         }
+-        if fields.len() == 1 {
+-            return Err(SessionTermsError::MissingSourceForm { line });
+-        }
+ 
+         if let Some(first_line) = canonical_lines.get(canonical_term) {
+             return Err(SessionTermsError::DuplicateCanonicalTerm {
+@@ -275,6 +275,124 @@ mod tests {
+         assert_eq!(entries[0].observed_error_forms, ["澀谷 Sky"]);
+     }
+ 
++    #[test]
++    fn canonical_only_entry_does_not_emit_missing_source_form() {
++        match parse_session_terms("ASUS") {
++            Ok(entries) => {
++                assert_eq!(entries.len(), 1);
++                assert!(entries[0].aliases.is_empty());
++                assert!(entries[0].observed_error_forms.is_empty());
++            }
++            Err(SessionTermsError::MissingSourceForm { .. }) => {
++                panic!("canonical-only entry must not emit MissingSourceForm");
++            }
++            Err(other) => panic!("unexpected parse error: {other}"),
++        }
++    }
++
++    #[test]
++    fn legacy_missing_source_form_variant_remains_available_for_compatibility() {
++        let first = SessionTermsError::MissingSourceForm { line: 3 };
++        let second = SessionTermsError::MissingSourceForm { line: 3 };
++
++        assert_eq!(first, second);
++        assert_eq!(
++            first.to_string(),
++            "invalid session terms at line 3: at least one prefixed alias or observed error form is required"
++        );
++        assert_eq!(format!("{first:?}"), "MissingSourceForm { line: 3 }");
++    }
++
++    #[test]
++    fn valid_canonical_only_paths_never_emit_missing_source_form() {
++        for input in [
++            "ASUS",
++            "Google Translate",
++            "華碩",
++            "ASUS\nApache Kafka | alias:Kafka",
++        ] {
++            match parse_session_terms(input) {
++                Ok(_) => {}
++                Err(SessionTermsError::MissingSourceForm { line }) => {
++                    panic!("input {input:?} must not emit MissingSourceForm at line {line}");
++                }
++                Err(other) => panic!("input {input:?} failed unexpectedly: {other}"),
++            }
++        }
++    }
++
++    #[test]
++    fn canonical_only_pipeline_does_not_emit_missing_source_form() {
++        use crate::pipeline::run_term_review;
++        use crate::srt::parse_srt;
++
++        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nASIS").expect("valid srt");
++        let entries = parse_session_terms("ASUS").expect("canonical-only parse");
++
++        assert!(run_term_review(&transcript, &entries).is_ok());
++    }
++
++    #[test]
++    fn parses_canonical_only_ascii_entry_with_empty_source_forms() {
++        let entries = parse_session_terms("ASUS").expect("valid canonical-only term");
++
++        assert_eq!(
++            entries,
++            [crate::candidate::SessionTermEntry::new(
++                "ASUS",
++                Vec::new(),
++                Vec::new()
++            )]
++        );
++    }
++
++    #[test]
++    fn parses_multi_word_canonical_only_entry() {
++        let entries =
++            parse_session_terms("Google Translate").expect("valid multi-word canonical term");
++
++        assert_eq!(entries[0].canonical_term, "Google Translate");
++        assert!(entries[0].aliases.is_empty());
++        assert!(entries[0].observed_error_forms.is_empty());
++    }
++
++    #[test]
++    fn parses_unicode_canonical_only_entry() {
++        let entries = parse_session_terms("華碩").expect("valid Unicode canonical term");
++
++        assert_eq!(entries[0].canonical_term, "華碩");
++        assert!(entries[0].aliases.is_empty());
++        assert!(entries[0].observed_error_forms.is_empty());
++    }
++
++    #[test]
++    fn parses_mixed_entry_kinds_in_source_order() {
++        let entries = parse_session_terms(
++            "ASUS\nApache Kafka | alias:Kafka\nPostgreSQL | error:post gray sequel",
++        )
++        .expect("valid mixed session terms");
++
++        assert_eq!(
++            entries
++                .iter()
++                .map(|entry| entry.canonical_term.as_str())
++                .collect::<Vec<_>>(),
++            ["ASUS", "Apache Kafka", "PostgreSQL"]
++        );
++        assert!(entries[0].aliases.is_empty());
++        assert_eq!(entries[1].aliases, ["Kafka"]);
++        assert_eq!(entries[2].observed_error_forms, ["post gray sequel"]);
++    }
++
++    #[test]
++    fn legacy_self_referential_alias_remains_explicit_and_parseable() {
++        let entries = parse_session_terms("ASUS | alias:ASUS").expect("valid legacy entry");
++
++        assert_eq!(entries[0].canonical_term, "ASUS");
++        assert_eq!(entries[0].aliases, ["ASUS"]);
++        assert!(entries[0].observed_error_forms.is_empty());
++    }
++
+     #[test]
+     fn trims_surrounding_whitespace() {
+         let entries =
+@@ -302,13 +420,9 @@ mod tests {
+             parse_session_terms(" | Kafka"),
+             Err(SessionTermsError::EmptyCanonicalTerm { line: 1 })
+         );
+-    }
+-
+-    #[test]
+-    fn rejects_entry_with_no_source_forms() {
+         assert_eq!(
+-            parse_session_terms("Apache Kafka"),
+-            Err(SessionTermsError::MissingSourceForm { line: 1 })
++            parse_session_terms("\t | alias:Kafka"),
++            Err(SessionTermsError::EmptyCanonicalTerm { line: 1 })
+         );
+     }
+ 
+diff --git a/tests/cli.rs b/tests/cli.rs
+index 9bdac1e..fb46111 100644
+--- a/tests/cli.rs
++++ b/tests/cli.rs
+@@ -445,6 +445,118 @@ fn review_renders_and_summarizes_phonetic_similarity_case() {
+     assert!(session_summary.contains("ascii-latin-phonetic-similarity @ 0.1.0: 1"));
+ }
+ 
++#[test]
++fn review_rejects_canonical_only_phonetic_case_without_changing_srt() {
++    let dir = temp_dir("review-canonical-only-reject");
++    let input_srt = "1\n00:00:00,000 --> 00:00:01,000\nASIS\n";
++    let input_path = write_input_srt(&dir, input_srt);
++    let terms_path = write_session_terms(&dir, "ASUS\n");
++    let reviewed_path = dir.join("reviewed.srt");
++    let log_path = dir.join("decision-log.txt");
++    let summary_path = dir.join("session-summary.txt");
++
++    let output = run_with_args_and_stdin(
++        &[
++            "review",
++            input_path.to_str().expect("utf8 input path"),
++            terms_path.to_str().expect("utf8 terms path"),
++            reviewed_path.to_str().expect("utf8 reviewed path"),
++            log_path.to_str().expect("utf8 log path"),
++            summary_path.to_str().expect("utf8 summary path"),
++        ],
++        "r\n",
++    );
++
++    assert!(output.status.success(), "{output:?}");
++    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
++    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
++    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
++    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
++
++    assert!(stdout.contains("loaded 1 session term entries"));
++    assert!(stdout.contains("evidence: phonetic similarity 'ASIS' -> 'ASUS' (canonical_term)"));
++    assert!(stdout.contains("distance=1 ratio=3/4 permille=750 matched_key='ASS'"));
++    assert_eq!(reviewed_srt, input_srt);
++    assert!(decision_log.contains("decision: reject"));
++    assert!(session_summary.contains("review_cases_raised: 1"));
++    assert!(session_summary.contains("rejected: 1"));
++    assert!(session_summary.contains("accepted_replacements_materialized: 0"));
++}
++
++#[test]
++fn review_accepts_canonical_only_phonetic_case_and_materializes_target() {
++    let dir = temp_dir("review-canonical-only-accept");
++    let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nASIS\n");
++    let terms_path = write_session_terms(&dir, "ASUS\n");
++    let reviewed_path = dir.join("reviewed.srt");
++    let log_path = dir.join("decision-log.txt");
++    let summary_path = dir.join("session-summary.txt");
++
++    let output = run_with_args_and_stdin(
++        &[
++            "review",
++            input_path.to_str().expect("utf8 input path"),
++            terms_path.to_str().expect("utf8 terms path"),
++            reviewed_path.to_str().expect("utf8 reviewed path"),
++            log_path.to_str().expect("utf8 log path"),
++            summary_path.to_str().expect("utf8 summary path"),
++        ],
++        "a 0\n",
++    );
++
++    assert!(output.status.success(), "{output:?}");
++    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
++    let decision_log = std::fs::read_to_string(&log_path).expect("read decision log");
++    let session_summary = std::fs::read_to_string(&summary_path).expect("read session summary");
++
++    assert_eq!(reviewed_srt, "1\n00:00:00,000 --> 00:00:01,000\nASUS\n");
++    assert!(decision_log.contains("decision: accept_alternative"));
++    assert!(decision_log.contains("alternative_index: 0"));
++    assert!(session_summary.contains("phonetic_similarity: 1"));
++    assert!(session_summary.contains("accepted_alternatives: 1"));
++    assert!(session_summary.contains("accepted_replacements_materialized: 1"));
++    assert!(session_summary.contains("source_segments_affected: 1"));
++}
++
++#[test]
++fn review_accepts_mixed_canonical_only_alias_and_error_form_file() {
++    let dir = temp_dir("review-mixed-session-term-kinds");
++    let input_path = write_input_srt(
++        &dir,
++        "1\n00:00:00,000 --> 00:00:01,000\nASUS\n\n2\n00:00:01,000 --> 00:00:02,000\nKafka\n\n3\n00:00:02,000 --> 00:00:03,000\npost gray sequel\n",
++    );
++    let terms_path = write_session_terms(
++        &dir,
++        "ASUS\nApache Kafka | alias:Kafka\nPostgreSQL | error:post gray sequel\n",
++    );
++    let reviewed_path = dir.join("reviewed.srt");
++    let log_path = dir.join("decision-log.txt");
++    let summary_path = dir.join("session-summary.txt");
++
++    let output = run_with_args_and_stdin(
++        &[
++            "review",
++            input_path.to_str().expect("utf8 input path"),
++            terms_path.to_str().expect("utf8 terms path"),
++            reviewed_path.to_str().expect("utf8 reviewed path"),
++            log_path.to_str().expect("utf8 log path"),
++            summary_path.to_str().expect("utf8 summary path"),
++        ],
++        &"r\n".repeat(20),
++    );
++
++    assert!(output.status.success(), "{output:?}");
++    let stdout = String::from_utf8(output.stdout).expect("utf8 stdout");
++    let reviewed_srt = std::fs::read_to_string(&reviewed_path).expect("read reviewed srt");
++
++    assert!(stdout.contains("loaded 3 session term entries"));
++    assert!(stdout.contains("evidence: glossary alias 'Kafka' for 'Apache Kafka'"));
++    assert!(stdout.contains("evidence: observed error form 'post gray sequel' for 'PostgreSQL'"));
++    assert!(reviewed_srt.contains("\nASUS\n"));
++    assert!(reviewed_srt.contains("\nKafka\n"));
++    assert!(reviewed_srt.contains("\npost gray sequel\n"));
++}
++
+ #[test]
+ fn rejecting_observed_error_form_leaves_source_text_unchanged() {
+     let dir = temp_dir("review-reject-observed-error");
+@@ -566,7 +678,7 @@ fn review_no_cases_writes_reviewed_srt_and_header_only_decision_log() {
+ fn review_invalid_session_terms_fails_before_writing_outputs() {
+     let dir = temp_dir("review-invalid-terms");
+     let input_path = write_input_srt(&dir, "1\n00:00:00,000 --> 00:00:01,000\nI use Kafka");
+-    let terms_path = write_session_terms(&dir, "Apache Kafka");
++    let terms_path = write_session_terms(&dir, "Apache Kafka | alias:");
+     let reviewed_path = dir.join("reviewed.srt");
+     let log_path = dir.join("decision-log.txt");
+     let summary_path = dir.join("session-summary.txt");

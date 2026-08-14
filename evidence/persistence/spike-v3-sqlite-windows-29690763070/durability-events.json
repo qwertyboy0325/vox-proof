@@ -1,0 +1,707 @@
+[
+  {
+    "trial_id": "post-commit-before-ack-process-kill-trial-0",
+    "experiment_id": "post-commit-before-ack-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 0,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_sqlite_commit_before_adapter_ack",
+      "description": "SQLite COMMIT completed; adapter ack not returned",
+      "commit_returned": true,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_sqlite_commit_before_ack",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 137,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-commit-before-ack-process-kill-trial-1",
+    "experiment_id": "post-commit-before-ack-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 1,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_sqlite_commit_before_adapter_ack",
+      "description": "SQLite COMMIT completed; adapter ack not returned",
+      "commit_returned": true,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_sqlite_commit_before_ack",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 138,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-commit-before-ack-process-kill-trial-2",
+    "experiment_id": "post-commit-before-ack-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 2,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_sqlite_commit_before_adapter_ack",
+      "description": "SQLite COMMIT completed; adapter ack not returned",
+      "commit_returned": true,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_sqlite_commit_before_ack",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 141,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-commit-before-ack-process-kill-trial-3",
+    "experiment_id": "post-commit-before-ack-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 3,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_sqlite_commit_before_adapter_ack",
+      "description": "SQLite COMMIT completed; adapter ack not returned",
+      "commit_returned": true,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_sqlite_commit_before_ack",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 137,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-commit-before-ack-process-kill-trial-4",
+    "experiment_id": "post-commit-before-ack-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 4,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_sqlite_commit_before_adapter_ack",
+      "description": "SQLite COMMIT completed; adapter ack not returned",
+      "commit_returned": true,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_sqlite_commit_before_ack",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 142,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "pre-commit-process-kill-trial-0",
+    "experiment_id": "pre-commit-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 0,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "before_sqlite_commit",
+      "description": "Mutation begun; COMMIT not reached",
+      "commit_returned": false,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "before_sqlite_commit",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "ProcessCrashRecovery",
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 152,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "pre-commit-process-kill-trial-1",
+    "experiment_id": "pre-commit-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 1,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "before_sqlite_commit",
+      "description": "Mutation begun; COMMIT not reached",
+      "commit_returned": false,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "before_sqlite_commit",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "ProcessCrashRecovery",
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 142,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "pre-commit-process-kill-trial-2",
+    "experiment_id": "pre-commit-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 2,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "before_sqlite_commit",
+      "description": "Mutation begun; COMMIT not reached",
+      "commit_returned": false,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "before_sqlite_commit",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "ProcessCrashRecovery",
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 181,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "pre-commit-process-kill-trial-3",
+    "experiment_id": "pre-commit-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 3,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "before_sqlite_commit",
+      "description": "Mutation begun; COMMIT not reached",
+      "commit_returned": false,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "before_sqlite_commit",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "ProcessCrashRecovery",
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 127,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "pre-commit-process-kill-trial-4",
+    "experiment_id": "pre-commit-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 4,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "before_sqlite_commit",
+      "description": "Mutation begun; COMMIT not reached",
+      "commit_returned": false,
+      "ack_returned": false,
+      "checkpoint_completed": null,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "before_sqlite_commit",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "ProcessCrashRecovery",
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 130,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "wal-checkpoint-interrupt-trial-0",
+    "experiment_id": "wal-checkpoint-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 0,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_wal_checkpoint_truncate",
+      "description": "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": false,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_checkpoint",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 131
+  },
+  {
+    "trial_id": "wal-checkpoint-interrupt-trial-1",
+    "experiment_id": "wal-checkpoint-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 1,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_wal_checkpoint_truncate",
+      "description": "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": false,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_checkpoint",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 105
+  },
+  {
+    "trial_id": "wal-checkpoint-interrupt-trial-2",
+    "experiment_id": "wal-checkpoint-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 2,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_wal_checkpoint_truncate",
+      "description": "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": false,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_checkpoint",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 108
+  },
+  {
+    "trial_id": "wal-checkpoint-interrupt-trial-3",
+    "experiment_id": "wal-checkpoint-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 3,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_wal_checkpoint_truncate",
+      "description": "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": false,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_checkpoint",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 114
+  },
+  {
+    "trial_id": "wal-checkpoint-interrupt-trial-4",
+    "experiment_id": "wal-checkpoint-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 4,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_wal_checkpoint_truncate",
+      "description": "Fault armed before wal_checkpoint(TRUNCATE) invocation; logical ReturnError",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": false,
+      "rename_completed": null,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_checkpoint",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 106
+  },
+  {
+    "trial_id": "duplication-backup-interrupt-trial-0",
+    "experiment_id": "duplication-backup-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 0,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_online_backup_copy",
+      "description": "Fault armed before backup.run_to_completion; pre-rename temp state",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": null,
+      "rename_completed": false,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_backup_copy",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 75
+  },
+  {
+    "trial_id": "duplication-backup-interrupt-trial-1",
+    "experiment_id": "duplication-backup-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 1,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_online_backup_copy",
+      "description": "Fault armed before backup.run_to_completion; pre-rename temp state",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": null,
+      "rename_completed": false,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_backup_copy",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 71
+  },
+  {
+    "trial_id": "duplication-backup-interrupt-trial-2",
+    "experiment_id": "duplication-backup-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 2,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_online_backup_copy",
+      "description": "Fault armed before backup.run_to_completion; pre-rename temp state",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": null,
+      "rename_completed": false,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_backup_copy",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 68
+  },
+  {
+    "trial_id": "duplication-backup-interrupt-trial-3",
+    "experiment_id": "duplication-backup-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 3,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_online_backup_copy",
+      "description": "Fault armed before backup.run_to_completion; pre-rename temp state",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": null,
+      "rename_completed": false,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_backup_copy",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 73
+  },
+  {
+    "trial_id": "duplication-backup-interrupt-trial-4",
+    "experiment_id": "duplication-backup-interrupt",
+    "platform_label": "windows-github-actions",
+    "trial_index": 4,
+    "interruption_model": "logical_return_error",
+    "sync_boundary": {
+      "boundary_id": "before_online_backup_copy",
+      "description": "Fault armed before backup.run_to_completion; pre-rename temp state",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": null,
+      "rename_completed": false,
+      "directory_sync_performed": false
+    },
+    "fault_point": "during_backup_copy",
+    "outcome": "passed",
+    "oracle_passed": null,
+    "claim_credited": [
+      "InterfaceBehavior"
+    ],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": null,
+    "elapsed_ms": 71
+  },
+  {
+    "trial_id": "post-publication-process-kill-trial-0",
+    "experiment_id": "post-publication-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 0,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_rename_before_return",
+      "description": "fs::rename completed; no parent directory fsync",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": true,
+      "rename_completed": true,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_publish_before_return",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 195,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-publication-process-kill-trial-1",
+    "experiment_id": "post-publication-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 1,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_rename_before_return",
+      "description": "fs::rename completed; no parent directory fsync",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": true,
+      "rename_completed": true,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_publish_before_return",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 170,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-publication-process-kill-trial-2",
+    "experiment_id": "post-publication-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 2,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_rename_before_return",
+      "description": "fs::rename completed; no parent directory fsync",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": true,
+      "rename_completed": true,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_publish_before_return",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 166,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-publication-process-kill-trial-3",
+    "experiment_id": "post-publication-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 3,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_rename_before_return",
+      "description": "fs::rename completed; no parent directory fsync",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": true,
+      "rename_completed": true,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_publish_before_return",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 177,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  },
+  {
+    "trial_id": "post-publication-process-kill-trial-4",
+    "experiment_id": "post-publication-process-kill",
+    "platform_label": "windows-github-actions",
+    "trial_index": 4,
+    "interruption_model": "class_a_process_kill",
+    "sync_boundary": {
+      "boundary_id": "after_rename_before_return",
+      "description": "fs::rename completed; no parent directory fsync",
+      "commit_returned": null,
+      "ack_returned": null,
+      "checkpoint_completed": true,
+      "rename_completed": true,
+      "directory_sync_performed": false
+    },
+    "fault_point": "after_publish_before_return",
+    "outcome": "failed",
+    "oracle_passed": null,
+    "claim_credited": [],
+    "claim_denied": [
+      "FilesystemDurability",
+      "HardwarePowerLoss"
+    ],
+    "failure_reason": "expected intentional process abort, got AbnormalTermination",
+    "elapsed_ms": 196,
+    "process_exit_classification": "AbnormalTermination",
+    "process_exit_code": -1073740791
+  }
+]

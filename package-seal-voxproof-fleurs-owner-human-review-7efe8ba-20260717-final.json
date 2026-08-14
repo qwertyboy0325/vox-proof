@@ -1,0 +1,112 @@
+{
+  "schema_revision": "voxproof-fleurs-owner-human-review-package-seal-v1",
+  "classification": "Qualifying owner-operated real-speech human-correction mechanism evidence under MD-007; not product validation, effectiveness, precision/recall, or v0.1 establishment.",
+  "disclaimer": "Sealed evidence for the completed owner human-review study at repository HEAD 7efe8ba; no human review, compare, evaluate, ASR, build, or verification stage reran during finalization.",
+  "created_at_utc": "2026-07-17T08:48:41.411391+00:00",
+  "repository_head": "7efe8bad77dc2d9f37f613a1660703c0bcf9653c",
+  "study_identity": {
+    "study_root_basename": "voxproof-fleurs-owner-human-review-7efe8ba-20260717T073817Z",
+    "freeze_record": "pre-review/pre-review-freeze-record.json"
+  },
+  "package_filename": "voxproof-fleurs-owner-human-review-7efe8ba-20260717-final.zip",
+  "package_bytes": 88513,
+  "package_sha256": "e57681bf386d819eefe63542d3164448934e03f480e8c824af98cc6a1525e42f",
+  "entry_count": 58,
+  "entry_manifest_storage": "ZIP archive comment",
+  "entry_manifest_sha256": "cb1b6ed8a184a86b54a80f8588307fd5588d96106a74abe9a5f08ca771b55241",
+  "locked_human_artifact_hashes": {
+    "human-review-record.json": "1464db9f8aa58d26e2c3ee123feb473483aaa24673089f9eb71feab560c8f142",
+    "human-final.srt": "98345810e0859e7b10531cad86f3e442c2faedf09e8822c61b9fecb7ff0a66f6",
+    "human-review-completion.json": "bcc6cf543db9de3b5349e028add298aa6cafdc9b56d1194fb75a722cc5e4e503",
+    ".finalized.lock": "31eaaee0db123bbea2b2698e2ac60bb8daeb110361caf3eb1a967e1e6d6a49ad",
+    "reviewer-disclosure-clarification.json": "333397bbfea795d03bf70c1d61b11f6a21b56769d49d33c6f21a2fc7092fd352",
+    "final-human-review-handoff.md": "0f81638ff10c29fd47af9641a0b0002f7ba3486a8c2cca0ff7cf033b75911d23"
+  },
+  "artifact_loss_incident_path": "post-review/artifact-loss-incident.json",
+  "artifact_loss_incident_sha256": "54298c64e66a7592eaa49d19b1ea1f4ca3761ed598373761a6339047aeeb124e",
+  "source_package_bindings": {
+    "schema": "voxproof-owner-human-review-source-bindings-v1",
+    "source_package_zip": {
+      "filename": "voxproof-fleurs-en-positive-control-24363d9-20260717-final.zip",
+      "sha256": "d23bf1b0fc84b7276b98668de660639d500221e44ca30c22fdfd2c57250ee46b",
+      "binding_only": true,
+      "payload_not_included": true
+    },
+    "source_package_seal": {
+      "filename": "package-seal-fleurs-en-positive-control-24363d9-20260717-final.json",
+      "sha256": "05a84e53e859120727118117d9b8b979779d2f95d45b96b4146186b2c16f4164"
+    },
+    "raw_srt": {
+      "path_in_package": "inputs/raw.srt",
+      "sha256": "bb2bdc55b8b988b6d59ea7df2cbe7f276b733cef8da8de5380f12c8dce2b9f2e"
+    },
+    "reference_final_srt": {
+      "path_in_package": "inputs/reference-final.srt",
+      "sha256": "f02546025e7404467ae53aec9b7a0a203ab886d382eb0785f7c62c762276c39a",
+      "classification": "community/reference transcript; not ground truth for correctness adjudication"
+    }
+  },
+  "inventory_interpretation": {
+    "expected_verification_paths": 51,
+    "physical_repo_root_files_before_package": 50,
+    "historical_baseline_missing_count": 1,
+    "does_not_claim_51_physical_files": true
+  },
+  "artifact_loss_status": {
+    "classification": "lost / not exactly recoverable",
+    "missing_filename": "calibration-comparison-v0.patch",
+    "expected_bytes": 42536,
+    "expected_sha256": "67552483588a464219f992b6492e94c7a006a77a6b2981c8089f220a6e9cda4e",
+    "incident_record_path": "post-review/artifact-loss-incident.json",
+    "incident_record_sha256": "54298c64e66a7592eaa49d19b1ea1f4ca3761ed598373761a6339047aeeb124e",
+    "physical_package_contains_missing_patch": false
+  },
+  "claim_boundary": {
+    "artifact_loss": {
+      "missing_filename": "calibration-comparison-v0.patch",
+      "physical_package_contains_missing_patch_bytes": false,
+      "represented_only_by_incident_and_historical_metadata": true
+    },
+    "does_not_establish": [
+      "product effectiveness",
+      "general ASR quality",
+      "precision/recall",
+      "time savings",
+      "target-user validation",
+      "a product GUI",
+      "v0.1 release or establishment"
+    ],
+    "inventory_language": {
+      "does_not_claim_51_physical_files": true,
+      "expected_verification_paths": 51,
+      "physical_repo_root_files_before_package": 50
+    },
+    "reference_final_classification": "community/reference transcript only; not ground truth",
+    "schema": "voxproof-owner-human-review-package-claim-boundary-v1",
+    "study_local_gui_classification": "temporary study-local review tooling; not VoxProof product GUI"
+  },
+  "closure_verification": {
+    "script_in_package": "verification/verify_package_closure.py",
+    "detached_final_attestation_required": true,
+    "binding_direction": "detached closure attestation verifies this final seal; this seal does not bind the attestation hash",
+    "reason": "Avoid circular hash dependency between final seal bytes and detached closure-result bytes."
+  },
+  "no_pipeline_or_model_stage_rerun_during_finalization": true,
+  "excluded_heavyweight_artifacts": [
+    ".git",
+    "Cargo target directories and intermediates beyond binary-record.json",
+    "Python virtual environments and caches",
+    "__pycache__",
+    ".pytest_cache",
+    "temporary browser state",
+    "OS metadata",
+    "review-ui/server.log",
+    "authoritative-review/interactive-session.pid",
+    "verification/pre-repair-backup trees",
+    "full FLEURS source package payload",
+    "audio/WAV files",
+    "unrelated repo-root research ZIPs/seals/patches",
+    "calibration-comparison-v0.patch bytes",
+    "build/cargo-target tree"
+  ]
+}

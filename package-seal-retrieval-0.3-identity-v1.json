@@ -1,0 +1,9 @@
+{
+  "zip_filename": "voxproof-context-study-2026-07-reviewer-identity-report-20260716-081612.zip",
+  "zip_sha256": "c49f8745701ea7b50f2270b15d00cb1d2878624db6a1366ae7f741877522f3ae",
+  "zip_entry_count": 20,
+  "embedded_manifest_filename": "voxproof-context-study-2026-07/identity-validated-single-request-v1/output-manifest-retrieval-0.3-identity-v1.json",
+  "embedded_manifest_sha256": "c42d22102d51dd80cf110c512b3a2e2628236d4a385258846f723ea6674458f1",
+  "sealed_at_utc": "2026-07-16T00:16:12Z",
+  "note": "Detached seal recorded after final ZIP build; ZIP was not modified afterward."
+}

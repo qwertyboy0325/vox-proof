@@ -1,0 +1,15 @@
+{
+  "fixture_id": "voxproof-persistence-evidence-current-contract",
+  "fixture_version": "3",
+  "scale": "medium",
+  "oracle_validated": true,
+  "dimensions": {
+    "analysis_snapshot_count": 2,
+    "detector_count_per_snapshot": 3,
+    "reuse_governance_event_count": 12,
+    "review_case_count": 12,
+    "review_ledger_event_count": 12,
+    "serialized_semantic_size_bytes": 35771,
+    "source_revision_count": 1
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "scenario_identity": {
+    "scenario_id": "interrupted-authoritative-transition",
+    "scenario_version": 1,
+    "category": "Recovery",
+    "description": "Interrupt an authoritative transition around acknowledgement",
+    "failure_model": "ProcessInterruption",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": null,
+    "actual_fingerprint": "",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 2184,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": "SafeAutomaticRecovery",
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/interrupted-authoritative-transition.json"
+  ],
+  "achieved_evidence_strength": [
+    "InterfaceBehavior",
+    "ProcessCrashRecovery",
+    "LogicalStateTransition"
+  ],
+  "process_interruption_performed": true,
+  "reopen_performed": true
+}

@@ -1,0 +1,57 @@
+{
+  "binary_sha256": "a8aa686a0f943a9e7896913b7a3742c4f4148455ac914df9b6e76825fd17b9fc",
+  "classification": "Exploratory public real-speech positive-control for the committed bounded ASCII-Latin phonetic evidence producer only.",
+  "corrected_final_report_sha256": "eb99c00403df6b9641d2e5d357e09090c8734def4e3c4f9e1440a061abb6b650",
+  "creation_utc": "2026-07-17T04:02:21.033222+00:00",
+  "disclaimer": "Exploratory mechanism positive-control only; this package is not product validation, an effectiveness claim, or a general ASR claim.",
+  "entry_manifest_external_relative_path": "finalization/entry-manifest.json",
+  "entry_manifest_sha256": "c0395f00ea6f9ef58ca08c45fd48f573f3d2428818dc89a1438ad2754aa0108a",
+  "entry_manifest_storage": "ZIP archive comment",
+  "excluded_heavyweight_artifacts": [
+    {
+      "bytes": 1380572241,
+      "item": "phase-b/train.tar.gz",
+      "reason": "Full 1.38 GB FLEURS audio archive is heavyweight; official pinned URL, byte size, SHA-256, and hashes of all 15 included selected WAV members are sufficient for source binding.",
+      "sha256": "5f4491948c2bd29ac00f4b8afae2378f0a1dcdde4041b5cd284a80dff01fa9f5",
+      "source_url": "https://huggingface.co/datasets/google/fleurs/resolve/ab93cf03f9d0cd083c853fad065a6377067408aa/data/en_us/audio/train.tar.gz"
+    },
+    {
+      "bytes": 483615683,
+      "item": "whisper-models/small.en.pt",
+      "model": "small.en",
+      "reason": "Whisper model is heavyweight and redistributability is outside this package; ASR configuration records model identity, bytes, and SHA-256.",
+      "sha256": "f953ad0fd29cacd07d5a9eda5624af0f6bcf2258be67c92b79389873d91e0872"
+    },
+    {
+      "included_binary_sha256": "a8aa686a0f943a9e7896913b7a3742c4f4148455ac914df9b6e76825fd17b9fc",
+      "item": "build/cargo-target except exact build/vox-proof entry",
+      "reason": "Intermediate Cargo products and dependency caches are not required; the exact executable, its SHA-256/size, binary provenance record, and repository HEAD bind the executable used.",
+      "repository_head": "24363d9bee93d20ed46d05e3bfa8f6cf0841cc3f"
+    },
+    {
+      "item": "external Python virtual environment and caches",
+      "reason": "Environment/cache trees are not study evidence; ASR package version, model hash, inference configuration, raw ASR manifest, and selected WAV hashes are included."
+    }
+  ],
+  "no_pipeline_or_model_stage_rerun_during_finalization": true,
+  "package_bytes": 9517058,
+  "package_filename": "voxproof-fleurs-en-positive-control-24363d9-20260717-final.zip",
+  "package_sha256": "d23bf1b0fc84b7276b98668de660639d500221e44ca30c22fdfd2c57250ee46b",
+  "parser_sha256": "ec8651d542dd4e687c2655c3944bc681ba5ba053698300a0f634e7b9df61ce35",
+  "raw_srt": {
+    "file_sha256": "bb2bdc55b8b988b6d59ea7df2cbe7f276b733cef8da8de5380f12c8dce2b9f2e",
+    "transcript_revision_id": "rev:sha256-v1:f4fd816eee5e5e859d78ed143126b6737064d36c245d0dba18f74a577968ad14"
+  },
+  "reference_final_srt": {
+    "file_sha256": "f02546025e7404467ae53aec9b7a0a203ab886d382eb0785f7c62c762276c39a",
+    "transcript_revision_id": "rev:sha256-v1:2b9532648beaafe44ebc72c641e9aac3206258a4badf3454d523a9209b752641"
+  },
+  "repository_head": "24363d9bee93d20ed46d05e3bfa8f6cf0841cc3f",
+  "schema_revision": "voxproof-fleurs-positive-control-package-seal-v1",
+  "study_root_identity": {
+    "freeze_time_utc": "2026-07-17T03:45:50.813058+00:00",
+    "path": "/private/tmp/voxproof-fleurs-en-positive-control-24363d9-20260717T034326Z",
+    "selection_digest_sha256": "d92041c667f8f3f102f8d0c49856847d6640b786fb79f5162ded3572c23b6948"
+  },
+  "zip_entry_count": 64
+}

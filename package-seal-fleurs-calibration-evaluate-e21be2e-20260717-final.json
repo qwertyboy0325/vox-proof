@@ -1,0 +1,57 @@
+{
+  "schema_revision": "voxproof-fleurs-calibration-evaluate-package-seal-v1",
+  "classification": "Exploratory mechanism-level calibration correspondence evaluate probe only; not product validation, ground truth, correctness adjudication, precision/recall, detector effectiveness, or a v0.1 release claim.",
+  "disclaimer": "Sealed evidence for the completed FLEURS calibration-evaluate probe at repository HEAD e21be2e; no pipeline, model, build, evaluate, compare, review, or verification stage reran during finalization.",
+  "creation_utc": "2026-07-17T06:52:48.298122+00:00",
+  "study_root": "/private/tmp/voxproof-fleurs-calibration-evaluate-e21be2e-20260717T064024Z",
+  "repository_head": "e21be2e8fb337f30c1fcff6be26eba499fbfab23",
+  "package_filename": "voxproof-fleurs-calibration-evaluate-e21be2e-20260717-final.zip",
+  "package_sha256": "8d345e4009ffa7684d16d3b3976ac4f812c15509f05a089ccc2abfdc63c54d26",
+  "package_bytes": 34304,
+  "zip_entry_count": 22,
+  "entry_manifest_storage": "ZIP archive comment",
+  "entry_manifest_sha256": "58c96c8b25aaf9ba57eef4c33ea6442f9d328287abb059b1967041048189313a",
+  "final_handoff_sha256": "2c0e9520918152ce15480ab26668c7876b5185f68db12829523faceb68309cfd",
+  "evaluation_report_sha256": "5c2d2d5b45447415e0e8b10e9b16e764f0dc68e69f889fa887591a14c2c55e15",
+  "evaluation_reports_byte_identical": true,
+  "source_positive_control_zip_sha256": "d23bf1b0fc84b7276b98668de660639d500221e44ca30c22fdfd2c57250ee46b",
+  "source_positive_control_seal_sha256": "05a84e53e859120727118117d9b8b979779d2f95d45b96b4146186b2c16f4164",
+  "raw_srt": {
+    "file_sha256": "bb2bdc55b8b988b6d59ea7df2cbe7f276b733cef8da8de5380f12c8dce2b9f2e",
+    "transcript_revision_id": "rev:sha256-v1:f4fd816eee5e5e859d78ed143126b6737064d36c245d0dba18f74a577968ad14"
+  },
+  "reference_final_srt": {
+    "file_sha256": "f02546025e7404467ae53aec9b7a0a203ab886d382eb0785f7c62c762276c39a",
+    "transcript_revision_id": "rev:sha256-v1:2b9532648beaafe44ebc72c641e9aac3206258a4badf3454d523a9209b752641"
+  },
+  "projected_session_terms_identity": "session-terms:sha256-v1:1b9750bdcdd756a82618caaa40f0767563f8d7558b5dee648865c9a9174a57c5",
+  "binary_sha256": "6e06589909bfe11858152ea6dfd433d1b79de11cdec86d7b0976e4aa048b1fc7",
+  "no_pipeline_or_model_stage_rerun_during_finalization": true,
+  "excluded_heavyweight_artifacts": [
+    {
+      "item": "all WAV/audio files",
+      "reason": "Audio not required to audit evaluate correspondence outputs."
+    },
+    {
+      "item": "source positive-control ZIP payload",
+      "sha256": "d23bf1b0fc84b7276b98668de660639d500221e44ca30c22fdfd2c57250ee46b",
+      "reason": "Heavyweight authoritative input hash-bound only."
+    },
+    {
+      "item": "Cargo target directories and intermediates",
+      "reason": "Build metadata and binary SHA-256 bind the executable used."
+    },
+    {
+      "item": "Whisper model and Python environments",
+      "reason": "Evaluate probe does not require ASR rerun."
+    },
+    {
+      "item": "AMI material and unrelated repository artifacts",
+      "reason": "Out of probe scope."
+    },
+    {
+      "item": "full extracted source-package tree beyond bound inputs/metadata",
+      "reason": "Only audit-relevant inputs and bindings included."
+    }
+  ]
+}

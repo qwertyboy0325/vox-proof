@@ -1,0 +1,69 @@
+{
+  "schema_revision": "voxproof-ami-detached-seal-v1",
+  "zip_filename": "voxproof-v4-phase-b-pre-review-handoff-20260716-083648.zip",
+  "zip_sha256": "07c360764b4a6a34390c6abc5eec36d8efa25942342f95469b2e3474d11a4b1e",
+  "zip_entry_count": 12,
+  "entries": [
+    {
+      "path": "console/build-binary.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/build-binary.stdout",
+      "sha256": "fed771a2e7f97a9d6fe0f32fd9aeb3fbb8659025548157421d7666a6c40cc8ab",
+      "bytes": 305
+    },
+    {
+      "path": "console/preflight.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/preflight.stdout",
+      "sha256": "952628af694719586be478bc13ddbbd953564afd3df6467509fd603df49aabae",
+      "bytes": 144
+    },
+    {
+      "path": "console/structural-preflight.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "console/structural-preflight.stdout",
+      "sha256": "af5ffa3a1f1bbf94d17cf59d6eef928efb94b1be8539ca5d7b10bab91aec1174",
+      "bytes": 1002889
+    },
+    {
+      "path": "failure-record.json",
+      "sha256": "9bddf194f8de67d832af6ab4e0eb8d728761aabae027912e17c8b1508d07a19b",
+      "bytes": 1003166
+    },
+    {
+      "path": "handoff-summary.json",
+      "sha256": "a3ee9145cbc5c33e44e9f85657ced428078433cb5d66ddc9235be8a615db3c8e",
+      "bytes": 3689
+    },
+    {
+      "path": "preflight-verification.json",
+      "sha256": "a9b844acc8bbb90fd1e84911e2420c27d9f344c179235fe106188b3305f7291e",
+      "bytes": 3628
+    },
+    {
+      "path": "stage-chronology.json",
+      "sha256": "89c7a564ba9985ef7a47b616221a49ba555f6839066ea2f12da503e1977a8e8f",
+      "bytes": 518
+    },
+    {
+      "path": "stage-state.json",
+      "sha256": "0683a46f73fcd690dbf6c105ddb23b141b8653cb246af7e576a15d827ba4f82a",
+      "bytes": 1236
+    },
+    {
+      "path": "structural-preflight-report.json",
+      "sha256": "a05057f82f264296b38742af9dbfe80c8b8596f7dec143a9e2ba83c9c9aa87f8",
+      "bytes": 1058397
+    }
+  ],
+  "sealed_at_utc": "2026-07-16T08:37:25Z"
+}

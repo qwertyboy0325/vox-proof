@@ -1,0 +1,14 @@
+{
+  "architecture": "aarch64",
+  "child_termination_mechanism": "std::process::abort",
+  "design_contract_version": "sqlite-design-v1",
+  "implementation_baseline": "persistence-package-2b-sqlite-implementation",
+  "platform": "macos",
+  "process_topology": "parent-controller + persistence_evidence_worker child",
+  "repository_commit": "c550154f267997640716a9e3131600e0ec5fd511",
+  "run_id": "spike-v2-sqlite-20260719-204928",
+  "rusqlite_version": "0.32",
+  "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "scenario_contract_version": "4",
+  "sqlite_version": "bundled-with-rusqlite-0.32"
+}

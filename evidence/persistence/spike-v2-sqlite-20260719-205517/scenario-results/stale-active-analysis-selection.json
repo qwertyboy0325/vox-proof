@@ -1,0 +1,39 @@
+{
+  "scenario_identity": {
+    "scenario_id": "stale-active-analysis-selection",
+    "scenario_version": 1,
+    "category": "Concurrency",
+    "description": "Reject a stale active-analysis selection",
+    "failure_model": "ConcurrentAccess",
+    "required_capabilities": [],
+    "requirement": "Required",
+    "evidence_kind": "SemanticCorrectness"
+  },
+  "status": "Passed",
+  "oracle_result": {
+    "passed": true,
+    "violations": [],
+    "warnings": [],
+    "expected_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
+    "actual_fingerprint": "semantic:sha256-v1:dc572cbb60994b6643f627ef78cd8868baaf380ccc4d54e74d6553b22ff7e773",
+    "oracle_version": "2"
+  },
+  "measurements": {
+    "scenario_elapsed_ms": {
+      "Integer": {
+        "value": 9,
+        "unit": "ms"
+      }
+    }
+  },
+  "failure_classification": null,
+  "limitations": [],
+  "raw_artifact_references": [
+    "scenario-results/stale-active-analysis-selection.json"
+  ],
+  "achieved_evidence_strength": [
+    "InterfaceBehavior"
+  ],
+  "process_interruption_performed": false,
+  "reopen_performed": true
+}

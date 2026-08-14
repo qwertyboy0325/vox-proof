@@ -1,0 +1,102 @@
+{
+  "embedded_manifest_sha256": "031d7fb0352afb3155b343af7bb3572249c1279630387217f066fd601122afc3",
+  "entries": [
+    {
+      "bytes": 1252592,
+      "path": "cue-side-by-side-worksheet.json",
+      "sha256": "46476017b15aba4db78fc28507dfe09352c1f507d92202509c7aea98e4aecb4d"
+    },
+    {
+      "bytes": 379,
+      "path": "draft-inputs/candidate-labels.json",
+      "sha256": "9bbd71f6c1f47f04597f5c753e8c29a13759bf0fa8764ee0f696ce54d08625b3"
+    },
+    {
+      "bytes": 424,
+      "path": "draft-inputs/decision-inputs.json",
+      "sha256": "46cd060744669c66ff4dcd6c0dc294cc9ff870c7dee31419f3c139a43cec69b2"
+    },
+    {
+      "bytes": 988,
+      "path": "draft-inputs/ground-truth.json",
+      "sha256": "0e58ade31f4923ea2079cebc74f30b97510872e3aacacda917dd0441e94013bf"
+    },
+    {
+      "bytes": 1974,
+      "path": "execution-anomaly-record.json",
+      "sha256": "2b2554c8b77212fbd45208f17e88c45a3d608ae1aa2046b77bad8071d9d75392"
+    },
+    {
+      "bytes": 410979,
+      "path": "glossary-review-table.json",
+      "sha256": "c50bc89585389ee3efb82461e5c9edf5c6b80886b6c4625d4499b8cd157c2ac9"
+    },
+    {
+      "bytes": 3277,
+      "path": "immutable-source-index.json",
+      "sha256": "79f8a97a4922f03e1a00b04145ab0ace310afdd6e190ad03ff56239080acc5b4"
+    },
+    {
+      "bytes": 97755,
+      "path": "sources/asr_cues.json",
+      "sha256": "c6c5d512d724f3c2388ca83f61f99177b47e58f6d3ca8e24f4bdee558bc3d53f"
+    },
+    {
+      "bytes": 1281,
+      "path": "sources/candidate-inventory.json",
+      "sha256": "cb781dcf27558f8b34256a909eadbec793187098933142a7dad34151d2cb0456"
+    },
+    {
+      "bytes": 1868162,
+      "path": "sources/hypothesis_tokens.jsonl",
+      "sha256": "c89895c11402061785351ff92a3e607fec802e7c3841ddce45b005dcdb84d66b"
+    },
+    {
+      "bytes": 16845,
+      "path": "sources/input.srt",
+      "sha256": "9c996f0a797a5bbc9649576371fbf5439844c2179ee03a626170458736ba315d"
+    },
+    {
+      "bytes": 1614,
+      "path": "sources/layer_manifest.json",
+      "sha256": "808d4435d692606cc3363337ab7c26b918bea4117877908806ad1c90903f5a13"
+    },
+    {
+      "bytes": 1117,
+      "path": "sources/reference-layer-manifest.json",
+      "sha256": "59f4e97ee8ef965654fc06a694200cac3ced08cb11838133fdca5f1b6d31abdf"
+    },
+    {
+      "bytes": 1409957,
+      "path": "sources/reference_tokens.jsonl",
+      "sha256": "1f2a46e31241e53e30843011be2332923dd74aa4edca96de28c13114ef5aedbc"
+    },
+    {
+      "bytes": 39794,
+      "path": "sources/scoring_tokens.json",
+      "sha256": "2e1c42dff3717bc6ec3c0aaf344a6db601b0aa42ff374e5e4c280bc172a742af"
+    },
+    {
+      "bytes": 7616,
+      "path": "sources/stage-state.json",
+      "sha256": "b80a9f56b876dad44f612b9fb3c4342742adcfa77b1514209ff47dddbd0a1198"
+    },
+    {
+      "bytes": 2843,
+      "path": "sources/structural-preflight-report.json",
+      "sha256": "d009e336e2397f185a1aeb0ff4c840b7e9655a0616490766d383d77ce0bac2ac"
+    },
+    {
+      "bytes": 2961,
+      "path": "manifest.json",
+      "sha256": "031d7fb0352afb3155b343af7bb3572249c1279630387217f066fd601122afc3"
+    }
+  ],
+  "no_model_api_calls": true,
+  "no_pipeline_stage_executed": true,
+  "schema_revision": "voxproof-ami-v5-human-review-packet-detached-seal-v1",
+  "sealed_at_utc": "2026-07-16T09:08:32Z",
+  "zip_entry_count": 18,
+  "zip_filename": "voxproof-v5-human-review-packet-20260716-090831.zip",
+  "zip_sha256": "70cc1a5f5fc16699a5483f18c3661f5d8b558c644f733e5313d28d53bc78d320"
+}

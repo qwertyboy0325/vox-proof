@@ -1,0 +1,10 @@
+{
+  "candidate.json": "sha256:4468b3e2c0cd57dfe3fae41fbff160c589960a3107e8efaa54f8fbf65d2fa1b9",
+  "commands.json": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "environment.json": "sha256:82dfc6305dea18ad941a5bf0f3d5e856f0261a75afb3e3b7fa21cd90fb7d6ea6",
+  "fault-executions.json": "sha256:0afb2a5f3fa9a9452a29582a80482952a46f7bd0f7c24b1ef8f12bf708e92930",
+  "manifest.json": "sha256:cbf8c67c4efd2695475d81ab38270733640c7cc78f6f8cb67c85e443902c7c1a",
+  "oracle-observations.json": "sha256:144d647e7fbe0904b468f18e9f07fe26fca7f7622dd082304278279bce15e11b",
+  "process-events.json": "sha256:a60172152a8f1aec64af7eb06a162fc55a5f7be957cf0a5a76c471b0c6364388",
+  "scenario-results.json": "sha256:acd7f0f2ff6fa2e41eff62bb3866b30c454b27b5c88b93dcc6181d51d55ebb9d"
+}

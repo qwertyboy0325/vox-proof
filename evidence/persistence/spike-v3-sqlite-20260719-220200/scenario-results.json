@@ -1,0 +1,16 @@
+{
+  "macos": {
+    "failed": 0,
+    "inconclusive": 0,
+    "not_run": 0,
+    "passed": 10,
+    "unsupported": 0
+  },
+  "windows": {
+    "failed": 0,
+    "inconclusive": 0,
+    "not_run": 0,
+    "passed": 10,
+    "unsupported": 0
+  }
+}

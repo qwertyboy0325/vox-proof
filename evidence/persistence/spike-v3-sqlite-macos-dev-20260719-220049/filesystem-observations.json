@@ -1,0 +1,7 @@
+{
+  "directory_sync_capability": {
+    "note": "publication uses fs::rename without parent directory fsync",
+    "parent_directory_fsync": false
+  },
+  "note": "synchronous=FULL does not imply stable storage proof"
+}

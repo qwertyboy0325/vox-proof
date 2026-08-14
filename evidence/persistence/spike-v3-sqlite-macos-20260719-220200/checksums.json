@@ -1,0 +1,10 @@
+{
+  "candidate.json": "sha256:4468b3e2c0cd57dfe3fae41fbff160c589960a3107e8efaa54f8fbf65d2fa1b9",
+  "commands.json": "sha256:e71f8cd49c5f58e42c1edd299711907a28f9f0204886f963aeaebf8097162c99",
+  "durability-events.json": "sha256:6304958487f53a6c0943cd479d39222fabe1a34fa8746bbe50419b0c19dd1263",
+  "environment.json": "sha256:369319083646fd55007915ad0c61b54c04a2fc0f5fd3c3fcfee8fb7f6289fbe5",
+  "filesystem-observations.json": "sha256:9e5e64511afa397d6ae08d2d00b79325691a1a1e6f6a8b4482713135bd933b40",
+  "manifest.json": "sha256:c436128948baabc66da48d4f8b200de0bd00edf83bba3beab105455f349ec01b",
+  "scenario-results.json": "sha256:4aa734b1114c4df93e766d6cd8908695a9d40b933607fb096c03439b6651e8ed",
+  "trial-results.json": "sha256:6304958487f53a6c0943cd479d39222fabe1a34fa8746bbe50419b0c19dd1263"
+}

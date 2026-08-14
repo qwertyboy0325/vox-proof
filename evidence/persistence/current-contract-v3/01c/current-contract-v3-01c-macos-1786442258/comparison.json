@@ -1,0 +1,6 @@
+{
+  "platform": "macos_native",
+  "tradeoffs": [],
+  "append_disqualified": true,
+  "sqlite_disqualified": true
+}

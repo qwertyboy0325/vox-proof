@@ -1,0 +1,30 @@
+{
+  "selection_validity": "not_ready_for_selection",
+  "harness_semantic_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
+  "harness_version": "gate4-01c-evidence-v4",
+  "evidence_record_sha": "see_git_commit_preserving_this_directory",
+  "verdict": "NOT_READY_01C_EVIDENCE",
+  "reason": [
+    "required scenario semantic-duplication not passed (Failed)",
+    "required scenario semantic-duplication not passed (Failed)"
+  ],
+  "invalid_evidence_chain": [
+    {
+      "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+      "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
+      "verdict": "BLOCKED_01C_EVIDENCE"
+    },
+    {
+      "harness_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+      "evidence_record_sha": "see_gate4-01c-b2569a0_negative_evidence",
+      "verdict": "BLOCKED_01C_EVIDENCE"
+    },
+    {
+      "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+      "evidence_record_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
+      "verdict": "invalid_for_gate_preserve"
+    }
+  ],
+  "preserve_raw_artifacts": true,
+  "note": "Correction-03 harness at e487a0bbaa4e75ac088e47bb48715b453afe82d9. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
+}
