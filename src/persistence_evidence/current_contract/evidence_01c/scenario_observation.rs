@@ -118,7 +118,7 @@ impl Fcr03UnrelatedSuccessObservation {
         let persist_reopen_oracle_compare =
             super::super::oracle::CurrentContractOracle::compare(expected, actual_after_reopen)
                 .passed;
-        let persist_reopen_authority_unchanged = expected == actual_after_reopen;
+        let persist_reopen_authority_unchanged = actual_in_handle == actual_after_reopen;
         let no_unrelated_scope_rewind_after_close_reopen =
             unrelated_scope_preserved && persist_reopen_authority_unchanged;
         let stale_full_state_not_persisted = persist_reopen_oracle_compare
