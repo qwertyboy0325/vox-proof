@@ -158,6 +158,27 @@ jobs:
         with:
           name: persistence-v3-windows-evidence
           path: evidence/persistence/${{ env.VOXPROOF_RUN_ID }}/
+      - name: Restore macOS peer platform artifacts for dual-scoped append
+        if: ${{ env.DUAL_SCOPED_FCR03 == 'true' }}
+        shell: bash
+        run: |
+          RECORD_ROOT="evidence/persistence/current-contract-v3/01c/${FCR03_RECORD_ID}"
+          MACOS_PATH="${RECORD_ROOT}/macos-native"
+          if [ -d "$MACOS_PATH" ] && [ -n "$(ls -A "$MACOS_PATH" 2>/dev/null)" ]; then
+            echo "macos-native already present; preserving peer platform artifacts"
+            exit 0
+          fi
+          echo "Restoring macos-native from workflow branch ${GITHUB_REF_NAME} (tracker may be ahead of harness checkout ${EVIDENCE_CHECKOUT_SHA})"
+          git fetch --depth=1 origin "${GITHUB_REF_NAME}"
+          git checkout "origin/${GITHUB_REF_NAME}" -- "${MACOS_PATH}"
+          if [ ! -d "$MACOS_PATH" ] || [ -z "$(ls -A "$MACOS_PATH" 2>/dev/null)" ]; then
+            echo "missing macos-native peer artifacts at ${MACOS_PATH}"
+            exit 1
+          fi
+          echo "macos-native restored for platform-append"
+        env:
+          FCR03_RECORD_ID: ${{ env.FCR03_RECORD_ID }}
+          EVIDENCE_CHECKOUT_SHA: ${{ env.EVIDENCE_CHECKOUT_SHA }}
       - name: Run Gate 4 01C equivalent candidate evidence
         id: run_01c
         shell: bash
@@ -271,10 +292,26 @@ jobs:
                   assert len(u1) == 1, (label, len(u1))
                   for row in stale:
                       assert "fcr03_stale_rejection" in row, row["scenario_id"]
-                  assert "fcr03_unrelated_success" in u1[0], u1[0]["scenario_id"]
+                      fcr = row["fcr03_stale_rejection"]
+                      assert row["status"] == "passed", (label, row["scenario_id"], row["status"])
+                      assert fcr["transition_applied"] is False, row["scenario_id"]
+                      assert fcr["post_rejection_oracle_compare"] is True, row["scenario_id"]
+                      assert fcr["post_rejection_authority_unchanged"] is True, row["scenario_id"]
+                      assert fcr["persist_reopen_oracle_compare"] is True, row["scenario_id"]
+                      assert fcr["persist_reopen_authority_unchanged"] is True, row["scenario_id"]
+                  u1_row = u1[0]
+                  assert "fcr03_unrelated_success" in u1_row, u1_row["scenario_id"]
+                  assert u1_row["status"] == "passed", (label, u1_row["scenario_id"], u1_row["status"])
+                  fcr_u1 = u1_row["fcr03_unrelated_success"]
+                  assert fcr_u1["transition_applied"] is True, u1_row["scenario_id"]
+                  assert fcr_u1["unrelated_scope_preserved"] is True, u1_row["scenario_id"]
+                  assert fcr_u1["stale_full_state_not_persisted"] is True, u1_row["scenario_id"]
+                  assert fcr_u1["persist_reopen_oracle_compare"] is True, u1_row["scenario_id"]
+                  assert fcr_u1["persist_reopen_authority_unchanged"] is True, u1_row["scenario_id"]
+                  assert fcr_u1["no_unrelated_scope_rewind_after_close_reopen"] is True, u1_row["scenario_id"]
               macos_native = root / "macos-native"
-              if macos_native.exists():
-                  assert any(macos_native.iterdir()), "macos-native must be preserved in platform-append mode"
+              assert macos_native.is_dir(), "macos-native required in platform-append mode"
+              assert any(macos_native.iterdir()), "macos-native must be preserved in platform-append mode"
           else:
               expected_selection_blockers = [
                   "cross_platform: awaiting peer platform evidence aggregation",
