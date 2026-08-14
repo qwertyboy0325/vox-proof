@@ -1,0 +1,90 @@
+{
+  "review_id": "VP-GATE4-01C-STRONG-FINAL-CONFLICT-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "verdict": "BLOCKING_CONTRADICTION",
+  "verdict_line": "FINAL CONFLICT REVIEW: BLOCKING CONTRADICTION",
+  "reviewer": "voxproof-final-conflict-reviewer",
+  "actual_model": "gpt-5.6-sol-high",
+  "required_model": "gpt-5.6-sol-high",
+  "model_requirement_satisfied": true,
+  "owner_authorization_reference": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-review-authorization.json",
+  "commit_range_reviewed": "ae37300..5162b53",
+  "reviewed_on": "2026-08-14",
+  "conflicts_summary": {
+    "critical": 1,
+    "high": 3,
+    "medium": 1,
+    "low": 0
+  },
+  "conflicts": [
+    {
+      "conflict_id": "FCR-01-MD015-SCOPED-STALE-CONFLICT",
+      "severity": "critical",
+      "source_a": "Accepted MD-015 stale-write protocol",
+      "source_a_location": "docs/governance/decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md:246-257,524-543,610-627",
+      "source_b": "Owner semantic decision and Append global-sequence CAS",
+      "source_b_location": "gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json; src/persistence_evidence/current_contract/append_authoritative.rs:283-342",
+      "exact_contradiction": "MD-015 requires unrelated scoped state change to leave a command valid. Append rejects every command whose global sequence predates any canonical change. Owner decision accepts that coarser rejection as tradeoff and marks selection blocker resolved without MD-015 revision.",
+      "why_it_matters": "Semantic decision cannot silently weaken accepted Material Decision. Append has not satisfied MD-015 scoped stale protocol as written.",
+      "smallest_required_correction": "Reopen semantic blocker. Owner must either explicitly revise MD-015 via Material Decision process or require Append semantics/evidence preserving unrelated scoped-command validity.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Authority artifact, governance tracker, and either accepted MD revision or new candidate/evidence execution"
+    },
+    {
+      "conflict_id": "FCR-02-MISSING-DOMAIN-REVIEW",
+      "severity": "high",
+      "source_a": "Mandatory high-risk specialist review sequence",
+      "source_a_location": ".cursor/rules/voxproof-work-packages.mdc:66-79,85-99,272-280",
+      "source_b": "Recorded review chain",
+      "source_b_location": "pre-final-governance-audit-packet.json; pre-final-governance-audit-result.json",
+      "exact_contradiction": "Only evidence-methodology specialist recorded. No fresh storage/concurrency code-depth review of 01B-2/01C-SQLITE-2 implementations before PRE_FINAL advanced to Sol.",
+      "smallest_required_correction": "Obtain and record required storage/concurrency specialist review; repeat PRE_FINAL after addressing findings.",
+      "blocking_gate": "before_owner_gate"
+    },
+    {
+      "conflict_id": "FCR-03-STALE-EVIDENCE-OVERCLAIM",
+      "severity": "high",
+      "source_a": "MD-014 stale refusal requirements and claim contract",
+      "source_a_location": "docs/governance/decisions/MD-014-proposed-session-durability-recovery-and-retention-requirements.md:128-141; voxproof-work-packages.mdc:282-297",
+      "source_b": "Stale scenario outputs and governance claim",
+      "source_b_location": "macos-native/append/scenario-results.json stale scenarios; pre-final-governance-audit-packet.json claim_boundary",
+      "exact_contradiction": "Stale scenarios emit failure_code null, oracle_compare false, no persisted-state reopen verification. Governance packet claims both candidates satisfy no-stale-authority-accepted beyond interface refusal proof.",
+      "smallest_required_correction": "Preserve frozen record; add explicit claim downgrade; require separately authorized evidence with refusal classification and persisted-state non-mutation verification.",
+      "blocking_gate": "before_mechanism_selection"
+    },
+    {
+      "conflict_id": "FCR-04-INCOMPLETE-WORK-PACKAGE",
+      "severity": "high",
+      "source_a": "Required work-package declaration policy",
+      "source_a_location": ".cursor/rules/voxproof-work-packages.mdc:38-50,110-118",
+      "source_b": "work-package.json",
+      "exact_contradiction": "Package marked AUTHORIZED but omits risk_tier, cognitive scope, stop_gate, strong_final_conflict_review fields required by policy.",
+      "smallest_required_correction": "Complete mandatory fields and obtain owner authorization for corrected package.",
+      "blocking_gate": "before_owner_gate"
+    },
+    {
+      "conflict_id": "FCR-05-STALE-AUTHORIZATION-TRACKER",
+      "severity": "medium",
+      "source_a": "Sol authorization exists",
+      "source_b": "Parent tracker still awaiting authorization",
+      "exact_contradiction": "Tracker reported PRE_FINAL_PASS_AWAITING_SOL_AUTHORIZATION after authorization was granted.",
+      "smallest_required_correction": "Update tracker to reflect authorization and Sol verdict.",
+      "blocking_gate": "before_owner_gate"
+    }
+  ],
+  "verification_findings": [
+    "ae37300..5162b53 modifies governance artifacts only; frozen 91e258c readiness/eligibility unchanged",
+    "Frozen readiness.json still selection not_ready; eligibility append IMPLEMENTATION_NOT_YET_EVALUATED",
+    "Append CAS at append_authoritative.rs:314-318; SQLite class checks at sqlite_authoritative.rs:2519-2548",
+    "Invalid evidence chain and Windows 31780866924 negative control preserved"
+  ],
+  "requested_owner_decision": "Reopen stale-precondition semantic gate. Choose MD-015 explicit revision OR additional Append semantics/evidence. Do not advance to FINAL_GATE or mechanism selection until blocking conflicts resolved.",
+  "not_authorized": [
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "Material_Decision_without_explicit_process"
+  ],
+  "semantic_gate_status_after_review": "REOPEN_REQUIRED_PENDING_OWNER_DECISION",
+  "governance_reconciliation_status_after_review": "BLOCKED_BY_SOL_FINDINGS"
+}

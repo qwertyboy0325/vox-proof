@@ -1,0 +1,21 @@
+{
+  "authorization_id": "VP-GATE4-01C-SOL-REVIEW-AUTHORIZATION-2026-08-14",
+  "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "model": "gpt-5.6-sol-high",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "scope": "STRONG_FINAL_CONFLICT_REVIEW only",
+  "precondition": "PRE_FINAL_GOVERNANCE_AUDIT: PASS",
+  "pre_final_audit_ref": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/pre-final-governance-audit-result.json",
+  "forbidden": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "Material_Decision",
+    "product_integration",
+    "candidate_modification",
+    "contract_version_bump",
+    "frozen_91e258c_evidence_rewrite"
+  ],
+  "note": "Owner-authorized GPT-5.6 Sol High final conflict review for governance reconciliation work package."
+}
