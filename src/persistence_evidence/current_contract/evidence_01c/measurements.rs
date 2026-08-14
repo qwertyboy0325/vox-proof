@@ -121,11 +121,7 @@ fn aggregate(
         .map(|sample| sample.peak_memory_bytes)
         .max()
         .unwrap_or(0);
-    let storage_before = samples
-        .iter()
-        .find(|sample| !sample.failed)
-        .map(|sample| sample.storage_size_before)
-        .unwrap_or(0);
+    let storage_before = super::measurement_ops::storage_before_metric(&samples);
     let storage_after = samples
         .iter()
         .filter(|sample| !sample.failed)
@@ -154,8 +150,8 @@ fn aggregate(
         peak_memory_bytes: peak_metric(peak),
         bytes_read: MetricAvailability::unavailable("not observed"),
         bytes_written: MetricAvailability::unavailable("not observed"),
-        storage_size_before: storage_metric(storage_before),
-        storage_size_after: storage_metric(storage_after),
+        storage_size_before: storage_before,
+        storage_size_after: super::measurement_ops::storage_metric(storage_after),
     }
 }
 
@@ -184,11 +180,6 @@ fn unsupported_aggregate(
         storage_size_after: MetricAvailability::unavailable("compaction unsupported"),
     }
 }
-
-fn storage_metric(bytes: u64) -> MetricAvailability<u64> {
-    MetricAvailability::available(bytes)
-}
-
 pub fn scale_label(scale: MeasurementFixtureScale) -> String {
     fixture_scale_label(scale)
 }

@@ -18,15 +18,50 @@ use super::readiness::{assess_readiness, compute_eligibility};
 use super::scenarios::run_required_scenarios;
 use super::types::{
     CandidateRunArtifacts, ComparativeEvidencePackage, InvalidPredecessorEvidence,
-    MediumFixtureRecord,
+    MediumFixtureRecord, SelectionValidityRecord,
 };
 
 pub const INVALID_PREDECESSOR_HARNESS_SHA: &str = "970b3c38bfbf07fd9750df93b285527b73beb43c";
 pub const INVALID_PREDECESSOR_EVIDENCE_SHA: &str = "5b446b430f358d3da821461775cc50efe0943033";
+pub const CORRECTION_01_HARNESS_SHA: &str = "b2569a022856f3cbfecdbdb950bc32584741a9a3";
+pub const CORRECTION_02_HARNESS_SHA: &str = "629bb916a33bee839e24db62d7aea28486bf5790";
+pub const CORRECTION_02_EVIDENCE_SHA: &str = "e487a0bbaa4e75ac088e47bb48715b453afe82d9";
+
+pub const WORK_PACKAGE_ID: &str = "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03";
 
 pub struct RunOutput {
     pub package: ComparativeEvidencePackage,
     pub output_root: PathBuf,
+}
+
+pub fn invalid_evidence_chain() -> Vec<InvalidPredecessorEvidence> {
+    vec![
+        InvalidPredecessorEvidence {
+            harness_sha: INVALID_PREDECESSOR_HARNESS_SHA.to_owned(),
+            evidence_record_sha: INVALID_PREDECESSOR_EVIDENCE_SHA.to_owned(),
+            verdict: "BLOCKED_01C_EVIDENCE".to_owned(),
+        },
+        InvalidPredecessorEvidence {
+            harness_sha: CORRECTION_01_HARNESS_SHA.to_owned(),
+            evidence_record_sha: "see_gate4-01c-b2569a0_negative_evidence".to_owned(),
+            verdict: "BLOCKED_01C_EVIDENCE".to_owned(),
+        },
+        InvalidPredecessorEvidence {
+            harness_sha: correction_02_harness_sha(),
+            evidence_record_sha: correction_02_evidence_sha(),
+            verdict: "invalid_for_gate_preserve".to_owned(),
+        },
+    ]
+}
+
+fn correction_02_harness_sha() -> String {
+    std::env::var("VOXPROOF_CORRECTION_02_HARNESS_SHA")
+        .unwrap_or_else(|_| CORRECTION_02_HARNESS_SHA.to_owned())
+}
+
+fn correction_02_evidence_sha() -> String {
+    std::env::var("VOXPROOF_CORRECTION_02_EVIDENCE_SHA")
+        .unwrap_or_else(|_| CORRECTION_02_EVIDENCE_SHA.to_owned())
 }
 
 pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
@@ -35,6 +70,14 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     fs::create_dir_all(&output_root).expect("output root");
     let repository_commit = git_head();
     let mut environment = capture_environment(&repository_commit, EVIDENCE_01C_HARNESS_VERSION);
+    environment.configuration.insert(
+        "sqlite_writer_lease_duration_ms".to_owned(),
+        super::candidate::SQLITE_WRITER_LEASE_DURATION_MS.to_string(),
+    );
+    environment.configuration.insert(
+        "sqlite_lease_expiry_wait_ms".to_owned(),
+        super::candidate::SQLITE_LEASE_EXPIRY_WAIT_MS.to_string(),
+    );
     let methodology = methodology_record();
     fs::write(
         output_root.join("methodology.json"),
@@ -134,13 +177,9 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     ];
     let readiness = assess_readiness(&append_artifacts, &sqlite_artifacts);
     environment.end_timestamp = Some(timestamp_iso());
-    let predecessor_invalid_evidence = InvalidPredecessorEvidence {
-        harness_sha: INVALID_PREDECESSOR_HARNESS_SHA.to_owned(),
-        evidence_record_sha: INVALID_PREDECESSOR_EVIDENCE_SHA.to_owned(),
-        verdict: "BLOCKED_01C_EVIDENCE".to_owned(),
-    };
+    let invalid_chain = invalid_evidence_chain();
     let package = package_from_runs(
-        "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01",
+        WORK_PACKAGE_ID,
         &repository_commit,
         environment.clone(),
         methodology,
@@ -150,10 +189,17 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
         sqlite_artifacts,
         comparison.clone(),
         &readiness,
-        predecessor_invalid_evidence,
+        invalid_chain.clone(),
     );
 
-    write_package(&output_root, &package, &comparison, &readiness);
+    write_package(
+        &output_root,
+        &package,
+        &comparison,
+        &readiness,
+        &repository_commit,
+        &invalid_chain,
+    );
     let _ = fs::remove_dir_all(output_root.join("work"));
     RunOutput {
         package,
@@ -166,6 +212,8 @@ fn write_package(
     package: &ComparativeEvidencePackage,
     comparison: &super::types::PlatformComparisonSection,
     readiness: &super::readiness::ReadinessAssessment,
+    harness_sha: &str,
+    invalid_chain: &[InvalidPredecessorEvidence],
 ) {
     fs::create_dir_all(output_root.join("macos-native")).ok();
     fs::create_dir_all(output_root.join("windows-github-actions")).ok();
@@ -227,6 +275,52 @@ fn write_package(
         serde_json::to_string_pretty(package).expect("manifest"),
     )
     .expect("write manifest");
+
+    let selection_validity = selection_validity_record(
+        harness_sha,
+        readiness,
+        invalid_chain,
+    );
+    fs::write(
+        output_root.join("selection-validity.json"),
+        serde_json::to_string_pretty(&selection_validity).expect("selection validity"),
+    )
+    .expect("write selection validity");
+}
+
+fn selection_validity_record(
+    harness_sha: &str,
+    readiness: &super::readiness::ReadinessAssessment,
+    invalid_chain: &[InvalidPredecessorEvidence],
+) -> SelectionValidityRecord {
+    let gate_ready = readiness.mechanism_selection_readiness == "ready_for_owner_decision";
+    SelectionValidityRecord {
+        selection_validity: if gate_ready {
+            "pending_owner_gate_review".to_owned()
+        } else {
+            "not_ready_for_selection".to_owned()
+        },
+        harness_semantic_sha: harness_sha.to_owned(),
+        harness_version: EVIDENCE_01C_HARNESS_VERSION.to_owned(),
+        evidence_record_sha: "see_git_commit_preserving_this_directory".to_owned(),
+        verdict: if gate_ready {
+            "EVIDENCE_PACKAGE_COMPLETE_PENDING_GOVERNANCE".to_owned()
+        } else {
+            "NOT_READY_01C_EVIDENCE".to_owned()
+        },
+        reason: if readiness.blockers.is_empty() {
+            vec![
+                "single-platform evidence complete; awaiting governance review pipeline".to_owned(),
+            ]
+        } else {
+            readiness.blockers.clone()
+        },
+        invalid_evidence_chain: invalid_chain.to_vec(),
+        preserve_raw_artifacts: true,
+        note: format!(
+            "Correction-03 harness at {harness_sha}. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
+        ),
+    }
 }
 
 fn git_head() -> String {

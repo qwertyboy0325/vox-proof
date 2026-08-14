@@ -2,8 +2,12 @@ use std::process::Command;
 use std::time::{Duration, Instant};
 
 use super::super::measurement::MeasurementFixtureScale;
+use super::scenario_observation::{
+    corruption_tamper_limitation, ScenarioOutcome, APPEND_STALE_ASYMMETRY_LIMITATION,
+    OBSERVED_RECOVERY_LAST_COMMITTED, OBSERVED_RECOVERY_SAFE_AUTOMATIC,
+};
 use super::super::scenario_contract::{
-    scenario_contract_v3, ExpectedOpenState, ExpectedRecoveryClass, ScenarioContractV3,
+    scenario_contract_v3, ScenarioContractV3,
 };
 use super::candidate::{
     fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
@@ -12,7 +16,7 @@ use super::candidate::{
 };
 use super::measurement_worker::worker_binary;
 use super::types::{
-    fixture_scale_label, open_state_label, recovery_class_label, CorrectnessDisqualification,
+    fixture_scale_label, CorrectnessDisqualification,
     NormalizedScenarioResult, ScenarioExecutionStatus,
 };
 
@@ -58,30 +62,24 @@ fn execute_scenario(
         let supported = match capability.as_str() {
             "compaction_supported" => candidate.compaction_supported(),
             "destructive_cleanup_supported" => candidate.destructive_cleanup_supported(),
-            "verified_writer_ownership_loss" => true,
+            "verified_writer_ownership_loss" => candidate.writer_ownership_loss_observable(),
             _ => {
-                return base_result(
+                return observation_to_result(
                     candidate,
                     scenario,
                     platform,
                     started.elapsed().as_millis(),
-                    ScenarioExecutionStatus::Failed,
-                    false,
-                    Some(format!("unknown capability requirement {capability}")),
-                    Vec::new(),
+                    ScenarioOutcome::failed(format!("unknown capability requirement {capability}")),
                 );
             }
         };
         if !supported {
-            return base_result(
+            return observation_to_result(
                 candidate,
                 scenario,
                 platform,
                 started.elapsed().as_millis(),
-                ScenarioExecutionStatus::Unsupported,
-                false,
-                None,
-                vec![format!("capability {capability} not declared")],
+                ScenarioOutcome::unsupported(vec![format!("capability {capability} not declared")]),
             );
         }
     }
@@ -111,44 +109,25 @@ fn execute_scenario(
         "interrupted-cleanup" => run_capability_interrupt(candidate, &scenario_root, "cleanup"),
         _ => run_fixture_round_trip(candidate, &scenario_root, &scenario.scenario_id),
     };
-    let (status, oracle_compare, failure_code, limitations) = match outcome {
-        Ok(status) => (
-            status,
-            status == ScenarioExecutionStatus::Passed,
-            None,
-            Vec::new(),
-        ),
-        Err((status, code)) => (status, false, Some(code), Vec::new()),
+    let observation = match outcome {
+        Ok(observation) => observation,
+        Err(code) => ScenarioOutcome::failed(code),
     };
-    let mut result = base_result(
+    observation_to_result(
         candidate,
         scenario,
         platform,
         started.elapsed().as_millis(),
-        status,
-        oracle_compare,
-        failure_code,
-        limitations,
-    );
-    if scenario.expected_recovery_class != ExpectedRecoveryClass::None {
-        result.recovery_class = recovery_class_label(scenario.expected_recovery_class);
-    }
-    if scenario.expected_open_state != ExpectedOpenState::Normal {
-        result.open_state = open_state_label(scenario.expected_open_state);
-    }
-    result
+        observation,
+    )
 }
 
-#[allow(clippy::too_many_arguments)]
-fn base_result(
+fn observation_to_result(
     candidate: &CurrentContractCandidate,
     scenario: &ScenarioContractV3,
     platform: &str,
     elapsed_ms: u128,
-    status: ScenarioExecutionStatus,
-    oracle_compare: bool,
-    failure_code: Option<String>,
-    limitations: Vec<String>,
+    observation: ScenarioOutcome,
 ) -> NormalizedScenarioResult {
     NormalizedScenarioResult {
         scenario_id: scenario.scenario_id.clone(),
@@ -157,114 +136,149 @@ fn base_result(
         candidate_version: candidate.candidate_version().to_owned(),
         platform: platform.to_owned(),
         fixture_scale: fixture_scale_label(MeasurementFixtureScale::Small),
-        status,
-        oracle_compare,
-        recovery_class: recovery_class_label(scenario.expected_recovery_class),
-        open_state: open_state_label(scenario.expected_open_state),
-        failure_code,
+        status: observation.status,
+        oracle_compare: observation.oracle_compare,
+        recovery_class: observation.recovery_class,
+        open_state: observation.open_state,
+        failure_code: observation.failure_code,
         elapsed_ms,
         correctness_disqualification: None,
-        limitations,
+        limitations: observation.limitations,
     }
 }
+
+fn err_string(error: impl std::fmt::Display) -> String {
+    error.to_string()
+}
+
+type ScenarioRunResult = Result<ScenarioOutcome, String>;
 
 fn run_baseline(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let target = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let target = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = target.create_session(&state).map_err(err)?;
-    let writer = target.open_writable(&session_id).map_err(err)?;
-    target.close(writer).map_err(err)?;
-    let reopened = target.open_read_only(&session_id).map_err(err)?;
+    let (session_id, _) = target.create_session(&state).map_err(err_string)?;
+    let writer = target.open_writable(&session_id).map_err(err_string)?;
+    target.close(writer).map_err(err_string)?;
+    let reopened = target.open_read_only(&session_id).map_err(err_string)?;
     if !target.oracle_compare(&state, &reopened) {
-        return Err((
-            ScenarioExecutionStatus::Failed,
-            "failed_oracle_compare".to_owned(),
-        ));
+        target.close(reopened).map_err(err_string)?;
+        return Err("failed_oracle_compare".to_owned());
     }
-    target.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    target.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle())
 }
 
 fn run_fixture_round_trip(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
     scenario_id: &str,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = scenario_fixture_state(scenario_id);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
     if !adapter.oracle_compare(&state, &reopened) {
-        return Err((
-            ScenarioExecutionStatus::Failed,
-            "failed_oracle_compare".to_owned(),
-        ));
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("failed_oracle_compare".to_owned());
     }
-    adapter.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    adapter.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle())
 }
 
 fn run_duplication(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = scenario_fixture_state("semantic-duplication");
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     let duplicate_id = "session:current-contract:duplicate-medium";
-    let _duplicate = adapter.duplicate(&mut writer, duplicate_id).map_err(err)?;
-    adapter.close(writer).map_err(err)?;
-    let reopened = adapter.open_read_only(duplicate_id).map_err(err)?;
-    adapter.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    adapter.duplicate(&mut writer, duplicate_id).map_err(err_string)?;
+    adapter.close(writer).map_err(err_string)?;
+    let reopened = adapter.open_read_only(duplicate_id).map_err(err_string)?;
+    let reopened_state = adapter.normalized_state(&reopened).map_err(err_string)?;
+    if reopened_state.durable_command_tokens.evidence_writer_token
+        == state.durable_command_tokens.evidence_writer_token
+    {
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("duplicate-writer-token-not-independent".to_owned());
+    }
+    let expected = expected_duplicated_state(&state, duplicate_id);
+    if !adapter.oracle_compare(&expected, &reopened) {
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("failed_oracle_compare".to_owned());
+    }
+    adapter.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle())
+}
+
+fn expected_duplicated_state(
+    source: &super::super::model::CurrentContractState,
+    duplicate_id: &str,
+) -> super::super::model::CurrentContractState {
+    let mut expected = source.clone();
+    expected.duplicated_from_session_id = Some(source.session_id.clone());
+    expected.session_id = duplicate_id.to_owned();
+    expected.durable_command_tokens.evidence_writer_token =
+        derive_duplicate_writer_token(duplicate_id);
+    expected.normalize()
+}
+
+fn derive_duplicate_writer_token(session_id: &str) -> String {
+    if let Some(contract_local_id) = session_id.strip_prefix("session:current-contract:") {
+        return format!("writer:{contract_local_id}");
+    }
+    let mut encoded = String::with_capacity(session_id.len() * 2);
+    for byte in session_id.as_bytes() {
+        use std::fmt::Write as _;
+        write!(&mut encoded, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    format!("writer-encoded-session-id-v1:{encoded}")
 }
 
 fn run_derived_rebuild(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     adapter
         .tamper_derived_projection_for_test(&mut writer)
-        .map_err(err)?;
-    adapter.close(writer).map_err(err)?;
-    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+        .map_err(err_string)?;
+    adapter.close(writer).map_err(err_string)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
     if !adapter.oracle_compare(&state, &reopened) {
-        adapter.close(reopened).map_err(err)?;
-        return Err((
-            ScenarioExecutionStatus::Failed,
-            "derived-rebuild-oracle-failed".to_owned(),
-        ));
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("derived-rebuild-oracle-failed".to_owned());
     }
-    adapter.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    adapter.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_SAFE_AUTOMATIC))
 }
 
 fn run_malformed_format(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     set_format_version(&adapter, &mut writer, 0)?;
-    adapter.close(writer).map_err(err)?;
+    adapter.close(writer).map_err(err_string)?;
     match adapter.open_read_only(&session_id) {
-        Err(_) => Ok(ScenarioExecutionStatus::Passed),
+        Err(code) if code == "unsupported-format" => {
+            Ok(ScenarioOutcome::unsupported_version_open(code))
+        }
+        Err(code) => Err(code),
         Ok(handle) => {
-            adapter.close(handle).map_err(err)?;
-            Err((
-                ScenarioExecutionStatus::Failed,
-                "corruption-not-rejected".to_owned(),
-            ))
+            adapter.close(handle).map_err(err_string)?;
+            Err("corruption-not-rejected".to_owned())
         }
     }
 }
@@ -272,84 +286,101 @@ fn run_malformed_format(
 fn run_unknown_format(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     set_format_version(&adapter, &mut writer, 2)?;
-    adapter.close(writer).map_err(err)?;
+    adapter.close(writer).map_err(err_string)?;
     match adapter.open_writable(&session_id) {
-        Err(code) if code == "unsupported-newer-format" => Ok(ScenarioExecutionStatus::Passed),
-        Ok(_) => Err((
-            ScenarioExecutionStatus::Failed,
-            "unknown_newer_format_writable".to_owned(),
-        )),
-        Err(code) => Err((ScenarioExecutionStatus::Failed, code)),
+        Err(code) if code == "unsupported-newer-format" => {
+            Ok(ScenarioOutcome::unsupported_version_open(code))
+        }
+        Ok(_) => Err("unknown_newer_format_writable".to_owned()),
+        Err(code) => Err(code),
     }
 }
 
 fn run_concurrent_writer(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter_a = candidate_for_root(candidate, root)?;
-    let adapter_b = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter_a = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
+    let adapter_b = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter_a.create_session(&state).map_err(err)?;
-    let writer = adapter_a.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter_a.create_session(&state).map_err(err_string)?;
+    let writer = adapter_a.open_writable(&session_id).map_err(err_string)?;
     match adapter_b.open_writable(&session_id) {
         Err(code) if code == "writer-already-open" => {
-            adapter_a.close(writer).map_err(err)?;
-            Ok(ScenarioExecutionStatus::Passed)
+            adapter_a.close(writer).map_err(err_string)?;
+            Ok(ScenarioOutcome::passed_interface())
         }
-        Ok(_) => Err((
-            ScenarioExecutionStatus::Failed,
-            "concurrent-writer-not-rejected".to_owned(),
-        )),
-        Err(code) => Err((ScenarioExecutionStatus::Failed, code)),
+        Ok(_) => Err("concurrent-writer-not-rejected".to_owned()),
+        Err(code) => Err(code),
     }
 }
 
 fn run_read_only_during_writer(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter_a = candidate_for_root(candidate, root)?;
-    let adapter_b = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter_a = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
+    let adapter_b = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter_a.create_session(&state).map_err(err)?;
-    let writer = adapter_a.open_writable(&session_id).map_err(err)?;
-    let reader = adapter_b.open_read_only(&session_id).map_err(err)?;
-    adapter_a.close(writer).map_err(err)?;
-    adapter_b.close(reader).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    let (session_id, _) = adapter_a.create_session(&state).map_err(err_string)?;
+    let writer = adapter_a.open_writable(&session_id).map_err(err_string)?;
+    let reader = adapter_b.open_read_only(&session_id).map_err(err_string)?;
+    if !adapter_b.oracle_compare(&state, &reader) {
+        adapter_a.close(writer).map_err(err_string)?;
+        adapter_b.close(reader).map_err(err_string)?;
+        return Err("read-only-view-diverged".to_owned());
+    }
+    match adapter_b.open_writable(&session_id) {
+        Err(code) if code == "writer-already-open" => {}
+        Ok(_) => {
+            adapter_a.close(writer).map_err(err_string)?;
+            adapter_b.close(reader).map_err(err_string)?;
+            return Err("read-only-handle-writable".to_owned());
+        }
+        Err(code) => {
+            adapter_a.close(writer).map_err(err_string)?;
+            adapter_b.close(reader).map_err(err_string)?;
+            return Err(code);
+        }
+    }
+    adapter_a.close(writer).map_err(err_string)?;
+    adapter_b.close(reader).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_interface())
 }
 
 fn run_stale_precondition(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
     scenario_id: &str,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     let next = updated_writer_token_state(state.clone(), "writer:stale-test");
-    let baseline = adapter.authoritative_preconditions(&writer).map_err(err)?;
+    let baseline = adapter.authoritative_preconditions(&writer).map_err(err_string)?;
     let stale = stale_preconditions(candidate.kind(), scenario_id, &baseline);
     let stale_result = adapter.apply_transition_with_preconditions(&mut writer, &stale, &next);
     let expected = expected_stale_code(candidate.kind(), scenario_id);
+    let mut limitations = Vec::new();
+    if matches!(candidate.kind(), CurrentContractCandidateKind::Append)
+        && scenario_id.starts_with("stale-")
+    {
+        limitations.push(APPEND_STALE_ASYMMETRY_LIMITATION.to_owned());
+    }
     match stale_result {
         Err(code) if code == expected => {
-            adapter.close(writer).map_err(err)?;
-            Ok(ScenarioExecutionStatus::Passed)
+            adapter.close(writer).map_err(err_string)?;
+            Ok(ScenarioOutcome::passed_with_limitations(limitations))
         }
-        Err(code) => Err((ScenarioExecutionStatus::Failed, code)),
-        Ok(()) => Err((
-            ScenarioExecutionStatus::Failed,
-            format!("expected {expected}"),
-        )),
+        Err(code) => Err(code),
+        Ok(()) => Err(format!("expected {expected}")),
     }
 }
 
@@ -357,19 +388,16 @@ fn run_negative_corruption(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
     scenario_id: &str,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    tamper_for_scenario(candidate, root, &session_id, scenario_id)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
+    let tamper = tamper_for_scenario(candidate, root, &session_id, scenario_id)?;
     match adapter.open_read_only(&session_id) {
-        Err(_) => Ok(ScenarioExecutionStatus::Passed),
+        Err(code) => Ok(ScenarioOutcome::refused_open(code).with_limitations(vec![tamper])),
         Ok(handle) => {
-            adapter.close(handle).map_err(err)?;
-            Err((
-                ScenarioExecutionStatus::Failed,
-                "corruption-not-rejected".to_owned(),
-            ))
+            adapter.close(handle).map_err(err_string)?;
+            Err("corruption-not-rejected".to_owned())
         }
     }
 }
@@ -378,45 +406,43 @@ fn run_interrupted_transition(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
     transition_kind: &str,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let (precursor, next) = match transition_kind {
-        "review" => {
-            measurement_transition_states("append_review_decision", MeasurementFixtureScale::Small)
-                .ok_or_else(|| err("missing review transition".to_owned()))?
-        }
+        "review" => measurement_transition_states(
+            "append_review_decision",
+            MeasurementFixtureScale::Small,
+        )
+        .ok_or_else(|| "missing review transition".to_owned())?,
         "reuse" => measurement_transition_states(
             "append_reusable_revocation",
             MeasurementFixtureScale::Small,
         )
-        .ok_or_else(|| err("missing reuse transition".to_owned()))?,
-        other => return Err(err(format!("unknown interrupted transition {other}"))),
+        .ok_or_else(|| "missing reuse transition".to_owned())?,
+        other => return Err(format!("unknown interrupted transition {other}")),
     };
-    let (session_id, _) = adapter.create_session(&precursor).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&precursor).map_err(err_string)?;
     spawn_child_interrupt(candidate, root, &session_id, &next)?;
-    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
     if !adapter.oracle_compare(&precursor, &reopened) {
-        adapter.close(reopened).map_err(err)?;
-        return Err((
-            ScenarioExecutionStatus::Failed,
-            "partial-authority-exposed".to_owned(),
-        ));
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("partial-authority-exposed".to_owned());
     }
-    adapter.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    adapter.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_LAST_COMMITTED))
 }
 
 fn run_writer_takeover(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    let adapter = candidate_for_root(candidate, root)?;
+) -> ScenarioRunResult {
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
+    let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
     if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
         adapter
             .configure_sqlite_writer_lease_for_test(&session_id, SQLITE_WRITER_LEASE_DURATION_MS)
-            .map_err(err)?;
+            .map_err(err_string)?;
     }
     let ready = root.join("child.ready");
     let release = root.join("child.release");
@@ -436,63 +462,59 @@ fn run_writer_takeover(
             },
         )
         .spawn()
-        .map_err(|error| err(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
     let deadline = Instant::now() + Duration::from_secs(30);
     while !ready.exists() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(5));
     }
     if !ready.exists() {
-        return Err(err("child-writer-not-ready".to_owned()));
+        return Err("child-writer-not-ready".to_owned());
     }
     match adapter.open_writable(&session_id) {
         Err(code) if code == "writer-already-open" => {}
-        Ok(_) => return Err(err("concurrent-writer-not-rejected".to_owned())),
-        Err(code) => return Err(err(code)),
+        Ok(_) => return Err("concurrent-writer-not-rejected".to_owned()),
+        Err(code) => return Err(code),
     }
-    std::fs::write(&release, b"abort").map_err(|error| err(error.to_string()))?;
+    std::fs::write(&release, b"abort").map_err(|error| error.to_string())?;
     assert!(!child
         .wait()
-        .map_err(|error| err(error.to_string()))?
+        .map_err(|error| error.to_string())?
         .success());
     if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
         match adapter.open_writable(&session_id) {
             Err(code) if code == "writer-already-open" => {}
-            Ok(_) => return Err(err("takeover-before-lease-expiry-not-rejected".to_owned())),
-            Err(code) => return Err(err(code)),
+            Ok(_) => return Err("takeover-before-lease-expiry-not-rejected".to_owned()),
+            Err(code) => return Err(code),
         }
         std::thread::sleep(Duration::from_millis(SQLITE_LEASE_EXPIRY_WAIT_MS));
     }
-    let takeover = adapter.open_writable(&session_id).map_err(err)?;
-    adapter.close(takeover).map_err(err)?;
-    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    let takeover = adapter.open_writable(&session_id).map_err(err_string)?;
+    adapter.close(takeover).map_err(err_string)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
     if !adapter.oracle_compare(&state, &reopened) {
-        adapter.close(reopened).map_err(err)?;
-        return Err((
-            ScenarioExecutionStatus::Failed,
-            "takeover-oracle-failed".to_owned(),
-        ));
+        adapter.close(reopened).map_err(err_string)?;
+        return Err("takeover-oracle-failed".to_owned());
     }
-    adapter.close(reopened).map_err(err)?;
-    Ok(ScenarioExecutionStatus::Passed)
+    adapter.close(reopened).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_LAST_COMMITTED))
 }
 
 fn run_capability_interrupt(
     candidate: &CurrentContractCandidate,
     _root: &std::path::Path,
     capability: &str,
-) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
+) -> ScenarioRunResult {
     let supported = match capability {
         "compaction" => candidate.compaction_supported(),
         "cleanup" => candidate.destructive_cleanup_supported(),
         _ => false,
     };
     if supported {
-        Err((
-            ScenarioExecutionStatus::Failed,
-            format!("capability {capability} declared but not executable"),
-        ))
+        Err(format!("capability {capability} declared but not executable"))
     } else {
-        Ok(ScenarioExecutionStatus::Unsupported)
+        Ok(ScenarioOutcome::unsupported(vec![format!(
+            "capability {capability} not declared"
+        )]))
     }
 }
 
@@ -501,38 +523,34 @@ fn candidate_for_root(
     root: &std::path::Path,
 ) -> Result<CurrentContractCandidate, (ScenarioExecutionStatus, String)> {
     match candidate.kind() {
-        super::candidate::CurrentContractCandidateKind::Append => {
-            CurrentContractCandidate::append(root).map_err(err)
-        }
+        super::candidate::CurrentContractCandidateKind::Append => CurrentContractCandidate::append(root)
+            .map_err(|code| (ScenarioExecutionStatus::Failed, code)),
         super::candidate::CurrentContractCandidateKind::Sqlite => {
-            CurrentContractCandidate::sqlite(root).map_err(err)
+            CurrentContractCandidate::sqlite(root)
+                .map_err(|code| (ScenarioExecutionStatus::Failed, code))
         }
     }
-}
-
-fn err(code: String) -> (ScenarioExecutionStatus, String) {
-    (ScenarioExecutionStatus::Failed, code)
 }
 
 fn set_format_version(
     candidate: &CurrentContractCandidate,
     writer: &mut super::candidate::OpenedCandidateSession,
     version: u32,
-) -> Result<(), (ScenarioExecutionStatus, String)> {
+) -> Result<(), String> {
     match (candidate, writer) {
         (
             CurrentContractCandidate::Append { adapter, .. },
             super::candidate::OpenedCandidateSession::Append(handle),
         ) => adapter
             .set_format_version_for_test(handle, version)
-            .map_err(|error| err(error.code.to_owned())),
+            .map_err(|error| error.code.to_owned()),
         (
             CurrentContractCandidate::Sqlite { adapter, .. },
             super::candidate::OpenedCandidateSession::Sqlite(handle),
         ) => adapter
             .set_format_version_for_test(handle, version)
-            .map_err(|error| err(error.code.to_owned())),
-        _ => Err(err("candidate-handle-mismatch".to_owned())),
+            .map_err(|error| error.code.to_owned()),
+        _ => Err("candidate-handle-mismatch".to_owned()),
     }
 }
 
@@ -541,22 +559,10 @@ fn tamper_for_scenario(
     root: &std::path::Path,
     session_id: &str,
     scenario_id: &str,
-) -> Result<(), (ScenarioExecutionStatus, String)> {
-    let scoped = candidate_for_root(candidate, root)?;
-    let mut writer = scoped.open_writable(session_id).map_err(err)?;
-    match (&scoped, &mut writer, scenario_id) {
-        (
-            CurrentContractCandidate::Sqlite { adapter, .. },
-            super::candidate::OpenedCandidateSession::Sqlite(handle),
-            "canonical-reference-corruption"
-            | "review-ledger-order-corruption"
-            | "reuse-governance-order-corruption"
-            | "source-locator-corruption",
-        ) => {
-            adapter
-                .tamper_canonical_provenance_for_test(handle)
-                .map_err(|error| err(error.code.to_owned()))?;
-        }
+) -> Result<String, String> {
+    let scoped = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
+    let mut writer = scoped.open_writable(session_id).map_err(err_string)?;
+    let tamper_label = match (&scoped, &mut writer, scenario_id) {
         (
             CurrentContractCandidate::Sqlite { adapter, .. },
             super::candidate::OpenedCandidateSession::Sqlite(handle),
@@ -564,21 +570,41 @@ fn tamper_for_scenario(
         ) => {
             adapter
                 .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
-                .map_err(|error| err(error.code.to_owned()))?;
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_derived_cache_for_test".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            scenario_id,
+        ) if scenario_id.contains("corruption") => {
+            adapter
+                .tamper_canonical_provenance_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            format!("tamper_canonical_provenance_for_test:{scenario_id}")
         }
         (
             CurrentContractCandidate::Append { adapter, .. },
             super::candidate::OpenedCandidateSession::Append(handle),
-            _,
-        ) => {
+            scenario_id,
+        ) if scenario_id.contains("corruption") => {
             adapter
                 .tamper_committed_state_for_test(handle, "writer:promoted", "writer:tampered")
-                .map_err(|error| err(error.code.to_owned()))?;
+                .map_err(|error| error.code.to_owned())?;
+            format!("tamper_committed_state_for_test:{scenario_id}")
         }
-        _ => {}
-    }
-    scoped.close(writer).map_err(err)?;
-    Ok(())
+        _ => return Err(format!("unsupported tamper for {scenario_id}")),
+    };
+    scoped.close(writer).map_err(err_string)?;
+    let candidate_label = match scoped.kind() {
+        CurrentContractCandidateKind::Append => "append",
+        CurrentContractCandidateKind::Sqlite => "sqlite",
+    };
+    Ok(corruption_tamper_limitation(
+        candidate_label,
+        scenario_id,
+        &tamper_label,
+    ))
 }
 
 fn spawn_child_interrupt(
@@ -586,12 +612,12 @@ fn spawn_child_interrupt(
     root: &std::path::Path,
     session_id: &str,
     next_state: &super::super::model::CurrentContractState,
-) -> Result<(), (ScenarioExecutionStatus, String)> {
+) -> Result<(), String> {
     let ready = root.join("interrupt.ready");
     let release = root.join("interrupt.release");
     let _ = std::fs::remove_file(&ready);
     let _ = std::fs::remove_file(&release);
-    let encoded = serde_json::to_string(next_state).map_err(|error| err(error.to_string()))?;
+    let encoded = serde_json::to_string(next_state).map_err(|error| error.to_string())?;
     let mut child = Command::new(worker_binary())
         .arg("child-interrupt-transition")
         .env("VOXPROOF_CHILD_ROOT", root)
@@ -607,18 +633,18 @@ fn spawn_child_interrupt(
             },
         )
         .spawn()
-        .map_err(|error| err(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
     let deadline = Instant::now() + Duration::from_secs(30);
     while !ready.exists() && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(5));
     }
     if !ready.exists() {
-        return Err(err("child-interrupt-not-ready".to_owned()));
+        return Err("child-interrupt-not-ready".to_owned());
     }
-    std::fs::write(&release, b"abort").map_err(|error| err(error.to_string()))?;
+    std::fs::write(&release, b"abort").map_err(|error| error.to_string())?;
     assert!(!child
         .wait()
-        .map_err(|error| err(error.to_string()))?
+        .map_err(|error| error.to_string())?
         .success());
     Ok(())
 }

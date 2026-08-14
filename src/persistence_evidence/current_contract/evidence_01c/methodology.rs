@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::types::InterleavingStrategy;
 
-pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v3";
+pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v4";
 pub const CORRECTION_METHODOLOGY_FREEZE_ID: &str =
-    "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02-methodology-freeze-v1";
+    "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03-methodology-freeze-v1";
 pub const METHODOLOGY_FREEZE_ID: &str = CORRECTION_METHODOLOGY_FREEZE_ID;
 
 pub const INTERLEAVING_STRATEGY: InterleavingStrategy = InterleavingStrategy::AlternatingPerSample;
@@ -46,7 +46,7 @@ pub fn methodology_record() -> MethodologyRecord {
     MethodologyRecord {
         freeze_id: CORRECTION_METHODOLOGY_FREEZE_ID.to_owned(),
         harness_version: EVIDENCE_01C_HARNESS_VERSION.to_owned(),
-        work_package_id: "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02".to_owned(),
+        work_package_id: "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03".to_owned(),
         candidates_order: vec![
             "current-contract-append-authoritative-candidate".to_owned(),
             "current-contract-sqlite-authoritative-candidate".to_owned(),
@@ -71,11 +71,13 @@ pub fn methodology_record() -> MethodologyRecord {
             .to_owned(),
         timing_source: "std::time::Instant elapsed wall clock per operation".to_owned(),
         peak_memory_strategy:
-            "process peak RSS via getrusage (unix) or GetProcessMemoryInfo PeakWorkingSetSize (windows)"
+            "process peak RSS via getrusage (unix) or GetProcessMemoryInfo PeakWorkingSetSize (windows); subprocess-isolated per measurement sample"
                 .to_owned(),
         bytes_read_write_strategy:
             "unavailable unless candidate-neutral filesystem observation exists".to_owned(),
-        storage_size_strategy: "recursive byte sum of candidate session storage directory".to_owned(),
+        storage_size_strategy:
+            "recursive byte sum of candidate session storage directory; storage_size_before unavailable for isolated per-sample roots"
+                .to_owned(),
         environment_metadata_strategy: "capture_environment at run start from live host".to_owned(),
         macos_strategy: "native host execution via persistence_evidence_01c_run".to_owned(),
         windows_strategy: "github-actions windows-latest workflow step".to_owned(),

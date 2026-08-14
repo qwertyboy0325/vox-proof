@@ -96,6 +96,10 @@ impl CurrentContractCandidate {
         false
     }
 
+    pub fn writer_ownership_loss_observable(&self) -> bool {
+        true
+    }
+
     pub fn storage_root(&self) -> &Path {
         match self {
             Self::Append { storage_root, .. } | Self::Sqlite { storage_root, .. } => storage_root,

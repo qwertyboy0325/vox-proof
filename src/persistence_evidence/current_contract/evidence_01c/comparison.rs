@@ -38,7 +38,7 @@ pub fn build_comparison_report(
         } else if sqlite_measurement.median_ms < append_measurement.median_ms {
             tradeoffs.push(format!(
                 "{} {}: sqlite lower median latency ({} ms vs {} ms)",
-                sqlite_measurement.operation,
+                append_measurement.operation,
                 super::measurements::scale_label(sqlite_measurement.fixture_scale),
                 sqlite_measurement.median_ms,
                 append_measurement.median_ms
@@ -50,7 +50,7 @@ pub fn build_comparison_report(
         ) {
             if append_peak < sqlite_peak {
                 tradeoffs.push(format!(
-                    "{} {}: append lower peak memory ({} vs {} bytes)",
+                    "{} {}: append lower subprocess peak RSS ({} vs {} bytes)",
                     append_measurement.operation,
                     super::measurements::scale_label(append_measurement.fixture_scale),
                     append_peak,
@@ -58,7 +58,7 @@ pub fn build_comparison_report(
                 ));
             } else if sqlite_peak < append_peak {
                 tradeoffs.push(format!(
-                    "{} {}: sqlite lower peak memory ({} vs {} bytes)",
+                    "{} {}: sqlite lower subprocess peak RSS ({} vs {} bytes)",
                     sqlite_measurement.operation,
                     super::measurements::scale_label(sqlite_measurement.fixture_scale),
                     sqlite_peak,
@@ -67,9 +67,51 @@ pub fn build_comparison_report(
             }
         }
     }
+
+    let mut recovery_observations = Vec::new();
+    for (label, artifacts) in [("append", append), ("sqlite", sqlite)] {
+        if let Some(result) = artifacts
+            .scenario_results
+            .iter()
+            .find(|row| row.scenario_id == "writer-crash-and-takeover")
+        {
+            recovery_observations.push(format!(
+                "writer-crash-and-takeover {label}: elapsed_ms={} recovery_class={} open_state={}",
+                result.elapsed_ms, result.recovery_class, result.open_state
+            ));
+        }
+    }
+    if let (Some(append_result), Some(sqlite_result)) = (
+        append
+            .scenario_results
+            .iter()
+            .find(|row| row.scenario_id == "writer-crash-and-takeover"),
+        sqlite
+            .scenario_results
+            .iter()
+            .find(|row| row.scenario_id == "writer-crash-and-takeover"),
+    ) {
+        recovery_observations.push(format!(
+            "takeover latency asymmetry on {platform}: append {} ms vs sqlite {} ms (sqlite harness uses {} ms test lease + {} ms wait)",
+            append_result.elapsed_ms,
+            sqlite_result.elapsed_ms,
+            super::candidate::SQLITE_WRITER_LEASE_DURATION_MS,
+            super::candidate::SQLITE_LEASE_EXPIRY_WAIT_MS
+        ));
+    }
+
+    let measurement_caveats = vec![
+        "peak_memory_bytes is subprocess peak RSS after fixture setup, not operation-isolated attribution"
+            .to_owned(),
+        "storage_size_before is unavailable for isolated per-sample measurement roots"
+            .to_owned(),
+    ];
+
     PlatformComparisonSection {
         platform: platform.to_owned(),
         tradeoffs,
+        recovery_observations,
+        measurement_caveats,
         append_disqualified: !append.disqualifications.is_empty(),
         sqlite_disqualified: !sqlite.disqualifications.is_empty(),
     }
@@ -82,6 +124,20 @@ pub fn comparison_markdown(section: &PlatformComparisonSection) -> String {
     } else {
         for tradeoff in &section.tradeoffs {
             lines.push(format!("- {tradeoff}"));
+        }
+    }
+    if !section.recovery_observations.is_empty() {
+        lines.push(String::new());
+        lines.push("## Recovery observations".to_owned());
+        for observation in &section.recovery_observations {
+            lines.push(format!("- {observation}"));
+        }
+    }
+    if !section.measurement_caveats.is_empty() {
+        lines.push(String::new());
+        lines.push("## Measurement caveats".to_owned());
+        for caveat in &section.measurement_caveats {
+            lines.push(format!("- {caveat}"));
         }
     }
     lines.join("\n")
@@ -99,7 +155,7 @@ pub fn package_from_runs(
     sqlite: CandidateRunArtifacts,
     comparison: PlatformComparisonSection,
     readiness: &super::readiness::ReadinessAssessment,
-    predecessor_invalid_evidence: super::types::InvalidPredecessorEvidence,
+    invalid_evidence_chain: Vec<super::types::InvalidPredecessorEvidence>,
 ) -> ComparativeEvidencePackage {
     ComparativeEvidencePackage {
         work_package_id: work_package_id.to_owned(),
@@ -114,6 +170,7 @@ pub fn package_from_runs(
         limitations: readiness.limitations.clone(),
         mechanism_comparison_readiness: readiness.mechanism_comparison_readiness.clone(),
         mechanism_selection_readiness: readiness.mechanism_selection_readiness.clone(),
-        predecessor_invalid_evidence: Some(predecessor_invalid_evidence),
+        predecessor_invalid_evidence: invalid_evidence_chain.last().cloned(),
+        invalid_evidence_chain,
     }
 }

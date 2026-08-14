@@ -76,7 +76,7 @@ impl<T> MetricAvailability<T> {
 pub struct MeasurementSample {
     pub elapsed_ms: u128,
     pub peak_memory_bytes: u64,
-    pub storage_size_before: u64,
+    pub storage_size_before: Option<u64>,
     pub storage_size_after: u64,
     pub bytes_read: MetricAvailability<u64>,
     pub bytes_written: MetricAvailability<u64>,
@@ -152,6 +152,8 @@ pub struct CandidateRunArtifacts {
 pub struct PlatformComparisonSection {
     pub platform: String,
     pub tradeoffs: Vec<String>,
+    pub recovery_observations: Vec<String>,
+    pub measurement_caveats: Vec<String>,
     pub append_disqualified: bool,
     pub sqlite_disqualified: bool,
 }
@@ -179,6 +181,20 @@ pub struct ComparativeEvidencePackage {
     pub mechanism_selection_readiness: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub predecessor_invalid_evidence: Option<InvalidPredecessorEvidence>,
+    pub invalid_evidence_chain: Vec<InvalidPredecessorEvidence>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SelectionValidityRecord {
+    pub selection_validity: String,
+    pub harness_semantic_sha: String,
+    pub harness_version: String,
+    pub evidence_record_sha: String,
+    pub verdict: String,
+    pub reason: Vec<String>,
+    pub invalid_evidence_chain: Vec<InvalidPredecessorEvidence>,
+    pub preserve_raw_artifacts: bool,
+    pub note: String,
 }
 
 pub fn recovery_class_label(value: ExpectedRecoveryClass) -> String {

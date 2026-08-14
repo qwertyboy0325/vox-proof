@@ -14,6 +14,7 @@ pub mod memory;
 pub mod methodology;
 pub mod readiness;
 pub mod runner;
+pub mod scenario_observation;
 pub mod scenarios;
 pub mod types;
 

@@ -1,8 +1,29 @@
 {
-  "selection_validity": "pending_owner_decision",
-  "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+  "selection_validity": "invalid_for_gate_preserve",
+  "harness_semantic_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
   "harness_version": "gate4-01c-evidence-v3",
-  "evidence_record_sha": "pending_git_commit",
-  "verdict": "ready_for_owner_decision",
-  "supersedes_blocked_run": "b2569a022856f3cbfecdbdb950bc32584741a9a3"
+  "evidence_record_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
+  "verdict": "INVALID_FOR_GATE_PRESERVE",
+  "reason": [
+    "Opus CORRECTIONS_REQUIRED: scenario observation fidelity (C1-C3)",
+    "append stale asymmetry eligibility overclaim (C4)",
+    "storage_size_before zero sentinel and comparison caveats (H3-H5)",
+    "cross-platform aggregation not satisfied from repository state alone",
+    "superseded by VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03 harness v4"
+  ],
+  "invalid_evidence_chain": [
+    {
+      "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+      "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
+      "verdict": "BLOCKED_01C_EVIDENCE"
+    },
+    {
+      "harness_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+      "evidence_record_sha": "see_gate4-01c-b2569a0_negative_evidence",
+      "verdict": "BLOCKED_01C_EVIDENCE"
+    }
+  ],
+  "superseded_by": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
+  "preserve_raw_artifacts": true,
+  "note": "Correction-02 evidence preserved as negative/invalid-for-gate input. Do not use for mechanism selection. Re-run only at Correction-03 harness SHA after commit."
 }

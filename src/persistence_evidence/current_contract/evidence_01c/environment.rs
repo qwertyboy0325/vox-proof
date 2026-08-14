@@ -58,7 +58,7 @@ pub fn timestamp_iso() -> String {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock after epoch");
-    format!("{}Z", duration.as_secs())
+    format!("{}.{:03}Z", duration.as_secs(), duration.subsec_millis())
 }
 
 fn os_version() -> String {
@@ -93,13 +93,30 @@ fn rustc_version() -> String {
 
 fn hardware_summary() -> String {
     if std::env::consts::OS == "macos" {
-        Command::new("sysctl")
-            .args(["-n", "machdep.cpu.brand_string"])
-            .output()
-            .ok()
-            .filter(|output| output.status.success())
-            .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
-            .unwrap_or_else(|| "unknown-mac-hardware".to_owned())
+        if std::env::consts::ARCH == "aarch64" {
+            Command::new("sysctl")
+                .args(["-n", "machdep.cpu.brand_string"])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| {
+                    let brand = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if brand.is_empty() || brand == "Apple processor" {
+                        format!("Apple Silicon ({})", std::env::consts::ARCH)
+                    } else {
+                        brand
+                    }
+                })
+                .unwrap_or_else(|| format!("Apple Silicon ({})", std::env::consts::ARCH))
+        } else {
+            Command::new("sysctl")
+                .args(["-n", "machdep.cpu.brand_string"])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+                .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+                .unwrap_or_else(|| "unknown-mac-hardware".to_owned())
+        }
     } else if std::env::consts::OS == "windows" {
         "github-actions-windows-latest-runner".to_owned()
     } else {

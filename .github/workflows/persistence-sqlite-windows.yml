@@ -102,7 +102,7 @@ jobs:
           export VOXPROOF_FILESYSTEM="ntfs-github-actions-runner"
           cargo run --features persistence-spike --bin persistence_evidence_01c_run
           echo "VOXPROOF_01C_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-      - name: Validate 01C evidence JSON
+      - name: Validate 01C evidence JSON and readiness gate
         shell: bash
         run: |
           python - <<'PY'
@@ -112,6 +112,14 @@ jobs:
               sys.exit(f"missing 01c evidence root {root}")
           for p in root.rglob("*.json"):
               json.loads(p.read_text())
+          readiness = json.loads((root / "readiness.json").read_text())
+          manifest = json.loads((root / "manifest.json").read_text())
+          assert manifest["methodology"]["harness_version"] == "gate4-01c-evidence-v4"
+          assert readiness["single_platform_readiness"] in ("ready_for_owner_decision", "not_ready")
+          if readiness["single_platform_readiness"] == "ready_for_owner_decision":
+              blockers = readiness.get("blockers", [])
+              cross_only = blockers == ["cross_platform: awaiting peer platform evidence aggregation"]
+              assert cross_only or not blockers, blockers
           print("01c json ok")
           PY
       - name: Upload Gate 4 01C Windows evidence

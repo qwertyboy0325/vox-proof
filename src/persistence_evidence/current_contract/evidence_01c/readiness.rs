@@ -1,3 +1,4 @@
+use super::scenario_observation::APPEND_STALE_ASYMMETRY_LIMITATION;
 use super::super::candidate_equivalence::CandidateEligibilityStatus;
 use super::super::measurement::{comparative_measurement_contract, MeasurementFixtureScale};
 use super::super::scenario_contract::{
@@ -14,6 +15,7 @@ pub const EXPECTED_PLATFORMS: &[&str] = &["macos_native", "windows-github_action
 pub struct ReadinessAssessment {
     pub mechanism_comparison_readiness: String,
     pub mechanism_selection_readiness: String,
+    pub single_platform_readiness: String,
     pub limitations: Vec<String>,
     pub blockers: Vec<String>,
 }
@@ -60,18 +62,34 @@ pub fn assess_readiness(
 
     limitations.extend(collect_declared_limitations(append, sqlite));
 
-    let ready = blockers.is_empty();
+    let single_platform_ready = blockers.is_empty();
+    let single_platform_readiness = if single_platform_ready {
+        "ready_for_owner_decision".to_owned()
+    } else {
+        "not_ready".to_owned()
+    };
+
+    let cross_platform_complete = std::env::var("VOXPROOF_01C_CROSS_PLATFORM_COMPLETE")
+        .is_ok_and(|value| value == "1" || value.eq_ignore_ascii_case("true"));
+    if single_platform_ready && !cross_platform_complete {
+        blockers.push(
+            "cross_platform: awaiting peer platform evidence aggregation".to_owned(),
+        );
+    }
+
+    let comparison_ready = blockers.is_empty();
     ReadinessAssessment {
-        mechanism_comparison_readiness: if ready {
+        mechanism_comparison_readiness: if comparison_ready {
             "ready_for_owner_decision".to_owned()
         } else {
             "not_ready".to_owned()
         },
-        mechanism_selection_readiness: if ready {
+        mechanism_selection_readiness: if comparison_ready {
             "ready_for_owner_decision".to_owned()
         } else {
             "not_ready".to_owned()
         },
+        single_platform_readiness,
         limitations,
         blockers,
     }
@@ -114,6 +132,24 @@ pub fn compute_eligibility(artifacts: &CandidateRunArtifacts) -> CandidateEligib
             "{} correctness disqualification(s)",
             artifacts.disqualifications.len()
         ));
+    }
+
+    let append_stale_asymmetry = artifacts.scenario_results.iter().any(|result| {
+        result
+            .limitations
+            .iter()
+            .any(|limitation| limitation == APPEND_STALE_ASYMMETRY_LIMITATION)
+    });
+    if blockers.is_empty()
+        && append_stale_asymmetry
+        && artifacts.candidate_id == "current-contract-append-authoritative-candidate"
+    {
+        return CandidateEligibilityRecord {
+            candidate_id: artifacts.candidate_id.clone(),
+            candidate_version: artifacts.candidate_version.clone(),
+            status: CandidateEligibilityStatus::ImplementationNotYetEvaluated,
+            rationale: "required scenarios passed with documented append stale-precondition asymmetry; not equivalent to sqlite precondition-class coverage".to_owned(),
+        };
     }
 
     let status = if blockers.is_empty() {
@@ -202,6 +238,18 @@ fn evaluate_measurement_aggregate(
             aggregate.operation, aggregate.fixture_scale
         ));
     }
+    if !storage_metric_is_satisfied(&aggregate.storage_size_before) {
+        blockers.push(format!(
+            "measurement {} {:?} storage_size_before unavailable or zero sentinel",
+            aggregate.operation, aggregate.fixture_scale
+        ));
+    }
+    if !storage_metric_is_satisfied(&aggregate.storage_size_after) {
+        blockers.push(format!(
+            "measurement {} {:?} storage_size_after unavailable or zero sentinel",
+            aggregate.operation, aggregate.fixture_scale
+        ));
+    }
 }
 
 fn peak_memory_is_satisfied(metric: &MetricAvailability<u64>) -> bool {
@@ -209,7 +257,11 @@ fn peak_memory_is_satisfied(metric: &MetricAvailability<u64>) -> bool {
 }
 
 fn storage_metric_is_satisfied(metric: &MetricAvailability<u64>) -> bool {
-    metric.status == "available" || metric.status == "unavailable"
+    match metric.status.as_str() {
+        "unavailable" => true,
+        "available" => metric.value.is_some_and(|value| value > 0),
+        _ => false,
+    }
 }
 
 fn collect_declared_limitations(

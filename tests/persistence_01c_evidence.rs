@@ -53,9 +53,9 @@ fn measurement_contract_v2_medium_is_materialized() {
 fn evidence_01c_methodology_is_frozen() {
     let record = methodology_record();
     assert_eq!(record.harness_version, EVIDENCE_01C_HARNESS_VERSION);
-    assert_eq!(record.harness_version, "gate4-01c-evidence-v3");
+    assert_eq!(record.harness_version, "gate4-01c-evidence-v4");
     assert_eq!(record.candidates_order.len(), 2);
-    assert!(record.freeze_id.contains("CORRECTION-02"));
+    assert!(record.freeze_id.contains("CORRECTION-03"));
 }
 
 #[test]
@@ -286,6 +286,73 @@ fn comparison_ignores_invalid_aggregates() {
     };
     let comparison = build_comparison_report("macos_native", &append, &sqlite);
     assert!(comparison.tradeoffs.is_empty());
+}
+
+#[test]
+fn measurement_samples_mark_storage_before_unavailable() {
+    let root =
+        std::env::temp_dir().join(format!("voxproof-01c-storage-before-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("root");
+    let candidate = CurrentContractCandidate::append(&root).expect("append");
+    let sample = execute_measured_operation(
+        &candidate,
+        "create_session",
+        MeasurementFixtureScale::Small,
+        0,
+    );
+    assert!(sample.storage_size_before.is_none());
+    assert!(sample.storage_size_after > 0);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn append_stale_asymmetry_downgrades_eligibility() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::readiness::compute_eligibility;
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::scenario_observation::APPEND_STALE_ASYMMETRY_LIMITATION;
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::types::{
+        NormalizedScenarioResult, ScenarioExecutionStatus,
+    };
+    use vox_proof::persistence_evidence::current_contract::candidate_equivalence::CandidateEligibilityStatus;
+    use vox_proof::persistence_evidence::scenario_contract_v3;
+
+    let mut scenario_results: Vec<NormalizedScenarioResult> = scenario_contract_v3()
+        .iter()
+        .map(|scenario| NormalizedScenarioResult {
+            scenario_id: scenario.scenario_id.clone(),
+            scenario_version: scenario.scenario_version,
+            candidate_id: "current-contract-append-authoritative-candidate".to_owned(),
+            candidate_version: "01B-2".to_owned(),
+            platform: "macos_native".to_owned(),
+            fixture_scale: "small".to_owned(),
+            status: ScenarioExecutionStatus::Passed,
+            oracle_compare: false,
+            recovery_class: "none".to_owned(),
+            open_state: "normal".to_owned(),
+            failure_code: None,
+            elapsed_ms: 1,
+            correctness_disqualification: None,
+            limitations: Vec::new(),
+        })
+        .collect();
+    let stale = scenario_results
+        .iter_mut()
+        .find(|row| row.scenario_id == "stale-review-ledger-command")
+        .expect("stale scenario");
+    stale.limitations = vec![APPEND_STALE_ASYMMETRY_LIMITATION.to_owned()];
+
+    let artifacts = CandidateRunArtifacts {
+        candidate_id: "current-contract-append-authoritative-candidate".to_owned(),
+        candidate_version: "01B-2".to_owned(),
+        scenario_results,
+        measurements: Vec::new(),
+        disqualifications: Vec::new(),
+    };
+    let eligibility = compute_eligibility(&artifacts);
+    assert_eq!(
+        eligibility.status,
+        CandidateEligibilityStatus::ImplementationNotYetEvaluated
+    );
 }
 
 #[test]
