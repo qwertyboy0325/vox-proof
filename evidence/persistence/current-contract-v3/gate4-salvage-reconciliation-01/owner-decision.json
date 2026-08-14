@@ -1,0 +1,37 @@
+{
+  "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
+  "gate_status": "CLOSED",
+  "owner_decision": "B_tight",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-14",
+  "anchor_commit": "e03b15e",
+  "decision": {
+    "canonical_authority_or_provenance_corruption": {
+      "safety_policy": "fail_closed",
+      "read_only_salvage_required": false,
+      "writable_open_allowed": false,
+      "authority_exposure_allowed": false,
+      "manual_review_may_be_required": true
+    },
+    "non_authoritative_or_reconstructible_corruption": {
+      "salvage_or_rebuild_may_be_supported": true
+    },
+    "append_incomplete_tail": {
+      "committed_prefix_salvage_preserved": true
+    }
+  },
+  "affected_scenarios": [
+    "canonical-reference-corruption",
+    "source-locator-corruption"
+  ],
+  "candidate_semantics_changed": false,
+  "mechanism_selected": false,
+  "material_decision_created": false,
+  "product_integration_authorized": false,
+  "authorized_downstream": {
+    "work_package_id": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01",
+    "objective": "Supersede scenario contract v3 with v4 for authoritative corruption scenarios; fail-closed refusal semantics"
+  },
+  "note": "Read-only salvage is not required for canonical/provenance integrity failure. Authority model: readable data does not imply trusted exposed authority."
+}

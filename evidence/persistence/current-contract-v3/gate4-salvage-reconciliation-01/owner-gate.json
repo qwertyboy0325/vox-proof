@@ -1,6 +1,9 @@
 {
   "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
-  "gate_status": "OPEN",
+  "gate_status": "CLOSED",
+  "gate_closed_on": "2026-08-14",
+  "owner_decision": "B_tight",
+  "owner_decision_artifact": "owner-decision.json",
   "gate_type": "semantic_reconciliation",
   "opened_on": "2026-08-14",
   "opened_by": "Ezra",

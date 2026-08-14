@@ -67,13 +67,17 @@
   },
   "open_owner_gate": {
     "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
-    "gate_status": "OPEN",
-    "opened_on": "2026-08-14",
-    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-gate.json",
-    "owner_preference": "B_or_C_over_A"
+    "gate_status": "CLOSED",
+    "owner_decision": "B_tight",
+    "closed_on": "2026-08-14",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-decision.json",
+    "authorized_downstream": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01"
   },
-  "required_owner_decision": [
-    "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01: select A, B, or C for ReadOnlySalvage requirement"
-  ],
-  "note": "Salvage requirement reconciliation owner gate OPEN. Gate 4 harness/evidence/governance pipeline blocked until decision. PRE_FINAL not authorized."
+  "active_work_package": {
+    "work_package_id": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01",
+    "status": "AUTHORIZED",
+    "scenario_contract_version": "4",
+    "base_commit": "e03b15e"
+  },
+  "note": "Salvage reconciliation closed B_tight. Contract v4 reconciliation authorized. PRE_FINAL not authorized until valid v4 evidence."
 }
