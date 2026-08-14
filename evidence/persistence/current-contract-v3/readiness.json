@@ -1,6 +1,6 @@
 {
   "package": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-  "harness_semantic_sha": "4eb049799a6f6d6b106ab8a123ac2ed25f3a4f54",
+  "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
   "harness_semantic_sha_note": "FCR-03 wiring committed; dual-scoped macOS evidence executed at pre-commit base d267f0d (see dual_scoped_fcr03_evidence.evidence_execution_harness_sha)",
   "mechanism_comparison_readiness": "accepted_with_documented_caveats",
   "mechanism_selection_readiness": "not_ready",
@@ -16,7 +16,7 @@
     "status": "macos_single_platform_complete",
     "record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
     "evidence_execution_harness_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
-    "evidence_execution_harness_sha_note": "macOS evidence run from working tree atop d267f0d before FCR-03 wiring commit 4eb0497; record manifest retains d267f0d provenance",
+    "evidence_execution_harness_sha_note": "macOS evidence run from working tree atop d267f0d before FCR-03 wiring commit abe8f9a; record manifest retains d267f0d provenance",
     "fcr03_fields_in_artifacts": true,
     "append_candidate": "01B-3",
     "sqlite_candidate": "01C-SQLITE-3",
@@ -83,7 +83,7 @@
       "unified_FCR03_observation_wiring_01B3_and_01C_SQLITE3",
       "macos_dual_scoped_fcr03_evidence_execution",
       "evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
-      "fcr03_wiring_commit_4eb0497_harness_sha_updated"
+      "fcr03_wiring_commit_abe8f9a_harness_sha_updated"
     ],
     "current": "WINDOWS_DUAL_SCOPED_AUTHORIZATION",
     "blocked": [
@@ -105,5 +105,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "FCR-03 wiring committed (4eb0497). macOS dual-scoped evidence at d267f0d base reviewed PASS_WITH_CAVEATS (Grok 4.6). Windows authorization and mechanism selection remain closed."
+  "note": "FCR-03 wiring committed (abe8f9a). macOS dual-scoped evidence at d267f0d base reviewed PASS_WITH_CAVEATS (Grok 4.6). Windows authorization and mechanism selection remain closed."
 }
