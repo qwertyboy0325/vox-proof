@@ -1,0 +1,122 @@
+{
+  "packet_id": "VP-GATE4-01C-COMPARISON-ONLY-DECISION-PACKET-91E258C",
+  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "owner_decision_ref": "owner-comparison-decision.json",
+  "methodology_audit_ref": "methodology-audit-grok-4.6-xhigh.json",
+  "purpose": "Comparison-only review within accepted claim boundary. Not a mechanism selection packet.",
+  "candidates": [
+    {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "eligibility": "IMPLEMENTATION_NOT_YET_EVALUATED",
+      "eligibility_rationale": "Required scenarios passed with documented append stale-precondition asymmetry; not equivalent to sqlite precondition-class coverage"
+    },
+    {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "eligibility_rationale": "Required scenarios executed with valid evidence"
+    }
+  ],
+  "cross_platform_parity": {
+    "platforms": ["macos_native", "windows-github-actions"],
+    "scenarios_per_candidate": 25,
+    "required_failures": 0,
+    "unsupported_capability_scenarios": [
+      "interrupted-compaction",
+      "interrupted-cleanup"
+    ],
+    "append_cross_platform_classification_mismatches": 0,
+    "sqlite_cross_platform_classification_mismatches": 0,
+    "verdict": "Required scenario outcome parity holds on both platforms for both candidates"
+  },
+  "correctness_and_recovery_analysis": {
+    "shared_outcomes": {
+      "required_lifecycle_scenarios": "Both candidates pass all required append/review/reuse lifecycle scenarios on both platforms",
+      "writer_crash_and_takeover": {
+        "both": "safe_automatic_recovery with open_state=normal",
+        "append_elapsed_ms_macos": 50,
+        "sqlite_elapsed_ms_macos": 1166,
+        "caveat": "SQLite harness uses 1000 ms test lease + 1100 ms wait; elapsed is harness-artifact not product SLA"
+      },
+      "derived_state_corruption_and_rebuild": "Both safe_automatic_recovery on both platforms",
+      "interrupted_authoritative_transitions": "Both safe_automatic_recovery (review and reuse) on both platforms",
+      "format_version_refusal": "Both refuse unknown-newer-format (unsupported_version) and malformed-format-version (unrecoverable) consistently"
+    },
+    "candidate_specific_differences": [
+      {
+        "category": "corruption_refusal_codes",
+        "detail": "Append reports commit-fingerprint-mismatch; SQLite reports canonical-corruption for tampered corruption scenarios",
+        "recovery_class_alignment": "canonical-reference-corruption and source-locator-corruption: both manual_review_required; order-corruption scenarios: both unrecoverable",
+        "interpretation": "Mechanism-specific refusal surfaces differ; both fail closed per B_tight. Not a correctness pass/fail divergence."
+      },
+      {
+        "category": "stale_precondition_coverage",
+        "detail": "Append stale-* scenarios pass with limitation: generation-stale only; sqlite-specific precondition classes not exercised. SQLite stale-* scenarios pass without that limitation.",
+        "platform_consistency": "Identical limitation text on macOS and Windows for append",
+        "selection_impact": "Sole blocker for mechanism_selection_readiness",
+        "open_semantic_question": "Accept as mechanism-specific equivalence limitation vs require append to exercise sqlite-equivalent stale classes"
+      },
+      {
+        "category": "concurrent_writer_and_readonly_during_writer",
+        "detail": "Both candidates pass; harness uses in-process dual-adapter model not true multi-process",
+        "evidence_strength": "InterfaceBehavior / exclusive-writer contract only"
+      }
+    ],
+    "not_demonstrated": [
+      "interrupted-compaction",
+      "interrupted-cleanup",
+      "stress fixture",
+      "bytes_read / bytes_written observation",
+      "cross-platform measurement pooling or ranking"
+    ]
+  },
+  "operational_tradeoffs_within_caveat_boundary": {
+    "measurement_disclaimer": "macos-native comparison.md only. n=5 wall-clock samples. Qualitative within-platform signals only. Do not rank or select.",
+    "macos_native_qualitative_patterns": {
+      "latency": "SQLite tends lower median on most append-path and semantic_duplication operations; append sometimes lower on derived_rebuild and create_session medium",
+      "subprocess_peak_rss": "Append tends lower subprocess peak RSS on most operations (non-isolated attribution)",
+      "storage_size": "Append uses smaller on-disk footprints in recorded storage_size_after samples; SQLite uses larger DB files — not normalized for semantic equivalence of storage layout"
+    },
+    "operational_dimensions_for_owner_review": [
+      {
+        "dimension": "recovery_takeover_latency",
+        "observation": "Append completes writer-crash-and-takeover much faster than SQLite in harness (lease/wait artifact for SQLite)",
+        "usable_for_selection": false
+      },
+      {
+        "dimension": "refusal_surface_consistency",
+        "observation": "Both candidates fail closed on authoritative corruption; code strings differ by mechanism",
+        "usable_for_selection": false
+      },
+      {
+        "dimension": "stale_command_precondition_equivalence",
+        "observation": "Only dimension with direct selection gate impact",
+        "usable_for_selection": false,
+        "requires_semantic_gate": true
+      },
+      {
+        "dimension": "within_platform_measurement_profile",
+        "observation": "SQLite faster on many paths; append lower RSS in harness subprocess model",
+        "usable_for_selection": false,
+        "reason": "n=5, non-isolated RSS, no Windows narrative, no cross-platform pooling authorized"
+      }
+    ]
+  },
+  "comparison_review_conclusion": {
+    "comparison_evidence_sufficient": true,
+    "mechanism_winner_declared": false,
+    "recommended_owner_focus": "Resolve stale-precondition asymmetry semantic gate before any selection discussion",
+    "comparison_gate_status": "accepted_with_documented_caveats",
+    "selection_gate_status": "not_ready"
+  },
+  "do_not_proceed": [
+    "SELECTION_GATE",
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "mechanism_selection",
+    "Material_Decision",
+    "product_integration"
+  ]
+}

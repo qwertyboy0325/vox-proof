@@ -1,10 +1,12 @@
 {
-  "selection_validity": "ready_for_owner_comparison_not_selection",
+  "selection_validity": "comparison_evidence_owner_accepted",
+  "owner_comparison_decision_ref": "owner-comparison-decision.json",
+  "comparison_only_decision_packet_ref": "comparison-only-decision-packet.json",
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
   "harness_version": "gate4-01c-evidence-v6",
   "scenario_contract_version": "4",
   "evidence_record_sha": "see_git_commit_preserving_this_directory",
-  "verdict": "READY_FOR_OWNER_COMPARISON_DECISION",
+  "verdict": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
   "mechanism_comparison_readiness": "ready_for_owner_decision",
   "mechanism_selection_readiness": "not_ready",
   "reason": [
@@ -47,5 +49,5 @@
     }
   },
   "preserve_raw_artifacts": true,
-  "note": "Frozen harness 91e258c cross-platform evidence complete. Comparison gate ready for owner decision; mechanism selection remains owner-gated pending governance review of append stale-precondition asymmetry."
+  "note": "Owner accepted comparison evidence 2026-08-14 (Ezra). Comparison gate accepted_with_documented_caveats; selection not_ready (append stale-precondition asymmetry). PRE_FINAL/Sol/selection remain closed."
 }

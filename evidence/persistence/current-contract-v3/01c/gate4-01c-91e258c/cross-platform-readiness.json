@@ -3,7 +3,8 @@
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
   "harness_version": "gate4-01c-evidence-v6",
   "scenario_contract_version": "4",
-  "aggregation_status": "complete_decision_valid_for_comparison",
+  "aggregation_status": "complete_owner_accepted",
+  "owner_comparison_decision_ref": "owner-comparison-decision.json",
   "required_platforms": [
     "macos_native",
     "windows-github-actions"

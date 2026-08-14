@@ -1,0 +1,77 @@
+{
+  "work_package_id": "VP_GATE4_01C_COMPARISON_OWNER_DECISION",
+  "gate_status": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
+  "owner_decision": "ACCEPT_COMPARISON_EVIDENCE_91E258C",
+  "owner_accepted": true,
+  "accepted_by": "Ezra",
+  "accepted_on": "2026-08-14",
+  "evidence": {
+    "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+    "harness_version": "gate4-01c-evidence-v6",
+    "scenario_contract_version": "4",
+    "fixture_version": "3",
+    "oracle_version": "3",
+    "measurement_contract_version": "2",
+    "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "methodology_audit_commit": "20ea9ddadc46ead5d8db0ee8cc8355f124f57ab2",
+    "methodology_audit_artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
+    "methodology_audit_verdict": "PASS_WITH_CAVEATS"
+  },
+  "comparison_gate": {
+    "status": "accepted_with_documented_caveats",
+    "readiness": "ready_for_owner_decision",
+    "owner_accepted": true
+  },
+  "selection_gate": {
+    "status": "not_ready",
+    "owner_accepted": false,
+    "blockers": [
+      "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
+    ]
+  },
+  "selection_status": "none",
+  "mechanism_selected": false,
+  "material_decision_created": false,
+  "product_integration_authorized": false,
+  "accepted_claim_boundary": {
+    "may_claim": [
+      "Both accepted candidates completed scenario contract v4 comparison evidence execution on macOS native and Windows GitHub Actions",
+      "Required scenario parity holds across platforms (25/25 scenarios per candidate; 0 required failures)",
+      "Comparison evidence is sufficient for owner comparison review within documented caveats",
+      "Recovery and correctness classification differences between candidates may be discussed",
+      "Cross-platform readiness aggregation is valid for scenario/outcome parity, not measurement ranking"
+    ],
+    "may_not_claim": [
+      "SQLite or Append has been selected as the persistence mechanism winner",
+      "n=5 latency or subprocess peak RSS measurements support ranking or mechanism selection",
+      "macOS-native measurements may be extrapolated to Windows behavior",
+      "Append stale-precondition coverage is equivalent to SQLite class-specific stale coverage",
+      "Physical filesystem durability, hardware power-loss, or OS-crash recovery has been demonstrated"
+    ]
+  },
+  "negative_control_preserved": {
+    "windows_attempt_31780866924": {
+      "failure_class": "CONTROL_PLANE_VALIDATOR_DRIFT",
+      "candidate_failure": false,
+      "harness_execution_failure": false,
+      "must_remain_preserved": true,
+      "note": "Negative control-plane evidence; must not be erased by successful run 31782086628"
+    }
+  },
+  "still_closed": [
+    "SELECTION_GATE",
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "mechanism_selection",
+    "Material_Decision",
+    "product_integration",
+    "contract_version_bump"
+  ],
+  "next_semantic_gate": {
+    "question": "Is append stale-precondition asymmetry an acceptable mechanism-specific equivalence limitation, or must append demonstrate SQLite-equivalent stale class coverage before selection?",
+    "blocks": "mechanism_selection_readiness",
+    "authorization_required": "owner_semantic_gate_on_stale_precondition_asymmetry"
+  },
+  "note": "Comparison evidence accepted with Grok 4.6 Extra High PASS_WITH_CAVEATS. Selection remains blocked until stale-precondition asymmetry semantic gate is resolved. No comparison-windows.json required; missing Windows performance narrative is a disclosure caveat only."
+}

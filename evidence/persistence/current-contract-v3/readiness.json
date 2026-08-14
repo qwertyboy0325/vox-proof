@@ -8,11 +8,13 @@
   "measurement_contract_version": "2",
   "harness_version": "gate4-01c-evidence-v6",
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
-  "mechanism_comparison_readiness": "ready_for_owner_decision",
+  "mechanism_comparison_readiness": "accepted_with_documented_caveats",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_CROSS_PLATFORM_EVIDENCE_CLOSED_AWAITING_OWNER_COMPARISON_DECISION",
+  "tracker_status": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
   "authoritative_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "owner_comparison_decision": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
+  "comparison_only_decision_packet": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/comparison-only-decision-packet.json",
   "methodology_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
   "invalid_evidence_chain": [
     {
@@ -64,7 +66,8 @@
   },
   "01C": {
     "authorized": true,
-    "execution_status": "cross_platform_evidence_closed",
+    "execution_status": "comparison_evidence_owner_accepted",
+    "comparison_gate": "accepted_with_documented_caveats",
     "mechanism_selection": "none",
     "product_integration": "unimplemented",
     "windows_control_plane_correction": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
@@ -72,9 +75,26 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
-    "status": "AWAITING_OWNER_COMPARISON_DECISION",
+    "status": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
     "scenario_contract_version": "4",
-    "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+    "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+    "owner_accepted_on": "2026-08-14",
+    "owner_accepted_by": "Ezra"
   },
-  "note": "Cross-platform v6 evidence closed at gate4-01c-91e258c. Grok 4.6 Extra High methodology audit: PASS_WITH_CAVEATS. Comparison ready for owner decision; selection not_ready (append stale-precondition asymmetry). PRE_FINAL/Sol/selection remain closed."
+  "next_semantic_gate": {
+    "id": "VP-GATE4-01C-STALE-PRECONDITION-ASYMMETRY-SEMANTIC-GATE",
+    "question": "Accept append generation-stale-only coverage as mechanism-specific limitation, or require sqlite-equivalent stale class coverage before selection",
+    "blocks": "mechanism_selection_readiness"
+  },
+  "still_closed": [
+    "SELECTION_GATE",
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "mechanism_selection",
+    "Material_Decision",
+    "product_integration",
+    "contract_version_bump"
+  ],
+  "note": "Owner accepted comparison evidence at 91e258c with PASS_WITH_CAVEATS methodology audit. Selection blocked on append stale-precondition asymmetry only. PRE_FINAL/Sol/selection remain closed."
 }
