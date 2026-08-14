@@ -162,7 +162,13 @@ fn run_01c_evidence_with_variants(
     sqlite_variant: SqliteEvidenceVariant,
 ) -> RunOutput {
     let output_root = output_root.into();
-    let _ = fs::remove_dir_all(&output_root);
+    let platform_append = std::env::var("VOXPROOF_01C_PLATFORM_APPEND")
+        .ok()
+        .as_deref()
+        .is_some_and(|value| matches!(value, "1" | "true" | "yes"));
+    if !platform_append {
+        let _ = fs::remove_dir_all(&output_root);
+    }
     fs::create_dir_all(&output_root).expect("output root");
     let repository_commit = git_head();
     let mut environment = capture_environment(&repository_commit, EVIDENCE_01C_HARNESS_VERSION);

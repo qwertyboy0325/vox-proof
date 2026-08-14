@@ -6,11 +6,25 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "FCR03_WIRING_COMMITTED_HARNESS_SHA_UPDATED",
+  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_AUTHORIZED_PENDING_EXECUTION",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true
+  },
+  "windows_dual_scoped_fcr03_evidence": {
+    "status": "owner_authorized_pending_execution",
+    "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/work-package.json",
+    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json",
+    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/execution-plan.json",
+    "target_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+    "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+    "workflow": ".github/workflows/persistence-sqlite-windows.yml",
+    "dispatch": {
+      "dual_scoped_fcr03": "true",
+      "fcr03_record_id": "gate4-01c-d267f0d-dual-scoped-fcr03",
+      "evidence_ref": "abe8f9adf5330470a24d83842db6c43f1fe89a1a"
+    }
   },
   "dual_scoped_fcr03_evidence": {
     "status": "macos_single_platform_complete",
@@ -67,8 +81,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-    "status": "COMMIT_COMPLETE",
-    "phase": "WINDOWS_DUAL_SCOPED_AUTHORIZATION"
+    "status": "WINDOWS_AUTHORIZED_PENDING_EXECUTION",
+    "phase": "WINDOWS_DUAL_SCOPED_EVIDENCE_EXECUTION"
   },
   "gate_sequence": {
     "completed": [
@@ -83,15 +97,17 @@
       "unified_FCR03_observation_wiring_01B3_and_01C_SQLITE3",
       "macos_dual_scoped_fcr03_evidence_execution",
       "evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
-      "fcr03_wiring_commit_abe8f9a_harness_sha_updated"
+      "fcr03_wiring_commit_abe8f9a_harness_sha_updated",
+      "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE"
     ],
-    "current": "WINDOWS_DUAL_SCOPED_AUTHORIZATION",
+    "current": "WINDOWS_DUAL_SCOPED_EVIDENCE_EXECUTION",
     "blocked": [
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "Windows dual-scoped evidence (separate authorization)",
+      "Windows workflow dispatch (dual_scoped_fcr03=true)",
+      "cross-platform aggregation review",
       "Sol retry on governance chain"
     ]
   },
@@ -105,5 +121,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "FCR-03 wiring committed (abe8f9a). macOS dual-scoped evidence at d267f0d base reviewed PASS_WITH_CAVEATS (Grok 4.6). Windows authorization and mechanism selection remain closed."
+  "note": "Windows dual-scoped FCR-03 evidence authorized. Dispatch persistence-sqlite-windows with dual_scoped_fcr03=true. Mechanism selection remains closed."
 }

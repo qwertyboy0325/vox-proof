@@ -1,7 +1,7 @@
 {
   "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-01",
-  "status": "MACOS_EVIDENCE_COMPLETE",
-  "phase": "EVIDENCE_METHODOLOGY_REVIEW_GATE",
+  "status": "WINDOWS_AUTHORIZED_PENDING_EXECUTION",
+  "phase": "WINDOWS_DUAL_SCOPED_EVIDENCE_EXECUTION",
   "owner_authorized": true,
   "authorized_by": "Ezra",
   "authorized_on": "2026-08-14",
@@ -22,12 +22,14 @@
   ],
   "completed_gates": [
     "FCR-03 harness wiring",
-    "macOS dual-scoped evidence execution"
+    "macOS dual-scoped evidence execution",
+    "evidence-methodology review PASS_WITH_CAVEATS (Grok 4.6)",
+    "harness commit abe8f9a",
+    "Windows dual-scoped owner authorization"
   ],
   "required_next": [
-    "evidence-methodology review of gate4-01c-d267f0d-dual-scoped-fcr03",
-    "commit harness_semantic_sha",
-    "Windows dual-scoped evidence (separate authorization)"
+    "Windows workflow dispatch (dual_scoped_fcr03=true)",
+    "cross-platform aggregation review"
   ],
   "evidence_execution": {
     "owner_authorization": "owner-evidence-execution-decision.json",

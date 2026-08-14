@@ -14,9 +14,27 @@ on:
       evidence_ref:
         description: >-
           Git ref (commit SHA, branch, or tag) for checkout/compile/test/01C evidence
-          generation. Defaults to frozen Gate 4 harness revision 91e258c.
+          generation. Defaults to frozen Gate 4 harness revision 91e258c, or abe8f9a
+          when dual_scoped_fcr03 is enabled.
         required: false
         default: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+        type: string
+      dual_scoped_fcr03:
+        description: >-
+          Run dual-scoped FCR-03 evidence (01B-3 + 01C-SQLITE-3) with platform-append
+          into an existing record. Requires owner authorization VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01.
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      fcr03_record_id:
+        description: >-
+          01C evidence record directory name for dual-scoped FCR-03 platform-append.
+          Must already contain macos-native artifacts when appending Windows evidence.
+        required: false
+        default: "gate4-01c-d267f0d-dual-scoped-fcr03"
         type: string
   push:
     branches:
@@ -45,8 +63,11 @@ on:
 
 env:
   FROZEN_EVIDENCE_REF: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+  FCR03_HARNESS_REF: "abe8f9adf5330470a24d83842db6c43f1fe89a1a"
   WORKFLOW_CONTROL_PLANE_SHA: ${{ github.sha }}
-  EVIDENCE_REF: ${{ github.event.inputs.evidence_ref || '91e258cf00cbaa5100c14678454f13fb8c2f14b5' }}
+  DUAL_SCOPED_FCR03: ${{ github.event.inputs.dual_scoped_fcr03 || 'false' }}
+  FCR03_RECORD_ID: ${{ github.event.inputs.fcr03_record_id || 'gate4-01c-d267f0d-dual-scoped-fcr03' }}
+  EVIDENCE_REF: ${{ github.event.inputs.dual_scoped_fcr03 == 'true' && (github.event.inputs.evidence_ref || 'abe8f9adf5330470a24d83842db6c43f1fe89a1a') || (github.event.inputs.evidence_ref || '91e258cf00cbaa5100c14678454f13fb8c2f14b5') }}
 
 jobs:
   windows-v3-evidence:
@@ -104,7 +125,7 @@ jobs:
       - name: Run current-contract SQLite candidate Windows tests
         run: cargo test --features persistence-spike --test persistence_sqlite_authoritative_01c
       - name: Run Gate 4 01C evidence harness tests
-        run: cargo test --features persistence-spike --test persistence_correction_05 --test persistence_01c_evidence
+        run: cargo test --features persistence-spike --test persistence_correction_05 --test persistence_01c_evidence --test persistence_sqlite_scoped_precondition_01c3 --test persistence_append_scoped_precondition_01b3
       - name: Run workspace clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Run persistence tests
@@ -141,29 +162,47 @@ jobs:
         id: run_01c
         shell: bash
         run: |
-          RUN_ID="current-contract-v3-01c-windows-${{ github.run_id }}"
+          if [ "$DUAL_SCOPED_FCR03" = "true" ]; then
+            RUN_ID="$FCR03_RECORD_ID"
+            export VOXPROOF_01C_DUAL_SCOPED=1
+            export VOXPROOF_01C_PLATFORM_APPEND=1
+            export VOXPROOF_APPEND_EVIDENCE_VARIANT=01B-3
+            export VOXPROOF_SQLITE_EVIDENCE_VARIANT=01C-SQLITE-3
+          else
+            RUN_ID="current-contract-v3-01c-windows-${{ github.run_id }}"
+          fi
           export VOXPROOF_01C_RUN_ID="$RUN_ID"
           export VOXPROOF_PLATFORM_LABEL="windows-github-actions"
           export VOXPROOF_EXECUTION_ENVIRONMENT="github-actions-windows-latest"
           export VOXPROOF_FILESYSTEM="ntfs-github-actions-runner"
           cargo run --features persistence-spike --bin persistence_evidence_01c_run
           echo "VOXPROOF_01C_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "DUAL_SCOPED_FCR03=$DUAL_SCOPED_FCR03" >> "$GITHUB_ENV"
       - name: Write Windows provenance record
         if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
         shell: bash
         run: |
           python - <<'PY'
-          import json, pathlib
-          root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / "${{ env.VOXPROOF_01C_RUN_ID }}"
+          import json, os, pathlib
+          root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / os.environ["VOXPROOF_01C_RUN_ID"]
+          dual_scoped = os.environ.get("DUAL_SCOPED_FCR03") == "true"
           provenance = {
-              "workflow_control_plane_sha": "${{ env.WORKFLOW_CONTROL_PLANE_SHA }}",
-              "evidence_checkout_sha": "${{ env.EVIDENCE_CHECKOUT_SHA }}",
-              "harness_semantic_sha": "${{ env.EVIDENCE_CHECKOUT_SHA }}",
-              "workflow_run_id": ${{ github.run_id }},
-              "01c_run_id": "${{ env.VOXPROOF_01C_RUN_ID }}",
+              "workflow_control_plane_sha": os.environ["WORKFLOW_CONTROL_PLANE_SHA"],
+              "evidence_checkout_sha": os.environ["EVIDENCE_CHECKOUT_SHA"],
+              "harness_semantic_sha": os.environ["EVIDENCE_CHECKOUT_SHA"],
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "01c_run_id": os.environ["VOXPROOF_01C_RUN_ID"],
               "platform_label": "windows-github-actions",
-              "work_package_id": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
+              "work_package_id": (
+                  "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01"
+                  if dual_scoped
+                  else "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06"
+              ),
+              "dual_scoped_fcr03": dual_scoped,
           }
+          if dual_scoped:
+              provenance["append_candidate_variant"] = "01B-3"
+              provenance["sqlite_candidate_variant"] = "01C-SQLITE-3"
           root.mkdir(parents=True, exist_ok=True)
           (root / "windows-provenance.json").write_text(
               json.dumps(provenance, indent=2) + "\n",
@@ -171,11 +210,17 @@ jobs:
           )
           print("windows-provenance.json written")
           PY
+        env:
+          WORKFLOW_CONTROL_PLANE_SHA: ${{ env.WORKFLOW_CONTROL_PLANE_SHA }}
+          EVIDENCE_CHECKOUT_SHA: ${{ env.EVIDENCE_CHECKOUT_SHA }}
+          VOXPROOF_01C_RUN_ID: ${{ env.VOXPROOF_01C_RUN_ID }}
+          DUAL_SCOPED_FCR03: ${{ env.DUAL_SCOPED_FCR03 }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
       - name: Upload Gate 4 01C Windows evidence
         if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: persistence-01c-windows-evidence
+          name: ${{ env.DUAL_SCOPED_FCR03 == 'true' && 'persistence-01c-windows-dual-scoped-fcr03-evidence' || 'persistence-01c-windows-evidence' }}
           path: evidence/persistence/current-contract-v3/01c/${{ env.VOXPROOF_01C_RUN_ID }}/
       - name: Validate 01C evidence JSON and readiness gate
         if: ${{ !cancelled() && steps.run_01c.outcome == 'success' }}
@@ -194,6 +239,7 @@ jobs:
           readiness = json.loads((root / "readiness.json").read_text())
           manifest = json.loads((root / "manifest.json").read_text())
           evidence_checkout_sha = "${{ env.EVIDENCE_CHECKOUT_SHA }}"
+          dual_scoped = "${{ env.DUAL_SCOPED_FCR03 }}" == "true"
 
           assert manifest["methodology"]["harness_version"] == "gate4-01c-evidence-v6", manifest["methodology"]["harness_version"]
           assert manifest["methodology"]["scenario_contract_version"] == "4", manifest["methodology"]["scenario_contract_version"]
@@ -211,10 +257,31 @@ jobs:
           assert comparison_blockers == [
               "cross_platform: awaiting peer platform evidence aggregation"
           ], comparison_blockers
-          assert selection_blockers == [
-              "cross_platform: awaiting peer platform evidence aggregation",
-              "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness",
-          ], selection_blockers
+
+          if dual_scoped:
+              expected_selection_blockers = [
+                  "cross_platform: awaiting peer platform evidence aggregation"
+              ]
+              append_scenarios = json.loads((root / "windows-github-actions/append/scenario-results.json").read_text())
+              sqlite_scenarios = json.loads((root / "windows-github-actions/sqlite/scenario-results.json").read_text())
+              for label, scenarios in [("append", append_scenarios), ("sqlite", sqlite_scenarios)]:
+                  stale = [s for s in scenarios if s["scenario_id"].startswith("stale-")]
+                  u1 = [s for s in scenarios if s["scenario_id"] == "unrelated-scope-review-after-reuse-advance"]
+                  assert len(stale) == 3, (label, len(stale))
+                  assert len(u1) == 1, (label, len(u1))
+                  for row in stale:
+                      assert "fcr03_stale_rejection" in row, row["scenario_id"]
+                  assert "fcr03_unrelated_success" in u1[0], u1[0]["scenario_id"]
+              macos_native = root / "macos-native"
+              if macos_native.exists():
+                  assert any(macos_native.iterdir()), "macos-native must be preserved in platform-append mode"
+          else:
+              expected_selection_blockers = [
+                  "cross_platform: awaiting peer platform evidence aggregation",
+                  "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness",
+              ]
+
+          assert selection_blockers == expected_selection_blockers, selection_blockers
 
           print("01c json and readiness ok")
           PY

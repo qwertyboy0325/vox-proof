@@ -1,0 +1,66 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-OWNER-AUTHORIZATION",
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "owner_decision": "AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE_EXECUTION",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-14",
+  "authorization_scope": {
+    "append_candidate_variant": "01B-3",
+    "sqlite_candidate_variant": "01C-SQLITE-3",
+    "runner": "run_01c_evidence_dual_scoped / VOXPROOF_01C_DUAL_SCOPED=1",
+    "platform_scope": "windows-github-actions_single_platform",
+    "platform_append_mode": "VOXPROOF_01C_PLATFORM_APPEND=1",
+    "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+    "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+    "workflow": ".github/workflows/persistence-sqlite-windows.yml",
+    "workflow_dispatch_input": "dual_scoped_fcr03=true"
+  },
+  "preconditions_satisfied": [
+    "FCR-03 harness wiring committed (abe8f9a)",
+    "macOS dual-scoped FCR-03 evidence executed and methodology reviewed PASS_WITH_CAVEATS (Grok 4.6)",
+    "01C-SQLITE-3 successor frozen",
+    "scoped_candidates_persist_fcr03_observations_in_harness test pass",
+    "persistence_sqlite_scoped_precondition_01c3 unit tests pass"
+  ],
+  "hard_boundaries": {
+    "preserve": [
+      "frozen gate4-01c-91e258c evidence immutable",
+      "macos-native subdirectory in gate4-01c-d267f0d-dual-scoped-fcr03",
+      "prior gate4-01c-d267f0d-append-01b3 historical record",
+      "macOS evidence execution provenance at d267f0d base"
+    ],
+    "forbidden": [
+      "rewrite frozen 91e258c",
+      "destructive overwrite of macos-native artifacts",
+      "claim mechanism selection readiness from Windows-only execution",
+      "claim cross-platform aggregation complete before Windows validation",
+      "modify MD-015"
+    ]
+  },
+  "evidence_claim_scope": [
+    "dual-scoped scenario contract v4 execution on windows-github-actions",
+    "FCR-03 stale_rejection fields persisted in scenario-results for both candidates",
+    "FCR-03 unrelated_success U1 scenario persisted for both candidates",
+    "md_015_scoped_validity evidence at harness observation fidelity on Windows (not general MD-015 product claim)",
+    "cross-platform peer platform for aggregation with existing macOS record"
+  ],
+  "may_not_claim": [
+    "mechanism selection readiness",
+    "general MD-015 product claim",
+    "persist+reopen / FilesystemDurability proof",
+    "replacement of frozen 91e258c",
+    "cross-platform complete until aggregation validated"
+  ],
+  "required_next": [
+    "Windows workflow dispatch and evidence generation",
+    "FCR-03 field validation on windows-github-actions scenario-results",
+    "cross-platform-readiness.json update",
+    "cross-platform evidence-methodology review"
+  ],
+  "upstream_refs": {
+    "macos_owner_decision": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/owner-evidence-execution-decision.json",
+    "macos_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
+    "harness_commit_record": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/harness-commit-record.json"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EXECUTION-PLAN",
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "owner_authorization_ref": "owner-authorization.json",
+  "status": "READY_FOR_DISPATCH",
+  "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+  "evidence_record_path": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "workflow": {
+    "file": ".github/workflows/persistence-sqlite-windows.yml",
+    "dispatch_inputs": {
+      "evidence_ref": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+      "dual_scoped_fcr03": "true",
+      "fcr03_record_id": "gate4-01c-d267f0d-dual-scoped-fcr03"
+    }
+  },
+  "environment_variables": {
+    "VOXPROOF_01C_DUAL_SCOPED": "1",
+    "VOXPROOF_01C_PLATFORM_APPEND": "1",
+    "VOXPROOF_01C_RUN_ID": "gate4-01c-d267f0d-dual-scoped-fcr03",
+    "VOXPROOF_APPEND_EVIDENCE_VARIANT": "01B-3",
+    "VOXPROOF_SQLITE_EVIDENCE_VARIANT": "01C-SQLITE-3",
+    "VOXPROOF_PLATFORM_LABEL": "windows-github-actions",
+    "VOXPROOF_EXECUTION_ENVIRONMENT": "github-actions-windows-latest",
+    "VOXPROOF_FILESYSTEM": "ntfs-github-actions-runner"
+  },
+  "candidate_variants": {
+    "append": "01B-3",
+    "sqlite": "01C-SQLITE-3"
+  },
+  "expected_artifacts": {
+    "windows_subdirectory": "windows-github-actions",
+    "append_scenario_results": "windows-github-actions/append/scenario-results.json",
+    "sqlite_scenario_results": "windows-github-actions/sqlite/scenario-results.json",
+    "windows_provenance": "windows-provenance.json",
+    "fcr03_stale_rejection_per_candidate": 3,
+    "fcr03_unrelated_success_per_candidate": 1
+  },
+  "validation_checks": [
+    "24 passed + 2 unsupported per candidate (not 26 passed)",
+    "fcr03_stale_rejection populated on stale-* scenarios",
+    "fcr03_unrelated_success populated on unrelated-scope-review-after-reuse-advance",
+    "both candidates ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "APPEND_STALE_ASYMMETRY_LIMITATION absent",
+    "macos-native subdirectory preserved unchanged",
+    "selection_blockers contain only cross_platform blocker (no asymmetry blocker for 01B-3)"
+  ],
+  "post_execution": [
+    "write windows-provenance.json with workflow_control_plane_sha and evidence_checkout_sha abe8f9a",
+    "update cross-platform-readiness.json aggregation_status to windows_complete_pending_aggregation_review",
+    "upload artifact persistence-01c-windows-dual-scoped-fcr03-evidence"
+  ],
+  "not_claimed_until": [
+    "cross-platform aggregation review",
+    "mechanism comparison readiness upgrade",
+    "mechanism selection"
+  ]
+}

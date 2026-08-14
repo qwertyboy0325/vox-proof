@@ -1,0 +1,35 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
+  "status": "OWNER_AUTHORIZED_PENDING_EXECUTION",
+  "phase": "WINDOWS_EVIDENCE_EXECUTION",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorization_ref": "owner-authorization.json",
+  "execution_plan_ref": "execution-plan.json",
+  "objective": "Execute Windows github-actions dual-scoped 01C evidence for Append 01B-3 vs SQLite 01C-SQLITE-3 with FCR-03 observation fields, aggregating into the existing macOS dual-scoped record.",
+  "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+  "macos_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "macos_evidence_execution_harness_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "methodology_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
+  "scope": [
+    "Windows github-actions dual-scoped 01C evidence execution",
+    "platform-append into gate4-01c-d267f0d-dual-scoped-fcr03 (preserve macos-native artifacts)",
+    "FCR-03 stale_rejection + unrelated_success fields in scenario-results for both candidates",
+    "cross-platform-readiness aggregation update after Windows completion"
+  ],
+  "forbidden": [
+    "rewrite frozen gate4-01c-91e258c",
+    "overwrite macos-native evidence subdirectory",
+    "mechanism selection",
+    "Material_Decision",
+    "claim cross-platform complete before Windows artifacts validated"
+  ],
+  "required_next": [
+    "dispatch persistence-sqlite-windows workflow with dual_scoped_fcr03=true",
+    "validate FCR-03 fields in windows-github-actions scenario-results",
+    "update cross-platform-readiness.json aggregation_status",
+    "evidence-methodology review of cross-platform dual-scoped record"
+  ]
+}
