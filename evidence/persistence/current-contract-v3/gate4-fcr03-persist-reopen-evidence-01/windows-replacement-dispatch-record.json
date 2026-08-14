@@ -3,16 +3,28 @@
   "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
   "owner_authorization": "windows-replacement-owner-authorization.json",
   "dispatched_on": "2026-08-15",
-  "status": "IN_PROGRESS",
+  "status": "RETRY_DISPATCHED",
   "workflow": "persistence-sqlite-windows",
   "branch": "v0.2-real-transcript-authoritative-loop",
-  "workflow_run_id": 31818699362,
-  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
+  "attempts": [
+    {
+      "workflow_run_id": 31818699362,
+      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31818699362",
+      "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
+      "conclusion": "failure",
+      "failure_phase": "Validate 01C evidence JSON and readiness gate",
+      "failure_reason": "macos-native peer artifacts absent at harness checkout 1510e3d; tracker commit f020020 not restored before platform-append",
+      "windows_01c_generation": "success",
+      "accepted_for_final_gate": false
+    }
+  ],
+  "workflow_run_id": null,
+  "workflow_run_url": null,
   "provenance": {
     "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
     "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
-    "workflow_control_plane_sha": "f020020bdf6d6ffcb90ed780ed6b4fa60a2a3700",
-    "workflow_control_plane_note": "Evidence-only tracker commit; harness semantic authority is 1510e3d"
+    "workflow_control_plane_sha": "pending_retry_dispatch_commit",
+    "workflow_control_plane_note": "Harness semantic authority remains 1510e3d; workflow may restore macos-native from tracker branch"
   },
   "dispatch_inputs": {
     "dual_scoped_fcr03": "true",
@@ -21,6 +33,7 @@
   },
   "target_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
   "platform_append_mode": "VOXPROOF_01C_PLATFORM_APPEND=1",
+  "workflow_correction": "Restore macos-native from workflow branch before platform-append when harness checkout predates tracker evidence commit",
   "superseded_run": {
     "workflow_run_id": 31811807394,
     "evidence_checkout_sha": "9ec3b07a6c71fe79348cf00524128af008964120",

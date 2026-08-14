@@ -93,7 +93,7 @@
   "bounded_remediation": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
     "status": "MACOS_PERSIST_REOPEN_EVIDENCE_COMPLETE",
-    "phase": "WINDOWS_REPLACEMENT_RUN",
+    "phase": "WINDOWS_REPLACEMENT_RUN_IN_PROGRESS",
     "m1_l1_reverification": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
     "m1_l1_reverification_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/m1-l1-reverification-record.json",
     "m1_l1_verdict": "PASS_WITH_CAVEATS",
