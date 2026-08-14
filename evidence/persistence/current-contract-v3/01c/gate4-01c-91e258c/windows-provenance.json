@@ -1,0 +1,9 @@
+{
+  "workflow_control_plane_sha": "fc8acfcd5f4d9a8477506cdfe055a6e0161baac4",
+  "evidence_checkout_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "workflow_run_id": 31782086628,
+  "01c_run_id": "current-contract-v3-01c-windows-31782086628",
+  "platform_label": "windows-github-actions",
+  "work_package_id": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06"
+}

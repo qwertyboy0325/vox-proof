@@ -1,0 +1,68 @@
+{
+  "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "aggregation_status": "complete_decision_valid_for_comparison",
+  "required_platforms": [
+    "macos_native",
+    "windows-github-actions"
+  ],
+  "platforms": {
+    "macos_native": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "macos-native",
+      "execution_environment": "macos-native-host"
+    },
+    "windows-github_actions": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "windows-github-actions",
+      "provenance_file": "windows-provenance.json",
+      "workflow_control_plane_sha": "fc8acfcd5f4d9a8477506cdfe055a6e0161baac4",
+      "evidence_checkout_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+      "workflow_run_id": 31782086628,
+      "01c_run_id": "current-contract-v3-01c-windows-31782086628"
+    }
+  },
+  "parity_checks": {
+    "harness_sha_match": true,
+    "required_scenario_failures": 0,
+    "unsupported_capability_scenarios_consistent": true,
+    "measurement_failure_count_zero": true
+  },
+  "programmatic_readiness": {
+    "mechanism_comparison_readiness": "ready_for_owner_decision",
+    "mechanism_selection_readiness": "not_ready",
+    "comparison_blockers": [],
+    "selection_blockers": [
+      "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
+    ],
+    "legacy_blockers_equals_comparison_blockers": true
+  },
+  "control_plane_negative_evidence": {
+    "windows_attempt_31780866924": {
+      "evidence_checkout_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+      "evidence_generation": "PASS",
+      "post_generation_validation": "FAIL",
+      "failure_class": "CONTROL_PLANE_VALIDATOR_DRIFT",
+      "candidate_failure": false,
+      "harness_execution_failure": false,
+      "raw_01c_artifact_uploaded": false,
+      "usable_for_cross_platform_aggregation": false,
+      "preserve_as_negative_control_plane_evidence": true,
+      "remediated_by": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
+      "remediated_workflow_run_id": 31782086628
+    }
+  },
+  "observed_local_test_flake": {
+    "freeze_gate_at_91e258c": {
+      "command": "cargo test --workspace --features persistence-spike",
+      "first_run": "writer-already-open on append 01b test",
+      "retry": "clean pass",
+      "targeted_gate": "persistence_correction_05 + persistence_01c_evidence 17/17 pass",
+      "classification": "observed_local_test_flake_not_blocker"
+    }
+  },
+  "mechanism_selection": "none",
+  "note": "Cross-platform v6 readiness graph closed at frozen harness 91e258c. Mechanism comparison ready for owner decision; mechanism selection remains not_ready due to append stale-precondition asymmetry only."
+}

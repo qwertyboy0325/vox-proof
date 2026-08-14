@@ -1,0 +1,990 @@
+[
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 13,
+    "median_ms": 15,
+    "p95_ms": 15,
+    "maximum_ms": 16,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9523200,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 24,
+    "median_ms": 25,
+    "p95_ms": 28,
+    "maximum_ms": 30,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9863168,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 18,
+    "median_ms": 19,
+    "p95_ms": 19,
+    "maximum_ms": 20,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9584640,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 32,
+    "median_ms": 33,
+    "p95_ms": 33,
+    "maximum_ms": 34,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 10051584,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 19,
+    "median_ms": 19,
+    "p95_ms": 20,
+    "maximum_ms": 23,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9723904,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 69,
+    "median_ms": 70,
+    "p95_ms": 70,
+    "maximum_ms": 70,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 10641408,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 126976,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 20,
+    "median_ms": 20,
+    "p95_ms": 20,
+    "maximum_ms": 20,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9781248,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 33,
+    "median_ms": 34,
+    "p95_ms": 34,
+    "maximum_ms": 34,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 10117120,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 90112,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 14,
+    "median_ms": 14,
+    "p95_ms": 15,
+    "maximum_ms": 15,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9469952,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 25,
+    "median_ms": 25,
+    "p95_ms": 25,
+    "maximum_ms": 26,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9789440,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 2,
+    "median_ms": 3,
+    "p95_ms": 5,
+    "maximum_ms": 5,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9273344,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 2,
+    "median_ms": 3,
+    "p95_ms": 3,
+    "maximum_ms": 3,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9912320,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 20,
+    "median_ms": 21,
+    "p95_ms": 21,
+    "maximum_ms": 21,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9248768,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 60,
+    "median_ms": 60,
+    "p95_ms": 61,
+    "maximum_ms": 63,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9891840,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 15,
+    "median_ms": 15,
+    "p95_ms": 15,
+    "maximum_ms": 18,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9392128,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 50,
+    "median_ms": 51,
+    "p95_ms": 51,
+    "maximum_ms": 51,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9990144,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 4,
+    "median_ms": 4,
+    "p95_ms": 4,
+    "maximum_ms": 4,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9277440,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 15,
+    "median_ms": 15,
+    "p95_ms": 15,
+    "maximum_ms": 15,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9879552,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 4,
+    "median_ms": 4,
+    "p95_ms": 4,
+    "maximum_ms": 4,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9285632,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 15,
+    "median_ms": 15,
+    "p95_ms": 15,
+    "maximum_ms": 15,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9949184,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 6,
+    "median_ms": 6,
+    "p95_ms": 6,
+    "maximum_ms": 6,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9302016,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 25,
+    "median_ms": 25,
+    "p95_ms": 26,
+    "maximum_ms": 32,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9863168,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 28,
+    "median_ms": 30,
+    "p95_ms": 34,
+    "maximum_ms": 34,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9719808,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 172032,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "windows-github-actions",
+    "count": 5,
+    "minimum_ms": 81,
+    "median_ms": 83,
+    "p95_ms": 83,
+    "maximum_ms": 84,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 10596352,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 229376,
+      "status": "available",
+      "reason": null
+    }
+  }
+]

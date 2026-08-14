@@ -1,0 +1,33 @@
+{
+  "freeze_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05-methodology-freeze-v1",
+  "harness_version": "gate4-01c-evidence-v6",
+  "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+  "candidates_order": [
+    "current-contract-append-authoritative-candidate",
+    "current-contract-sqlite-authoritative-candidate"
+  ],
+  "fixture_id": "voxproof-persistence-evidence-current-contract",
+  "fixture_version": "3",
+  "oracle_version": "3",
+  "scenario_contract_version": "4",
+  "measurement_contract_version": "2",
+  "small_fixture": "golden_small promoted_active variant",
+  "medium_fixture": "scaled_multi_lifecycle_current_contract_v3",
+  "stress_fixture_policy": "not_implemented_record_limitation",
+  "scenario_execution_order": "scenario_contract_v4 declaration order",
+  "correctness_gate_order": "all required scenarios before any performance samples",
+  "measurement_operation_order": "comparative_measurement_contract declaration order",
+  "warmup_strategy": "contract warmup_count per operation before interleaved samples",
+  "sample_interleaving_strategy": "alternating_per_sample: even sample append-first, odd sqlite-first",
+  "timing_source": "std::time::Instant elapsed wall clock per operation",
+  "peak_memory_strategy": "process peak RSS via getrusage (unix) or GetProcessMemoryInfo PeakWorkingSetSize (windows); subprocess-isolated per measurement sample",
+  "bytes_read_write_strategy": "unavailable unless candidate-neutral filesystem observation exists",
+  "storage_size_strategy": "recursive byte sum of candidate session storage directory; storage_size_before unavailable for isolated per-sample roots",
+  "environment_metadata_strategy": "capture_environment at run start from live host",
+  "macos_strategy": "native host execution via persistence_evidence_01c_run",
+  "windows_strategy": "github-actions windows-latest workflow step",
+  "comparison_algorithm": "paired within-platform tradeoff report without cross-platform pooling",
+  "missing_metric_policy": "explicit unavailable sentinel; never encode as zero",
+  "capability_dependent_policy": "unsupported capability yields ScenarioExecutionStatus::Unsupported with limitation",
+  "platform_pooling_performed": false
+}
