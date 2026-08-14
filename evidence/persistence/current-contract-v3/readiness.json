@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_PASS",
+  "tracker_status": "GOVERNANCE_CHAIN_RETRY_SOL_BLOCKING_CONTRADICTION",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -98,17 +98,19 @@
     "pre_final_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
     "governance_reconciliation_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-reconciliation-supersession.json",
     "corrections_status": "GOV_01_THROUGH_GOV_04_APPLIED",
-    "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
+    "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
     "strong_final_verdict": "BLOCKING_CONTRADICTION",
-    "strong_final_reviewer_model": "Claude Opus 5 (supplementary; Sol gpt-5.6-sol-high still required)",
+    "strong_final_reviewer_model": "gpt-5.6-sol-high",
+    "strong_final_supplementary_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
+    "strong_final_supplementary_model": "Claude Opus 5 (non-canonical)",
     "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
     "prior_sol_verdict": "BLOCKING_CONTRADICTION",
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
-    "status": "STRONG_FINAL_CONFLICT_REVIEW_ELIGIBLE",
-    "phase": "STRONG_FINAL_CONFLICT_REVIEW"
+    "status": "SOL_BLOCKING_CONTRADICTION",
+    "phase": "BOUNDED_REMEDIATION_REQUIRED"
   },
   "gate_sequence": {
     "completed": [
@@ -128,17 +130,21 @@
       "windows_dual_scoped_fcr03_evidence_execution_run_31811807394",
       "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
       "governance_corrections_GOV_01_through_GOV_04_applied",
-      "PRE_FINAL_governance_audit_retry_PASS_opus_5_f781329"
+      "PRE_FINAL_governance_audit_retry_PASS_opus_5_f781329",
+      "Sol_STRONG_FINAL_BLOCKING_CONTRADICTION_gpt_5_6_sol_high_f781329"
     ],
-    "current": "STRONG_FINAL_CONFLICT_REVIEW",
+    "current": "BOUNDED_REMEDIATION_REQUIRED",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
-      "mechanism_selection"
+      "mechanism_selection",
+      "READY_FOR_OWNER_GATE"
     ],
     "downstream": [
-      "Sol STRONG_FINAL retry (gpt-5.6-sol-high) at commit f781329",
-      "owner decision on FCR-03 field rename/downgrade vs reopen-based evidence",
-      "Windows harness SHA drift adjudication (9ec3b07 vs abe8f9a)"
+      "owner decision: FCR-03 persist+reopen vs field rename/downgrade",
+      "owner decision: Windows 9ec3b07 vs abe8f9a SHA drift",
+      "Append 01B-3 storage specialist re-verification",
+      "work-package escalation_conditions correction",
+      "dual-scoped readiness blocker attribution fix"
     ]
   },
   "still_closed": [
@@ -150,5 +156,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "PRE_FINAL retry PASS (Opus 5, f781329). STRONG_FINAL authorized under gpt-5.6-sol-high only. Opus 5 supplementary review does not satisfy policy. Mechanism selection closed."
+  "note": "Sol STRONG_FINAL BLOCKING_CONTRADICTION (gpt-5.6-sol-high, f781329). FCR-01/05 resolved at bounded strength. FCR-02/03/04 + Windows SHA drift + readiness attribution remain blocking. Mechanism selection closed."
 }

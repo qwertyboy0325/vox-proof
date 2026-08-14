@@ -1,0 +1,160 @@
+{
+  "review_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01-SOL-FCR-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "verdict": "BLOCKING_CONTRADICTION",
+  "verdict_line": "FINAL CONFLICT REVIEW: BLOCKING CONTRADICTION",
+  "reviewer": "voxproof-final-conflict-reviewer",
+  "actual_model": "gpt-5.6-sol-high",
+  "required_model": "gpt-5.6-sol-high",
+  "model_requirement_satisfied": true,
+  "reviewed_commit": "f781329",
+  "review_context": {
+    "pre_final_result_and_tracker_commit": "9dcb745",
+    "pre_final_verdict": "PASS",
+    "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+    "supplementary_review_preserved": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json"
+  },
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "fcr_status": {
+    "FCR-01-MD015-SCOPED-STALE-CONFLICT": {
+      "status": "RESOLVED_AT_DECLARED_INTERFACE_LOGICAL_STRENGTH",
+      "blocking": false,
+      "basis": "01B-3 and 01C-SQLITE-3 validate command-specific tokens and merge scoped writes onto latest authority. U1 demonstrates unrelated-scope success.",
+      "boundary": "No general MD-015 conformance, persistence durability, comparison readiness, or mechanism-selection claim."
+    },
+    "FCR-02-MISSING-DOMAIN-REVIEW": {
+      "status": "UNRESOLVED_BLOCKING",
+      "blocking": true,
+      "conflict_ref": "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED"
+    },
+    "FCR-03-STALE-EVIDENCE-OVERCLAIM": {
+      "status": "UNRESOLVED_BLOCKING",
+      "blocking": true,
+      "conflict_ref": "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM"
+    },
+    "FCR-04-INCOMPLETE-WORK-PACKAGE": {
+      "status": "UNRESOLVED_BLOCKING",
+      "blocking": true,
+      "conflict_ref": "FCR-04-MISSING-ESCALATION-CONDITIONS"
+    },
+    "FCR-05-STALE-AUTHORIZATION-TRACKER": {
+      "status": "RESOLVED",
+      "blocking": false,
+      "basis": "Parent readiness tracker at 9dcb745 records PRE_FINAL PASS, prior Sol blocking verdict, current STRONG_FINAL phase, and closed downstream gates."
+    },
+    "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT": {
+      "status": "NEW_BLOCKING_CONFLICT",
+      "blocking": true
+    },
+    "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION": {
+      "status": "NEW_CORRECTION_REQUIRED",
+      "blocking": true
+    }
+  },
+  "blocking_conflicts_summary": {
+    "critical": 0,
+    "high": 4,
+    "medium": 1,
+    "low": 0,
+    "total": 5
+  },
+  "conflicts": [
+    {
+      "conflict_id": "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED",
+      "severity": "high",
+      "source_a": "Required specialist-review chain and Append storage verdict",
+      "source_a_location": ".cursor/rules/voxproof-work-packages.mdc:66-99,272-280; evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/storage-systems-review.json:8-22",
+      "source_b": "Resolution packet and unverified correction record",
+      "source_b_location": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-fcr-resolution-packet.json:26-34; gate4-append-01b3-scoped-precondition-implementation-01/storage-review-corrections.json:4-48; pre-final-governance-audit-packet.json:18-26",
+      "exact_contradiction": "The resolution packet characterizes the storage reviews as sufficient PASS_WITH_CAVEATS, but the Append specialist verdict line is CORRECTIONS REQUIRED and blocking before evidence execution. Its correction record leaves M1 partial and M3/L1 deferred, and no storage specialist re-verification exists.",
+      "why_it_matters": "A self-attested correction record cannot replace the required domain specialist's verification, especially after high-severity findings altered harness routing, interrupt behavior, and physical write semantics.",
+      "smallest_required_correction": "Obtain targeted storage-systems re-verification of the exact Append correction diff and directly affected regressions; record whether every blocking finding is closed before relying on the resulting evidence.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Fresh storage reviewer verdict covering 56c320d..d267f0d, correction findings H1-H3/M1, interrupt paths, and evidence harness integration."
+    },
+    {
+      "conflict_id": "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM",
+      "severity": "high",
+      "source_a": "Prior Sol correction requirement and evidence shortcut prohibition",
+      "source_a_location": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json:45-53; .cursor/rules/voxproof-work-packages.mdc:282-305",
+      "source_b": "FCR-03 implementation, scenario contract, generated fields, and resolution claim",
+      "source_b_location": "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs; scenario_observation.rs; sol-fcr-resolution-packet.json:36-45",
+      "exact_contradiction": "The prior correction required persisted-state non-mutation verification. The replacement scenarios set reopen_required=false and compare only normalized state on the still-open handle. stale_full_state_not_persisted is derived from in-handle token comparisons, while transition_applied=false is assigned by the observation constructor. The stale target changes only evidence_writer_token and is forced into a scope by scenario ID rather than representing a real scope-mutating competing command.",
+      "why_it_matters": "The fields sound like persistence observations but do not establish what survives close/reopen. This is expressly insufficient on its own under the evidence policy and does not close the prior FCR-03 requirement.",
+      "smallest_required_correction": "Preserve existing evidence; add separately authorized scenarios using genuine scope-mutating stale commands, close and reopen persisted authority after rejection and U1 success, then compare against an independent expected state. Otherwise rename and downgrade the fields and leave FCR-03 explicitly unresolved.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Fresh evidence output, methodology review, exact failure classifications, reopen observations for both candidates, and targeted Sol verification."
+    },
+    {
+      "conflict_id": "FCR-04-MISSING-ESCALATION-CONDITIONS",
+      "severity": "high",
+      "source_a": "Mandatory work-package field policy",
+      "source_a_location": ".cursor/rules/voxproof-work-packages.mdc:38-44",
+      "source_b": "Current retry work package and PRE_FINAL residual classification",
+      "source_b_location": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/work-package.json; pre-final-governance-audit-result.json:19-24,58-60",
+      "exact_contradiction": "The high-risk work package is marked AUTHORIZED but has no escalation_conditions field. PRE_FINAL labels this non-blocking even though policy requires an incomplete package to remain PROPOSED.",
+      "why_it_matters": "The package cannot validly claim FCR-04 resolution or advance its governance chain while a mandatory authorization boundary is absent.",
+      "smallest_required_correction": "Add bounded escalation_conditions and obtain explicit owner confirmation of the corrected package before repeating PRE_FINAL.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Governance audit must verify all mandatory fields and corrected owner authorization."
+    },
+    {
+      "conflict_id": "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT",
+      "severity": "high",
+      "source_a": "Owner-authorized Windows harness identity",
+      "source_a_location": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json; execution-plan.json",
+      "source_b": "Actual Windows execution provenance",
+      "source_b_location": "gate4-fcr03-windows-dual-scoped-evidence-01/workflow-dispatch-record.json; evidence-execution-record.json; 01c/gate4-01c-d267f0d-dual-scoped-fcr03/windows-provenance.json",
+      "exact_contradiction": "Owner authorization and execution plan identify abe8f9a as the harness SHA, while the successful evidence run checked out 9ec3b07. Retaining harness_sha_match=false prevents same-harness overclaim but does not retroactively authorize the different checkout.",
+      "why_it_matters": "The Windows record cannot be treated as owner-authorized dual-platform evidence until the semantic delta is accepted or the run is repeated at an explicitly authorized SHA.",
+      "smallest_required_correction": "Present the exact abe8f9a..9ec3b07 semantic diff for owner acceptance of the existing bounded FCR-03 run, or rerun using a newly authorized committed SHA.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Owner decision naming 9ec3b07 or replacement run provenance; harness_sha_match must remain false unless identical harnesses are actually rerun."
+    },
+    {
+      "conflict_id": "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION",
+      "severity": "medium",
+      "source_a": "Cross-platform methodology's current blocker",
+      "source_a_location": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/cross-platform-evidence-methodology-review.json:49-57,78-87",
+      "source_b": "Generated dual-scoped readiness and selection-validity records",
+      "source_b_location": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/readiness.json; selection-validity.json",
+      "exact_contradiction": "The methodology says both platforms executed and the remaining blocker is harness SHA mismatch. Generated readiness still says peer-platform evidence aggregation is awaited.",
+      "why_it_matters": "Readiness remains correctly not_ready, but its stated reason is stale and could misdirect the owner or later automation.",
+      "smallest_required_correction": "Correct only the successor readiness attribution to the retained harness-SHA mismatch; do not lift comparison or selection blockers.",
+      "blocking_gate": "before_owner_gate",
+      "verification_required": "Cross-check readiness, selection-validity, cross-platform-readiness, methodology review, and parent tracker for identical blocker wording."
+    }
+  ],
+  "validation_summary": "FCR-01 and FCR-05 resolved within bounded claims. FCR-02, FCR-03, FCR-04, and Windows authorization remain materially unresolved.",
+  "authorized_next_step": {
+    "status": "BOUNDED_REMEDIATION_REQUIRED",
+    "scope": [
+      "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED",
+      "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM",
+      "FCR-04-MISSING-ESCALATION-CONDITIONS",
+      "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT",
+      "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"
+    ],
+    "after_correction": "Repeat PRE_FINAL where governance or specialist inputs change, then perform targeted gpt-5.6-sol-high verification."
+  },
+  "not_authorized": [
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "comparison_blockers_lift",
+    "CrossPlatform evidence-strength promotion",
+    "persist+reopen claim from current FCR-03 record",
+    "frozen_91e258c modification",
+    "Material_Decision acceptance"
+  ],
+  "requested_owner_decision": [
+    "Authorize a bounded FCR-03 persist-and-reopen evidence correction package, or accept that FCR-03 remains unresolved and this governance chain cannot advance.",
+    "Accept the 9ec3b07 Windows run after reviewing its exact delta from abe8f9a, or authorize a replacement run at a named committed SHA.",
+    "Confirm the corrected retry work package after escalation_conditions is added."
+  ],
+  "models_used": ["gpt-5.6-sol-high"],
+  "api_quota_used": true,
+  "api_escalation_reason": "mandatory GPT-5.6 Sol High final conflict review",
+  "owner_authorization_reference": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json",
+  "reviewed_on": "2026-08-14"
+}
