@@ -1,0 +1,40 @@
+{
+  "supersession_id": "VP-GATE4-01C-STALE-PRECONDITION-ASYMMETRY-SEMANTIC-GATE-REOPEN-2026-08-14",
+  "gate_id": "VP_GATE4_01C_STALE_PRECONDITION_ASYMMETRY_SEMANTIC_GATE",
+  "previous_decision_artifact": "owner-decision.json",
+  "previous_decision": "ACCEPT_MECHANISM_SPECIFIC_GENERATION_STALE_EQUIVALENCE",
+  "status": "REOPENED_AND_SUPERSEDED",
+  "reopened_on": "2026-08-14",
+  "reopened_by": "Ezra",
+  "reason": "SOL_FCR_01_CONFLICT_WITH_MD_015",
+  "sol_conflict_ref": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json#FCR-01-MD015-SCOPED-STALE-CONFLICT",
+  "owner_path_selected": "B",
+  "md_015": {
+    "unchanged": true,
+    "revision_authorized": false
+  },
+  "previous_decision_valid_for": [
+    "coarse stale-authority safety observation",
+    "documenting append global-sequence CAS behavior in 01B-2",
+    "operational/concurrency tradeoff analysis input"
+  ],
+  "previous_decision_not_valid_for": [
+    "MD-015 scoped command validity",
+    "mechanism_selection_readiness resolution",
+    "treating append generation-stale-only as equivalent to sqlite class-specific preconditions"
+  ],
+  "mechanism_selection_readiness": "not_ready",
+  "append_01B_2": {
+    "historical_acceptance": "unchanged",
+    "selection_conformance_to_MD_015": "not_demonstrated",
+    "note": "01B-2 remains accepted historical candidate; not retroactively invalidated for comparison evidence"
+  },
+  "comparison_evidence_91e258c": {
+    "owner_accepted": true,
+    "unchanged": true
+  },
+  "authorized_downstream": {
+    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01"
+  },
+  "note": "Owner formally corrects prior semantic gate closure. Sol FCR-01 upheld. MD-015 preserved. Selection pipeline remains closed pending preflight."
+}

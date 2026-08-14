@@ -1,0 +1,46 @@
+{
+  "correction_id": "VP-GATE4-01C-SOL-FCR-01-OWNER-CORRECTION-2026-08-14",
+  "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "corrected_by": "Ezra",
+  "corrected_on": "2026-08-14",
+  "sol_review_ref": "strong-final-conflict-review-result.json",
+  "primary_conflict": "FCR-01-MD015-SCOPED-STALE-CONFLICT",
+  "owner_decision": {
+    "path": "B",
+    "md_015_unchanged": true,
+    "append_must_evolve": true,
+    "sqlite_as_reference_not_template": true
+  },
+  "semantic_analysis": {
+    "safety_invariant": "no_stale_authoritative_transition_accepted",
+    "md_015_additional_requirement": "command must remain valid when unrelated scoped authority changed",
+    "append_01B_2_model": "single global committed_sequence CAS; any authoritative transition advances sequence",
+    "sqlite_model": "generation + review/reuse/analysis scoped preconditions validated before transition",
+    "conclusion": "semantic difference beyond error classification granularity; append 01B-2 does not demonstrate MD-015 scoped validity"
+  },
+  "append_01B_3_design_direction": {
+    "preserve": [
+      "append log physical ordering via global committed sequence",
+      "authority safety invariant",
+      "recovery and replay semantics unless explicitly revised in new candidate"
+    ],
+    "require": [
+      "semantic scoped command validity independent of global sequence alone",
+      "review command validity tied to review scope",
+      "reuse command validity tied to reuse scope",
+      "analysis command validity tied to analysis scope"
+    ],
+    "must_prove": "unrelated authority change plus stale full-state proposal cannot overwrite or rewind unrelated authority",
+    "implementation_trap": "full next_state transition API may replay stale full state over newer unrelated authority"
+  },
+  "gate_status_after_correction": {
+    "comparison_evidence_91e258c_owner_accepted": true,
+    "stale_semantic_gate": "REOPENED_AND_SUPERSEDED",
+    "selection_gate": "closed",
+    "PRE_FINAL": "blocked",
+    "Sol_final": "blocked_by_findings_pending_resolution",
+    "FINAL_GATE": "blocked",
+    "mechanism_selection": "none"
+  },
+  "note": "Governance correction only. Frozen 91e258c evidence unchanged. Preflight authorized before any 01B-3 implementation."
+}

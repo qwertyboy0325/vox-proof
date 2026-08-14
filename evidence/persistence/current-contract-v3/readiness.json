@@ -1,108 +1,61 @@
 {
-  "package": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
-  "predecessor": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
-  "fixture_id": "voxproof-persistence-evidence-current-contract",
-  "fixture_version": "3",
-  "oracle_version": "3",
-  "scenario_contract_version": "4",
-  "measurement_contract_version": "2",
-  "harness_version": "gate4-01c-evidence-v6",
+  "package": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+  "predecessor": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
   "mechanism_comparison_readiness": "accepted_with_documented_caveats",
-  "mechanism_selection_readiness": "blocked_pending_sol_resolution",
+  "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
-  "governance_layer_stale_asymmetry": "ACCEPTED_MECHANISM_SPECIFIC_LIMITATION_PENDING_SOL_REOPEN",
   "selection_status": "none",
-  "tracker_status": "STRONG_FINAL_CONFLICT_REVIEW_BLOCKING_CONTRADICTION",
-  "authoritative_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
-  "owner_comparison_decision": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
-  "stale_precondition_semantic_gate": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json",
-  "stale_precondition_semantic_gate_sol_status": "REOPEN_REQUIRED",
-  "governance_reconciliation": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/governance-reconciliation.json",
-  "governance_reconciliation_status": "BLOCKED_BY_SOL_FINDINGS",
-  "pre_final_governance_audit": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/pre-final-governance-audit-result.json",
-  "sol_review_authorization": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-review-authorization.json",
-  "strong_final_conflict_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
-  "methodology_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
-  "invalid_evidence_chain": [
-    {
-      "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
-      "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
-      "verdict": "BLOCKED_01C_EVIDENCE",
-      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3"
-    },
-    {
-      "harness_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
-      "evidence_record_sha": "see_gate4-01c-b2569a0_negative_evidence",
-      "verdict": "BLOCKED_01C_EVIDENCE",
-      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0"
-    },
-    {
-      "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
-      "evidence_record_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
-      "verdict": "invalid_for_gate_preserve",
-      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91"
-    },
-    {
-      "harness_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
-      "evidence_record_sha": "see_gate4-01c-6adb731_with_capability_audit",
-      "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
-      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
-      "capability_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json"
-    },
-    {
-      "harness_sha": "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004",
-      "evidence_record_sha": "see_gate4-01c-21f2eb2_readiness_gate_conflation",
-      "verdict": "invalid_for_final_gate_preserve",
-      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-21f2eb2",
-      "blocking_defect": "readiness_gate_conflation"
-    }
-  ],
-  "salvage_reconciliation": {
-    "owner_decision": "B_tight",
-    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-decision.json"
+  "tracker_status": "APPEND_SCOPED_PRECONDITION_PREFLIGHT_COMPLETE",
+  "comparison_evidence": {
+    "owner_accepted": true,
+    "artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
+    "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "unchanged": true
+  },
+  "stale_semantic_gate": {
+    "status": "REOPENED_AND_SUPERSEDED",
+    "reason": "SOL_FCR_01",
+    "supersession": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision-supersession.json",
+    "previous_decision_preserved": "owner-decision.json"
+  },
+  "md_015": {
+    "unchanged": true,
+    "owner_path": "B_append_must_evolve"
   },
   "append_01B_2": {
-    "candidate_id": "current-contract-append-authoritative-candidate",
-    "candidate_version": "01B-2",
-    "owner_accepted": true
+    "historical_acceptance": "unchanged",
+    "selection_conformance_to_MD_015": "not_demonstrated"
   },
-  "sqlite_01C_SQLITE_2": {
-    "candidate_id": "current-contract-sqlite-authoritative-candidate",
-    "candidate_version": "01C-SQLITE-2",
-    "owner_accepted": true
-  },
-  "01C": {
-    "authorized": true,
-    "execution_status": "comparison_evidence_owner_accepted",
-    "comparison_gate": "accepted_with_documented_caveats",
-    "stale_asymmetry_semantic_gate": "REOPEN_REQUIRED_BY_SOL_FCR-01",
-    "mechanism_selection": "none",
-    "product_integration": "unimplemented"
+  "sol_review": {
+    "verdict": "BLOCKING_CONTRADICTION",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
+    "owner_correction": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-fcr-01-owner-correction.json",
+    "fcr03_claim_correction": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/fcr-03-claim-boundary-correction.json"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
-    "status": "BLOCKED_STRONG_FINAL_CONFLICT_REVIEW",
-    "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+    "status": "PREFLIGHT_COMPLETE_AWAITING_OWNER_GATE",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/work-package.json",
+    "decision_packet": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/decision-packet.json",
+    "storage_systems_review": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/storage-systems-review.json"
   },
   "gate_sequence": {
     "completed": [
       "comparison_evidence_owner_accepted",
       "PRE_FINAL_GOVERNANCE_AUDIT_PASS",
-      "STRONG_FINAL_CONFLICT_REVIEW_EXECUTED"
+      "STRONG_FINAL_CONFLICT_REVIEW_EXECUTED",
+      "semantic_gate_reopened_owner_correction"
     ],
-    "blocked_at": "STRONG_FINAL_CONFLICT_REVIEW_BLOCKING_CONTRADICTION",
-    "blocked_conflicts": [
-      "FCR-01-MD015-SCOPED-STALE-CONFLICT",
-      "FCR-02-MISSING-DOMAIN-REVIEW",
-      "FCR-03-STALE-EVIDENCE-OVERCLAIM",
-      "FCR-04-INCOMPLETE-WORK-PACKAGE"
-    ],
-    "next_after_resolution": [
-      "bounded_correction_round",
-      "STRONG_FINAL_CONFLICT_REVIEW_RETRY",
+    "blocked": [
+      "STRONG_FINAL_CONFLICT_REVIEW_PASS",
       "FINAL_GATE_GOVERNANCE_CHECK",
-      "OWNER_MECHANISM_SELECTION_GATE"
+      "mechanism_selection"
+    ],
+    "current": "APPEND_SCOPED_PRECONDITION_PREFLIGHT_OWNER_GATE",
+    "after_preflight_owner_gate": [
+      "optional_01B_3_implementation_wp",
+      "or_append_selection_ineligible_decision"
     ]
   },
   "still_closed": [
@@ -111,22 +64,11 @@
     "product_integration",
     "READY_FOR_OWNER_GATE",
     "FINAL_GATE_GOVERNANCE_CHECK",
-    "contract_version_bump"
+    "PRE_FINAL_RETRY_until_specialist_chain_complete"
   ],
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
-    "preserved_fields": [
-      "readiness.json selection_blockers",
-      "eligibility.json append IMPLEMENTATION_NOT_YET_EVALUATED"
-    ]
+    "policy": "readiness eligibility scenario-results not retroactively rewritten"
   },
-  "sol_blocking_summary": {
-    "critical": "FCR-01: MD-015 scoped stale protocol vs Append global-sequence CAS + owner semantic acceptance",
-    "high": [
-      "FCR-02: missing storage/concurrency specialist review",
-      "FCR-03: stale scenario evidence overclaim",
-      "FCR-04: incomplete work package declaration"
-    ]
-  },
-  "note": "Sol BLOCKING CONTRADICTION. Semantic gate reopen required per FCR-01. Frozen 91e258c unchanged. Comparison acceptance stands; selection pipeline blocked."
+  "note": "Owner corrected semantic gate per Sol FCR-01. MD-015 preserved. Preflight authorized before any 01B-3 coding."
 }

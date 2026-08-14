@@ -1,0 +1,35 @@
+{
+  "correction_id": "VP-GATE4-01C-FCR-03-CLAIM-BOUNDARY-CORRECTION-2026-08-14",
+  "sol_conflict_ref": "FCR-03-STALE-EVIDENCE-OVERCLAIM",
+  "frozen_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "frozen_evidence_modified": false,
+  "corrected_by": "Ezra",
+  "corrected_on": "2026-08-14",
+  "prior_overclaim": "no-stale-authority-accepted under all scoped semantics",
+  "downgraded_claim_boundary": {
+    "may_claim_from_91e258c": [
+      "stale scenario returned expected harness-level pass status",
+      "append stale scenarios exercised generation-stale refusal path with documented limitation",
+      "sqlite stale scenarios exercised class-specific precondition refusal paths"
+    ],
+    "may_not_claim_from_91e258c": [
+      "observed_failure_code preserved for stale scenarios (append and sqlite stale outputs record failure_code null)",
+      "post_rejection_oracle_compare true",
+      "post_rejection_authority_unchanged proven in evidence record",
+      "no-stale-authority-accepted under MD-015 scoped validity semantics",
+      "strong proof of scoped concurrency conformance"
+    ]
+  },
+  "future_evidence_requirements": {
+    "stale_rejection_scenario_minimum_fields": [
+      "observed_failure_code",
+      "transition_applied: false",
+      "post_rejection_oracle_compare: true",
+      "post_rejection_authority_unchanged: true"
+    ],
+    "classification": "observation-fidelity enhancement",
+    "requires_new_evidence_run": true,
+    "modify_frozen_91e258c": false
+  },
+  "note": "Claim downgrade overlay only. Raw 91e258c scenario-results.json preserved unchanged."
+}

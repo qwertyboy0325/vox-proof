@@ -1,0 +1,19 @@
+{
+  "review_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-STORAGE-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Grok 4.6 Extra High",
+  "verdict": "STORAGE_REVIEW_CLAIM_DOWNGRADE_REQUIRED_FOR_01B2",
+  "preflight_verdict": "PROCEED_01B_3",
+  "reviewed_on": "2026-08-14",
+  "decision_packet_ref": "decision-packet.json",
+  "key_code_citations": {
+    "append_global_cas": "src/persistence_evidence/current_contract/append_authoritative.rs:314-318",
+    "append_full_state_write": "src/persistence_evidence/current_contract/append_authoritative.rs:335-347",
+    "sqlite_scoped_preconditions": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:2519-2548",
+    "sqlite_full_replace": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:1221-1232",
+    "harness_append_precondition_drop": "src/persistence_evidence/current_contract/evidence_01c/candidate.rs:363-368",
+    "harness_stale_append_generation_only": "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs:767-770"
+  },
+  "bottom_line": "Physical append log can stay. Semantic scoped validity requires scoped-command apply onto current replayed snapshot. Option tokens+next_state replace is disqualified. Fallback: APPEND_SELECTION_INELIGIBLE_UNDER_MD_015."
+}

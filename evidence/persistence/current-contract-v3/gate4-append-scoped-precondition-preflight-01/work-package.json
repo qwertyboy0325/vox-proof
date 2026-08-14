@@ -1,0 +1,121 @@
+{
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+  "status": "AUTHORIZED",
+  "phase": "PREFLIGHT",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "objective": "Determine the minimum semantically correct evolution of Append 01B-2 needed to satisfy MD-015 scoped command validity without weakening existing authority, append ordering, recovery, or replay semantics.",
+  "risk_tier": "high",
+  "file_scope": [
+    "docs/governance/decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md (read-only)",
+    "src/persistence_evidence/current_contract/append_authoritative.rs (read-only analysis)",
+    "src/persistence_evidence/current_contract/sqlite_authoritative.rs (read-only reference)",
+    "src/persistence_evidence/current_contract/evidence_01c/candidate.rs (read-only)",
+    "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs (read-only)",
+    "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/ (new artifacts only)"
+  ],
+  "semantic_scope": [
+    "MD-015 scoped stale-write and unrelated-scope validity requirements",
+    "Append 01B-2 global committed_sequence CAS semantics",
+    "feasibility of Append 01B-3 scoped command validity without SQLite token cloning",
+    "full-state transition API rebase/overwrite hazards",
+    "FCR-03 future stale-scenario observation fidelity requirements"
+  ],
+  "claim_scope": [
+    "feasibility and design evidence only",
+    "no mechanism selection",
+    "no product integration claims",
+    "no MD-015 revision claims"
+  ],
+  "risk_domain": [
+    "persistence",
+    "optimistic concurrency",
+    "authority semantics",
+    "replay/rebase correctness"
+  ],
+  "authorized_scope": "read-only code and governance analysis producing decision packet",
+  "forbidden_scope": [
+    "src/persistence_evidence candidate implementation changes",
+    "scenario contract v4 changes",
+    "frozen 91e258c evidence rewrite",
+    "MD-015 revision",
+    "mechanism selection",
+    "Material Decision",
+    "product integration"
+  ],
+  "authority_dependencies": [
+    "MD-015 accepted (unchanged)",
+    "owner-decision-supersession.json (semantic gate reopened)",
+    "sol-fcr-01-owner-correction.json (Path B)",
+    "owner-comparison-decision.json (comparison evidence accepted)",
+    "frozen harness 91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+  ],
+  "allowed_actions": [
+    "inspect MD-015 canonical wording and history",
+    "inspect Append 01B-2 transition/replay model",
+    "inspect SQLite scoped precondition model as reference not template",
+    "enumerate unrelated-scope concurrency cases",
+    "determine whether current full-state transition API can satisfy MD-015",
+    "design minimum candidate 01B-3 semantics if feasible",
+    "identify required evidence/harness changes for FCR-03",
+    "storage/concurrency specialist code-depth review",
+    "produce decision packet for owner gate"
+  ],
+  "forbidden_actions": [
+    "revise MD-015",
+    "modify Append candidate",
+    "modify SQLite candidate",
+    "modify frozen 91e258c evidence",
+    "mechanism selection",
+    "Material Decision",
+    "product integration",
+    "rerun 01C at 91e258c to erase limitations"
+  ],
+  "required_checks": [
+    "MD-015 scoped validity requirement traced to canonical text",
+    "Append transition API surface documented with code citations",
+    "unrelated-scope concurrency cases enumerated with pass/fail expectations",
+    "full-state overwrite hazard analyzed",
+    "minimum 01B-3 design options compared",
+    "selection-ineligible-under-MD-015 alternative evaluated if evolution cost high",
+    "FCR-03 observation fields specified for future harness"
+  ],
+  "escalation_conditions": [
+    "MD-015 meaning ambiguous after analysis",
+    "scoped rebase requires new authority semantics not already authorized",
+    "candidate evolution would invalidate accepted append recovery guarantees",
+    "preflight cannot identify bounded 01B-3 design without architecture rewrite"
+  ],
+  "stop_gate": "OWNER_PREFLIGHT_DECISION",
+  "stop_conditions": [
+    "MD-015 meaning ambiguous",
+    "scoped rebase requires new authority semantics not already authorized",
+    "candidate evolution would invalidate accepted append guarantees"
+  ],
+  "model_budget_policy": {
+    "parent": "Composer 2.5",
+    "specialist_review": "Grok 4.6 Extra High storage/concurrency semantic design",
+    "owner_gate": "Ezra"
+  },
+  "strong_final_conflict_review": {
+    "status": "not_required_with_reason",
+    "reason": "Preflight is read-only feasibility and design evidence only; no implementation diff. Sol required before any subsequent 01B-3 implementation work package closes.",
+    "required_model": "GPT-5.6 Sol High"
+  },
+  "specialist_reviewer_roles": [
+    "voxproof-storage-systems-reviewer",
+    "voxproof-evidence-methodology-reviewer"
+  ],
+  "predecessors": [
+    "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+    "VP_GATE4_01C_STALE_PRECONDITION_ASYMMETRY_SEMANTIC_GATE reopen"
+  ],
+  "possible_outcomes": [
+    "PROCEED_01B_3_IMPLEMENTATION_WP",
+    "APPEND_SELECTION_INELIGIBLE_UNDER_MD_015",
+    "REQUIRE_NEW_AUTHORITY_SEMANTICS_OWNER_GATE",
+    "DEFER_PENDING_CLARIFICATION"
+  ],
+  "note": "No coding in this work package. Output is decision packet only."
+}

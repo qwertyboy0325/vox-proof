@@ -1,0 +1,80 @@
+{
+  "packet_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01-DECISION-PACKET",
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+  "prepared_on": "2026-08-14",
+  "reviewer": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Grok 4.6 Extra High",
+  "preflight_verdict": "PROCEED_01B_3",
+  "preflight_verdict_meaning": "Bounded 01B-3 is feasible if and only if the transition API stops replacing authority with caller-supplied full next_state. 01B-2 remains historically accepted and MD-015-ineligible. Naive token-clone onto current API is blocking correctness conflict.",
+  "feasibility_summary": {
+    "can_satisfy_md015_with_append_log_and_global_sequence": true,
+    "01b2_satisfies_md015": false,
+    "requires_command_apply_api": true,
+    "requires_physical_authority_rewrite": false,
+    "evolution_cost": "medium-high bounded",
+    "fallback_if_option_1_refused": "APPEND_SELECTION_INELIGIBLE_UNDER_MD_015"
+  },
+  "recommended_design": {
+    "rank": 1,
+    "id": "SCOPED_COMMAND_APPLY_ONTO_REPLAYED_SNAPSHOT",
+    "summary": "Keep snapshot-log authority. Replace write API with scoped command applied to current replayed snapshot; append resulting full snapshot under next global sequence.",
+    "preserve": [
+      "State+Commit JSONL append log",
+      "global committed_sequence as physical order only",
+      "replay last committed snapshot",
+      "incomplete-tail recovery",
+      "single-writer lock",
+      "oracle validate + distinct canonical fingerprint"
+    ],
+    "require": [
+      "explicit command type with write-set tokens",
+      "CAS only write-set tokens not global sequence for semantic validity",
+      "apply onto current replayed state then finalize_derived_fields",
+      "reject stale full-state proposals that would rewind unrelated authority"
+    ],
+    "disqualified": [
+      "scoped tokens + full next_state replace",
+      "sqlite precondition struct clone including expected_generation",
+      "command-log-as-authority without new authority gate"
+    ]
+  },
+  "full_state_overwrite_risk": {
+    "severity": "blocking_if_01b3_keeps_next_state_replace",
+    "01b2_masks_via_global_cas": true,
+    "required_invariant": "unrelated authority change plus stale full-state proposal cannot overwrite or rewind unrelated authority"
+  },
+  "unrelated_scope_test_matrix_ref": "see storage-systems-review.json U1-U3 C1-C4",
+  "fcr03_future_evidence": {
+    "stale_rejection_minimum": [
+      "observed_failure_code",
+      "transition_applied: false",
+      "post_rejection_oracle_compare: true",
+      "post_rejection_authority_unchanged: true"
+    ],
+    "unrelated_success_minimum": [
+      "transition_applied: true",
+      "post_apply_oracle_compare: true",
+      "unrelated_scope_preserved: true",
+      "stale_full_state_not_persisted: true"
+    ],
+    "modify_frozen_91e258c": false
+  },
+  "recommended_owner_gate_question": "Authorize follow-on 01B-3 implementation WP with scoped-command apply onto current replayed snapshot (option 1), or declare APPEND_SELECTION_INELIGIBLE_UNDER_MD_015 if that API change is refused?",
+  "possible_owner_outcomes": [
+    "AUTHORIZE_01B_3_IMPLEMENTATION_WP",
+    "APPEND_SELECTION_INELIGIBLE_UNDER_MD_015",
+    "DEFER"
+  ],
+  "stop_conditions": [
+    "01B-3 proposes scoped tokens + next_state replace",
+    "01B-3 claims MD-015 from 91e258c or C4-only stale tests",
+    "MD-015 revision attempted"
+  ],
+  "gate_status": {
+    "comparison_evidence_91e258c_owner_accepted": true,
+    "stale_semantic_gate": "REOPENED_AND_SUPERSEDED",
+    "md_015": "unchanged",
+    "selection_gate": "closed",
+    "preflight": "COMPLETE_AWAITING_OWNER_GATE"
+  }
+}
