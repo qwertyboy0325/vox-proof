@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::types::InterleavingStrategy;
 
-pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v4";
+pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v5";
 pub const CORRECTION_METHODOLOGY_FREEZE_ID: &str =
-    "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03-methodology-freeze-v1";
+    "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01-methodology-freeze-v1";
 pub const METHODOLOGY_FREEZE_ID: &str = CORRECTION_METHODOLOGY_FREEZE_ID;
 
 pub const INTERLEAVING_STRATEGY: InterleavingStrategy = InterleavingStrategy::AlternatingPerSample;
@@ -46,7 +46,7 @@ pub fn methodology_record() -> MethodologyRecord {
     MethodologyRecord {
         freeze_id: CORRECTION_METHODOLOGY_FREEZE_ID.to_owned(),
         harness_version: EVIDENCE_01C_HARNESS_VERSION.to_owned(),
-        work_package_id: "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03".to_owned(),
+        work_package_id: "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01".to_owned(),
         candidates_order: vec![
             "current-contract-append-authoritative-candidate".to_owned(),
             "current-contract-sqlite-authoritative-candidate".to_owned(),
@@ -61,7 +61,7 @@ pub fn methodology_record() -> MethodologyRecord {
         small_fixture: "golden_small promoted_active variant".to_owned(),
         medium_fixture: "scaled_multi_lifecycle_current_contract_v3".to_owned(),
         stress_fixture_policy: "not_implemented_record_limitation".to_owned(),
-        scenario_execution_order: "scenario_contract_v3 declaration order".to_owned(),
+        scenario_execution_order: "scenario_contract_v4 declaration order".to_owned(),
         correctness_gate_order: "all required scenarios before any performance samples".to_owned(),
         measurement_operation_order: "comparative_measurement_contract declaration order"
             .to_owned(),

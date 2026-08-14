@@ -27,7 +27,9 @@ pub const CORRECTION_01_HARNESS_SHA: &str = "b2569a022856f3cbfecdbdb950bc3258474
 pub const CORRECTION_02_HARNESS_SHA: &str = "629bb916a33bee839e24db62d7aea28486bf5790";
 pub const CORRECTION_02_EVIDENCE_SHA: &str = "e487a0bbaa4e75ac088e47bb48715b453afe82d9";
 
-pub const WORK_PACKAGE_ID: &str = "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03";
+pub const CORRECTION_03_HARNESS_SHA: &str = "6adb73198813bb8d9d9b7924b8759294a198f8ff";
+
+pub const WORK_PACKAGE_ID: &str = "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01";
 
 pub struct RunOutput {
     pub package: ComparativeEvidencePackage,
@@ -50,6 +52,11 @@ pub fn invalid_evidence_chain() -> Vec<InvalidPredecessorEvidence> {
             harness_sha: correction_02_harness_sha(),
             evidence_record_sha: correction_02_evidence_sha(),
             verdict: "invalid_for_gate_preserve".to_owned(),
+        },
+        InvalidPredecessorEvidence {
+            harness_sha: CORRECTION_03_HARNESS_SHA.to_owned(),
+            evidence_record_sha: "see_gate4-01c-6adb731_with_capability_audit".to_owned(),
+            verdict: "CANDIDATE_CONTRACT_CAPABILITY_GAP".to_owned(),
         },
     ]
 }
@@ -318,7 +325,7 @@ fn selection_validity_record(
         invalid_evidence_chain: invalid_chain.to_vec(),
         preserve_raw_artifacts: true,
         note: format!(
-            "Correction-03 harness at {harness_sha}. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
+            "Contract v4 reconciliation harness at {harness_sha}. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
         ),
     }
 }

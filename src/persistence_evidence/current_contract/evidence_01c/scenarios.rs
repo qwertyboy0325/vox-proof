@@ -4,10 +4,10 @@ use std::time::{Duration, Instant};
 use super::super::measurement::MeasurementFixtureScale;
 use super::scenario_observation::{
     corruption_tamper_limitation, ScenarioOutcome, APPEND_STALE_ASYMMETRY_LIMITATION,
-    OBSERVED_RECOVERY_LAST_COMMITTED, OBSERVED_RECOVERY_SAFE_AUTOMATIC,
+    OBSERVED_RECOVERY_SAFE_AUTOMATIC,
 };
 use super::super::scenario_contract::{
-    scenario_contract_v3, ScenarioContractV3,
+    scenario_contract_v4, ScenarioContractV3,
 };
 use super::candidate::{
     fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
@@ -30,7 +30,7 @@ pub fn run_required_scenarios(
 ) {
     let mut results = Vec::new();
     let mut disqualifications = Vec::new();
-    for scenario in scenario_contract_v3() {
+    for scenario in scenario_contract_v4() {
         let result = execute_scenario(candidate, &scenario, platform, work_root);
         if result.status == ScenarioExecutionStatus::Failed {
             disqualifications.push(CorrectnessDisqualification {
@@ -272,9 +272,7 @@ fn run_malformed_format(
     set_format_version(&adapter, &mut writer, 0)?;
     adapter.close(writer).map_err(err_string)?;
     match adapter.open_read_only(&session_id) {
-        Err(code) if code == "unsupported-format" => {
-            Ok(ScenarioOutcome::unsupported_version_open(code))
-        }
+        Err(code) if code == "unsupported-format" => Ok(ScenarioOutcome::malformed_format_refusal(code)),
         Err(code) => Err(code),
         Ok(handle) => {
             adapter.close(handle).map_err(err_string)?;
@@ -351,7 +349,7 @@ fn run_read_only_during_writer(
     }
     adapter_a.close(writer).map_err(err_string)?;
     adapter_b.close(reader).map_err(err_string)?;
-    Ok(ScenarioOutcome::passed_interface())
+    Ok(ScenarioOutcome::passed_with_oracle())
 }
 
 fn run_stale_precondition(
@@ -390,15 +388,50 @@ fn run_negative_corruption(
     scenario_id: &str,
 ) -> ScenarioRunResult {
     let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
-    let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
+    let state = corruption_fixture_state(scenario_id);
     let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
     let tamper = tamper_for_scenario(candidate, root, &session_id, scenario_id)?;
+    let expected_code = expected_corruption_refusal_code(candidate.kind(), scenario_id);
     match adapter.open_read_only(&session_id) {
-        Err(code) => Ok(ScenarioOutcome::refused_open(code).with_limitations(vec![tamper])),
+        Err(code) if code == expected_code => {
+            let outcome = match scenario_id {
+                "canonical-reference-corruption" | "source-locator-corruption" => {
+                    ScenarioOutcome::fail_closed_refusal(code)
+                }
+                "review-ledger-order-corruption" | "reuse-governance-order-corruption" => {
+                    ScenarioOutcome::unrecoverable_refusal(code)
+                }
+                _ => ScenarioOutcome::refused_open(code),
+            };
+            Ok(outcome.with_limitations(vec![tamper]))
+        }
+        Err(code) => Err(format!(
+            "unexpected refusal code {code}; expected {expected_code}"
+        )),
         Ok(handle) => {
             adapter.close(handle).map_err(err_string)?;
             Err("corruption-not-rejected".to_owned())
         }
+    }
+}
+
+fn expected_corruption_refusal_code(
+    kind: CurrentContractCandidateKind,
+    _scenario_id: &str,
+) -> &'static str {
+    match kind {
+        CurrentContractCandidateKind::Append => "commit-fingerprint-mismatch",
+        CurrentContractCandidateKind::Sqlite => "canonical-corruption",
+    }
+}
+
+fn corruption_fixture_state(scenario_id: &str) -> super::super::model::CurrentContractState {
+    use super::super::fixture::{build_golden_small_state, build_promoted_active_state};
+    match scenario_id {
+        "source-locator-corruption" | "reuse-governance-order-corruption" => {
+            build_promoted_active_state()
+        }
+        _ => build_golden_small_state(),
     }
 }
 
@@ -429,7 +462,7 @@ fn run_interrupted_transition(
         return Err("partial-authority-exposed".to_owned());
     }
     adapter.close(reopened).map_err(err_string)?;
-    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_LAST_COMMITTED))
+    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_SAFE_AUTOMATIC))
 }
 
 fn run_writer_takeover(
@@ -496,7 +529,7 @@ fn run_writer_takeover(
         return Err("takeover-oracle-failed".to_owned());
     }
     adapter.close(reopened).map_err(err_string)?;
-    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_LAST_COMMITTED))
+    Ok(ScenarioOutcome::passed_with_oracle().with_recovery(OBSERVED_RECOVERY_SAFE_AUTOMATIC))
 }
 
 fn run_capability_interrupt(
@@ -576,22 +609,98 @@ fn tamper_for_scenario(
         (
             CurrentContractCandidate::Sqlite { adapter, .. },
             super::candidate::OpenedCandidateSession::Sqlite(handle),
-            scenario_id,
-        ) if scenario_id.contains("corruption") => {
+            "canonical-reference-corruption",
+        ) => {
             adapter
                 .tamper_canonical_provenance_for_test(handle)
                 .map_err(|error| error.code.to_owned())?;
-            format!("tamper_canonical_provenance_for_test:{scenario_id}")
+            "tamper_canonical_provenance_for_test:canonical-reference-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "source-locator-corruption",
+        ) => {
+            adapter
+                .tamper_source_locator_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_source_locator_for_test:source-locator-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "review-ledger-order-corruption",
+        ) => {
+            adapter
+                .tamper_review_ledger_order_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_review_ledger_order_for_test:review-ledger-order-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "reuse-governance-order-corruption",
+        ) => {
+            adapter
+                .tamper_reuse_governance_order_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_reuse_governance_order_for_test:reuse-governance-order-corruption".to_owned()
         }
         (
             CurrentContractCandidate::Append { adapter, .. },
             super::candidate::OpenedCandidateSession::Append(handle),
-            scenario_id,
-        ) if scenario_id.contains("corruption") => {
+            "canonical-reference-corruption",
+        ) => {
             adapter
-                .tamper_committed_state_for_test(handle, "writer:promoted", "writer:tampered")
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:canonical-tampered",
+                )
                 .map_err(|error| error.code.to_owned())?;
-            format!("tamper_committed_state_for_test:{scenario_id}")
+            "tamper_committed_state_for_test:canonical-reference-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "source-locator-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:locator-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:source-locator-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "review-ledger-order-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:ledger-order-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:review-ledger-order-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Append { adapter, .. },
+            super::candidate::OpenedCandidateSession::Append(handle),
+            "reuse-governance-order-corruption",
+        ) => {
+            adapter
+                .tamper_committed_state_for_test(
+                    handle,
+                    "writer:promoted",
+                    "writer:governance-order-tampered",
+                )
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_committed_state_for_test:reuse-governance-order-corruption".to_owned()
         }
         _ => return Err(format!("unsupported tamper for {scenario_id}")),
     };

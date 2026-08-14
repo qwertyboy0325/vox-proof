@@ -43,7 +43,8 @@ pub use current_contract::{
     EvidenceReuseCandidateKey, EvidenceReuseGovernanceEvent, EvidenceSourceDecisionLocator,
     ExpectedOpenState, ExpectedRecoveryClass, FIELD_CLASSIFICATION_REGISTRY, FaultLayer,
     FieldClassification, MEASUREMENT_CONTRACT_VERSION, MeasurementFixtureScale,
-    OracleViolationCodeV3, SCENARIO_CONTRACT_VERSION, ScenarioRequirementLevel,
+    OracleViolationCodeV3, ReadOnlyOpenPolicy, SCENARIO_CONTRACT_VERSION,
+    SCENARIO_CONTRACT_VERSION_V3, ScenarioRequirementLevel,
     VARIANT_PROMOTED_ACTIVE, all_fixture_variants, build_base_manual_replacement_state,
     build_candidate_rejected_state, build_duplicated_session_lineage_state,
     build_golden_small_session, build_golden_small_state,
@@ -55,8 +56,9 @@ pub use current_contract::{
     candidate_key_identity_digest, canonical_classes, canonical_fingerprint,
     comparative_measurement_contract, current_contract_readiness, derive_contract_projection,
     derived_classes, excluded_classes, golden_small, project_current_contract_state,
-    scenario_contract_v3, validate_measurement_contract, validate_measurement_contract_value,
-    validate_scenario_contract_v3, validate_scenario_contracts_v3,
+    scenario_contract_v3, scenario_contract_v4, validate_measurement_contract,
+    validate_measurement_contract_value, validate_scenario_contract_v3,
+    validate_scenario_contract_v4, validate_scenario_contracts_v3, validate_scenario_contracts_v4,
 };
 pub use metadata::{
     MetadataValidationError, SUPPORTED_CONTRACT_VERSION, SUPPORTED_SCENARIO_CATALOG_VERSION,

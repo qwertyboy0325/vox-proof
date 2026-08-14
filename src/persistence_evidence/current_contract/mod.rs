@@ -70,8 +70,10 @@ pub use projection::{
 pub use readiness::{CurrentContractReadiness, EVIDENCE_PACKAGE_FILES, current_contract_readiness};
 pub use scenario_contract::{
     ExpectedOpenState, ExpectedRecoveryClass, FaultLayer, ReadOnlyOpenPolicy,
-    SCENARIO_CONTRACT_VERSION, ScenarioContractV3, ScenarioRequirementLevel, scenario_contract_v3,
-    validate_scenario_contract_v3, validate_scenario_contracts_v3,
+    SCENARIO_CONTRACT_VERSION, SCENARIO_CONTRACT_VERSION_V3, ScenarioContractV3,
+    ScenarioRequirementLevel, scenario_contract_v3, scenario_contract_v4,
+    validate_scenario_contract_v3, validate_scenario_contract_v4, validate_scenario_contracts_v3,
+    validate_scenario_contracts_v4,
 };
 pub use serialization::{
     CANDIDATE_KEY_SERIALIZATION_VERSION, LOCATOR_SERIALIZATION_VERSION,

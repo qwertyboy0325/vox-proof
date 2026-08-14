@@ -83,6 +83,39 @@ impl ScenarioOutcome {
         }
     }
 
+    pub fn fail_closed_refusal(code: impl Into<String>) -> Self {
+        Self {
+            status: ScenarioExecutionStatus::Passed,
+            oracle_compare: false,
+            recovery_class: OBSERVED_RECOVERY_MANUAL_REVIEW.to_owned(),
+            open_state: OBSERVED_OPEN_UNRECOVERABLE.to_owned(),
+            failure_code: Some(code.into()),
+            limitations: Vec::new(),
+        }
+    }
+
+    pub fn unrecoverable_refusal(code: impl Into<String>) -> Self {
+        Self {
+            status: ScenarioExecutionStatus::Passed,
+            oracle_compare: false,
+            recovery_class: OBSERVED_RECOVERY_UNRECOVERABLE.to_owned(),
+            open_state: OBSERVED_OPEN_UNRECOVERABLE.to_owned(),
+            failure_code: Some(code.into()),
+            limitations: Vec::new(),
+        }
+    }
+
+    pub fn malformed_format_refusal(code: impl Into<String>) -> Self {
+        Self {
+            status: ScenarioExecutionStatus::Passed,
+            oracle_compare: false,
+            recovery_class: OBSERVED_RECOVERY_UNRECOVERABLE.to_owned(),
+            open_state: OBSERVED_OPEN_UNRECOVERABLE.to_owned(),
+            failure_code: Some(code.into()),
+            limitations: Vec::new(),
+        }
+    }
+
     pub fn refused_open(code: impl Into<String>) -> Self {
         Self {
             status: ScenarioExecutionStatus::Passed,

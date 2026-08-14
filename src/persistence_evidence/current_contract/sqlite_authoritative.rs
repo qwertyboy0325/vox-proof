@@ -527,6 +527,66 @@ impl SqliteAuthoritativeCandidateAdapter {
     }
 
     #[doc(hidden)]
+    pub fn tamper_source_locator_for_test(
+        &self,
+        opened: &OpenedSqliteAuthoritySession,
+    ) -> Result<(), SqliteAuthorityError> {
+        self.validate_writable_handle(opened)?;
+        let connection = self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
+        let token = opened.writer_token.as_deref().ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
+        })?;
+        validate_writer_ownership(&connection, token, opened.writer_epoch.unwrap_or_default())?;
+        connection
+            .execute(
+                "UPDATE reuse_governance_events SET candidate_locator_decision_digest = 'tampered-locator-digest' WHERE event_index = 0",
+                [],
+            )
+            .map_err(sql_error("sqlite-test-locator-tamper"))?;
+        Ok(())
+    }
+
+    #[doc(hidden)]
+    pub fn tamper_review_ledger_order_for_test(
+        &self,
+        opened: &OpenedSqliteAuthoritySession,
+    ) -> Result<(), SqliteAuthorityError> {
+        self.validate_writable_handle(opened)?;
+        let connection = self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
+        let token = opened.writer_token.as_deref().ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
+        })?;
+        validate_writer_ownership(&connection, token, opened.writer_epoch.unwrap_or_default())?;
+        connection
+            .execute(
+                "UPDATE review_ledger_events SET event_index = 999 WHERE event_index = 0",
+                [],
+            )
+            .map_err(sql_error("sqlite-test-ledger-order-tamper"))?;
+        Ok(())
+    }
+
+    #[doc(hidden)]
+    pub fn tamper_reuse_governance_order_for_test(
+        &self,
+        opened: &OpenedSqliteAuthoritySession,
+    ) -> Result<(), SqliteAuthorityError> {
+        self.validate_writable_handle(opened)?;
+        let connection = self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
+        let token = opened.writer_token.as_deref().ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
+        })?;
+        validate_writer_ownership(&connection, token, opened.writer_epoch.unwrap_or_default())?;
+        connection
+            .execute(
+                "UPDATE reuse_governance_events SET event_index = 999 WHERE event_index = 0",
+                [],
+            )
+            .map_err(sql_error("sqlite-test-governance-order-tamper"))?;
+        Ok(())
+    }
+
+    #[doc(hidden)]
     pub fn tamper_derived_cache_for_test(
         &self,
         opened: &OpenedSqliteAuthoritySession,

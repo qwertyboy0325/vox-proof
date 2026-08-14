@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-pub const SCENARIO_CONTRACT_VERSION: &str = "3";
+pub const SCENARIO_CONTRACT_VERSION_V3: &str = "3";
+pub const SCENARIO_CONTRACT_VERSION: &str = "4";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -760,11 +761,51 @@ const ALLOWED_STRENGTHS: &[&str] = &[
     "CrossPlatform",
 ];
 
+pub fn scenario_contract_v4() -> Vec<ScenarioContractV3> {
+    scenario_contract_v3()
+        .into_iter()
+        .map(|mut scenario| {
+            match scenario.scenario_id.as_str() {
+                "canonical-reference-corruption" | "source-locator-corruption" => {
+                    scenario.scenario_version = 2;
+                    scenario.expected_open_state = ExpectedOpenState::Unrecoverable;
+                    scenario.read_only_open = ReadOnlyOpenPolicy::Forbidden;
+                    scenario.writable_open = false;
+                    scenario.expected_recovery_class = ExpectedRecoveryClass::ManualReviewRequired;
+                    scenario.expected_durable_boundary =
+                        "corruption_detected_fail_closed".to_owned();
+                }
+                _ => {}
+            }
+            scenario
+        })
+        .collect()
+}
+
 pub fn validate_scenario_contract_v3() -> Result<(), String> {
     validate_scenario_contracts_v3(&scenario_contract_v3())
 }
 
+pub fn validate_scenario_contract_v4() -> Result<(), String> {
+    let scenarios = scenario_contract_v4();
+    validate_scenario_contracts_v4(&scenarios)?;
+    validate_v4_authoritative_corruption_semantics(&scenarios)?;
+    validate_scenario_contract_v3()?;
+    Ok(())
+}
+
 pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Result<(), String> {
+    validate_scenario_contract_catalog(scenarios, &scenario_contract_v3())
+}
+
+pub fn validate_scenario_contracts_v4(scenarios: &[ScenarioContractV3]) -> Result<(), String> {
+    validate_scenario_contract_catalog(scenarios, &scenario_contract_v4())
+}
+
+fn validate_scenario_contract_catalog(
+    scenarios: &[ScenarioContractV3],
+    required_catalog: &[ScenarioContractV3],
+) -> Result<(), String> {
     let mut ids = std::collections::BTreeSet::new();
     for scenario in scenarios {
         let key = format!("{}@{}", scenario.scenario_id, scenario.scenario_version);
@@ -888,13 +929,45 @@ pub fn validate_scenario_contracts_v3(scenarios: &[ScenarioContractV3]) -> Resul
             }
         }
     }
-    let required = scenario_contract_v3()
-        .into_iter()
+    let required = required_catalog
+        .iter()
         .filter(|scenario| scenario.requirement == ScenarioRequirementLevel::Required)
         .map(|scenario| format!("{}@{}", scenario.scenario_id, scenario.scenario_version))
         .collect::<std::collections::BTreeSet<_>>();
     if !required.is_subset(&ids) {
         return Err("scenario catalog is missing a required scenario".to_owned());
+    }
+    Ok(())
+}
+
+fn validate_v4_authoritative_corruption_semantics(
+    scenarios: &[ScenarioContractV3],
+) -> Result<(), String> {
+    for scenario_id in ["canonical-reference-corruption", "source-locator-corruption"] {
+        let scenario = scenarios
+            .iter()
+            .find(|scenario| scenario.scenario_id == scenario_id)
+            .ok_or_else(|| format!("v4 catalog missing {scenario_id}"))?;
+        if scenario.scenario_version != 2 {
+            return Err(format!("{scenario_id} must be scenario_version 2 in v4"));
+        }
+        if scenario.expected_open_state != ExpectedOpenState::Unrecoverable {
+            return Err(format!("{scenario_id} must expect unrecoverable open state in v4"));
+        }
+        if scenario.read_only_open != ReadOnlyOpenPolicy::Forbidden {
+            return Err(format!("{scenario_id} must forbid read-only open in v4"));
+        }
+        if scenario.writable_open {
+            return Err(format!("{scenario_id} must forbid writable open in v4"));
+        }
+        if scenario.expected_recovery_class != ExpectedRecoveryClass::ManualReviewRequired {
+            return Err(format!(
+                "{scenario_id} must expect manual_review_required recovery in v4"
+            ));
+        }
+        if scenario.expected_durable_boundary != "corruption_detected_fail_closed" {
+            return Err(format!("{scenario_id} must declare fail-closed durable boundary"));
+        }
     }
     Ok(())
 }
@@ -964,7 +1037,7 @@ fn validate_fault_semantics(scenario: &ScenarioContractV3) -> Result<(), String>
 }
 
 pub fn required_scenario_ids_for_both_candidates() -> Vec<String> {
-    scenario_contract_v3()
+    scenario_contract_v4()
         .into_iter()
         .filter(|scenario| scenario.requirement == ScenarioRequirementLevel::Required)
         .map(|scenario| scenario.scenario_id)

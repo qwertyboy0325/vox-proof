@@ -2,11 +2,11 @@ use super::scenario_observation::APPEND_STALE_ASYMMETRY_LIMITATION;
 use super::super::candidate_equivalence::CandidateEligibilityStatus;
 use super::super::measurement::{comparative_measurement_contract, MeasurementFixtureScale};
 use super::super::scenario_contract::{
-    scenario_contract_v3, ScenarioContractV3, ScenarioRequirementLevel,
+    scenario_contract_v4, ReadOnlyOpenPolicy, ScenarioContractV3, ScenarioRequirementLevel,
 };
 use super::types::{
-    CandidateEligibilityRecord, CandidateRunArtifacts, MeasurementAggregate, MetricAvailability,
-    ScenarioExecutionStatus,
+    open_state_label, recovery_class_label, CandidateEligibilityRecord, CandidateRunArtifacts,
+    MeasurementAggregate, MetricAvailability, NormalizedScenarioResult, ScenarioExecutionStatus,
 };
 
 pub const EXPECTED_PLATFORMS: &[&str] = &["macos_native", "windows-github_actions"];
@@ -29,7 +29,7 @@ pub fn assess_readiness(
     let contract = comparative_measurement_contract();
 
     for candidate in [&append.scenario_results, &sqlite.scenario_results] {
-        for scenario in scenario_contract_v3() {
+        for scenario in scenario_contract_v4() {
             let Some(result) = candidate
                 .iter()
                 .find(|row| row.scenario_id == scenario.scenario_id)
@@ -61,6 +61,22 @@ pub fn assess_readiness(
     }
 
     limitations.extend(collect_declared_limitations(append, sqlite));
+
+    let append_eligibility = compute_eligibility(append);
+    let sqlite_eligibility = compute_eligibility(sqlite);
+    if append_eligibility.status == CandidateEligibilityStatus::ImplementationNotYetEvaluated
+        || sqlite_eligibility.status == CandidateEligibilityStatus::ImplementationNotYetEvaluated
+    {
+        blockers.push(
+            "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
+                .to_owned(),
+        );
+    }
+    if append_eligibility.status == CandidateEligibilityStatus::DisqualifiedByDemonstratedFailure
+        || sqlite_eligibility.status == CandidateEligibilityStatus::DisqualifiedByDemonstratedFailure
+    {
+        blockers.push("eligibility: candidate disqualified by demonstrated failure".to_owned());
+    }
 
     let single_platform_ready = blockers.is_empty();
     let single_platform_readiness = if single_platform_ready {
@@ -97,7 +113,7 @@ pub fn assess_readiness(
 
 pub fn compute_eligibility(artifacts: &CandidateRunArtifacts) -> CandidateEligibilityRecord {
     let mut blockers = Vec::new();
-    for scenario in scenario_contract_v3() {
+    for scenario in scenario_contract_v4() {
         let Some(result) = artifacts
             .scenario_results
             .iter()
@@ -182,7 +198,7 @@ pub fn aggregate_is_valid(aggregate: &MeasurementAggregate, expected_count: u32)
 
 fn evaluate_scenario_result(
     scenario: &ScenarioContractV3,
-    result: &super::types::NormalizedScenarioResult,
+    result: &NormalizedScenarioResult,
     limitations: &mut Vec<String>,
     blockers: &mut Vec<String>,
 ) {
@@ -193,6 +209,7 @@ fn evaluate_scenario_result(
                     "required scenario {} not passed ({:?})",
                     scenario.scenario_id, result.status
                 ));
+                return;
             }
         }
         ScenarioRequirementLevel::CapabilityDependent => {
@@ -202,14 +219,74 @@ fn evaluate_scenario_result(
                     scenario.scenario_id,
                     result.limitations.join(", ")
                 ));
+                return;
             } else if result.status != ScenarioExecutionStatus::Passed {
                 blockers.push(format!(
                     "capability-dependent scenario {} invalid ({:?})",
                     scenario.scenario_id, result.status
                 ));
+                return;
             }
         }
     }
+
+    if result.status == ScenarioExecutionStatus::Passed {
+        validate_observation_matches_contract(scenario, result, blockers);
+    }
+}
+
+fn validate_observation_matches_contract(
+    scenario: &ScenarioContractV3,
+    result: &NormalizedScenarioResult,
+    blockers: &mut Vec<String>,
+) {
+    let expected_recovery = recovery_class_label(scenario.expected_recovery_class);
+    if result.recovery_class != expected_recovery {
+        blockers.push(format!(
+            "scenario {} recovery_class {:?} != contract {}",
+            scenario.scenario_id, result.recovery_class, expected_recovery
+        ));
+    }
+    let expected_open = open_state_label(scenario.expected_open_state);
+    if result.open_state != expected_open {
+        blockers.push(format!(
+            "scenario {} open_state {:?} != contract {}",
+            scenario.scenario_id, result.open_state, expected_open
+        ));
+    }
+    if is_fail_closed_authoritative_corruption(scenario) && result.oracle_compare {
+        blockers.push(format!(
+            "scenario {} must not claim oracle_compare on fail-closed refusal",
+            scenario.scenario_id
+        ));
+    }
+    if matches!(scenario.read_only_open, ReadOnlyOpenPolicy::Forbidden)
+        && result.open_state != "unrecoverable"
+        && result.open_state != "unsupported_version"
+        && result.open_state != "open_refused"
+    {
+        blockers.push(format!(
+            "scenario {} forbids trusted read exposure; observed open_state {}",
+            scenario.scenario_id, result.open_state
+        ));
+    }
+    if scenario.fault_layer == super::super::scenario_contract::FaultLayer::LogicalReturnedError
+        && scenario.category == "corruption"
+        && result.failure_code.is_none()
+    {
+        blockers.push(format!(
+            "scenario {} missing observed corruption/refusal classification",
+            scenario.scenario_id
+        ));
+    }
+}
+
+fn is_fail_closed_authoritative_corruption(scenario: &ScenarioContractV3) -> bool {
+    scenario.scenario_version == 2
+        && matches!(
+            scenario.scenario_id.as_str(),
+            "canonical-reference-corruption" | "source-locator-corruption"
+        )
 }
 
 fn evaluate_measurement_aggregate(

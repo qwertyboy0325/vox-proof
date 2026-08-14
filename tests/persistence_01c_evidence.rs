@@ -53,9 +53,9 @@ fn measurement_contract_v2_medium_is_materialized() {
 fn evidence_01c_methodology_is_frozen() {
     let record = methodology_record();
     assert_eq!(record.harness_version, EVIDENCE_01C_HARNESS_VERSION);
-    assert_eq!(record.harness_version, "gate4-01c-evidence-v4");
+    assert_eq!(record.harness_version, "gate4-01c-evidence-v5");
     assert_eq!(record.candidates_order.len(), 2);
-    assert!(record.freeze_id.contains("CORRECTION-03"));
+    assert!(record.freeze_id.contains("V4-RECONCILIATION"));
 }
 
 #[test]
@@ -314,9 +314,9 @@ fn append_stale_asymmetry_downgrades_eligibility() {
         NormalizedScenarioResult, ScenarioExecutionStatus,
     };
     use vox_proof::persistence_evidence::current_contract::candidate_equivalence::CandidateEligibilityStatus;
-    use vox_proof::persistence_evidence::scenario_contract_v3;
+    use vox_proof::persistence_evidence::scenario_contract_v4;
 
-    let mut scenario_results: Vec<NormalizedScenarioResult> = scenario_contract_v3()
+    let mut scenario_results: Vec<NormalizedScenarioResult> = scenario_contract_v4()
         .iter()
         .map(|scenario| NormalizedScenarioResult {
             scenario_id: scenario.scenario_id.clone(),
