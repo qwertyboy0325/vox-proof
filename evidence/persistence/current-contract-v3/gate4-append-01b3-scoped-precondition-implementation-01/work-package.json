@@ -1,0 +1,158 @@
+{
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+  "status": "AUTHORIZED",
+  "phase": "GOLDEN_PATH_IMPLEMENTATION_GATE",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorization_ref": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/owner-preflight-decision.json",
+  "objective": "Implement Append candidate 01B-3 with scoped-command apply onto latest replayed authoritative snapshot, satisfying MD-015 scoped command validity (U1 unrelated success, C1 conflict rejection) while preserving append log, physical committed_sequence ordering, replay/recovery, and writer ownership. Do not modify 01B-2.",
+  "risk_tier": "high",
+  "file_scope": [
+    "src/persistence_evidence/current_contract/append_authoritative.rs",
+    "src/persistence_evidence/current_contract/mod.rs",
+    "src/persistence_evidence/mod.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/candidate.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "tests/persistence_append_authoritative_01b.rs",
+    "tests/persistence_append_scoped_precondition_01b3.rs (new)",
+    "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/ (artifacts)"
+  ],
+  "semantic_scope": [
+    "Append 01B-3 scoped command representation and write-set preconditions",
+    "apply-onto-replayed-snapshot semantics",
+    "MD-015 U1 unrelated-scope success and C1 same-scope conflict rejection",
+    "FCR-03 observation fidelity fields for stale rejection and unrelated success",
+    "physical committed_sequence decoupled from semantic command validity"
+  ],
+  "claim_scope": [
+    "01B-3 candidate semantics and unit/integration tests",
+    "harness observation fields for future evidence runs",
+    "no mechanism selection",
+    "no cross-platform evidence publication in this WP unless separately authorized"
+  ],
+  "risk_domain": [
+    "persistence",
+    "optimistic concurrency",
+    "authority semantics",
+    "replay/rebase correctness",
+    "canonical projection integrity"
+  ],
+  "authorized_scope": "Implement 01B-3 as new candidate version alongside preserved 01B-2; update harness wiring for Append 01B-3 tests and FCR-03 observations",
+  "forbidden_scope": [
+    "MD-015 revision",
+    "modify or remove 01B-2 behavior/history",
+    "SQLite candidate changes",
+    "scenario contract v4 changes without authorization",
+    "frozen 91e258c evidence rewrite",
+    "mechanism selection",
+    "Material Decision",
+    "product integration",
+    "scoped tokens plus full next_state replace",
+    "command-log-as-authority without new authority gate"
+  ],
+  "authority_dependencies": [
+    "MD-015 unchanged",
+    "owner-preflight-decision.json AUTHORIZE_01B_3",
+    "preflight decision-packet PROCEED_01B_3 option 1",
+    "storage-systems-review.json",
+    "sol-fcr-01-owner-correction.json Path B",
+    "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED finding recorded"
+  ],
+  "allowed_actions": [
+    "define Append 01B-3 candidate version constant",
+    "implement scoped command types with read/write-set preconditions",
+    "implement apply_command onto replayed snapshot API",
+    "preserve unrelated authority on successful apply",
+    "implement U1 and C1 proof tests",
+    "implement FCR-03 observation recording in harness for 01B-3 paths",
+    "wire evidence_01c Append candidate to 01B-3 when authorized for evidence runs",
+    "storage/concurrency specialist review after implementation",
+    "record implementation artifacts"
+  ],
+  "forbidden_actions": [
+    "revise MD-015",
+    "overwrite 01B-2",
+    "modify SQLite 01C-SQLITE-2",
+    "claim MD-015 conformance from 91e258c",
+    "mechanism selection",
+    "rerun or rewrite frozen 91e258c"
+  ],
+  "required_checks": [
+    "U1: review succeeds after unrelated reuse-only advance; reuse authority preserved",
+    "C1: stale review command rejected; authority unchanged post-rejection",
+    "global committed_sequence advances only on successful apply (physical order)",
+    "stale full-state proposal cannot persist (C3 class)",
+    "01B-2 tests continue to pass unchanged",
+    "FCR-03 fields populated in new harness observations",
+    "storage-systems-reviewer code-depth review",
+    "no regression to replay/recovery/incomplete-tail behavior"
+  ],
+  "architecture_pipeline": {
+    "steps": [
+      "caller command with relevant read/write-set preconditions",
+      "replay latest committed authority",
+      "validate ONLY relevant semantic scope",
+      "apply command onto latest state",
+      "preserve unrelated latest authority",
+      "finalize / oracle validate",
+      "append resulting full snapshot",
+      "global committed_sequence + 1"
+    ],
+    "committed_sequence_role": [
+      "physical total ordering",
+      "replay boundary",
+      "commit identity/recovery sequencing"
+    ],
+    "committed_sequence_not": "command semantic validity global CAS"
+  },
+  "escalation_conditions": [
+    "scoped command requires command-log-as-authority rewrite",
+    "implementation would invalidate accepted 01B-2 recovery guarantees",
+    "write-set honesty forces multi-scope operations that cannot satisfy U1 without product semantic decision",
+    "MD-015 ambiguity discovered requiring owner gate"
+  ],
+  "stop_gate": "DESIGN_GATE_AND_IMPLEMENTATION_SELF_CHECK",
+  "stop_conditions": [
+    "proposal reintroduces full next_state replace as write path",
+    "proposal clones SQLite four-field AND including expected_generation",
+    "cannot implement U1/C1 without architecture rewrite beyond authorized scope"
+  ],
+  "model_budget_policy": {
+    "implementation": "Composer 2.5",
+    "specialist_review": "Grok 4.6 Extra High storage-systems-reviewer",
+    "final_conflict": "GPT-5.6 Sol High after PRE_FINAL on implementation close"
+  },
+  "strong_final_conflict_review": {
+    "status": "required",
+    "required_model": "GPT-5.6 Sol High",
+    "note": "Required when this implementation WP closes toward selection evidence rebuild"
+  },
+  "specialist_reviewer_roles": [
+    "voxproof-storage-systems-reviewer",
+    "voxproof-evidence-methodology-reviewer",
+    "voxproof-governance-auditor"
+  ],
+  "phase_gates": [
+    "DESIGN_GATE",
+    "GOLDEN_PATH_IMPLEMENTATION_GATE",
+    "FAILURE_MODEL_GATE",
+    "EVIDENCE_EXECUTION_GATE"
+  ],
+  "downstream_after_close": [
+    "Append 01B-3 specialist/evidence review",
+    "SQLite scoped-validity preflight (bounded)",
+    "potential SQLite 01C-SQLITE-3 if U1 gap confirmed",
+    "rebuild selection-eligible dual-candidate evidence",
+    "Sol STRONG_FINAL retry on governance reconciliation chain"
+  ],
+  "governance_findings_recorded": [
+    "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json"
+  ],
+  "predecessors": [
+    "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
+    "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01"
+  ],
+  "note": "01B-3 only. SQLite fix deferred to post-01B-3 scoped-validity preflight. Selection remains closed."
+}

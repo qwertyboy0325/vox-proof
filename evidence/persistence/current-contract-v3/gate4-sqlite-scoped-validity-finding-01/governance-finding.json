@@ -1,0 +1,36 @@
+{
+  "finding_id": "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED",
+  "severity": "selection_blocking",
+  "recorded_on": "2026-08-14",
+  "recorded_by": "Ezra",
+  "work_package_context": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+  "candidate_id": "current-contract-sqlite-authoritative-candidate",
+  "candidate_version": "01C-SQLITE-2",
+  "md_015_requirement": {
+    "text_ref": "docs/governance/decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md:246-259",
+    "summary": "Unrelated scoped state change must not invalidate command; verify scoped concurrency not invalidate-all-after-any-change"
+  },
+  "basis": {
+    "code_location": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:2519-2548",
+    "mechanism": "validate_preconditions rejects committed_generation mismatch before review/reuse/analysis scoped checks",
+    "first_check": "metadata.committed_generation != preconditions.expected_generation → stale-generation-precondition",
+    "scoped_checks_order": "generation first, then review_ledger_head, reuse_governance_head, active_analysis_snapshot_identity"
+  },
+  "consequence": {
+    "u1_unrelated_success": "not_demonstrated",
+    "same_class_as_append_01b2": "global generation/sequence CAS invalidates command after any unrelated authoritative change",
+    "sqlite_is_reference_not_template": true,
+    "cannot_claim": "SQLite natively conforms to MD-015 scoped validity or provides unrelated-success semantics today"
+  },
+  "append_01b2_parallel": {
+    "code_location": "src/persistence_evidence/current_contract/append_authoritative.rs:314-318",
+    "mechanism": "committed_sequence global CAS → stale-append-precondition"
+  },
+  "scope_in_this_finding": {
+    "modify_sqlite_now": false,
+    "record_only": true,
+    "downstream": "After 01B-3 proves scoped-command model, open bounded SQLite scoped-validity preflight; likely smaller fix than Append but not yet authorized"
+  },
+  "selection_implication": "Eliminating Append without fixing SQLite does not resolve Gate 4 MD-015 selection blocker. Dual-candidate selection-eligible evidence requires both candidates to demonstrate scoped validity.",
+  "note": "Governance finding only. 01C-SQLITE-2 historical acceptance unchanged. No candidate modification in finding record."
+}

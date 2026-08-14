@@ -1,0 +1,77 @@
+{
+  "spec_id": "VP-GATE4-APPEND-01B-3-SCOPED-COMMAND-ARCHITECTURE",
+  "candidate_version": "01B-3",
+  "predecessor_candidate": "01B-2",
+  "design_option": "SCOPED_COMMAND_APPLY_ONTO_REPLAYED_SNAPSHOT",
+  "owner_authorized_on": "2026-08-14",
+  "pipeline": {
+    "flow": [
+      "caller command + read/write-set preconditions",
+      "replay latest committed authority",
+      "validate relevant semantic scope only",
+      "apply command onto latest state",
+      "preserve unrelated latest authority",
+      "finalize_derived_fields + oracle validate",
+      "append resulting full snapshot to log",
+      "committed_sequence += 1 (physical order only)"
+    ]
+  },
+  "committed_sequence_semantics": {
+    "is": [
+      "physical total ordering",
+      "replay boundary",
+      "commit identity",
+      "recovery sequencing anchor"
+    ],
+    "is_not": [
+      "semantic command validity CAS",
+      "proxy for scoped precondition satisfaction"
+    ]
+  },
+  "disqualified_patterns": [
+    "append_authoritative_transition(expected_committed_sequence, next_state) as sole write API for 01B-3",
+    "scoped token check then write caller next_state (overwrite trap)",
+    "clone sqlite validate_preconditions including expected_generation first"
+  ],
+  "proof_obligations": {
+    "U1": {
+      "name": "unrelated_scope_success",
+      "setup": "review command prepared; unrelated reuse-only state advances",
+      "required": "review succeeds; newest reuse authority preserved in committed snapshot"
+    },
+    "C1": {
+      "name": "same_scope_conflict",
+      "setup": "review command prepared; relevant review state advances",
+      "required": "old review rejected; authority unchanged after rejection"
+    },
+    "C3": {
+      "name": "stale_full_state_not_persisted",
+      "setup": "unrelated change then stale full-state proposal",
+      "required": "reject or rebase; must not rewind unrelated authority"
+    }
+  },
+  "fcr03_observations": {
+    "stale_rejection": {
+      "observed_failure_code": "exact code string",
+      "transition_applied": false,
+      "post_rejection_oracle_compare": true,
+      "post_rejection_authority_unchanged": true
+    },
+    "unrelated_success": {
+      "transition_applied": true,
+      "post_apply_oracle_compare": true,
+      "unrelated_scope_preserved": true,
+      "stale_full_state_not_persisted": true
+    }
+  },
+  "01b2_preservation": {
+    "historical_candidate": "01B-2",
+    "modify_01b2_code": false,
+    "comparison_evidence_at_91e258c": "unchanged"
+  },
+  "sqlite_downstream": {
+    "finding_id": "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED",
+    "modify_in_this_wp": false,
+    "follow_on": "bounded SQLite scoped-validity preflight after 01B-3 proof"
+  }
+}

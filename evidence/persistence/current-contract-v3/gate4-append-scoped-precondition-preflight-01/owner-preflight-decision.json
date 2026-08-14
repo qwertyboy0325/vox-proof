@@ -1,0 +1,65 @@
+{
+  "decision_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01-OWNER-DECISION",
+  "preflight_owner_decision": "AUTHORIZE_01B_3",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-14",
+  "preflight_verdict": "PROCEED_01B_3",
+  "authorized_design": "SCOPED_COMMAND_APPLY_ONTO_REPLAYED_SNAPSHOT",
+  "authorized_downstream": {
+    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01"
+  },
+  "hard_boundaries": {
+    "preserve": [
+      "append log physical model",
+      "global committed_sequence as physical ordering only",
+      "replay and recovery semantics",
+      "writer ownership model",
+      "01B-2 as historical accepted candidate (no overwrite)"
+    ],
+    "require": [
+      "scoped-command apply onto latest replayed authoritative snapshot",
+      "semantic validity from relevant read/write-set preconditions only",
+      "unrelated latest authority preserved on apply",
+      "new candidate version 01B-3"
+    ],
+    "forbidden": [
+      "MD-015 revision",
+      "caller-supplied full next_state replacement as authoritative write API",
+      "scoped tokens plus full next_state replace",
+      "SQLite precondition struct clone including global generation CAS",
+      "overwrite 01B-2",
+      "modify frozen 91e258c evidence",
+      "mechanism selection",
+      "Material Decision",
+      "product integration in this WP"
+    ]
+  },
+  "minimum_proof_cases": {
+    "U1_unrelated_success": "review command prepared → unrelated reuse advances → review succeeds → newest reuse authority preserved",
+    "C1_conflict_rejection": "review command prepared → relevant review advances → old review rejected → authority unchanged after rejection"
+  },
+  "fcr03_observation_requirements": {
+    "stale_rejection": [
+      "observed_failure_code",
+      "transition_applied: false",
+      "post_rejection_oracle_compare: true",
+      "post_rejection_authority_unchanged: true"
+    ],
+    "unrelated_success": [
+      "transition_applied: true",
+      "post_apply_oracle_compare: true",
+      "unrelated_scope_preserved: true",
+      "stale_full_state_not_persisted: true"
+    ]
+  },
+  "downstream_path": [
+    "01B-3 implementation",
+    "prove scoped-command semantics",
+    "Append specialist/evidence review",
+    "SQLite scoped-validity audit",
+    "bounded SQLite successor if U1 gap confirmed",
+    "rebuild selection-eligible dual-candidate evidence"
+  ],
+  "note": "Owner rejects APPEND_INELIGIBLE shortcut: SQLite 01C-SQLITE-2 also fails MD-015 U1 via global generation check before scoped checks."
+}
