@@ -1,14 +1,18 @@
+use std::process::Command;
+use std::time::{Duration, Instant};
+
 use super::super::measurement::MeasurementFixtureScale;
 use super::super::scenario_contract::{
-    ExpectedOpenState, ExpectedRecoveryClass, ScenarioContractV3, scenario_contract_v3,
+    scenario_contract_v3, ExpectedOpenState, ExpectedRecoveryClass, ScenarioContractV3,
 };
 use super::candidate::{
-    CurrentContractCandidate, fixture_state_for_scale, scenario_fixture_state,
-    updated_writer_token_state,
+    fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
+    updated_writer_token_state, CurrentContractCandidate, CurrentContractCandidateKind,
 };
+use super::measurement_worker::worker_binary;
 use super::types::{
-    CorrectnessDisqualification, NormalizedScenarioResult, ScenarioExecutionStatus,
-    fixture_scale_label, open_state_label, recovery_class_label,
+    fixture_scale_label, open_state_label, recovery_class_label, CorrectnessDisqualification,
+    NormalizedScenarioResult, ScenarioExecutionStatus,
 };
 
 pub fn run_required_scenarios(
@@ -53,7 +57,19 @@ fn execute_scenario(
         let supported = match capability.as_str() {
             "compaction_supported" => candidate.compaction_supported(),
             "destructive_cleanup_supported" => candidate.destructive_cleanup_supported(),
-            _ => false,
+            "verified_writer_ownership_loss" => true,
+            _ => {
+                return base_result(
+                    candidate,
+                    scenario,
+                    platform,
+                    started.elapsed().as_millis(),
+                    ScenarioExecutionStatus::Failed,
+                    false,
+                    Some(format!("unknown capability requirement {capability}")),
+                    Vec::new(),
+                );
+            }
         };
         if !supported {
             return base_result(
@@ -81,14 +97,17 @@ fn execute_scenario(
         id if id.contains("corruption") || id.contains("malformed") => {
             run_negative_corruption(candidate, &scenario_root, id)
         }
-        "interrupted-authoritative-review-transition"
-        | "interrupted-authoritative-reuse-transition" => {
-            run_interrupted_transition(candidate, &scenario_root)
+        "interrupted-authoritative-review-transition" => {
+            run_interrupted_transition(candidate, &scenario_root, "review")
+        }
+        "interrupted-authoritative-reuse-transition" => {
+            run_interrupted_transition(candidate, &scenario_root, "reuse")
         }
         "writer-crash-and-takeover" => run_writer_takeover(candidate, &scenario_root),
-        "interrupted-compaction" | "interrupted-cleanup" => {
-            Ok(ScenarioExecutionStatus::Unsupported)
+        "interrupted-compaction" => {
+            run_capability_interrupt(candidate, &scenario_root, "compaction")
         }
+        "interrupted-cleanup" => run_capability_interrupt(candidate, &scenario_root, "cleanup"),
         _ => run_fixture_round_trip(candidate, &scenario_root, &scenario.scenario_id),
     };
     let (status, oracle_compare, failure_code, limitations) = match outcome {
@@ -207,18 +226,22 @@ fn run_derived_rebuild(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
 ) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    if matches!(
-        candidate.kind(),
-        super::candidate::CurrentContractCandidateKind::Append
-    ) {
-        return Ok(ScenarioExecutionStatus::Passed);
-    }
     let adapter = candidate_for_root(candidate, root)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
     let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let writer = adapter.open_writable(&session_id).map_err(err)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
+    adapter
+        .tamper_derived_projection_for_test(&mut writer)
+        .map_err(err)?;
     adapter.close(writer).map_err(err)?;
-    let reopened = adapter.open_writable(&session_id).map_err(err)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    if !adapter.oracle_compare(&state, &reopened) {
+        adapter.close(reopened).map_err(err)?;
+        return Err((
+            ScenarioExecutionStatus::Failed,
+            "derived-rebuild-oracle-failed".to_owned(),
+        ));
+    }
     adapter.close(reopened).map_err(err)?;
     Ok(ScenarioExecutionStatus::Passed)
 }
@@ -312,15 +335,12 @@ fn run_stale_precondition(
     let (session_id, _) = adapter.create_session(&state).map_err(err)?;
     let mut writer = adapter.open_writable(&session_id).map_err(err)?;
     let next = updated_writer_token_state(state.clone(), "writer:stale-test");
-    let stale_result = adapter.apply_transition_stale(&mut writer, &next);
-    let expected = match scenario_id {
-        "stale-review-ledger-command" => "stale-review-ledger-precondition",
-        "stale-reuse-governance-command" => "stale-reuse-governance-precondition",
-        "stale-analysis-attachment-or-selection" => "stale-analysis-selection-precondition",
-        _ => "stale-generation-precondition",
-    };
+    let baseline = adapter.authoritative_preconditions(&writer).map_err(err)?;
+    let stale = stale_preconditions(candidate.kind(), scenario_id, &baseline);
+    let stale_result = adapter.apply_transition_with_preconditions(&mut writer, &stale, &next);
+    let expected = expected_stale_code(candidate.kind(), scenario_id);
     match stale_result {
-        Err(code) if code.contains("stale") => {
+        Err(code) if code == expected => {
             adapter.close(writer).map_err(err)?;
             Ok(ScenarioExecutionStatus::Passed)
         }
@@ -356,28 +376,33 @@ fn run_negative_corruption(
 fn run_interrupted_transition(
     candidate: &CurrentContractCandidate,
     root: &std::path::Path,
+    transition_kind: &str,
 ) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
-    if matches!(
-        candidate.kind(),
-        super::candidate::CurrentContractCandidateKind::Append
-    ) {
-        return Ok(ScenarioExecutionStatus::Passed);
-    }
     let adapter = candidate_for_root(candidate, root)?;
-    let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
-    let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
-    arm_fail_before_commit(&adapter)?;
-    let next = updated_writer_token_state(state.clone(), "writer:interrupt");
-    let transition = adapter.apply_transition(&mut writer, &next);
-    if transition.is_err() {
-        adapter.close(writer).map_err(err)?;
-        return Ok(ScenarioExecutionStatus::Passed);
+    let (precursor, next) = match transition_kind {
+        "review" => {
+            measurement_transition_states("append_review_decision", MeasurementFixtureScale::Small)
+                .ok_or_else(|| err("missing review transition".to_owned()))?
+        }
+        "reuse" => measurement_transition_states(
+            "append_reusable_revocation",
+            MeasurementFixtureScale::Small,
+        )
+        .ok_or_else(|| err("missing reuse transition".to_owned()))?,
+        other => return Err(err(format!("unknown interrupted transition {other}"))),
+    };
+    let (session_id, _) = adapter.create_session(&precursor).map_err(err)?;
+    spawn_child_interrupt(candidate, root, &session_id, &next)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    if !adapter.oracle_compare(&precursor, &reopened) {
+        adapter.close(reopened).map_err(err)?;
+        return Err((
+            ScenarioExecutionStatus::Failed,
+            "partial-authority-exposed".to_owned(),
+        ));
     }
-    Err((
-        ScenarioExecutionStatus::Failed,
-        "interrupted-transition-not-rejected".to_owned(),
-    ))
+    adapter.close(reopened).map_err(err)?;
+    Ok(ScenarioExecutionStatus::Passed)
 }
 
 fn run_writer_takeover(
@@ -387,12 +412,74 @@ fn run_writer_takeover(
     let adapter = candidate_for_root(candidate, root)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
     let (session_id, _) = adapter.create_session(&state).map_err(err)?;
-    let mut writer = adapter.open_writable(&session_id).map_err(err)?;
-    expire_lease(&adapter, &mut writer)?;
-    adapter.close(writer).map_err(err)?;
+    let ready = root.join("child.ready");
+    let release = root.join("child.release");
+    let _ = std::fs::remove_file(&ready);
+    let _ = std::fs::remove_file(&release);
+    let mut child = Command::new(worker_binary())
+        .arg("child-hold-writer")
+        .env("VOXPROOF_CHILD_ROOT", root)
+        .env("VOXPROOF_CHILD_SESSION_ID", &session_id)
+        .env("VOXPROOF_CHILD_READY", &ready)
+        .env("VOXPROOF_CHILD_RELEASE", &release)
+        .env(
+            "VOXPROOF_CHILD_KIND",
+            match candidate.kind() {
+                CurrentContractCandidateKind::Append => "append",
+                CurrentContractCandidateKind::Sqlite => "sqlite",
+            },
+        )
+        .spawn()
+        .map_err(|error| err(error.to_string()))?;
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !ready.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    if !ready.exists() {
+        return Err(err("child-writer-not-ready".to_owned()));
+    }
+    match adapter.open_writable(&session_id) {
+        Err(code) if code == "writer-already-open" => {}
+        Ok(_) => return Err(err("concurrent-writer-not-rejected".to_owned())),
+        Err(code) => return Err(err(code)),
+    }
+    std::fs::write(&release, b"abort").map_err(|error| err(error.to_string()))?;
+    assert!(!child
+        .wait()
+        .map_err(|error| err(error.to_string()))?
+        .success());
     let takeover = adapter.open_writable(&session_id).map_err(err)?;
     adapter.close(takeover).map_err(err)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err)?;
+    if !adapter.oracle_compare(&state, &reopened) {
+        adapter.close(reopened).map_err(err)?;
+        return Err((
+            ScenarioExecutionStatus::Failed,
+            "takeover-oracle-failed".to_owned(),
+        ));
+    }
+    adapter.close(reopened).map_err(err)?;
     Ok(ScenarioExecutionStatus::Passed)
+}
+
+fn run_capability_interrupt(
+    candidate: &CurrentContractCandidate,
+    _root: &std::path::Path,
+    capability: &str,
+) -> Result<ScenarioExecutionStatus, (ScenarioExecutionStatus, String)> {
+    let supported = match capability {
+        "compaction" => candidate.compaction_supported(),
+        "cleanup" => candidate.destructive_cleanup_supported(),
+        _ => false,
+    };
+    if supported {
+        Err((
+            ScenarioExecutionStatus::Failed,
+            format!("capability {capability} declared but not executable"),
+        ))
+    } else {
+        Ok(ScenarioExecutionStatus::Unsupported)
+    }
 }
 
 fn candidate_for_root(
@@ -480,29 +567,87 @@ fn tamper_for_scenario(
     Ok(())
 }
 
-fn arm_fail_before_commit(
+fn spawn_child_interrupt(
     candidate: &CurrentContractCandidate,
+    root: &std::path::Path,
+    session_id: &str,
+    next_state: &super::super::model::CurrentContractState,
 ) -> Result<(), (ScenarioExecutionStatus, String)> {
-    match candidate {
-        CurrentContractCandidate::Append { .. } => Ok(()),
-        CurrentContractCandidate::Sqlite { adapter, .. } => {
-            adapter.arm_fail_before_commit_for_test();
-            Ok(())
+    let ready = root.join("interrupt.ready");
+    let release = root.join("interrupt.release");
+    let _ = std::fs::remove_file(&ready);
+    let _ = std::fs::remove_file(&release);
+    let encoded = serde_json::to_string(next_state).map_err(|error| err(error.to_string()))?;
+    let mut child = Command::new(worker_binary())
+        .arg("child-interrupt-transition")
+        .env("VOXPROOF_CHILD_ROOT", root)
+        .env("VOXPROOF_CHILD_SESSION_ID", session_id)
+        .env("VOXPROOF_CHILD_READY", &ready)
+        .env("VOXPROOF_CHILD_RELEASE", &release)
+        .env("VOXPROOF_CHILD_NEXT_STATE", encoded)
+        .env(
+            "VOXPROOF_CHILD_KIND",
+            match candidate.kind() {
+                CurrentContractCandidateKind::Append => "append",
+                CurrentContractCandidateKind::Sqlite => "sqlite",
+            },
+        )
+        .spawn()
+        .map_err(|error| err(error.to_string()))?;
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while !ready.exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    if !ready.exists() {
+        return Err(err("child-interrupt-not-ready".to_owned()));
+    }
+    std::fs::write(&release, b"abort").map_err(|error| err(error.to_string()))?;
+    assert!(!child
+        .wait()
+        .map_err(|error| err(error.to_string()))?
+        .success());
+    Ok(())
+}
+
+fn stale_preconditions(
+    kind: CurrentContractCandidateKind,
+    scenario_id: &str,
+    baseline: &super::super::CurrentContractPreconditions,
+) -> super::super::CurrentContractPreconditions {
+    match (kind, scenario_id) {
+        (_, "stale-review-ledger-command") => super::super::CurrentContractPreconditions {
+            review_ledger_head: baseline.review_ledger_head + 1,
+            ..baseline.clone()
+        },
+        (_, "stale-reuse-governance-command") => super::super::CurrentContractPreconditions {
+            reuse_governance_head: baseline.reuse_governance_head + 1,
+            ..baseline.clone()
+        },
+        (_, "stale-analysis-attachment-or-selection") => {
+            super::super::CurrentContractPreconditions {
+                active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+                ..baseline.clone()
+            }
         }
+        (CurrentContractCandidateKind::Append, _) => super::super::CurrentContractPreconditions {
+            expected_generation: 0,
+            ..baseline.clone()
+        },
+        (_, _) => super::super::CurrentContractPreconditions {
+            expected_generation: 0,
+            ..baseline.clone()
+        },
     }
 }
 
-fn expire_lease(
-    scoped: &CurrentContractCandidate,
-    writer: &mut super::candidate::OpenedCandidateSession,
-) -> Result<(), (ScenarioExecutionStatus, String)> {
-    match (scoped, writer) {
-        (
-            CurrentContractCandidate::Sqlite { adapter, .. },
-            super::candidate::OpenedCandidateSession::Sqlite(handle),
-        ) => adapter
-            .expire_writer_lease_for_test(handle)
-            .map_err(|error| err(error.code.to_owned())),
-        _ => Ok(()),
+fn expected_stale_code(kind: CurrentContractCandidateKind, scenario_id: &str) -> &'static str {
+    match kind {
+        CurrentContractCandidateKind::Sqlite => match scenario_id {
+            "stale-review-ledger-command" => "stale-review-ledger-precondition",
+            "stale-reuse-governance-command" => "stale-reuse-governance-precondition",
+            "stale-analysis-attachment-or-selection" => "stale-analysis-selection-precondition",
+            _ => "stale-generation-precondition",
+        },
+        CurrentContractCandidateKind::Append => "stale-append-precondition",
     }
 }

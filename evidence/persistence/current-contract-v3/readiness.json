@@ -1,24 +1,27 @@
 {
-  "package": "VP-GATE4-EVIDENCE-COMPLETION-01C",
-  "predecessor": "VP-GATE4-01C-PRECONDITION-SQLITE-V3-CANDIDATE-01",
+  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01",
+  "predecessor": "VP-GATE4-EVIDENCE-COMPLETION-01C",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
   "scenario_contract_version": "3",
   "measurement_contract_version": "2",
-  "mechanism_comparison_readiness": "ready_for_owner_decision",
-  "mechanism_selection_readiness": "ready_for_owner_decision",
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "selected_path": "A_corrected_append_authoritative_comparator",
-  "tracker_status": "GATE4_01C_EQUIVALENT_EXECUTION_COMPLETE",
-  "harness_semantic_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
-  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3",
+  "tracker_status": "GATE4_01C_BLOCKED_EVIDENCE_INVALID",
+  "invalid_predecessor_evidence": {
+    "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+    "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
+    "verdict": "BLOCKED_01C_EVIDENCE",
+    "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3"
+  },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
     "accepted_head": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
     "owner_accepted": true,
-    "equivalence_status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION"
+    "equivalence_status": "pending_corrected_01c_evidence"
   },
   "sqlite_01C_SQLITE_2": {
     "candidate_id": "current-contract-sqlite-authoritative-candidate",
@@ -26,20 +29,14 @@
     "semantic_head": "c62dac64bb05d5714946b5741f474d7e640f07a9",
     "accepted_history_head": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
     "owner_accepted": true,
-    "equivalence_status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
-    "windows_validation": {
-      "run_id": "31476489821",
-      "exact_semantic_sha": "c62dac64bb05d5714946b5741f474d7e640f07a9"
-    }
+    "equivalence_status": "pending_corrected_01c_evidence"
   },
   "01C": {
     "authorized": true,
-    "execution_status": "completed",
-    "harness_semantic_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
-    "macos_run_id": "macos-native-final",
-    "windows_workflow_run_id": "31480549319",
-    "windows_artifact_id": "9097127230",
-    "windows_artifact_sha256": "ee19eb896887153ba4b891ea1d783a9f68c096a8c4cbbdc014a8c8434d82baa4"
+    "execution_status": "blocked_evidence_invalid",
+    "invalid_predecessor_harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+    "invalid_predecessor_evidence_sha": "5b446b430f358d3da821461775cc50efe0943033",
+    "corrected_round_status": "harness_correction_in_progress"
   },
-  "note": "Gate 4 package 01C equivalent candidate evidence complete at harness SHA 970b3c3. Both candidates are ELIGIBLE_FOR_EQUIVALENT_EXECUTION. This does not select a mechanism, create a Material Decision, integrate product persistence, or migrate sessions."
+  "note": "Prior 01C evidence at gate4-01c-970b3c3 is preserved negative evidence and invalid for mechanism selection. Readiness remains not_ready until corrected harness evidence passes programmatic gates on macOS and Windows."
 }

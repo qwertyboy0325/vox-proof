@@ -25,7 +25,7 @@ impl MemorySampler {
     }
 }
 
-fn current_peak_bytes() -> u64 {
+pub fn current_peak_bytes() -> u64 {
     #[cfg(unix)]
     {
         let mut usage = libc::rusage {

@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::super::candidate_equivalence::CandidateEligibilityStatus;
 use super::super::fixture::{
     build_medium_fixture_state, medium_fixture_dimensions,
     medium_fixture_serialized_semantic_size_bytes,
@@ -14,12 +13,16 @@ use super::candidate::CurrentContractCandidate;
 use super::comparison::{build_comparison_report, comparison_markdown, package_from_runs};
 use super::environment::{capture_environment, timestamp_iso};
 use super::measurements::run_comparative_measurements;
-use super::methodology::{EVIDENCE_01C_HARNESS_VERSION, methodology_record};
+use super::methodology::{methodology_record, EVIDENCE_01C_HARNESS_VERSION};
+use super::readiness::{assess_readiness, compute_eligibility};
 use super::scenarios::run_required_scenarios;
 use super::types::{
-    CandidateEligibilityRecord, CandidateRunArtifacts, ComparativeEvidencePackage,
+    CandidateRunArtifacts, ComparativeEvidencePackage, InvalidPredecessorEvidence,
     MediumFixtureRecord,
 };
+
+pub const INVALID_PREDECESSOR_HARNESS_SHA: &str = "970b3c38bfbf07fd9750df93b285527b73beb43c";
+pub const INVALID_PREDECESSOR_EVIDENCE_SHA: &str = "5b446b430f358d3da821461775cc50efe0943033";
 
 pub struct RunOutput {
     pub package: ComparativeEvidencePackage,
@@ -98,9 +101,9 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     let platform = environment.platform_label.clone();
 
     let (append_scenarios, append_disqualifications) =
-        run_required_scenarios(&append, &platform, &append_root.join("scenarios"));
+        run_required_scenarios(&append, &platform, &append_root);
     let (sqlite_scenarios, sqlite_disqualifications) =
-        run_required_scenarios(&sqlite, &platform, &sqlite_root.join("scenarios"));
+        run_required_scenarios(&sqlite, &platform, &sqlite_root);
 
     let (append_measurements, sqlite_measurements) = run_comparative_measurements(
         &append,
@@ -126,12 +129,18 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
 
     let comparison = build_comparison_report(&platform, &append_artifacts, &sqlite_artifacts);
     let eligibility = vec![
-        eligibility_record(&append_artifacts),
-        eligibility_record(&sqlite_artifacts),
+        compute_eligibility(&append_artifacts),
+        compute_eligibility(&sqlite_artifacts),
     ];
+    let readiness = assess_readiness(&append_artifacts, &sqlite_artifacts);
     environment.end_timestamp = Some(timestamp_iso());
+    let predecessor_invalid_evidence = InvalidPredecessorEvidence {
+        harness_sha: INVALID_PREDECESSOR_HARNESS_SHA.to_owned(),
+        evidence_record_sha: INVALID_PREDECESSOR_EVIDENCE_SHA.to_owned(),
+        verdict: "BLOCKED_01C_EVIDENCE".to_owned(),
+    };
     let package = package_from_runs(
-        "VP-GATE4-EVIDENCE-COMPLETION-01C",
+        "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01",
         &repository_commit,
         environment.clone(),
         methodology,
@@ -140,13 +149,11 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
         append_artifacts,
         sqlite_artifacts,
         comparison.clone(),
-        vec![
-            "stress fixture not implemented".to_owned(),
-            "bytes_read/bytes_written unavailable".to_owned(),
-        ],
+        &readiness,
+        predecessor_invalid_evidence,
     );
 
-    write_package(&output_root, &package, &comparison);
+    write_package(&output_root, &package, &comparison, &readiness);
     let _ = fs::remove_dir_all(output_root.join("work"));
     RunOutput {
         package,
@@ -154,31 +161,11 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     }
 }
 
-fn eligibility_record(artifacts: &CandidateRunArtifacts) -> CandidateEligibilityRecord {
-    let status = if artifacts.disqualifications.is_empty() {
-        CandidateEligibilityStatus::EligibleForEquivalentExecution
-    } else {
-        CandidateEligibilityStatus::DisqualifiedByDemonstratedFailure
-    };
-    CandidateEligibilityRecord {
-        candidate_id: artifacts.candidate_id.clone(),
-        candidate_version: artifacts.candidate_version.clone(),
-        status,
-        rationale: if artifacts.disqualifications.is_empty() {
-            "required scenarios completed without correctness disqualification".to_owned()
-        } else {
-            format!(
-                "{} disqualification(s) recorded",
-                artifacts.disqualifications.len()
-            )
-        },
-    }
-}
-
 fn write_package(
     output_root: &Path,
     package: &ComparativeEvidencePackage,
     comparison: &super::types::PlatformComparisonSection,
+    readiness: &super::readiness::ReadinessAssessment,
 ) {
     fs::create_dir_all(output_root.join("macos-native")).ok();
     fs::create_dir_all(output_root.join("windows-github-actions")).ok();
@@ -230,6 +217,11 @@ fn write_package(
         serde_json::to_string_pretty(&package.eligibility).expect("eligibility"),
     )
     .expect("write eligibility");
+    fs::write(
+        output_root.join("readiness.json"),
+        serde_json::to_string_pretty(readiness).expect("readiness"),
+    )
+    .expect("write readiness");
     fs::write(
         output_root.join("manifest.json"),
         serde_json::to_string_pretty(package).expect("manifest"),

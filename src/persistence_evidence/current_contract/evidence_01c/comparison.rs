@@ -1,3 +1,5 @@
+use super::super::measurement::comparative_measurement_contract;
+use super::readiness::aggregate_is_valid;
 use super::types::{CandidateRunArtifacts, ComparativeEvidencePackage, PlatformComparisonSection};
 
 pub fn build_comparison_report(
@@ -5,50 +7,63 @@ pub fn build_comparison_report(
     append: &CandidateRunArtifacts,
     sqlite: &CandidateRunArtifacts,
 ) -> PlatformComparisonSection {
+    let contract = comparative_measurement_contract();
     let mut tradeoffs = Vec::new();
     for append_measurement in &append.measurements {
-        if let Some(sqlite_measurement) = sqlite.measurements.iter().find(|measurement| {
+        let Some(sqlite_measurement) = sqlite.measurements.iter().find(|measurement| {
             measurement.operation == append_measurement.operation
                 && measurement.fixture_scale == append_measurement.fixture_scale
-        }) {
-            if append_measurement.median_ms < sqlite_measurement.median_ms {
+        }) else {
+            continue;
+        };
+        let expected_count = contract
+            .operations
+            .iter()
+            .find(|operation| operation.operation == append_measurement.operation)
+            .map(|operation| operation.sample_count)
+            .unwrap_or(0);
+        if !aggregate_is_valid(append_measurement, expected_count)
+            || !aggregate_is_valid(sqlite_measurement, expected_count)
+        {
+            continue;
+        }
+        if append_measurement.median_ms < sqlite_measurement.median_ms {
+            tradeoffs.push(format!(
+                "{} {}: append lower median latency ({} ms vs {} ms)",
+                append_measurement.operation,
+                super::measurements::scale_label(append_measurement.fixture_scale),
+                append_measurement.median_ms,
+                sqlite_measurement.median_ms
+            ));
+        } else if sqlite_measurement.median_ms < append_measurement.median_ms {
+            tradeoffs.push(format!(
+                "{} {}: sqlite lower median latency ({} ms vs {} ms)",
+                sqlite_measurement.operation,
+                super::measurements::scale_label(sqlite_measurement.fixture_scale),
+                sqlite_measurement.median_ms,
+                append_measurement.median_ms
+            ));
+        }
+        if let (Some(append_peak), Some(sqlite_peak)) = (
+            append_measurement.peak_memory_bytes.value,
+            sqlite_measurement.peak_memory_bytes.value,
+        ) {
+            if append_peak < sqlite_peak {
                 tradeoffs.push(format!(
-                    "{} {}: append lower median latency ({} ms vs {} ms)",
+                    "{} {}: append lower peak memory ({} vs {} bytes)",
                     append_measurement.operation,
                     super::measurements::scale_label(append_measurement.fixture_scale),
-                    append_measurement.median_ms,
-                    sqlite_measurement.median_ms
+                    append_peak,
+                    sqlite_peak
                 ));
-            } else if sqlite_measurement.median_ms < append_measurement.median_ms {
+            } else if sqlite_peak < append_peak {
                 tradeoffs.push(format!(
-                    "{} {}: sqlite lower median latency ({} ms vs {} ms)",
+                    "{} {}: sqlite lower peak memory ({} vs {} bytes)",
                     sqlite_measurement.operation,
                     super::measurements::scale_label(sqlite_measurement.fixture_scale),
-                    sqlite_measurement.median_ms,
-                    append_measurement.median_ms
+                    sqlite_peak,
+                    append_peak
                 ));
-            }
-            if let (Some(append_peak), Some(sqlite_peak)) = (
-                append_measurement.peak_memory_bytes.value,
-                sqlite_measurement.peak_memory_bytes.value,
-            ) {
-                if append_peak < sqlite_peak {
-                    tradeoffs.push(format!(
-                        "{} {}: append lower peak memory ({} vs {} bytes)",
-                        append_measurement.operation,
-                        super::measurements::scale_label(append_measurement.fixture_scale),
-                        append_peak,
-                        sqlite_peak
-                    ));
-                } else if sqlite_peak < append_peak {
-                    tradeoffs.push(format!(
-                        "{} {}: sqlite lower peak memory ({} vs {} bytes)",
-                        sqlite_measurement.operation,
-                        super::measurements::scale_label(sqlite_measurement.fixture_scale),
-                        sqlite_peak,
-                        append_peak
-                    ));
-                }
             }
         }
     }
@@ -83,12 +98,9 @@ pub fn package_from_runs(
     append: CandidateRunArtifacts,
     sqlite: CandidateRunArtifacts,
     comparison: PlatformComparisonSection,
-    limitations: Vec<String>,
+    readiness: &super::readiness::ReadinessAssessment,
+    predecessor_invalid_evidence: super::types::InvalidPredecessorEvidence,
 ) -> ComparativeEvidencePackage {
-    let ready = append.disqualifications.is_empty()
-        && sqlite.disqualifications.is_empty()
-        && !append.measurements.is_empty()
-        && !sqlite.measurements.is_empty();
     ComparativeEvidencePackage {
         work_package_id: work_package_id.to_owned(),
         harness_semantic_sha: harness_semantic_sha.to_owned(),
@@ -99,16 +111,9 @@ pub fn package_from_runs(
         append,
         sqlite,
         comparison,
-        limitations,
-        mechanism_comparison_readiness: if ready {
-            "ready_for_owner_decision".to_owned()
-        } else {
-            "not_ready".to_owned()
-        },
-        mechanism_selection_readiness: if ready {
-            "ready_for_owner_decision".to_owned()
-        } else {
-            "not_ready".to_owned()
-        },
+        limitations: readiness.limitations.clone(),
+        mechanism_comparison_readiness: readiness.mechanism_comparison_readiness.clone(),
+        mechanism_selection_readiness: readiness.mechanism_selection_readiness.clone(),
+        predecessor_invalid_evidence: Some(predecessor_invalid_evidence),
     }
 }

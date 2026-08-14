@@ -6,9 +6,12 @@
 pub mod candidate;
 pub mod comparison;
 pub mod environment;
+pub mod measurement_ops;
+pub mod measurement_worker;
 pub mod measurements;
 pub mod memory;
 pub mod methodology;
+pub mod readiness;
 pub mod runner;
 pub mod scenarios;
 pub mod types;
@@ -18,7 +21,7 @@ pub use comparison::build_comparison_report;
 pub use environment::capture_environment;
 pub use measurements::run_comparative_measurements;
 pub use methodology::{
-    EVIDENCE_01C_HARNESS_VERSION, INTERLEAVING_STRATEGY, METHODOLOGY_FREEZE_ID, methodology_record,
+    methodology_record, EVIDENCE_01C_HARNESS_VERSION, INTERLEAVING_STRATEGY, METHODOLOGY_FREEZE_ID,
 };
 pub use runner::run_01c_evidence;
 pub use types::{

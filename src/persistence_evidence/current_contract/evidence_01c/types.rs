@@ -157,6 +157,13 @@ pub struct PlatformComparisonSection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InvalidPredecessorEvidence {
+    pub harness_sha: String,
+    pub evidence_record_sha: String,
+    pub verdict: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComparativeEvidencePackage {
     pub work_package_id: String,
     pub harness_semantic_sha: String,
@@ -170,6 +177,8 @@ pub struct ComparativeEvidencePackage {
     pub limitations: Vec<String>,
     pub mechanism_comparison_readiness: String,
     pub mechanism_selection_readiness: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub predecessor_invalid_evidence: Option<InvalidPredecessorEvidence>,
 }
 
 pub fn recovery_class_label(value: ExpectedRecoveryClass) -> String {

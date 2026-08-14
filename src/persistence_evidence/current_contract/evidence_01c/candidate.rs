@@ -12,7 +12,7 @@ use super::super::model::CurrentContractState;
 use super::super::sqlite_authoritative::{
     OpenedSqliteAuthoritySession, SqliteAuthoritativeCandidateAdapter, SqliteOpenMode,
 };
-use super::super::{CurrentContractOracle, CurrentContractPreconditions, finalize_derived_fields};
+use super::super::{finalize_derived_fields, CurrentContractOracle, CurrentContractPreconditions};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurrentContractCandidateKind {
@@ -86,11 +86,11 @@ impl CurrentContractCandidate {
     }
 
     pub fn compaction_supported(&self) -> bool {
-        matches!(self, Self::Append { .. })
+        false
     }
 
     pub fn destructive_cleanup_supported(&self) -> bool {
-        matches!(self, Self::Append { .. })
+        false
     }
 
     pub fn storage_root(&self) -> &Path {
@@ -285,6 +285,124 @@ impl CurrentContractCandidate {
             ),
         }
     }
+
+    pub fn tamper_derived_cache_for_test(
+        &self,
+        opened: &mut OpenedCandidateSession,
+        key: &str,
+    ) -> Result<(), String> {
+        match (self, opened) {
+            (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .tamper_derived_cache_for_test(handle, key)
+                .map_err(|error| error.code.to_owned()),
+            _ => Err("derived-cache-tamper-unsupported".to_owned()),
+        }
+    }
+
+    pub fn tamper_derived_projection_for_test(
+        &self,
+        opened: &mut OpenedCandidateSession,
+    ) -> Result<(), String> {
+        match (self, opened) {
+            (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                lag_append_checkpoint_for_test(adapter, handle)
+            }
+            (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
+                .map_err(|error| error.code.to_owned()),
+            _ => Err("derived-projection-tamper-unsupported".to_owned()),
+        }
+    }
+
+    pub fn append_incomplete_tail_for_test(
+        &self,
+        opened: &mut OpenedCandidateSession,
+        next_state: &CurrentContractState,
+    ) -> Result<(), String> {
+        match (self, opened) {
+            (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
+                .append_incomplete_tail_for_test(handle, next_state)
+                .map_err(|error| error.code.to_owned()),
+            _ => Err("incomplete-tail-unsupported".to_owned()),
+        }
+    }
+
+    pub fn arm_fail_before_commit_for_test(&self) {
+        if let Self::Sqlite { adapter, .. } = self {
+            adapter.arm_fail_before_commit_for_test();
+        }
+    }
+
+    pub fn apply_transition_with_preconditions(
+        &self,
+        opened: &mut OpenedCandidateSession,
+        preconditions: &CurrentContractPreconditions,
+        next_state: &CurrentContractState,
+    ) -> Result<(), String> {
+        match (self, opened) {
+            (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
+                .append_authoritative_transition(
+                    handle,
+                    preconditions.expected_generation,
+                    next_state,
+                )
+                .map(|_| ())
+                .map_err(|error| error.code.to_owned()),
+            (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .apply_authoritative_transition(handle, preconditions, next_state)
+                .map(|_| ())
+                .map_err(|error| error.code.to_owned()),
+            _ => Err("candidate-handle-mismatch".to_owned()),
+        }
+    }
+
+    pub fn authoritative_preconditions(
+        &self,
+        opened: &OpenedCandidateSession,
+    ) -> Result<CurrentContractPreconditions, String> {
+        match opened {
+            OpenedCandidateSession::Append(handle) => Ok(CurrentContractPreconditions {
+                expected_generation: handle.committed_sequence,
+                review_ledger_head: handle
+                    .normalized_state()
+                    .durable_command_tokens
+                    .review_ledger_head,
+                reuse_governance_head: handle
+                    .normalized_state()
+                    .durable_command_tokens
+                    .reuse_governance_head,
+                active_analysis_snapshot_identity: handle
+                    .normalized_state()
+                    .durable_command_tokens
+                    .active_analysis_snapshot_identity
+                    .clone(),
+            }),
+            OpenedCandidateSession::Sqlite(handle) => {
+                let preconditions = handle.authoritative_preconditions();
+                Ok(CurrentContractPreconditions {
+                    expected_generation: preconditions.expected_generation,
+                    review_ledger_head: preconditions.review_ledger_head,
+                    reuse_governance_head: preconditions.reuse_governance_head,
+                    active_analysis_snapshot_identity: preconditions
+                        .active_analysis_snapshot_identity
+                        .clone(),
+                })
+            }
+        }
+    }
+
+    pub fn session_storage_bytes(&self, session_id: &str) -> u64 {
+        match self {
+            Self::Append { adapter, .. } => adapter
+                .open_existing(session_id, AppendOpenMode::ReadOnly)
+                .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
+                .unwrap_or(0),
+            Self::Sqlite { adapter, .. } => adapter
+                .open_existing(session_id, SqliteOpenMode::ReadOnly)
+                .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
+                .unwrap_or(0),
+        }
+    }
 }
 
 pub fn updated_writer_token_state(
@@ -321,6 +439,66 @@ pub fn directory_size_bytes(path: &Path) -> u64 {
         }
     }
     total
+}
+
+pub fn unique_session_id_for_sample(
+    state: &CurrentContractState,
+    _sample_index: u32,
+) -> CurrentContractState {
+    state.clone()
+}
+
+pub fn measurement_transition_states(
+    operation: &str,
+    _scale: super::super::measurement::MeasurementFixtureScale,
+) -> Option<(CurrentContractState, CurrentContractState)> {
+    use super::super::fixture::{
+        build_base_manual_replacement_state, build_candidate_rejected_state,
+        build_promoted_active_state, build_revoked_historical_state, build_superseded_state,
+    };
+    match operation {
+        "append_review_decision" => Some((
+            build_candidate_rejected_state(),
+            build_base_manual_replacement_state(),
+        )),
+        "append_manual_replacement" | "append_reusable_promotion" => Some((
+            build_base_manual_replacement_state(),
+            build_promoted_active_state(),
+        )),
+        "append_reusable_revocation" => Some((
+            build_promoted_active_state(),
+            build_revoked_historical_state(),
+        )),
+        "append_reusable_supersession" => {
+            Some((build_promoted_active_state(), build_superseded_state()))
+        }
+        _ => None,
+    }
+}
+
+fn lag_append_checkpoint_for_test(
+    _adapter: &AppendAuthoritativeCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+) -> Result<(), String> {
+    let manifest_path = handle.session.storage_path_for_test().join("manifest.json");
+    let bytes = std::fs::read_to_string(&manifest_path).map_err(|error| error.to_string())?;
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&bytes).map_err(|error| error.to_string())?;
+    if let Some(sequence) = manifest
+        .get_mut("committed_sequence")
+        .and_then(|value| value.as_u64())
+    {
+        let updated = sequence.saturating_sub(1);
+        manifest["committed_sequence"] = serde_json::Value::from(updated);
+    } else {
+        return Err("manifest-missing-committed-sequence".to_owned());
+    }
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_string(&manifest).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub fn scenario_fixture_state(scenario_id: &str) -> CurrentContractState {
