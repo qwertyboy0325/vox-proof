@@ -1,55 +1,67 @@
 {
-  "audit_id": "VP-GATE4-FCR03-PRE-FINAL-GOVERNANCE-AUDIT-2026-08-14",
+  "audit_id": "VP-GATE4-FCR03-PRE-FINAL-GOVERNANCE-AUDIT-RETRY-2026-08-14",
   "audit_phase": "PRE_FINAL_GOVERNANCE_AUDIT",
-  "verdict": "CORRECTIONS_REQUIRED",
-  "verdict_line": "PRE_FINAL_GOVERNANCE_AUDIT: CORRECTIONS REQUIRED",
+  "verdict": "PASS",
+  "verdict_line": "PRE_FINAL_GOVERNANCE_AUDIT: PASS",
   "auditor": "voxproof-governance-auditor",
   "auditor_model": "Claude Opus 5",
   "models_used": ["claude-opus-5-thinking-high"],
   "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
-  "audited_commit": "af2a38e",
+  "audited_commit": "f781329",
+  "supersedes": {
+    "audit_id": "VP-GATE4-FCR03-PRE-FINAL-GOVERNANCE-AUDIT-2026-08-14",
+    "audited_commit": "af2a38e",
+    "verdict": "CORRECTIONS_REQUIRED"
+  },
   "audit_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-packet.json",
   "resolution_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-fcr-resolution-packet.json",
-  "governance_status": "FCR-01/02/03 substantively addressed by scoped successors and dual-platform FCR-03 evidence at declared strength. FCR-04/05 not resolved in artifacts. Parent governance-reconciliation.json still asserts superseded semantic blocker resolved.",
-  "frozen_evidence_verified_unchanged": {
-    "readiness_json_selection_not_ready": true,
-    "eligibility_json_append_01b2_implementation_not_yet_evaluated": true,
-    "no_fcr03_fields_backfilled_into_91e258c": true
-  },
-  "corrections_required": [
+  "governance_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
+  "corrections_verified": [
     {
       "correction_id": "GOV-01",
-      "severity": "high",
-      "finding": "Retry work-package.json omits mandatory policy fields (risk_tier, semantic_scope, stop_gate, strong_final_conflict_review, etc.)"
+      "status": "SATISFIED_WITH_RESIDUAL",
+      "residual": "escalation_conditions field absent; stop_conditions present"
     },
     {
       "correction_id": "GOV-02",
-      "severity": "high",
-      "finding": "governance-reconciliation.json still asserts semantic_blocker resolved on superseded owner decision basis"
+      "status": "SATISFIED"
     },
     {
       "correction_id": "GOV-03",
-      "severity": "medium",
-      "finding": "Parent tracker does not reference retry work package or prior Sol BLOCKING_CONTRADICTION verdict"
+      "status": "SATISFIED"
     },
     {
       "correction_id": "GOV-04",
-      "severity": "medium",
-      "finding": "Pre-final packet understates Append 01B-3 storage review (CORRECTIONS REQUIRED line, blocking flag)"
+      "status": "SATISFIED"
     }
   ],
-  "authorized_next_step": "BOUNDED_GOVERNANCE_CORRECTION_THEN_PRE_FINAL_RETRY",
+  "corrections_required": [],
+  "frozen_evidence_verified_unchanged": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "no_fcr03_fields_present": true,
+    "no_01b3_or_01c_sqlite3_references_present": true,
+    "eligibility_append_01b2_implementation_not_yet_evaluated": true,
+    "readiness_mechanism_selection_not_ready": true,
+    "git_level_immutability_verified": false
+  },
+  "governance_status": "All four bounded governance corrections applied and verified. Prior Sol BLOCKING_CONTRADICTION preserved. FCR-01/02/03 addressed at declared strength with documented residuals. Mechanism selection and comparison_blockers remain closed.",
+  "authorized_next_step": "STRONG_FINAL_CONFLICT_REVIEW",
+  "authorized_next_step_model": "gpt-5.6-sol-high",
+  "sol_must_review_commit": "f781329",
   "not_authorized": [
-    "STRONG_FINAL_CONFLICT_REVIEW",
     "FINAL_GATE_GOVERNANCE_CHECK",
     "READY_FOR_OWNER_GATE",
     "mechanism_selection",
-    "comparison_blockers_lift"
+    "comparison_blockers_lift",
+    "substituting Opus 5 for canonical Sol STRONG_FINAL"
   ],
   "unresolved_risks": [
-    "harness_sha_match false across platforms",
-    "FCR-03 field names can be misread as persist+reopen proof",
-    "STRONG_FINAL requires gpt-5.6-sol-high; Opus 5 review is supplementary only"
+    "work-package omits escalation_conditions (non-blocking)",
+    "pre-final packet commit_head was af2a38e (corrected in retry commit)",
+    "Append 01B-3 storage corrections not specialist re-verified",
+    "Windows evidence executed at 9ec3b07 vs owner authorization abe8f9a (harness_sha_match false)",
+    "FCR-03 field names may be misread as persist+reopen proof (owner decision pending)",
+    "Opus 5 supplementary strong-final artifact must not be overwritten by Sol result"
   ],
   "audited_on": "2026-08-14"
 }

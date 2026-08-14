@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_AUDIT_ELIGIBLE",
+  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_PASS",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -93,7 +93,8 @@
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
-    "pre_final_verdict": "CORRECTIONS_REQUIRED",
+    "pre_final_verdict": "PASS",
+    "pre_final_audit_retry_commit": "f781329",
     "pre_final_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
     "governance_reconciliation_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-reconciliation-supersession.json",
     "corrections_status": "GOV_01_THROUGH_GOV_04_APPLIED",
@@ -106,8 +107,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
-    "status": "PRE_FINAL_AUDIT_RETRY_ELIGIBLE",
-    "phase": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY"
+    "status": "STRONG_FINAL_CONFLICT_REVIEW_ELIGIBLE",
+    "phase": "STRONG_FINAL_CONFLICT_REVIEW"
   },
   "gate_sequence": {
     "completed": [
@@ -126,18 +127,18 @@
       "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE",
       "windows_dual_scoped_fcr03_evidence_execution_run_31811807394",
       "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
-      "governance_corrections_GOV_01_through_GOV_04_applied"
+      "governance_corrections_GOV_01_through_GOV_04_applied",
+      "PRE_FINAL_governance_audit_retry_PASS_opus_5_f781329"
     ],
-    "current": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY",
+    "current": "STRONG_FINAL_CONFLICT_REVIEW",
     "blocked": [
-      "STRONG_FINAL_CONFLICT_REVIEW_gpt_5_6_sol_high",
-      "mechanism_selection",
-      "FINAL_GATE_GOVERNANCE_CHECK"
+      "FINAL_GATE_GOVERNANCE_CHECK",
+      "mechanism_selection"
     ],
     "downstream": [
-      "PRE_FINAL retry (Opus 5)",
-      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)",
-      "owner decision on FCR-03 field rename/downgrade vs reopen-based evidence"
+      "Sol STRONG_FINAL retry (gpt-5.6-sol-high) at commit f781329",
+      "owner decision on FCR-03 field rename/downgrade vs reopen-based evidence",
+      "Windows harness SHA drift adjudication (9ec3b07 vs abe8f9a)"
     ]
   },
   "still_closed": [
@@ -149,5 +150,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Governance corrections GOV-01 through GOV-04 applied. PRE_FINAL retry eligible (Opus 5). Prior Sol BLOCKING_CONTRADICTION preserved. Opus 5 supplementary STRONG_FINAL does not satisfy policy. Sol gpt-5.6-sol-high still required. Mechanism selection closed."
+  "note": "PRE_FINAL retry PASS (Opus 5, f781329). STRONG_FINAL authorized under gpt-5.6-sol-high only. Opus 5 supplementary review does not satisfy policy. Mechanism selection closed."
 }
