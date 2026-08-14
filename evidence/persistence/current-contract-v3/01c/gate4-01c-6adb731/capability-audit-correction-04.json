@@ -1,0 +1,110 @@
+{
+  "work_package_id": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-04",
+  "audit_phase": "early_stop_gate_salvage_capability",
+  "audited_at": "2026-08-14",
+  "harness_semantic_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
+  "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
+  "proceed_correction_04_harness": false,
+  "frozen_contract_reference": {
+    "scenario_contract_version": "3",
+    "required_salvage_scenarios": [
+      "canonical-reference-corruption",
+      "source-locator-corruption"
+    ]
+  },
+  "audit_questions": [
+    "detect specified corruption",
+    "refuse writable authority",
+    "allow read-only salvage view",
+    "expose no invalid authority",
+    "satisfy required oracle/validation boundary"
+  ],
+  "results": [
+    {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "scenario_id": "canonical-reference-corruption",
+      "contract_expectation": {
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed",
+        "preconditions": "canonical referenced payload checksum mismatch"
+      },
+      "capability_verdict": "NO",
+      "evidence": [
+        "Accepted candidate test committed_state_tampering_and_concurrent_create_fail_closed proves tamper_committed_state_for_test followed by ReadOnly open returns commit-fingerprint-mismatch (tests/persistence_append_authoritative_01b.rs)",
+        "Harness currently uses tamper_committed_state_for_test(writer:promoted -> writer:tampered) for all append corruption scenarios; open_read_only Err is treated as pass — opposite of contract ReadOnlySalvage",
+        "Append read-only salvage exists only for uncommitted-tail / committed-prefix recovery (read_only_sees_only_committed_prefix_and_writable_retry_recovers_tail), not for canonical-reference checksum mismatch",
+        "No accepted test hook injects canonical referenced payload checksum mismatch with salvage reopen"
+      ]
+    },
+    {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "scenario_id": "source-locator-corruption",
+      "contract_expectation": {
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed",
+        "preconditions": "typed source locator field corrupted",
+        "expected_durable_boundary": "locator_integrity_failure"
+      },
+      "capability_verdict": "NO",
+      "evidence": [
+        "No append test hook or production path demonstrates locator_integrity_failure with read-only salvage open",
+        "validate_locator_integrity exists in derivation transition path only (derivation.rs), not append open/reopen salvage",
+        "Harness reuses tamper_committed_state_for_test for source-locator-corruption — does not model locator corruption"
+      ]
+    },
+    {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "scenario_id": "canonical-reference-corruption",
+      "contract_expectation": {
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed"
+      },
+      "capability_verdict": "NO",
+      "evidence": [
+        "Accepted candidate test unknown_format_and_canonical_corruption_fail_closed_while_derived_cache_rebuilds proves tamper_canonical_provenance_for_test followed by ReadOnly open returns canonical-corruption (tests/persistence_sqlite_authoritative_01c.rs:335-338)",
+        "load_authority_for_session fails closed on oracle violation with canonical-corruption; no read-only salvage branch",
+        "Harness uses tamper_canonical_provenance_for_test for all sqlite corruption scenarios — shared tamper, refusal-only"
+      ]
+    },
+    {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "scenario_id": "source-locator-corruption",
+      "contract_expectation": {
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed",
+        "expected_durable_boundary": "locator_integrity_failure"
+      },
+      "capability_verdict": "NO",
+      "evidence": [
+        "No sqlite test hook injects typed source locator field corruption",
+        "Harness reuses tamper_canonical_provenance_for_test — does not model locator_integrity_failure",
+        "No code path demonstrates ReadOnlySalvage open after locator corruption"
+      ]
+    }
+  ],
+  "summary": "Neither owner-accepted candidate exposes the frozen Required salvage behavior for canonical-reference-corruption or source-locator-corruption. Existing read-only salvage (append uncommitted-tail prefix) does not satisfy these contract scenarios. Harness correction cannot close the gap without candidate semantic changes or contract revision.",
+  "required_owner_decision": [
+    "modify candidate semantics to implement Required salvage behavior",
+    "revise frozen scenario contract v3 salvage expectations",
+    "formally reduce 01C comparison claim scope (claim-downgrade path B at owner gate)"
+  ],
+  "downstream_status": {
+    "correction_04_harness_implementation": "blocked",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "pre_final_governance_audit": "not_authorized_until_capability_resolved"
+  },
+  "note": "Correction-03 cross-platform evidence at 6adb731 remains preserved but is not decision-valid for mechanism comparison until capability gap is resolved."
+}

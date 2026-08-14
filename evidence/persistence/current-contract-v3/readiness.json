@@ -1,16 +1,16 @@
 {
-  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
-  "predecessor": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02",
+  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-04",
+  "predecessor": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
   "scenario_contract_version": "3",
   "measurement_contract_version": "2",
   "harness_version": "gate4-01c-evidence-v4",
-  "mechanism_comparison_readiness": "ready_for_owner_decision",
-  "mechanism_selection_readiness": "ready_for_owner_decision",
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_CORRECTION_03_EVIDENCE_COMPLETE_PENDING_GOVERNANCE",
+  "tracker_status": "GATE4_01C_CANDIDATE_CONTRACT_CAPABILITY_GAP",
   "invalid_evidence_chain": [
     {
       "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
@@ -29,41 +29,46 @@
       "evidence_record_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
       "verdict": "invalid_for_gate_preserve",
       "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91"
+    },
+    {
+      "harness_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
+      "evidence_record_sha": "see_gate4-01c-6adb731_with_capability_audit",
+      "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
+      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
+      "capability_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json"
     }
   ],
-  "correction_03_harness": {
-    "harness_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
-    "harness_version": "gate4-01c-evidence-v4",
-    "evidence_package": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
-    "macos_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/macos-native",
-    "windows_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/windows-github-actions",
-    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/windows-provenance.json",
-    "cross_platform_readiness": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/cross-platform-readiness.json",
-    "windows_run_id": 31777643424,
-    "single_platform_readiness": "ready_for_owner_decision",
-    "cross_platform_readiness_status": "ready_for_owner_decision",
-    "governance_status": "pending"
+  "correction_04_capability_audit": {
+    "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
+    "blocked_scenarios": [
+      "canonical-reference-corruption",
+      "source-locator-corruption"
+    ],
+    "harness_correction_04_status": "stopped_before_implementation",
+    "audit_artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json"
   },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
-    "accepted_head": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
     "owner_accepted": true,
-    "equivalence_status": "correction_03_evidence_complete_pending_governance"
+    "equivalence_status": "blocked_salvage_capability_gap"
   },
   "sqlite_01C_SQLITE_2": {
     "candidate_id": "current-contract-sqlite-authoritative-candidate",
     "candidate_version": "01C-SQLITE-2",
-    "semantic_head": "c62dac64bb05d5714946b5741f474d7e640f07a9",
-    "accepted_history_head": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
     "owner_accepted": true,
-    "equivalence_status": "correction_03_evidence_complete_pending_governance"
+    "equivalence_status": "blocked_salvage_capability_gap"
   },
   "01C": {
     "authorized": true,
-    "execution_status": "correction_03_cross_platform_complete",
+    "execution_status": "candidate_contract_capability_gap",
     "mechanism_selection": "none",
     "product_integration": "unimplemented"
   },
-  "note": "Correction-03 harness v4 at 6adb731. macOS + Windows evidence aggregated in gate4-01c-6adb731. Programmatic readiness passes; governance pipeline (Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High, FINAL_GATE_GOVERNANCE_CHECK) required before owner mechanism-selection gate."
+  "required_owner_decision": [
+    "modify candidate semantics to implement Required ReadOnlySalvage for salvage scenarios",
+    "revise frozen scenario contract v3",
+    "formally reduce 01C comparison claim scope"
+  ],
+  "note": "Correction-04 early STOP gate triggered. Correction-03 cross-platform evidence preserved but not decision-valid. PRE_FINAL_GOVERNANCE_AUDIT not authorized until capability gap resolved."
 }

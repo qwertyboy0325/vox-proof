@@ -2,44 +2,33 @@
   "work_package_id": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
   "harness_semantic_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
   "harness_version": "gate4-01c-evidence-v4",
-  "aggregation_status": "complete",
+  "aggregation_status": "complete_but_not_decision_valid",
+  "capability_audit": "capability-audit-correction-04.json",
+  "capability_audit_verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
   "required_platforms": ["macos_native", "windows-github-actions"],
   "platforms": {
     "macos_native": {
       "single_platform_readiness": "ready_for_owner_decision",
-      "evidence_subdirectory": "macos-native",
-      "environment_file": "macos-native/environment.json",
-      "collected_on": "local-host"
+      "evidence_subdirectory": "macos-native"
     },
     "windows-github_actions": {
       "single_platform_readiness": "ready_for_owner_decision",
       "evidence_subdirectory": "windows-github-actions",
-      "environment_file": "windows-github-actions/environment.json",
-      "provenance_file": "windows-provenance.json",
-      "collected_on": "github-actions-run-31777643424"
+      "provenance_file": "windows-provenance.json"
     }
   },
   "parity_checks": {
     "harness_sha_match": true,
     "required_scenario_failures": 0,
-    "capability_dependent_unsupported_only": [
-      "interrupted-compaction",
-      "interrupted-cleanup"
-    ],
-    "measurement_failure_count_zero": true,
-    "append_eligibility_asymmetry_documented": true
+    "measurement_failure_count_zero": true
   },
   "programmatic_readiness": {
-    "mechanism_comparison_readiness": "ready_for_owner_decision",
-    "mechanism_selection_readiness": "ready_for_owner_decision",
-    "cross_platform_blockers": []
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "cross_platform_blockers": [
+      "CANDIDATE_CONTRACT_CAPABILITY_GAP: Required salvage scenarios not demonstrable on accepted candidates (see capability-audit-correction-04.json)"
+    ]
   },
-  "governance_blockers": [
-    "Grok evidence-methodology review pending",
-    "PRE_FINAL_GOVERNANCE_AUDIT pending",
-    "GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW pending",
-    "FINAL_GATE_GOVERNANCE_CHECK pending"
-  ],
   "mechanism_selection": "none",
-  "note": "Cross-platform evidence aggregation complete at harness SHA 6adb731. Programmatic gates pass; owner mechanism-selection gate remains blocked until governance pipeline completes."
+  "note": "Cross-platform evidence collection complete; owner gate blocked by Correction-04 early STOP gate."
 }

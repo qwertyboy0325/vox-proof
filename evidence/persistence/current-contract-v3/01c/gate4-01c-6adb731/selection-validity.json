@@ -1,13 +1,14 @@
 {
-  "selection_validity": "pending_owner_gate_review",
+  "selection_validity": "invalid_for_gate_preserve",
   "harness_semantic_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
   "harness_version": "gate4-01c-evidence-v4",
   "evidence_record_sha": "see_git_commit_preserving_this_directory",
-  "verdict": "EVIDENCE_PACKAGE_COMPLETE_PENDING_GOVERNANCE",
+  "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
   "reason": [
-    "macOS and Windows single-platform evidence aggregated at harness SHA 6adb731",
-    "programmatic mechanism_comparison_readiness and mechanism_selection_readiness pass",
-    "mechanism selection remains none until governance pipeline completes"
+    "Correction-04 early STOP gate: neither accepted candidate demonstrates Required ReadOnlySalvage for canonical-reference-corruption or source-locator-corruption",
+    "Append: tamper_committed_state → commit-fingerprint-mismatch on ReadOnly (01B-2 test); harness treats open refusal as pass",
+    "SQLite: tamper_canonical_provenance → canonical-corruption on ReadOnly (01C-SQLITE-2 test); fail-closed not salvage",
+    "Harness correction cannot proceed without owner candidate/contract/claim decision"
   ],
   "invalid_evidence_chain": [
     {
@@ -26,8 +27,8 @@
       "verdict": "invalid_for_gate_preserve"
     }
   ],
-  "cross_platform_readiness": "ready_for_owner_decision",
-  "windows_provenance": "windows-provenance.json",
+  "cross_platform_evidence_preserved": true,
+  "capability_audit": "capability-audit-correction-04.json",
   "preserve_raw_artifacts": true,
-  "note": "Correction-03 cross-platform evidence complete. Owner mechanism-selection decision blocked until Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK pass."
+  "note": "Correction-03 evidence preserved. Not valid for mechanism selection. Owner gate required for candidate semantics, contract revision, or formal claim downgrade."
 }
