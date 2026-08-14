@@ -14,6 +14,9 @@ use super::super::sqlite_authoritative::{
 };
 use super::super::{finalize_derived_fields, CurrentContractOracle, CurrentContractPreconditions};
 
+pub const SQLITE_WRITER_LEASE_DURATION_MS: i64 = 1_000;
+pub const SQLITE_LEASE_EXPIRY_WAIT_MS: u64 = 1_100;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurrentContractCandidateKind {
     Append,
@@ -333,6 +336,19 @@ impl CurrentContractCandidate {
         }
     }
 
+    pub fn configure_sqlite_writer_lease_for_test(
+        &self,
+        session_id: &str,
+        lease_duration_ms: i64,
+    ) -> Result<(), String> {
+        match self {
+            Self::Sqlite { adapter, .. } => adapter
+                .set_lease_duration_for_session_id_for_test(session_id, lease_duration_ms)
+                .map_err(|error| error.code.to_owned()),
+            Self::Append { .. } => Ok(()),
+        }
+    }
+
     pub fn apply_transition_with_preconditions(
         &self,
         opened: &mut OpenedCandidateSession,
@@ -450,30 +466,9 @@ pub fn unique_session_id_for_sample(
 
 pub fn measurement_transition_states(
     operation: &str,
-    _scale: super::super::measurement::MeasurementFixtureScale,
+    scale: super::super::measurement::MeasurementFixtureScale,
 ) -> Option<(CurrentContractState, CurrentContractState)> {
-    use super::super::fixture::{
-        build_base_manual_replacement_state, build_candidate_rejected_state,
-        build_promoted_active_state, build_revoked_historical_state, build_superseded_state,
-    };
-    match operation {
-        "append_review_decision" => Some((
-            build_candidate_rejected_state(),
-            build_base_manual_replacement_state(),
-        )),
-        "append_manual_replacement" | "append_reusable_promotion" => Some((
-            build_base_manual_replacement_state(),
-            build_promoted_active_state(),
-        )),
-        "append_reusable_revocation" => Some((
-            build_promoted_active_state(),
-            build_revoked_historical_state(),
-        )),
-        "append_reusable_supersession" => {
-            Some((build_promoted_active_state(), build_superseded_state()))
-        }
-        _ => None,
-    }
+    super::measurement_transitions::measurement_transition_states(operation, scale)
 }
 
 fn lag_append_checkpoint_for_test(

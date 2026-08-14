@@ -5,6 +5,7 @@
 
 pub mod candidate;
 pub mod comparison;
+pub mod measurement_transitions;
 pub mod environment;
 pub mod measurement_ops;
 pub mod measurement_worker;

@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use super::types::InterleavingStrategy;
 
-pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v2";
+pub const EVIDENCE_01C_HARNESS_VERSION: &str = "gate4-01c-evidence-v3";
 pub const CORRECTION_METHODOLOGY_FREEZE_ID: &str =
-    "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01-methodology-freeze-v1";
+    "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02-methodology-freeze-v1";
 pub const METHODOLOGY_FREEZE_ID: &str = CORRECTION_METHODOLOGY_FREEZE_ID;
 
 pub const INTERLEAVING_STRATEGY: InterleavingStrategy = InterleavingStrategy::AlternatingPerSample;
@@ -46,7 +46,7 @@ pub fn methodology_record() -> MethodologyRecord {
     MethodologyRecord {
         freeze_id: CORRECTION_METHODOLOGY_FREEZE_ID.to_owned(),
         harness_version: EVIDENCE_01C_HARNESS_VERSION.to_owned(),
-        work_package_id: "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01".to_owned(),
+        work_package_id: "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02".to_owned(),
         candidates_order: vec![
             "current-contract-append-authoritative-candidate".to_owned(),
             "current-contract-sqlite-authoritative-candidate".to_owned(),

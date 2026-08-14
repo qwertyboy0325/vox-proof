@@ -53,9 +53,9 @@ fn measurement_contract_v2_medium_is_materialized() {
 fn evidence_01c_methodology_is_frozen() {
     let record = methodology_record();
     assert_eq!(record.harness_version, EVIDENCE_01C_HARNESS_VERSION);
-    assert_eq!(record.harness_version, "gate4-01c-evidence-v2");
+    assert_eq!(record.harness_version, "gate4-01c-evidence-v3");
     assert_eq!(record.candidates_order.len(), 2);
-    assert!(record.freeze_id.contains("HARNESS-CORRECTION"));
+    assert!(record.freeze_id.contains("CORRECTION-02"));
 }
 
 #[test]
@@ -71,18 +71,80 @@ fn invalid_predecessor_lineage_is_recorded() {
 }
 
 #[test]
-fn measurement_transition_states_are_distinct_per_operation() {
-    let review =
-        measurement_transition_states("append_review_decision", MeasurementFixtureScale::Small)
-            .expect("review");
-    let manual =
-        measurement_transition_states("append_manual_replacement", MeasurementFixtureScale::Small)
-            .expect("manual");
-    let promotion =
-        measurement_transition_states("append_reusable_promotion", MeasurementFixtureScale::Small)
-            .expect("promotion");
-    assert_ne!(review.0.session_id, manual.0.session_id);
-    assert_ne!(review.1.session_id, promotion.1.session_id);
+fn measurement_transition_pairs_share_session_id() {
+    use vox_proof::persistence_evidence::MeasurementFixtureScale;
+    for operation in [
+        "append_review_decision",
+        "append_manual_replacement",
+        "append_reusable_promotion",
+        "append_reusable_revocation",
+        "append_reusable_supersession",
+    ] {
+        let (precursor, target) =
+            measurement_transition_states(operation, MeasurementFixtureScale::Small)
+                .unwrap_or_else(|| panic!("{operation}"));
+        assert_eq!(precursor.session_id, target.session_id);
+        assert_ne!(
+            precursor.canonical_projection(),
+            target.canonical_projection()
+        );
+    }
+}
+
+#[test]
+fn append_stale_precondition_uses_generation_boundary() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::scenarios::{
+        stale_preconditions_for_test, expected_stale_code_for_test,
+    };
+    use vox_proof::persistence_evidence::current_contract::CurrentContractPreconditions;
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::CurrentContractCandidateKind;
+
+    let baseline = CurrentContractPreconditions {
+        expected_generation: 3,
+        review_ledger_head: 2,
+        reuse_governance_head: 1,
+        active_analysis_snapshot_identity: "analysis:live".to_owned(),
+    };
+    let stale = stale_preconditions_for_test(
+        CurrentContractCandidateKind::Append,
+        "stale-review-ledger-command",
+        &baseline,
+    );
+    assert_eq!(stale.expected_generation, 2);
+    assert_eq!(stale.review_ledger_head, baseline.review_ledger_head);
+    assert_eq!(
+        expected_stale_code_for_test(CurrentContractCandidateKind::Append, "stale-review-ledger-command"),
+        "stale-append-precondition"
+    );
+}
+
+#[test]
+fn sqlite_stale_precondition_uses_ledger_identity() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::scenarios::{
+        stale_preconditions_for_test, expected_stale_code_for_test,
+    };
+    use vox_proof::persistence_evidence::current_contract::CurrentContractPreconditions;
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::CurrentContractCandidateKind;
+
+    let baseline = CurrentContractPreconditions {
+        expected_generation: 3,
+        review_ledger_head: 2,
+        reuse_governance_head: 1,
+        active_analysis_snapshot_identity: "analysis:live".to_owned(),
+    };
+    let stale = stale_preconditions_for_test(
+        CurrentContractCandidateKind::Sqlite,
+        "stale-review-ledger-command",
+        &baseline,
+    );
+    assert_eq!(stale.review_ledger_head, 3);
+    assert_eq!(
+        expected_stale_code_for_test(
+            CurrentContractCandidateKind::Sqlite,
+            "stale-review-ledger-command"
+        ),
+        "stale-review-ledger-precondition"
+    );
 }
 
 #[test]

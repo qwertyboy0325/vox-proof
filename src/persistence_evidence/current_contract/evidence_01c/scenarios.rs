@@ -8,6 +8,7 @@ use super::super::scenario_contract::{
 use super::candidate::{
     fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
     updated_writer_token_state, CurrentContractCandidate, CurrentContractCandidateKind,
+    SQLITE_LEASE_EXPIRY_WAIT_MS, SQLITE_WRITER_LEASE_DURATION_MS,
 };
 use super::measurement_worker::worker_binary;
 use super::types::{
@@ -412,6 +413,11 @@ fn run_writer_takeover(
     let adapter = candidate_for_root(candidate, root)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
     let (session_id, _) = adapter.create_session(&state).map_err(err)?;
+    if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
+        adapter
+            .configure_sqlite_writer_lease_for_test(&session_id, SQLITE_WRITER_LEASE_DURATION_MS)
+            .map_err(err)?;
+    }
     let ready = root.join("child.ready");
     let release = root.join("child.release");
     let _ = std::fs::remove_file(&ready);
@@ -448,6 +454,14 @@ fn run_writer_takeover(
         .wait()
         .map_err(|error| err(error.to_string()))?
         .success());
+    if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
+        match adapter.open_writable(&session_id) {
+            Err(code) if code == "writer-already-open" => {}
+            Ok(_) => return Err(err("takeover-before-lease-expiry-not-rejected".to_owned())),
+            Err(code) => return Err(err(code)),
+        }
+        std::thread::sleep(Duration::from_millis(SQLITE_LEASE_EXPIRY_WAIT_MS));
+    }
     let takeover = adapter.open_writable(&session_id).map_err(err)?;
     adapter.close(takeover).map_err(err)?;
     let reopened = adapter.open_read_only(&session_id).map_err(err)?;
@@ -614,28 +628,30 @@ fn stale_preconditions(
     scenario_id: &str,
     baseline: &super::super::CurrentContractPreconditions,
 ) -> super::super::CurrentContractPreconditions {
-    match (kind, scenario_id) {
-        (_, "stale-review-ledger-command") => super::super::CurrentContractPreconditions {
-            review_ledger_head: baseline.review_ledger_head + 1,
+    match kind {
+        CurrentContractCandidateKind::Append => super::super::CurrentContractPreconditions {
+            expected_generation: baseline.expected_generation.saturating_sub(1),
             ..baseline.clone()
         },
-        (_, "stale-reuse-governance-command") => super::super::CurrentContractPreconditions {
-            reuse_governance_head: baseline.reuse_governance_head + 1,
-            ..baseline.clone()
-        },
-        (_, "stale-analysis-attachment-or-selection") => {
-            super::super::CurrentContractPreconditions {
-                active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+        CurrentContractCandidateKind::Sqlite => match scenario_id {
+            "stale-review-ledger-command" => super::super::CurrentContractPreconditions {
+                review_ledger_head: baseline.review_ledger_head + 1,
                 ..baseline.clone()
+            },
+            "stale-reuse-governance-command" => super::super::CurrentContractPreconditions {
+                reuse_governance_head: baseline.reuse_governance_head + 1,
+                ..baseline.clone()
+            },
+            "stale-analysis-attachment-or-selection" => {
+                super::super::CurrentContractPreconditions {
+                    active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+                    ..baseline.clone()
+                }
             }
-        }
-        (CurrentContractCandidateKind::Append, _) => super::super::CurrentContractPreconditions {
-            expected_generation: 0,
-            ..baseline.clone()
-        },
-        (_, _) => super::super::CurrentContractPreconditions {
-            expected_generation: 0,
-            ..baseline.clone()
+            _ => super::super::CurrentContractPreconditions {
+                expected_generation: baseline.expected_generation.saturating_sub(1),
+                ..baseline.clone()
+            },
         },
     }
 }
@@ -650,4 +666,21 @@ fn expected_stale_code(kind: CurrentContractCandidateKind, scenario_id: &str) ->
         },
         CurrentContractCandidateKind::Append => "stale-append-precondition",
     }
+}
+
+#[doc(hidden)]
+pub fn stale_preconditions_for_test(
+    kind: CurrentContractCandidateKind,
+    scenario_id: &str,
+    baseline: &super::super::CurrentContractPreconditions,
+) -> super::super::CurrentContractPreconditions {
+    stale_preconditions(kind, scenario_id, baseline)
+}
+
+#[doc(hidden)]
+pub fn expected_stale_code_for_test(
+    kind: CurrentContractCandidateKind,
+    scenario_id: &str,
+) -> &'static str {
+    expected_stale_code(kind, scenario_id)
 }

@@ -594,6 +594,19 @@ impl SqliteAuthoritativeCandidateAdapter {
     }
 
     #[doc(hidden)]
+    pub fn set_lease_duration_for_session_id_for_test(
+        &self,
+        session_id: &str,
+        lease_duration_ms: i64,
+    ) -> Result<(), SqliteAuthorityError> {
+        let session = SqliteAuthoritySession {
+            session_id: session_id.to_owned(),
+            root: self.session_root(session_id),
+        };
+        self.set_lease_duration_for_test(&session, lease_duration_ms)
+    }
+
+    #[doc(hidden)]
     pub fn expire_writer_lease_for_test(
         &self,
         opened: &OpenedSqliteAuthoritySession,
