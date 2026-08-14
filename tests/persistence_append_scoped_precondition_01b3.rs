@@ -7,7 +7,9 @@ use vox_proof::persistence_evidence::current_contract::append_authoritative_01b3
     AppendScopedPreconditionCandidateAdapter, APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
 };
 use vox_proof::persistence_evidence::current_contract::evidence_01c::measurement_transitions::{
-    measurement_transition_states, unrelated_scope_success_fixture,
+    authority_changed_in_relevant_scope, genuine_stale_scenario_fixture,
+    measurement_transition_states, prepared_precondition_label, unrelated_scope_success_fixture,
+    GenuineStaleCommandScope,
 };
 use vox_proof::persistence_evidence::current_contract::evidence_01c::scenario_observation::{
     Fcr03StaleRejectionObservation, Fcr03UnrelatedSuccessObservation,
@@ -132,7 +134,7 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
         .apply_scoped_command(&mut writer, &first_review)
         .expect("advance review scope");
 
-    let authority_before = writer.normalized_state().clone();
+    let authority_after_competing = writer.normalized_state().clone();
     let mut stale_review = AppendScopedCommand::from_transition_pair(
         AppendCommandScope::ReviewLedger,
         &review_precursor,
@@ -147,7 +149,7 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
     assert_eq!(error.code, "stale-review-ledger-precondition");
 
     let authority_after = writer.normalized_state().clone();
-    assert_eq!(authority_before, authority_after);
+    assert_eq!(authority_after_competing, authority_after);
 
     let session_id = session.session_id();
     adapter
@@ -159,9 +161,19 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
     let reopened_state = reopened.normalized_state().clone();
     adapter.close(reopened).expect("close reopened");
 
-    let observation = Fcr03StaleRejectionObservation::record(
+    let observation = Fcr03StaleRejectionObservation::record_genuine(
+        prepared_precondition_label(
+            GenuineStaleCommandScope::ReviewLedger,
+            &review_precursor,
+        ),
+        true,
+        authority_changed_in_relevant_scope(
+            GenuineStaleCommandScope::ReviewLedger,
+            &review_precursor,
+            &authority_after_competing,
+        ),
         error.code,
-        &authority_before,
+        &authority_after_competing,
         &authority_after,
         &reopened_state,
     );
@@ -170,10 +182,113 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
         observation.observed_failure_code,
         "stale-review-ledger-precondition"
     );
+    assert!(observation.competing_transition_applied);
+    assert!(observation.authority_changed_in_relevant_scope);
+    assert!(!observation.stale_command_applied);
     assert!(observation.post_rejection_oracle_compare);
     assert!(observation.post_rejection_authority_unchanged);
+    assert!(observation.close_reopen_performed);
     assert!(observation.persist_reopen_oracle_compare);
     assert!(observation.persist_reopen_authority_unchanged);
+}
+
+#[test]
+fn c1_stale_reuse_command_rejected_with_authority_unchanged() {
+    let adapter = new_adapter("c1-stale-reuse");
+    let fixture = genuine_stale_scenario_fixture(
+        "stale-reuse-governance-command",
+        MeasurementFixtureScale::Small,
+    )
+    .expect("reuse stale fixture");
+
+    let session = adapter.create(&fixture.prepare_authority).expect("create");
+    let mut writer = adapter
+        .open_existing(session.session_id(), AppendOpenMode::Writable)
+        .expect("open writer");
+
+    let competing = AppendScopedCommand::from_transition_pair(
+        AppendCommandScope::ReuseGovernance,
+        &fixture.prepare_authority,
+        &fixture.competing_target,
+    );
+    adapter
+        .apply_scoped_command(&mut writer, &competing)
+        .expect("competing reuse advance");
+
+    let authority_after_competing = writer.normalized_state().clone();
+    let stale = AppendScopedCommand::from_transition_pair(
+        AppendCommandScope::ReuseGovernance,
+        &fixture.prepare_authority,
+        &fixture.prepared_target,
+    );
+    let error = adapter
+        .apply_scoped_command(&mut writer, &stale)
+        .expect_err("stale reuse must be rejected");
+    assert_eq!(error.code, fixture.expected_failure_code);
+    assert_eq!(authority_after_competing, writer.normalized_state().clone());
+}
+
+#[test]
+#[ignore = "analysis stale requires owner fixture: oracle-valid competing analysis transition that advances active_analysis_snapshot_identity on review_precursor session"]
+fn c1_stale_active_analysis_command_rejected_with_authority_unchanged() {
+    let adapter = new_adapter("c1-stale-analysis");
+    let fixture = genuine_stale_scenario_fixture(
+        "stale-analysis-attachment-or-selection",
+        MeasurementFixtureScale::Small,
+    )
+    .expect("analysis stale fixture");
+    let advances = fixture
+        .analysis_precursor_advances
+        .as_ref()
+        .expect("analysis precursor advances");
+
+    let session = adapter.create(&fixture.prepare_authority).expect("create");
+    let mut writer = adapter
+        .open_existing(session.session_id(), AppendOpenMode::Writable)
+        .expect("open writer");
+
+    adapter
+        .apply_scoped_command(
+            &mut writer,
+            &AppendScopedCommand::from_transition_pair(
+                AppendCommandScope::ReviewLedger,
+                &fixture.prepare_authority,
+                &advances.review_target,
+            ),
+        )
+        .expect("review advance before analysis stale");
+    adapter
+        .apply_scoped_command(
+            &mut writer,
+            &AppendScopedCommand::from_transition_pair(
+                AppendCommandScope::ReuseGovernance,
+                &fixture.prepare_authority,
+                &advances.reuse_advanced,
+            ),
+        )
+        .expect("reuse advance before analysis stale");
+    adapter
+        .apply_scoped_command(
+            &mut writer,
+            &AppendScopedCommand::from_transition_pair(
+                AppendCommandScope::ActiveAnalysis,
+                &fixture.prepare_authority,
+                &fixture.competing_target,
+            ),
+        )
+        .expect("competing analysis advance");
+
+    let authority_after_competing = writer.normalized_state().clone();
+    let stale = AppendScopedCommand::from_transition_pair(
+        AppendCommandScope::ActiveAnalysis,
+        &fixture.prepare_authority,
+        &fixture.prepared_target,
+    );
+    let error = adapter
+        .apply_scoped_command(&mut writer, &stale)
+        .expect_err("stale analysis must be rejected");
+    assert_eq!(error.code, fixture.expected_failure_code);
+    assert_eq!(authority_after_competing, writer.normalized_state().clone());
 }
 
 #[test]
@@ -224,11 +339,10 @@ fn c3_stale_full_state_proposal_cannot_rewind_unrelated_reuse_authority() {
 }
 
 #[test]
-fn harness_stale_review_ledger_rejects_with_explicit_scenario_scope() {
+fn harness_stale_review_ledger_uses_genuine_competing_transition() {
     use vox_proof::persistence_evidence::current_contract::evidence_01c::candidate::{
-        CurrentContractCandidate, updated_writer_token_state,
+        CurrentContractCandidate, ScopedCommandScope,
     };
-    use vox_proof::persistence_evidence::current_contract::fixture::build_golden_small_state;
 
     let adapter = CurrentContractCandidate::append_01b3(
         std::env::temp_dir().join(format!(
@@ -240,22 +354,32 @@ fn harness_stale_review_ledger_rejects_with_explicit_scenario_scope() {
         )),
     )
     .expect("candidate");
-    let state = build_golden_small_state();
-    let (session_id, _) = adapter.create_session(&state).expect("create");
+    let fixture = genuine_stale_scenario_fixture(
+        "stale-review-ledger-command",
+        MeasurementFixtureScale::Small,
+    )
+    .expect("review stale fixture");
+    let (session_id, _) = adapter
+        .create_session(&fixture.prepare_authority)
+        .expect("create");
     let mut writer = adapter.open_writable(&session_id).expect("open");
-    let next = updated_writer_token_state(state.clone(), "writer:stale-test");
-    let baseline = adapter.authoritative_preconditions(&writer).expect("baseline");
-    let mut stale = baseline.clone();
-    stale.review_ledger_head = baseline.review_ledger_head + 1;
-    let error = adapter
-        .apply_transition_with_preconditions(
+    adapter
+        .apply_scoped_transition_at_prepare_authority(
             &mut writer,
-            &stale,
-            &next,
-            Some("stale-review-ledger-command"),
+            ScopedCommandScope::ReviewLedger,
+            &fixture.prepare_authority,
+            &fixture.competing_target,
+        )
+        .expect("competing review");
+    let error = adapter
+        .apply_scoped_transition_at_prepare_authority(
+            &mut writer,
+            ScopedCommandScope::ReviewLedger,
+            &fixture.prepare_authority,
+            &fixture.prepared_target,
         )
         .expect_err("stale review precondition");
-    assert_eq!(error, "stale-review-ledger-precondition");
+    assert_eq!(error, fixture.expected_failure_code);
 }
 
 #[test]

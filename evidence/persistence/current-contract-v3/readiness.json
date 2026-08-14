@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "R2_04_WP_AUTHORITY_COMPLETE_PENDING_R2_01",
+  "tracker_status": "R2_01_COMPLETE_R2_02_AUTHORIZED",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -179,12 +179,13 @@
     "current_step": "R2_01_storage_reverification",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
     "open_conflicts": [
-      "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
       "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
       "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
       "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
     ],
-    "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"]
+    "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"],
+    "closed_in_r2_01": ["FCR-R2-01-POST-REVERIFICATION-U1-FIX"],
+    "r2_01_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json"
   },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
@@ -206,8 +207,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_04_COMPLETE",
-    "phase": "R2_01_STORAGE_REVERIFICATION",
+    "status": "R2_02_IN_PROGRESS",
+    "phase": "R2_02_GENUINE_STALE_SCENARIOS",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -270,5 +271,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Owner authorized R2 bounded correction (path A). R2-04 WP authority complete. Next: R2-01 narrow storage re-verification 29d76bd..1510e3d. Genuine stale required. mechanism_selection and READY_FOR_OWNER_GATE remain closed."
+  "note": "R2-01 closed PASS_WITH_CAVEATS. R2-02 in progress: review+reuse genuine stale wired; analysis fixture blocked pending owner oracle-valid competing transition."
 }

@@ -2,20 +2,20 @@
   "artifact_id": "VP-GATE4-FCR03-SOL-R2-EXECUTION-PLAN",
   "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
   "owner_authorization_ref": "owner-authorization.json",
-  "status": "R2_04_IN_PROGRESS",
-  "current_step": "R2_04_work_package_authority_correction",
+  "status": "R2_02_GENUINE_STALE_SCENARIOS",
+  "current_step": "R2_02_genuine_stale_scenarios",
   "required_order": [
     {
       "step": 1,
       "id": "R2_04_work_package_authority_correction",
-      "status": "in_progress",
+      "status": "complete",
       "closes": "FCR-R2-04",
       "outputs": ["work-package.json", "owner-authorization.json", "execution-plan.json", "r2-conflict-register.json", "r2-04-phase-record.json"]
     },
     {
       "step": 2,
       "id": "R2_01_storage_reverification",
-      "status": "pending",
+      "status": "complete",
       "closes": "FCR-R2-01",
       "commit_range": "29d76bd..1510e3d",
       "reviewer": "voxproof-storage-systems-reviewer",

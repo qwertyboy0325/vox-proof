@@ -28,7 +28,11 @@ use super::super::{finalize_derived_fields, CurrentContractOracle, CurrentContra
 pub const SQLITE_WRITER_LEASE_DURATION_MS: i64 = 1_000;
 pub const SQLITE_LEASE_EXPIRY_WAIT_MS: u64 = 1_100;
 
-pub use super::measurement_transitions::unrelated_scope_success_fixture;
+pub use super::measurement_transitions::{
+    authority_changed_in_relevant_scope, genuine_stale_scenario_fixture,
+    prepared_precondition_label, unrelated_scope_success_fixture, AnalysisPrecursorAdvances,
+    GenuineStaleCommandScope, GenuineStaleScenarioFixture,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurrentContractCandidateKind {

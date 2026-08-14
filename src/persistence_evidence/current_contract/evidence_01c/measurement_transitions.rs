@@ -34,6 +34,162 @@ pub fn measurement_transition_states(
     }
 }
 
+/// Scoped command lineage for genuine stale-command FCR-03 scenarios (R2-02).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GenuineStaleScenarioFixture {
+    pub prepare_authority: CurrentContractState,
+    pub prepared_target: CurrentContractState,
+    pub competing_target: CurrentContractState,
+    pub scope: GenuineStaleCommandScope,
+    pub expected_failure_code: &'static str,
+    /// Optional unrelated-scope advances required before competing analysis commands.
+    pub analysis_precursor_advances: Option<AnalysisPrecursorAdvances>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnalysisPrecursorAdvances {
+    pub reuse_advanced: CurrentContractState,
+    pub review_target: CurrentContractState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenuineStaleCommandScope {
+    ReviewLedger,
+    ReuseGovernance,
+    ActiveAnalysis,
+}
+
+/// Returns S0 + prepared command target for a genuine stale scenario.
+///
+/// Competing transition applies the same scoped command at S0; a subsequently
+/// executed prepared command retains S0 preconditions and must be rejected.
+pub fn genuine_stale_scenario_fixture(
+    scenario_id: &str,
+    scale: MeasurementFixtureScale,
+) -> Option<GenuineStaleScenarioFixture> {
+    match scenario_id {
+        "stale-review-ledger-command" => {
+            let (prepare_authority, prepared_target) =
+                measurement_transition_states("append_review_decision", scale)?;
+            Some(GenuineStaleScenarioFixture {
+                prepare_authority,
+                prepared_target: prepared_target.clone(),
+                competing_target: prepared_target,
+                scope: GenuineStaleCommandScope::ReviewLedger,
+                expected_failure_code: "stale-review-ledger-precondition",
+                analysis_precursor_advances: None,
+            })
+        }
+        "stale-reuse-governance-command" => {
+            let (prepare_authority, prepared_target) =
+                measurement_transition_states("append_reusable_revocation", scale)?;
+            Some(GenuineStaleScenarioFixture {
+                prepare_authority,
+                prepared_target: prepared_target.clone(),
+                competing_target: prepared_target,
+                scope: GenuineStaleCommandScope::ReuseGovernance,
+                expected_failure_code: "stale-reuse-governance-precondition",
+                analysis_precursor_advances: None,
+            })
+        }
+        "stale-analysis-attachment-or-selection" => {
+            let (prepare_authority, reuse_advanced, review_target) =
+                unrelated_scope_success_fixture(scale);
+            let (_, promotion_medium) = measurement_transition_states(
+                "append_reusable_promotion",
+                MeasurementFixtureScale::Medium,
+            )?;
+            let (_, promotion_small) =
+                measurement_transition_states("append_reusable_promotion", scale)?;
+            let competing_target =
+                analysis_only_target_from(&prepare_authority, &promotion_small);
+            let prepared_target =
+                analysis_only_target_from(&prepare_authority, &promotion_medium);
+            Some(GenuineStaleScenarioFixture {
+                prepare_authority,
+                prepared_target,
+                competing_target,
+                scope: GenuineStaleCommandScope::ActiveAnalysis,
+                expected_failure_code: "stale-analysis-selection-precondition",
+                analysis_precursor_advances: Some(AnalysisPrecursorAdvances {
+                    reuse_advanced,
+                    review_target,
+                }),
+            })
+        }
+        _ => None,
+    }
+}
+
+pub fn prepared_precondition_label(
+    scope: GenuineStaleCommandScope,
+    prepare_authority: &CurrentContractState,
+) -> String {
+    match scope {
+        GenuineStaleCommandScope::ReviewLedger => format!(
+            "review_ledger_head={}",
+            prepare_authority
+                .durable_command_tokens
+                .review_ledger_head
+        ),
+        GenuineStaleCommandScope::ReuseGovernance => format!(
+            "reuse_governance_head={}",
+            prepare_authority
+                .durable_command_tokens
+                .reuse_governance_head
+        ),
+        GenuineStaleCommandScope::ActiveAnalysis => format!(
+            "active_analysis_snapshot_identity={}",
+            prepare_authority
+                .durable_command_tokens
+                .active_analysis_snapshot_identity
+        ),
+    }
+}
+
+pub fn authority_changed_in_relevant_scope(
+    scope: GenuineStaleCommandScope,
+    before: &CurrentContractState,
+    after: &CurrentContractState,
+) -> bool {
+    match scope {
+        GenuineStaleCommandScope::ReviewLedger => {
+            before.durable_command_tokens.review_ledger_head
+                != after.durable_command_tokens.review_ledger_head
+        }
+        GenuineStaleCommandScope::ReuseGovernance => {
+            before.durable_command_tokens.reuse_governance_head
+                != after.durable_command_tokens.reuse_governance_head
+        }
+        GenuineStaleCommandScope::ActiveAnalysis => {
+            before.durable_command_tokens.active_analysis_snapshot_identity
+                != after.durable_command_tokens.active_analysis_snapshot_identity
+        }
+    }
+}
+
+fn analysis_only_target_from(
+    precursor: &CurrentContractState,
+    attachment_source: &CurrentContractState,
+) -> CurrentContractState {
+    let mut target = precursor.clone();
+    for snapshot in &attachment_source.analysis_snapshots {
+        if !target
+            .analysis_snapshots
+            .iter()
+            .any(|existing| existing.identity == snapshot.identity)
+        {
+            target.analysis_snapshots.push(snapshot.clone());
+        }
+    }
+    target.durable_command_tokens.active_analysis_snapshot_identity = attachment_source
+        .durable_command_tokens
+        .active_analysis_snapshot_identity
+        .clone();
+    super::super::finalize_derived_fields(&mut target);
+    target.normalize()
+}
+
 /// MD-015 U1 proof fixture: reuse-only advance leaves review scope unchanged so a
 /// review command prepared at the initial authority remains valid.
 pub fn unrelated_scope_success_fixture(
@@ -445,6 +601,40 @@ mod tests {
                     target.canonical_projection(),
                     "{operation} {scale:?}"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn genuine_stale_fixtures_cover_three_scopes_with_distinct_analysis_targets() {
+        for scenario_id in [
+            "stale-review-ledger-command",
+            "stale-reuse-governance-command",
+            "stale-analysis-attachment-or-selection",
+        ] {
+            let fixture = genuine_stale_scenario_fixture(scenario_id, MeasurementFixtureScale::Small)
+                .unwrap_or_else(|| panic!("{scenario_id}"));
+            assert!(
+                authority_changed_in_relevant_scope(
+                    fixture.scope,
+                    &fixture.prepare_authority,
+                    &fixture.competing_target,
+                ) || fixture.scope == GenuineStaleCommandScope::ActiveAnalysis,
+                "{scenario_id}: competing target must advance relevant scope or analysis uses distinct targets"
+            );
+            if fixture.scope == GenuineStaleCommandScope::ActiveAnalysis {
+                assert!(fixture.analysis_precursor_advances.is_some());
+                assert_ne!(
+                    fixture.competing_target
+                        .durable_command_tokens
+                        .active_analysis_snapshot_identity,
+                    fixture.prepared_target
+                        .durable_command_tokens
+                        .active_analysis_snapshot_identity,
+                    "{scenario_id}: analysis stale requires distinct prepared vs competing targets"
+                );
+            } else {
+                assert_eq!(fixture.competing_target, fixture.prepared_target);
             }
         }
     }

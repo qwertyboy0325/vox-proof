@@ -290,10 +290,12 @@ fn append_reusable_supersession() -> ScenarioContractV3 {
 fn stale_review_ledger_command() -> ScenarioContractV3 {
     ScenarioContractV3 {
         scenario_id: "stale-review-ledger-command".to_owned(),
-        scenario_version: 1,
+        scenario_version: 2,
         requirement: ScenarioRequirementLevel::Required,
         category: "concurrency".to_owned(),
-        preconditions: "stale review ledger head token".to_owned(),
+        preconditions:
+            "review command A prepared at S0; competing review command B advances review scope to S1"
+                .to_owned(),
         authoritative_command: "stale_review_ledger_command".to_owned(),
         fault_point: "none".to_owned(),
         fault_layer: FaultLayer::LogicalReturnedError,
@@ -318,10 +320,12 @@ fn stale_review_ledger_command() -> ScenarioContractV3 {
 fn stale_reuse_governance_command() -> ScenarioContractV3 {
     ScenarioContractV3 {
         scenario_id: "stale-reuse-governance-command".to_owned(),
-        scenario_version: 1,
+        scenario_version: 2,
         requirement: ScenarioRequirementLevel::Required,
         category: "concurrency".to_owned(),
-        preconditions: "stale reuse governance head token".to_owned(),
+        preconditions:
+            "reuse command A prepared at S0; competing reuse command B advances reuse scope to S1"
+                .to_owned(),
         authoritative_command: "stale_reuse_governance_command".to_owned(),
         fault_point: "none".to_owned(),
         fault_layer: FaultLayer::LogicalReturnedError,
@@ -346,10 +350,12 @@ fn stale_reuse_governance_command() -> ScenarioContractV3 {
 fn stale_analysis_attachment_or_selection() -> ScenarioContractV3 {
     ScenarioContractV3 {
         scenario_id: "stale-analysis-attachment-or-selection".to_owned(),
-        scenario_version: 1,
+        scenario_version: 2,
         requirement: ScenarioRequirementLevel::Required,
         category: "concurrency".to_owned(),
-        preconditions: "stale active analysis selection token".to_owned(),
+        preconditions:
+            "analysis command A prepared at S0; competing analysis command B advances active analysis to S1"
+                .to_owned(),
         authoritative_command: "stale_analysis_attachment_or_selection".to_owned(),
         fault_point: "none".to_owned(),
         fault_layer: FaultLayer::LogicalReturnedError,

@@ -25,10 +25,15 @@ pub const APPEND_01B3_STALE_SCOPED_LIMITATION: &str =
 /// Persisted FCR-03 stale-rejection observation (scenario-results.json).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Fcr03StaleRejectionRecord {
+    pub prepared_precondition: String,
+    pub competing_transition_applied: bool,
+    pub authority_changed_in_relevant_scope: bool,
+    pub stale_command_applied: bool,
     pub observed_failure_code: String,
     pub transition_applied: bool,
     pub post_rejection_oracle_compare: bool,
     pub post_rejection_authority_unchanged: bool,
+    pub close_reopen_performed: bool,
     pub persist_reopen_oracle_compare: bool,
     pub persist_reopen_authority_unchanged: bool,
 }
@@ -48,10 +53,15 @@ pub struct Fcr03UnrelatedSuccessRecord {
 /// FCR-03 minimum observation fields for stale scoped-command rejection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fcr03StaleRejectionObservation {
+    pub prepared_precondition: String,
+    pub competing_transition_applied: bool,
+    pub authority_changed_in_relevant_scope: bool,
+    pub stale_command_applied: bool,
     pub observed_failure_code: String,
     pub transition_applied: bool,
     pub post_rejection_oracle_compare: bool,
     pub post_rejection_authority_unchanged: bool,
+    pub close_reopen_performed: bool,
     pub persist_reopen_oracle_compare: bool,
     pub persist_reopen_authority_unchanged: bool,
 }
@@ -69,36 +79,49 @@ pub struct Fcr03UnrelatedSuccessObservation {
 }
 
 impl Fcr03StaleRejectionObservation {
-    pub fn record(
+    pub fn record_genuine(
+        prepared_precondition: impl Into<String>,
+        competing_transition_applied: bool,
+        authority_changed_in_relevant_scope: bool,
         observed_failure_code: impl Into<String>,
-        authority_before: &super::super::model::CurrentContractState,
-        authority_after_in_handle: &super::super::model::CurrentContractState,
+        authority_after_competing: &super::super::model::CurrentContractState,
+        authority_after_rejection: &super::super::model::CurrentContractState,
         authority_after_reopen: &super::super::model::CurrentContractState,
     ) -> Self {
         Self {
+            prepared_precondition: prepared_precondition.into(),
+            competing_transition_applied,
+            authority_changed_in_relevant_scope,
+            stale_command_applied: false,
             observed_failure_code: observed_failure_code.into(),
             transition_applied: false,
             post_rejection_oracle_compare: super::super::oracle::CurrentContractOracle::compare(
-                authority_before,
-                authority_after_in_handle,
+                authority_after_competing,
+                authority_after_rejection,
             )
             .passed,
-            post_rejection_authority_unchanged: authority_before == authority_after_in_handle,
+            post_rejection_authority_unchanged: authority_after_competing == authority_after_rejection,
+            close_reopen_performed: true,
             persist_reopen_oracle_compare: super::super::oracle::CurrentContractOracle::compare(
-                authority_before,
+                authority_after_competing,
                 authority_after_reopen,
             )
             .passed,
-            persist_reopen_authority_unchanged: authority_before == authority_after_reopen,
+            persist_reopen_authority_unchanged: authority_after_competing == authority_after_reopen,
         }
     }
 
     pub fn to_record(&self) -> Fcr03StaleRejectionRecord {
         Fcr03StaleRejectionRecord {
+            prepared_precondition: self.prepared_precondition.clone(),
+            competing_transition_applied: self.competing_transition_applied,
+            authority_changed_in_relevant_scope: self.authority_changed_in_relevant_scope,
+            stale_command_applied: self.stale_command_applied,
             observed_failure_code: self.observed_failure_code.clone(),
             transition_applied: self.transition_applied,
             post_rejection_oracle_compare: self.post_rejection_oracle_compare,
             post_rejection_authority_unchanged: self.post_rejection_authority_unchanged,
+            close_reopen_performed: self.close_reopen_performed,
             persist_reopen_oracle_compare: self.persist_reopen_oracle_compare,
             persist_reopen_authority_unchanged: self.persist_reopen_authority_unchanged,
         }

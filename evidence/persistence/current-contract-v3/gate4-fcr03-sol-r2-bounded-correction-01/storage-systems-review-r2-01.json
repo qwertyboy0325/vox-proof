@@ -1,0 +1,83 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-01-STORAGE-REVERIFICATION-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_01_STORAGE_REVERIFICATION",
+  "artifact_role": "storage-systems-review-r2-01-u1-observation-semantics",
+  "reviewed_range": "29d76bd..1510e3d",
+  "commit_reviewed": "1510e3d",
+  "prior_commit": "29d76bd",
+  "prior_m1_l1_review": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
+  "adjudication_scope": [
+    "Fcr03UnrelatedSuccessObservation.persist_reopen_authority_unchanged semantics only",
+    "close/reopen durability invariant for U1 unrelated-success path",
+    "oracle independence of persist_reopen_oracle_compare",
+    "Append 01B-3 vs SQLite 01C-SQLITE-3 observation equivalence"
+  ],
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-15",
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: PASS",
+  "blocking_before_r2_02": false,
+  "may_close_r2_01": true,
+  "closes_conflict": "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
+  "semantic_delta": {
+    "file": "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "field": "Fcr03UnrelatedSuccessObservation.persist_reopen_authority_unchanged",
+    "old": "expected == actual_after_reopen",
+    "new": "actual_in_handle == actual_after_reopen"
+  },
+  "required_questions": {
+    "actual_in_handle_equals_reopened_establishes_durability": {
+      "answer": "YES",
+      "rationale": "Persistence occurs at successful apply/commit, not at close. Close releases handle; reopen independently reconstructs via append replay or SQLite load. New predicate asks whether reconstructed snapshot equals post-ack in-handle snapshot."
+    },
+    "oracle_independence_persist_reopen_oracle_compare": {
+      "answer": "YES",
+      "rationale": "post_apply_oracle_compare (expected vs in-handle), persist_reopen_oracle_compare (expected vs reopen), and persist_reopen_authority_unchanged (in-handle vs reopen) are three independent checks. Wrong persisted state can pass durability equality while failing oracle."
+    },
+    "semantically_different_states_false_pass": {
+      "answer": "NO_FALSE_PASS_RISK",
+      "rationale": "CurrentContractState PartialEq is derived over full struct fields. Opposite risk: oracle can pass while PartialEq fails on non-canonical rebuild fields (e.g. SQLite display_name); that motivated the 1510e3d fix."
+    },
+    "append_sqlite_observation_equivalence": {
+      "answer": "YES_AT_CONTRACT_LEVEL",
+      "rationale": "Both paths: scoped apply → in-handle snapshot → close → open_read_only → reopen snapshot → same record() formula. Physical reconstruct differs but predicate semantics identical."
+    },
+    "candidate_authority_semantics_changed": {
+      "answer": false,
+      "rationale": "Evidence observation binding only. Stale rejection persist_reopen_authority_unchanged unchanged (authority_before == authority_after_reopen)."
+    },
+    "storage_recovery_behavior_changed": {
+      "answer": false,
+      "rationale": "No changes to append/SQLite persist, replay, checkpoint, writer lease, or reconstruct paths at 1510e3d."
+    }
+  },
+  "r2_01_summary": {
+    "actual_in_handle_equals_reopened_semantics": "CORRECT_DURABILITY_INVARIANT",
+    "oracle_independence": "PRESERVED",
+    "append_sqlite_equivalence_of_observation": "EQUIVALENT",
+    "candidate_semantics_changed": false
+  },
+  "blockers": [],
+  "caveats": [
+    "persist_reopen_authority_unchanged is full-struct PartialEq of candidate snapshots, not oracle semantic proof by itself",
+    "SQLite reconstruct may blank project_scope.display_name; oracle covers semantic equivalence where PartialEq would not",
+    "close is not a persist barrier; apply/commit is",
+    "claim strength remains LogicalStateTransition for U1 persist+reopen, not FilesystemDurability"
+  ],
+  "claim_boundary": {
+    "may_claim": "U1 close/reopen preserved the committed in-handle authority snapshot on both Append 01B-3 and SQLite 01C-SQLITE-3",
+    "may_not_claim": "FilesystemDurability, oracle-semantic proof via persist_reopen_authority_unchanged alone, candidate implementation change at 1510e3d"
+  },
+  "bottom_line": "1510e3d correctly rebinds U1 persist_reopen_authority_unchanged to in-handle vs independently reopened committed state. Semantic correctness remains on persist_reopen_oracle_compare. No candidate or recovery path changed. R2-01 may close; proceed to R2-02.",
+  "not_authorized": [
+    "candidate implementation change for R2-01",
+    "evidence execution",
+    "Sol retry",
+    "FCR-03 closure from synthetic stale path"
+  ]
+}

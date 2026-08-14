@@ -11,9 +11,11 @@ use super::super::scenario_contract::{
     scenario_contract_v4, ScenarioContractV3,
 };
 use super::candidate::{
-    fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
-    unrelated_scope_success_fixture, updated_writer_token_state, CurrentContractCandidate,
-    CurrentContractCandidateKind, SQLITE_LEASE_EXPIRY_WAIT_MS, SQLITE_WRITER_LEASE_DURATION_MS,
+    authority_changed_in_relevant_scope, fixture_state_for_scale,
+    genuine_stale_scenario_fixture, measurement_transition_states, prepared_precondition_label,
+    scenario_fixture_state, unrelated_scope_success_fixture, updated_writer_token_state,
+    CurrentContractCandidate, CurrentContractCandidateKind, GenuineStaleCommandScope,
+    ScopedCommandScope, SQLITE_LEASE_EXPIRY_WAIT_MS, SQLITE_WRITER_LEASE_DURATION_MS,
 };
 use super::measurement_worker::worker_binary;
 use super::types::{
@@ -381,13 +383,126 @@ fn run_stale_precondition(
     root: &std::path::Path,
     scenario_id: &str,
 ) -> ScenarioRunResult {
+    if records_fcr03_stale_observation(candidate.kind()) {
+        return run_genuine_stale_precondition(candidate, root, scenario_id);
+    }
+    run_synthetic_stale_precondition(candidate, root, scenario_id)
+}
+
+fn run_genuine_stale_precondition(
+    candidate: &CurrentContractCandidate,
+    root: &std::path::Path,
+    scenario_id: &str,
+) -> ScenarioRunResult {
+    let fixture = genuine_stale_scenario_fixture(scenario_id, MeasurementFixtureScale::Small)
+        .ok_or_else(|| format!("unknown genuine stale scenario {scenario_id}"))?;
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
+    let (session_id, _) = adapter
+        .create_session(&fixture.prepare_authority)
+        .map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
+    let scope = scoped_command_scope(fixture.scope);
+
+    if let Some(advances) = &fixture.analysis_precursor_advances {
+        adapter
+            .apply_scoped_transition_at_prepare_authority(
+                &mut writer,
+                ScopedCommandScope::ReviewLedger,
+                &fixture.prepare_authority,
+                &advances.review_target,
+            )
+            .map_err(err_string)?;
+        adapter
+            .apply_scoped_transition_at_prepare_authority(
+                &mut writer,
+                ScopedCommandScope::ReuseGovernance,
+                &fixture.prepare_authority,
+                &advances.reuse_advanced,
+            )
+            .map_err(err_string)?;
+    }
+
+    adapter
+        .apply_scoped_transition_at_prepare_authority(
+            &mut writer,
+            scope,
+            &fixture.prepare_authority,
+            &fixture.competing_target,
+        )
+        .map_err(err_string)?;
+    let authority_after_competing = adapter.normalized_state(&writer)?;
+    let relevant_scope_changed = authority_changed_in_relevant_scope(
+        fixture.scope,
+        &fixture.prepare_authority,
+        &authority_after_competing,
+    );
+
+    let stale_result = adapter.apply_scoped_transition_at_prepare_authority(
+        &mut writer,
+        scope,
+        &fixture.prepare_authority,
+        &fixture.prepared_target,
+    );
+    let authority_after_rejection = adapter.normalized_state(&writer)?;
+    let expected = fixture.expected_failure_code;
+    let limitations = vec![APPEND_01B3_STALE_SCOPED_LIMITATION.to_owned()];
+
+    match stale_result {
+        Err(code) if code == expected => {
+            let prepared_precondition =
+                prepared_precondition_label(fixture.scope, &fixture.prepare_authority);
+            adapter.close(writer).map_err(err_string)?;
+            let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
+            let reopened_state = adapter.normalized_state(&reopened)?;
+            let observation = Fcr03StaleRejectionObservation::record_genuine(
+                prepared_precondition,
+                true,
+                relevant_scope_changed,
+                code.clone(),
+                &authority_after_competing,
+                &authority_after_rejection,
+                &reopened_state,
+            );
+            adapter.close(reopened).map_err(err_string)?;
+            if !observation.competing_transition_applied
+                || !observation.authority_changed_in_relevant_scope
+                || observation.stale_command_applied
+                || !observation.post_rejection_authority_unchanged
+                || !observation.post_rejection_oracle_compare
+                || !observation.persist_reopen_oracle_compare
+                || !observation.persist_reopen_authority_unchanged
+                || !observation.close_reopen_performed
+            {
+                return Err("genuine-stale-observation-incomplete".to_owned());
+            }
+            Ok(ScenarioOutcome::passed_with_limitations(limitations)
+                .with_fcr03_stale_rejection(observation))
+        }
+        Err(code) => Err(code),
+        Ok(()) => Err(format!("expected {expected}")),
+    }
+}
+
+fn scoped_command_scope(scope: GenuineStaleCommandScope) -> ScopedCommandScope {
+    match scope {
+        GenuineStaleCommandScope::ReviewLedger => ScopedCommandScope::ReviewLedger,
+        GenuineStaleCommandScope::ReuseGovernance => ScopedCommandScope::ReuseGovernance,
+        GenuineStaleCommandScope::ActiveAnalysis => ScopedCommandScope::ActiveAnalysis,
+    }
+}
+
+fn run_synthetic_stale_precondition(
+    candidate: &CurrentContractCandidate,
+    root: &std::path::Path,
+    scenario_id: &str,
+) -> ScenarioRunResult {
     let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
     let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
     let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     let next = updated_writer_token_state(state.clone(), "writer:stale-test");
     let baseline = adapter.authoritative_preconditions(&writer).map_err(err_string)?;
-    let before = adapter.normalized_state(&writer)?;
+    let _before = adapter.normalized_state(&writer)?;
     let stale = stale_preconditions(candidate.kind(), scenario_id, &baseline);
     let stale_result = adapter.apply_transition_with_preconditions(
         &mut writer,
@@ -395,7 +510,7 @@ fn run_stale_precondition(
         &next,
         Some(scenario_id),
     );
-    let after = adapter.normalized_state(&writer)?;
+    let _after = adapter.normalized_state(&writer)?;
     let expected = expected_stale_code(candidate.kind(), scenario_id);
     let mut limitations = Vec::new();
     if matches!(candidate.kind(), CurrentContractCandidateKind::Append)
@@ -412,34 +527,8 @@ fn run_stale_precondition(
     }
     match stale_result {
         Err(code) if code == expected => {
-            let mut outcome = ScenarioOutcome::passed_with_limitations(limitations);
-            if records_fcr03_stale_observation(candidate.kind()) {
-                adapter.close(writer).map_err(err_string)?;
-                let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
-                let reopened_state = adapter.normalized_state(&reopened)?;
-                let observation = Fcr03StaleRejectionObservation::record(
-                    code.clone(),
-                    &before,
-                    &after,
-                    &reopened_state,
-                );
-                adapter.close(reopened).map_err(err_string)?;
-                if !observation.post_rejection_authority_unchanged {
-                    return Err("post-rejection-authority-changed".to_owned());
-                }
-                if !observation.post_rejection_oracle_compare {
-                    return Err("post-rejection-oracle-mismatch".to_owned());
-                }
-                if !observation.persist_reopen_oracle_compare {
-                    return Err("persist-reopen-oracle-mismatch".to_owned());
-                }
-                if !observation.persist_reopen_authority_unchanged {
-                    return Err("persist-reopen-authority-changed".to_owned());
-                }
-                outcome = outcome.with_fcr03_stale_rejection(observation);
-            } else {
-                adapter.close(writer).map_err(err_string)?;
-            }
+            let outcome = ScenarioOutcome::passed_with_limitations(limitations);
+            adapter.close(writer).map_err(err_string)?;
             Ok(outcome)
         }
         Err(code) => Err(code),

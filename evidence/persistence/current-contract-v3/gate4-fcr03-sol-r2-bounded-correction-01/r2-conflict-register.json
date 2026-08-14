@@ -4,7 +4,7 @@
   "source_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
   "conflicts": {
     "FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE": {
-      "status": "IN_PROGRESS",
+      "status": "CLOSED",
       "phase": "R2_04",
       "closure_criteria": [
         "work-package.json contains all mandatory policy fields",
@@ -15,17 +15,10 @@
       "closure_artifact": "r2-04-phase-record.json"
     },
     "FCR-R2-01-POST-REVERIFICATION-U1-FIX": {
-      "status": "PENDING",
+      "status": "CLOSED",
       "phase": "R2_01",
-      "commit_range": "29d76bd..1510e3d",
-      "narrow_scope": "U1 persist_reopen_authority_unchanged: actual_in_handle == reopened",
-      "closure_criteria": [
-        "storage specialist confirms durability invariant semantics",
-        "oracle-equivalence remains independent field",
-        "Append and SQLite observation semantics consistent",
-        "no candidate implementation change required if PASS"
-      ],
-      "forbidden": "broad re-audit of unrelated M1/L1 findings at 29d76bd"
+      "closure_artifact": "storage-systems-review-r2-01.json",
+      "verdict": "PASS_WITH_CAVEATS"
     },
     "FCR-R2-02-SYNTHETIC-STALE-COMMANDS": {
       "status": "PENDING",
