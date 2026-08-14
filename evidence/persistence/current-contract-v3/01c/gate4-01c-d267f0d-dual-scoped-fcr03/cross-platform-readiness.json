@@ -1,12 +1,14 @@
 {
   "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
   "harness_semantic_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "harness_semantic_sha_note": "macOS execution at d267f0d base; Windows execution at 9ec3b07 (platform-append with FCR-03 wiring + clippy fixes)",
   "harness_version": "gate4-01c-evidence-v6",
   "scenario_contract_version": "4",
   "append_candidate_variant": "01B-3",
   "sqlite_candidate_variant": "01C-SQLITE-3",
-  "aggregation_status": "macos_only_pending_windows",
+  "aggregation_status": "both_platforms_executed_pending_aggregation_review",
   "owner_evidence_execution_decision_ref": "../../gate4-fcr03-observation-wiring-01/owner-evidence-execution-decision.json",
+  "windows_owner_authorization_ref": "../../gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json",
   "required_platforms": [
     "macos_native",
     "windows-github-actions"
@@ -16,6 +18,7 @@
       "single_platform_readiness": "ready_for_owner_decision",
       "evidence_subdirectory": "macos-native",
       "execution_environment": "macos-native-host",
+      "execution_harness_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
       "append_candidate_version": "01B-3",
       "sqlite_candidate_version": "01C-SQLITE-3",
       "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
@@ -23,27 +26,40 @@
       "fcr03_fields_in_scenario_results": true
     },
     "windows-github_actions": {
-      "single_platform_readiness": "not_executed",
-      "note": "requires separate owner authorization"
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "windows-github-actions",
+      "provenance_file": "windows-provenance.json",
+      "execution_harness_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+      "workflow_control_plane_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+      "evidence_checkout_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+      "workflow_run_id": 31811807394,
+      "01c_run_id": "gate4-01c-d267f0d-dual-scoped-fcr03",
+      "append_candidate_version": "01B-3",
+      "sqlite_candidate_version": "01C-SQLITE-3",
+      "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "sqlite_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "fcr03_fields_in_scenario_results": true
     }
   },
   "parity_checks": {
-    "harness_sha_match": null,
+    "harness_sha_match": false,
+    "harness_sha_mismatch_note": "macOS executed at d267f0d pre-commit base; Windows at 9ec3b07 with platform-append; FCR-03 wiring equivalent",
     "required_scenario_failures": 0,
     "append_stale_asymmetry_limitation_absent": true,
     "scoped_stale_limitation_present": true,
-    "fcr03_stale_rejection_populated": true,
-    "fcr03_unrelated_success_populated": true
+    "fcr03_stale_rejection_populated_both_platforms": true,
+    "fcr03_unrelated_success_populated_both_platforms": true,
+    "macos_native_preserved_in_platform_append": true
   },
   "programmatic_readiness": {
     "single_platform_readiness": "ready_for_owner_decision",
     "mechanism_comparison_readiness": "not_ready",
     "mechanism_selection_readiness": "not_ready",
     "comparison_blockers": [
-      "cross_platform: awaiting peer platform evidence aggregation"
+      "cross_platform: harness_sha mismatch between platforms requires aggregation review"
     ],
     "selection_blockers": [
-      "cross_platform: awaiting peer platform evidence aggregation"
+      "cross_platform: harness_sha mismatch between platforms requires aggregation review"
     ]
   },
   "frozen_comparison_evidence": {
@@ -53,5 +69,5 @@
     "unchanged": true
   },
   "mechanism_selection": "none",
-  "note": "First dual-scoped FCR-03-complete macOS evidence: Append 01B-3 vs SQLite 01C-SQLITE-3."
+  "note": "Dual-scoped FCR-03 evidence on macOS + Windows. Cross-platform aggregation review required before comparison readiness upgrade."
 }

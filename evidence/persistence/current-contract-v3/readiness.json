@@ -6,17 +6,19 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_WORKFLOW_DISPATCHED",
+  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE_COMPLETE_PENDING_CROSS_PLATFORM_REVIEW",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true
   },
   "windows_dual_scoped_fcr03_evidence": {
-    "status": "workflow_dispatched",
-    "workflow_run_id": 31811296220,
-    "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811296220",
+    "status": "windows_single_platform_complete",
+    "workflow_run_id": 31811807394,
+    "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811807394",
+    "execution_record": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/evidence-execution-record.json",
     "dispatch_record": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/workflow-dispatch-record.json",
+    "windows_harness_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/work-package.json",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/execution-plan.json",
@@ -63,11 +65,12 @@
       "md_015_scoped_validity": "not_demonstrated"
     },
     "append_01B_3": {
-      "status": "macos_fcr03_evidence_executed",
-      "md_015_scoped_validity": "harness_observation_fidelity_macos_native",
+      "status": "cross_platform_fcr03_evidence_executed",
+      "md_015_scoped_validity": "harness_observation_fidelity_macos_and_windows",
       "unit_u1_c1_c3": "proven",
       "fcr03_harness_wired": true,
-      "fcr03_in_macos_evidence": true
+      "fcr03_in_macos_evidence": true,
+      "fcr03_in_windows_evidence": true
     },
     "sqlite_01C_SQLITE_2": {
       "status": "historical_accepted_md015_ineligible",
@@ -75,8 +78,8 @@
       "modify_in_current_wp": false
     },
     "sqlite_01C_SQLITE_3": {
-      "status": "macos_fcr03_evidence_executed",
-      "md_015_scoped_validity": "harness_observation_fidelity_macos_native",
+      "status": "cross_platform_fcr03_evidence_executed",
+      "md_015_scoped_validity": "harness_observation_fidelity_macos_and_windows",
       "unit_u1_c1_c3": "proven",
       "fcr03_harness_wired": true,
       "fcr03_in_macos_evidence": true,
@@ -85,8 +88,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-    "status": "WINDOWS_AUTHORIZED_PENDING_EXECUTION",
-    "phase": "WINDOWS_DUAL_SCOPED_EVIDENCE_EXECUTION"
+    "status": "WINDOWS_EVIDENCE_COMPLETE",
+    "phase": "CROSS_PLATFORM_AGGREGATION_REVIEW"
   },
   "gate_sequence": {
     "completed": [
@@ -102,22 +105,21 @@
       "macos_dual_scoped_fcr03_evidence_execution",
       "evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
       "fcr03_wiring_commit_abe8f9a_harness_sha_updated",
-      "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE"
+      "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE",
+      "windows_dual_scoped_fcr03_evidence_execution_run_31811807394"
     ],
-    "current": "WINDOWS_DUAL_SCOPED_EVIDENCE_EXECUTION",
+    "current": "CROSS_PLATFORM_AGGREGATION_REVIEW",
     "blocked": [
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "Windows workflow dispatch (dual_scoped_fcr03=true)",
-      "cross-platform aggregation review",
+      "cross-platform evidence-methodology review of dual-scoped record",
       "Sol retry on governance chain"
     ]
   },
   "still_closed": [
     "mechanism_selection",
-    "fresh_dual_candidate_evidence_windows",
     "Material_Decision",
     "product_integration",
     "READY_FOR_OWNER_GATE"
@@ -125,5 +127,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Windows dual-scoped FCR-03 evidence authorized. Dispatch persistence-sqlite-windows with dual_scoped_fcr03=true. Mechanism selection remains closed."
+  "note": "Windows dual-scoped FCR-03 evidence complete (run 31811807394). FCR-03 fields on both platforms. Cross-platform aggregation review pending. Mechanism selection closed."
 }

@@ -2,17 +2,19 @@
   "artifact_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-WORKFLOW-DISPATCH-RECORD",
   "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
   "dispatched_on": "2026-08-14",
-  "status": "IN_PROGRESS",
+  "completed_on": "2026-08-14",
+  "status": "SUCCESS",
   "workflow": "persistence-sqlite-windows",
   "branch": "v0.2-real-transcript-authoritative-loop",
-  "workflow_run_id": 31811296220,
-  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811296220",
+  "workflow_run_id": 31811807394,
+  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811807394",
+  "conclusion": "success",
   "dispatch_inputs": {
     "dual_scoped_fcr03": "true",
     "fcr03_record_id": "gate4-01c-d267f0d-dual-scoped-fcr03",
-    "evidence_ref": "0030f18fabc8350f3c2dcdeb520bf1dc12b0b0d1"
+    "evidence_ref": "9ec3b07a6c71fe79348cf00524128af008964120"
   },
-  "evidence_checkout_note": "0030f18 supersedes abe8f9a for this execution: includes VOXPROOF_01C_PLATFORM_APPEND required to preserve macos-native artifacts during Windows platform-append",
+  "evidence_checkout_note": "9ec3b07 includes platform-append + clippy fixes",
   "harness_semantic_sha_fcr03_wiring": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
   "cancelled_runs": [
     {
@@ -22,6 +24,14 @@
     {
       "run_id": 31811270892,
       "reason": "invalid evidence_ref SHA in dispatch retry"
+    },
+    {
+      "run_id": 31811296220,
+      "reason": "clippy failures (7 errors)"
+    },
+    {
+      "run_id": 31811793598,
+      "reason": "incorrect evidence_ref SHA typo"
     }
   ]
 }

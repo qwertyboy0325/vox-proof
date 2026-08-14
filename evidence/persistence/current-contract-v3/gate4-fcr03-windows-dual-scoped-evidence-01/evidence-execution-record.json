@@ -1,0 +1,53 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-EXECUTION-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01",
+  "status": "WINDOWS_SINGLE_PLATFORM_COMPLETE",
+  "executed_on": "2026-08-14",
+  "owner_authorization": "owner-authorization.json",
+  "workflow_dispatch_record": "workflow-dispatch-record.json",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "harness_semantic_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+  "workflow_run_id": 31811807394,
+  "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811807394",
+  "candidate_variants": {
+    "append": "01B-3",
+    "sqlite": "01C-SQLITE-3"
+  },
+  "platform_scope": "windows_github_actions",
+  "platform_append_mode": true,
+  "macos_native_preserved": true,
+  "execution_summary": {
+    "append_scenarios_passed": 24,
+    "append_scenarios_unsupported": 2,
+    "append_scenarios_failed": 0,
+    "sqlite_scenarios_passed": 24,
+    "sqlite_scenarios_unsupported": 2,
+    "sqlite_scenarios_failed": 0,
+    "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "sqlite_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "single_platform_readiness": "ready_for_owner_decision",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready"
+  },
+  "fcr03_observation_fidelity": {
+    "stale_scenarios": [
+      "stale-review-ledger-command",
+      "stale-reuse-governance-command",
+      "stale-analysis-attachment-or-selection"
+    ],
+    "u1_scenario": "unrelated-scope-review-after-reuse-advance",
+    "fcr03_fields_in_windows_artifacts": true,
+    "append_populated": true,
+    "sqlite_populated": true,
+    "claim": "FCR-03 minimum observation fields persisted in windows-github-actions scenario-results.json for both scoped candidates"
+  },
+  "not_claimed": [
+    "cross-platform aggregation complete",
+    "mechanism selection",
+    "replacement of frozen 91e258c"
+  ],
+  "required_next": [
+    "cross-platform evidence-methodology review of dual-scoped record",
+    "cross-platform-readiness aggregation review"
+  ]
+}
