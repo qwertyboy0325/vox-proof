@@ -1,0 +1,123 @@
+{
+  "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
+  "gate_status": "OPEN",
+  "gate_type": "semantic_reconciliation",
+  "opened_on": "2026-08-14",
+  "opened_by": "Ezra",
+  "predecessor": {
+    "capability_audit_commit": "0f6cd55",
+    "capability_audit_artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json",
+    "harness_semantic_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
+    "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP"
+  },
+  "question": "For canonical-reference-corruption and source-locator-corruption, is ReadOnlySalvage actually a product requirement?",
+  "frozen_contract_facts": {
+    "scenario_contract_version": "3",
+    "scenarios": [
+      {
+        "scenario_id": "canonical-reference-corruption",
+        "requirement": "Required",
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed",
+        "capability_dependent": false
+      },
+      {
+        "scenario_id": "source-locator-corruption",
+        "requirement": "Required",
+        "expected_recovery_class": "manual_review_required",
+        "expected_open_state": "read_only_salvage",
+        "writable_open": false,
+        "read_only_open": "allowed",
+        "capability_dependent": false
+      }
+    ],
+    "contract_source": "src/persistence_evidence/current_contract/scenario_contract.rs"
+  },
+  "accepted_candidate_facts": {
+    "append": {
+      "candidate_id": "current-contract-append-authoritative-candidate",
+      "candidate_version": "01B-2",
+      "owner_accepted": true,
+      "observed_corruption_semantics": "fail_closed_on_read_only_open",
+      "append_salvage_that_exists": "uncommitted_tail_committed_prefix_only",
+      "evidence": [
+        "tests/persistence_append_authoritative_01b.rs committed_state_tampering_and_concurrent_create_fail_closed",
+        "tests/persistence_append_authoritative_01b.rs read_only_sees_only_committed_prefix_and_writable_retry_recovers_tail"
+      ]
+    },
+    "sqlite": {
+      "candidate_id": "current-contract-sqlite-authoritative-candidate",
+      "candidate_version": "01C-SQLITE-2",
+      "owner_accepted": true,
+      "observed_corruption_semantics": "fail_closed_on_read_only_open",
+      "evidence": [
+        "tests/persistence_sqlite_authoritative_01c.rs unknown_format_and_canonical_corruption_fail_closed_while_derived_cache_rebuilds"
+      ]
+    }
+  },
+  "semantic_tension": {
+    "contract_requires": "corruption detected → writable forbidden → read-only salvage still available",
+    "candidates_implement": "corruption detected → fail closed → no authority exposed",
+    "note": "Different product requirements, not a simple safety ordering. Salvage requirement in scenario contract v3 is not independently established here as non-negotiable product durability policy."
+  },
+  "owner_options": {
+    "A": {
+      "label": "Yes — ReadOnlySalvage is a product requirement",
+      "implications": [
+        "Keep scenario contract v3 salvage semantics for these scenarios",
+        "Candidate semantics must evolve (new Append and SQLite candidate versions)",
+        "Harness correction resumes only after new accepted candidates exist"
+      ],
+      "owner_preference_rank": 3
+    },
+    "B": {
+      "label": "No — fail-closed refusal is sufficient",
+      "implications": [
+        "Revise scenario contract (new version; v3 preserved as superseded for history)",
+        "Align Required corruption scenarios with fail-closed refusal semantics",
+        "Rerun only affected / equivalence evidence as required after contract revision"
+      ],
+      "owner_preference_rank": 1
+    },
+    "C": {
+      "label": "Split — only some corruption classes require salvage",
+      "implications": [
+        "Explicitly split corruption semantics by class in new contract version",
+        "canonical-reference and source-locator may map to fail-closed or salvage per owner split",
+        "Rerun affected evidence after contract revision"
+      ],
+      "owner_preference_rank": 2
+    }
+  },
+  "current_readiness": {
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "selection_status": "none",
+    "gate4_01c_evidence_status": "invalid_for_gate_preserve"
+  },
+  "authorized_after_decision": {
+    "option_A": [
+      "new candidate version work packages",
+      "candidate semantic implementation and acceptance gates"
+    ],
+    "option_B_or_C": [
+      "scenario contract correction/clarification work package",
+      "contract version bump and supersession record",
+      "bounded harness/evidence rerun against revised contract"
+    ]
+  },
+  "prohibited_until_decision": [
+    "candidate semantic changes",
+    "scenario contract v3 edits without owner Material Decision",
+    "claim restoration to ready_for_owner_decision",
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW",
+    "mechanism selection",
+    "Correction-04 harness implementation",
+    "reclassifying Required scenarios as Unsupported without contract revision"
+  ],
+  "requested_owner_action": "Select A, B, or C (or refined variant of B/C) and authorize exactly one downstream work package path.",
+  "note": "This gate reconciles salvage requirement authority. It does not implement Correction-04 or restore 01C comparison readiness."
+}

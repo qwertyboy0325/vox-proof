@@ -65,10 +65,15 @@
     "mechanism_selection": "none",
     "product_integration": "unimplemented"
   },
+  "open_owner_gate": {
+    "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
+    "gate_status": "OPEN",
+    "opened_on": "2026-08-14",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-gate.json",
+    "owner_preference": "B_or_C_over_A"
+  },
   "required_owner_decision": [
-    "modify candidate semantics to implement Required ReadOnlySalvage for salvage scenarios",
-    "revise frozen scenario contract v3",
-    "formally reduce 01C comparison claim scope"
+    "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01: select A, B, or C for ReadOnlySalvage requirement"
   ],
-  "note": "Correction-04 early STOP gate triggered. Correction-03 cross-platform evidence preserved but not decision-valid. PRE_FINAL_GOVERNANCE_AUDIT not authorized until capability gap resolved."
+  "note": "Salvage requirement reconciliation owner gate OPEN. Gate 4 harness/evidence/governance pipeline blocked until decision. PRE_FINAL not authorized."
 }
