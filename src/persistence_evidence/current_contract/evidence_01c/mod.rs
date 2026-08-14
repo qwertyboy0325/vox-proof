@@ -25,7 +25,10 @@ pub use measurements::run_comparative_measurements;
 pub use methodology::{
     methodology_record, EVIDENCE_01C_HARNESS_VERSION, INTERLEAVING_STRATEGY, METHODOLOGY_FREEZE_ID,
 };
-pub use runner::run_01c_evidence;
+pub use runner::{
+    run_01c_evidence, run_01c_evidence_append_01b3, run_01c_evidence_dual_scoped,
+    AppendEvidenceVariant, SqliteEvidenceVariant,
+};
 pub use types::{
     CandidateEligibilityRecord, CandidateRunArtifacts, ComparativeEvidencePackage,
     CorrectnessDisqualification, MeasurementAggregate, NormalizedScenarioResult,

@@ -1,0 +1,34 @@
+{
+  "artifact_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-STORAGE-REVIEW-CORRECTIONS",
+  "review_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-STORAGE-SYSTEMS-REVIEW-2026-08-14",
+  "status": "CORRECTIONS_APPLIED",
+  "corrected_on": "2026-08-14",
+  "findings_addressed": {
+    "M1_U1_ANALYSIS_TEST_WEAK_ORACLE": {
+      "status": "fixed",
+      "correction_id": "RC1",
+      "changes": [
+        "u1_review_succeeds_after_unrelated_analysis_advance uses expected_merged_review(&analysis_target, &review_target)",
+        "assert active_analysis_snapshot_identity preserved after unrelated review apply",
+        "Fcr03UnrelatedSuccessObservation independently records unrelated_scope_preserved"
+      ]
+    },
+    "L1_HARNESS_WIRING_DEFERRED": {
+      "status": "deferred",
+      "note": "Sqlite01C3 harness wiring blocked until unified FCR-03 observation authorization"
+    },
+    "L2_INFER_SCOPE_NOT_HARNESS_BOUND": {
+      "status": "deferred",
+      "note": "infer_command_scope exists for future harness; scenarios use explicit SqliteCommandScope"
+    },
+    "L3_FCR03_OBSERVATIONS_UNIT_ONLY": {
+      "status": "deferred",
+      "note": "FCR-03 observation types exercised in unit tests only; evidence harness persistence separate gate"
+    }
+  },
+  "tests_after_correction": {
+    "persistence_sqlite_scoped_precondition_01c3": "15/15 pass",
+    "persistence_sqlite_authoritative_01c": "16/16 pass"
+  },
+  "successor_freeze_gate": "unblocked"
+}

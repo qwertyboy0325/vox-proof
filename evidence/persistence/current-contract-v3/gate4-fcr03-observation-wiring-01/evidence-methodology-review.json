@@ -1,0 +1,171 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-DUAL-SCOPED-EVIDENCE-METHODOLOGY-REVIEW",
+  "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-14",
+  "harness_semantic_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "harness_semantic_sha_note": "Evidence run from working tree with uncommitted FCR-03 wiring atop d267f0d; SHA does not uniquely identify the wiring that produced this record",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "frozen_comparison_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "prior_append_only_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+  "prior_methodology_review_ref": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/evidence-methodology-review.json",
+  "owner_authorization_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/owner-evidence-execution-decision.json",
+  "execution_record_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-execution-record.json",
+  "wiring_record_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/fcr03-wiring-record.json",
+  "agent_verdict_line": "EVIDENCE REVIEW: PASS",
+  "overall_verdict": "PASS_WITH_CAVEATS",
+  "verdict_rationale": "This is the first dual-scoped 01C record in which FCR-03 minimum observation fields are actually persisted in scenario-results.json for both Append 01B-3 and SQLite 01C-SQLITE-3. Independent inspection of macos-native/append/scenario-results.json and macos-native/sqlite/scenario-results.json shows 3x fcr03_stale_rejection plus 1x fcr03_unrelated_success per candidate, with expected scoped failure codes and required boolean fields. That cures the prior append-only review's FCR-03 downgrade (fields were absent from gate4-01c-d267f0d-append-01b3). Remaining caveats are already declared and do not invalidate the record: macos_native only; harness_semantic_sha still d267f0d with uncommitted wiring; comparison/selection not_ready; FCR-03 observations are in-handle / harness observation fidelity (scenario contract reopen_required=false), not persist+reopen or FilesystemDurability. Frozen 91e258c remains a separate sibling directory with no FCR-03 fields and must stay unchanged.",
+  "change_from_prior_append_only_review": {
+    "prior_artifact_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-METHODOLOGY-REVIEW",
+    "prior_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+    "prior_agent_verdict_line": "EVIDENCE REVIEW: CLAIM DOWNGRADE REQUIRED",
+    "prior_fcr03_observation_fidelity": "NO",
+    "prior_fcr03_in_01c_artifacts": false,
+    "this_fcr03_observation_fidelity": "YES",
+    "this_fcr03_in_01c_artifacts": true,
+    "what_changed": [
+      "FCR-03 stale_rejection fields are now present in 01C scenario-results for both candidates (previously absent; prior stale rows had failure_code null)",
+      "U1 unrelated-scope-review-after-reuse-advance is now a persisted 01C scenario with fcr03_unrelated_success for both candidates (previously unit-test only; scenario absent from append-01b3 record)",
+      "SQLite candidate in this record is 01C-SQLITE-3 with the same FCR-03 field set (prior append-only record did not demonstrate SQLite md_015 scoped validity)",
+      "Readiness validation now requires FCR-03 fields for 01B-3 and 01C-SQLITE-3; eligibility remains ELIGIBLE_FOR_EQUIVALENT_EXECUTION without APPEND_STALE_ASYMMETRY_LIMITATION"
+    ],
+    "what_did_not_change": [
+      "macos_native single-platform scope",
+      "harness_semantic_sha still recorded as d267f0d",
+      "mechanism comparison and selection remain not_ready",
+      "frozen 91e258c must remain immutable",
+      "prior append-01b3 record is historical and must not be rewritten as FCR-03-complete"
+    ]
+  },
+  "review_questions": {
+    "md_015_scoped_validity_append_01b3": {
+      "answer": "SUPPORTED",
+      "supported_claim": "scenario_contract_v4 scoped stale precondition classes reject with expected codes on macos_native for candidate 01B-3; FCR-03 stale_rejection and U1 unrelated_success fields persisted in 01C artifacts; APPEND_STALE_ASYMMETRY_LIMITATION absent; eligibility ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "evidence_strength": "InterfaceBehavior",
+      "u1_evidence_strength": "LogicalStateTransition",
+      "taxonomy_note": "Execution-record label harness_observation_fidelity maps to InterfaceBehavior for the three stale scenarios (contract allowed_evidence_strength) and LogicalStateTransition for U1; not FilesystemDurability",
+      "not_supported": [
+        "general MD-015 product claim",
+        "persist+reopen / FilesystemDurability observation of rejected or applied authority",
+        "cross-platform md_015 scoped validity",
+        "selection-eligible MD-015 conformance"
+      ]
+    },
+    "md_015_scoped_validity_sqlite_01c_sqlite_3": {
+      "answer": "SUPPORTED",
+      "supported_claim": "scenario_contract_v4 scoped stale precondition classes reject with expected codes on macos_native for candidate 01C-SQLITE-3; FCR-03 stale_rejection and U1 unrelated_success fields persisted in 01C artifacts; eligibility ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "evidence_strength": "InterfaceBehavior",
+      "u1_evidence_strength": "LogicalStateTransition",
+      "not_supported": [
+        "general MD-015 product claim",
+        "persist+reopen / FilesystemDurability observation of rejected or applied authority",
+        "cross-platform md_015 scoped validity",
+        "selection-eligible MD-015 conformance"
+      ]
+    },
+    "claim_boundaries_honesty": {
+      "answer": "YES_WITH_MINOR_INCONSISTENCY",
+      "honest": [
+        "cross-platform-readiness.json aggregation_status macos_only_pending_windows",
+        "mechanism_comparison_readiness and mechanism_selection_readiness not_ready",
+        "execution record not_claimed includes cross-platform, selection, and replacement of frozen 91e258c",
+        "owner decision evidence_claim_scope already bounds FCR-03 to harness observation fidelity, not general MD-015",
+        "Unsupported interrupted-compaction and interrupted-cleanup retained in scenario-results and readiness limitations"
+      ],
+      "minor_inconsistencies": [
+        "evidence-execution-record.json reports append_scenarios_passed=26 and sqlite_scenarios_passed=26; independent count is 24 passed + 2 unsupported per candidate (Unsupported must not be counted as Passed)",
+        "SQLite stale-scenario limitations are branded append-01b-3 because both Append01B3 and Sqlite01C3 receive APPEND_01B3_STALE_SCOPED_LIMITATION"
+      ]
+    },
+    "fcr03_observation_fidelity": {
+      "answer": "YES",
+      "where_fcr03_is_proven": "01C scenario-results.json for both candidates in gate4-01c-d267f0d-dual-scoped-fcr03 (not unit tests only)",
+      "append_01B_3": {
+        "fcr03_stale_rejection_count": 3,
+        "fcr03_unrelated_success_count": 1,
+        "stale_observed_failure_codes": [
+          "stale-review-ledger-precondition",
+          "stale-reuse-governance-precondition",
+          "stale-analysis-selection-precondition"
+        ],
+        "u1_scenario": "unrelated-scope-review-after-reuse-advance",
+        "required_booleans_satisfied": true
+      },
+      "sqlite_01C_SQLITE_3": {
+        "fcr03_stale_rejection_count": 3,
+        "fcr03_unrelated_success_count": 1,
+        "stale_observed_failure_codes": [
+          "stale-review-ledger-precondition",
+          "stale-reuse-governance-precondition",
+          "stale-analysis-selection-precondition"
+        ],
+        "u1_scenario": "unrelated-scope-review-after-reuse-advance",
+        "required_booleans_satisfied": true
+      },
+      "observation_method": "in-handle normalized_state before/after apply on the still-open writer; scenario contract reopen_required=false for stale-* and U1",
+      "not_a_persist_reopen_proof": true
+    }
+  },
+  "claim_downgrades_required": [],
+  "prior_claim_downgrades_status": {
+    "FCR03_OBSERVATION_FIELDS_POPULATED_IN_01C_EVIDENCE": "LIFTED_FOR_THIS_RECORD",
+    "MD_015_SCOPED_VALIDITY_APPEND_01B3": "LIFTED_TO_SUPPORTED_AT_DECLARED_STRENGTH",
+    "note": "The prior downgrades remain correct for gate4-01c-d267f0d-append-01b3. They do not apply to gate4-01c-d267f0d-dual-scoped-fcr03. Do not rewrite the prior record as FCR-03-complete."
+  },
+  "may_claim": [
+    "FCR-03 minimum observation fields are persisted in 01C scenario-results.json for Append 01B-3 and SQLite 01C-SQLITE-3 on macos_native",
+    "3x fcr03_stale_rejection per candidate with observed_failure_code matching the scoped precondition class, transition_applied=false, post_rejection_oracle_compare=true, post_rejection_authority_unchanged=true",
+    "1x fcr03_unrelated_success per candidate on unrelated-scope-review-after-reuse-advance with transition_applied=true, post_apply_oracle_compare=true, unrelated_scope_preserved=true, stale_full_state_not_persisted=true",
+    "md_015 scoped validity for both 01B-3 and 01C-SQLITE-3 at InterfaceBehavior (stale) and LogicalStateTransition (U1) / harness observation fidelity on macos_native",
+    "24 required/non-capability scenarios passed and 2 capability-dependent scenarios retained as Unsupported per candidate; 0 Failed; 0 correctness_disqualification",
+    "both candidates ELIGIBLE_FOR_EQUIVALENT_EXECUTION; APPEND_STALE_ASYMMETRY_LIMITATION absent; scoped stale limitation present",
+    "single_platform_readiness ready_for_owner_decision under declared macos_native scope",
+    "mechanism comparison and selection remain not_ready; Windows not executed"
+  ],
+  "may_not_claim": [
+    "FCR-03-complete from prior gate4-01c-d267f0d-append-01b3 evidence",
+    "persist+reopen or FilesystemDurability proof that rejected stale commands were not written, or that U1 did not persist a stale full-state snapshot",
+    "general MD-015 product claim or selection-eligible MD-015 conformance",
+    "cross-platform readiness, Windows parity, or CrossPlatform evidence strength",
+    "mechanism comparison readiness or mechanism selection readiness from this dual-scoped record",
+    "replacement, rewrite, or FCR-03 backfill of frozen 91e258c",
+    "that harness_semantic_sha d267f0d uniquely identifies the uncommitted FCR-03 wiring that produced this run",
+    "26/26 Passed if that phrase treats Unsupported as Passed",
+    "physical durability, hardware power-loss, or ranking/selection from the measurement tradeoff list"
+  ],
+  "corrections_or_reclassification": {
+    "preserve_evidence_record": true,
+    "modify_frozen_91e258c": false,
+    "preserve_prior_append_01b3": true,
+    "fcr03_claim_reclassification": "SUPPORTED in this dual-scoped record; prior append-only FCR-03 downgrade remains historically correct",
+    "required_wording_fixes_do_not_rewrite_raw_results": [
+      "Reclassify execution-record 26 passed as 24 passed + 2 unsupported retained per candidate",
+      "Keep evidence_strength mapped to InterfaceBehavior / LogicalStateTransition; do not promote harness_observation_fidelity to FilesystemDurability",
+      "Optional later harness cleanup: SQLite stale limitation should not be branded append-01b-3; do not silently rewrite this evidence record to apply that cleanup"
+    ]
+  },
+  "validation_summary": {
+    "append_status_count": { "passed": 24, "unsupported": 2, "failed": 0, "not_run": 0 },
+    "sqlite_status_count": { "passed": 24, "unsupported": 2, "failed": 0, "not_run": 0 },
+    "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "sqlite_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "single_platform_readiness": "ready_for_owner_decision",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "aggregation_status": "macos_only_pending_windows",
+    "fcr03_fields_in_scenario_results": true,
+    "append_stale_asymmetry_limitation_absent": true,
+    "scoped_stale_limitation_present": true
+  },
+  "unresolved_risks": [
+    "harness_semantic_sha still d267f0d while FCR-03 wiring is uncommitted; later consumers must not treat d267f0d as the unique identity of this wired harness",
+    "Windows dual-scoped FCR-03 evidence not authorized and not executed",
+    "FCR-03 field names that say not_persisted / authority_unchanged can be misread as persist+reopen unless strength remains bounded",
+    "this review is evidence-methodology only; it does not substitute for storage-systems review or governance audit"
+  ],
+  "requested_owner_decision": "Accept this dual-scoped macOS record as FCR-03-supported in 01C artifacts for Append 01B-3 and SQLite 01C-SQLITE-3 at InterfaceBehavior / LogicalStateTransition (harness observation fidelity), with the declared caveats (macos-only; SHA still d267f0d pending wiring commit; not comparison-ready; not selection-ready). Keep frozen 91e258c and historical gate4-01c-d267f0d-append-01b3 unchanged. Do not treat this review as authorization for Windows evidence, mechanism selection, or Material Decision acceptance. Next owner-gated actions remain: commit FCR-03 wiring and update harness_semantic_sha; separately authorize Windows dual-scoped evidence if cross-platform aggregation is required."
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-ARCHITECTURE-SPEC",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "design_option": "SCOPED_COMMAND_APPLY_ONTO_LATEST_SQLITE_AUTHORITY",
+  "candidate_version": "01C-SQLITE-3",
+  "write_api": "apply_scoped_command(SqliteScopedCommand)",
+  "disqualified_api": "apply_authoritative_transition(preconditions, caller_next_state) as sole scoped write path",
+  "committed_generation_role": "physical transactional ordering and ack identity only",
+  "persist_primitive": "replace_canonical_tables(merged_authoritative_state) after scoped merge onto latest loaded in tx",
+  "pipeline": [
+    "begin immediate transaction",
+    "load latest canonical authority from relational tables",
+    "validate only command-relevant scoped precondition token(s)",
+    "apply scoped patch onto latest (not caller full next_state)",
+    "oracle validate merged state",
+    "replace_canonical_tables with merged state",
+    "advance committed_generation",
+    "commit and independently verify reconstruction"
+  ],
+  "parallel_to": "Append 01B-3 scoped apply onto replayed snapshot",
+  "not_copied_from_append": "SQLite uses transactional load+replace primitive, not append log replay"
+}

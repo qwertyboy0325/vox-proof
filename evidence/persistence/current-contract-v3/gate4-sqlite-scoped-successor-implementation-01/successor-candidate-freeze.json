@@ -1,0 +1,34 @@
+{
+  "artifact_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-CANDIDATE-FREEZE",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "frozen_on": "2026-08-14",
+  "successor_candidate": {
+    "id": "current-contract-sqlite-authoritative-candidate",
+    "version": "01C-SQLITE-3",
+    "module": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs",
+    "write_api": "apply_scoped_command(SqliteScopedCommand)"
+  },
+  "predecessor_preserved": {
+    "version": "01C-SQLITE-2",
+    "status": "historical_accepted_md015_ineligible",
+    "modify_in_current_wp": false
+  },
+  "storage_review": {
+    "review": "storage-systems-review.json",
+    "verdict": "PASS_WITH_CAVEATS",
+    "corrections": "storage-review-corrections.json",
+    "corrections_status": "CORRECTIONS_APPLIED"
+  },
+  "unit_proof": {
+    "md_015_scoped_validity": "u1_c1_c3_unit_proven",
+    "test_suite": "tests/persistence_sqlite_scoped_precondition_01c3.rs",
+    "regression_suite": "tests/persistence_sqlite_authoritative_01c.rs"
+  },
+  "not_yet_authorized": [
+    "harness Sqlite01C3 wiring",
+    "FCR-03 observation persistence in evidence harness",
+    "fresh dual-candidate evidence execution",
+    "mechanism selection"
+  ],
+  "frozen_comparison_evidence_unchanged": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
+}

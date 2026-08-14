@@ -1,0 +1,35 @@
+{
+  "review_id": "VP-GATE4-APPEND-01B-3-STORAGE-SYSTEMS-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+  "commit_reviewed": "56c320d",
+  "correction_commit": "pending",
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Grok 4.6 Extra High",
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: CORRECTIONS REQUIRED",
+  "blocking_before_evidence_execution_gate": true,
+  "findings_summary": {
+    "high": [
+      "H1_HARNESS_INFER_SCOPE_BREAKS_STALE_AND_U1",
+      "H2_INTERRUPT_CHILD_COMMITS_FULL_TRANSITION_ON_01B3",
+      "H3_REJECT_STALE_FULL_STATE_REWIND_FALSE_POSITIVE_ON_ANALYSIS"
+    ],
+    "medium": [
+      "M1_C3_OFFPATH_HELPER_AND_ALIASED_OBSERVATION",
+      "M2_REUSE_WRITESET_MISSING_ANALYSIS_SNAPSHOTS",
+      "M3_APPLY_TRANSITION_STALE_DEAD_AND_FRAGILE"
+    ],
+    "low": ["L1_C1_NO_REOPEN_ORACLE", "L2_PHYSICAL_LAYER_PRESERVED"]
+  },
+  "claim_downgrades": [
+    {
+      "claim": "md_015_scoped_validity: u1_c1_c3_proven_in_unit_tests",
+      "downgrade_to": "u1_c1_proven_via_explicit_scoped_command_unit_tests; c3_write_set_honesty; not_general_md015_including_active_analysis"
+    },
+    {
+      "claim": "FCR-03 stale_full_state_not_persisted",
+      "downgrade_to": "independently measured after correction (no longer aliased to unrelated_scope_preserved)"
+    }
+  ],
+  "bottom_line": "Core 01B-3 scoped apply onto replayed snapshot is mechanistically sound and 01B-2 remains intact, but harness wiring, false-positive rewind guard, and observation aliasing required correction before EVIDENCE_EXECUTION_GATE."
+}

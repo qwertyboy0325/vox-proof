@@ -1,0 +1,56 @@
+{
+  "artifact_id": "VP-GATE4-APPEND-01B-3-STORAGE-REVIEW-CORRECTIONS",
+  "review_id": "VP-GATE4-APPEND-01B-3-STORAGE-SYSTEMS-REVIEW-2026-08-14",
+  "status": "CORRECTIONS_APPLIED",
+  "corrected_on": "2026-08-14",
+  "findings_addressed": {
+    "H1_HARNESS_INFER_SCOPE_BREAKS_STALE_AND_U1": {
+      "status": "fixed",
+      "changes": [
+        "command_scope_for_stale_scenario + command_scope_for_measurement_operation",
+        "apply_transition_with_preconditions(..., stale_scenario_id)",
+        "apply_transition_for_operation for measurement paths"
+      ]
+    },
+    "H2_INTERRUPT_CHILD_COMMITS_FULL_TRANSITION_ON_01B3": {
+      "status": "fixed",
+      "changes": [
+        "Append01B3 append_incomplete_tail_for_test delegates to inner adapter",
+        "child_interrupt_transition_main uses incomplete-tail for append-01b3"
+      ]
+    },
+    "H3_REJECT_STALE_FULL_STATE_REWIND_FALSE_POSITIVE_ON_ANALYSIS": {
+      "status": "fixed",
+      "changes": [
+        "Removed in-path reject_stale_full_state_rewind; scoped patches preserve unrelated authority",
+        "reject_full_state_authority_replace remains off-path C3 guard only"
+      ]
+    },
+    "M1_C3_OFFPATH_HELPER_AND_ALIASED_OBSERVATION": {
+      "status": "partial",
+      "changes": [
+        "Fcr03UnrelatedSuccessObservation.stale_full_state_not_persisted independently measured"
+      ]
+    },
+    "M2_REUSE_WRITESET_MISSING_ANALYSIS_SNAPSHOTS": {
+      "status": "fixed",
+      "changes": [
+        "apply_reuse_scope_patch attaches binding analysis_snapshot when missing"
+      ]
+    },
+    "M3_APPLY_TRANSITION_STALE_DEAD_AND_FRAGILE": {
+      "status": "deferred",
+      "note": "apply_transition_stale retained but scenarios use explicit stale_scenario_id path"
+    },
+    "L1_C1_NO_REOPEN_ORACLE": {
+      "status": "deferred",
+      "note": "Optional before evidence gate"
+    }
+  },
+  "tests_after_correction": {
+    "persistence_append_scoped_precondition_01b3": "6/6 pass",
+    "persistence_append_authoritative_01b": "20/20 pass",
+    "persistence_01c_evidence": "14/14 pass"
+  },
+  "evidence_execution_gate": "unblocked_pending_owner_authorization"
+}

@@ -1,0 +1,63 @@
+{
+  "artifact_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-RESULT",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "status": "COMPLETE",
+  "completed_on": "2026-08-14",
+  "mode": "read_only_preflight",
+  "candidate_evaluated": {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "historical_acceptance": "unchanged"
+  },
+  "primary_outcome": "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+  "outcomes_evaluated": {
+    "SQLITE_SCOPED_VALIDITY_CONFIRMED": false,
+    "PROCEED_SQLITE_SCOPED_SUCCESSOR": true,
+    "REQUIRE_NEW_AUTHORITY_SEMANTICS": false
+  },
+  "md_015_u1_verdict": {
+    "demonstrated": false,
+    "failure_class": "global_invalidate_all_after_any_change",
+    "same_class_as_append_01b2": true,
+    "overwrite_trap_if_generation_only_removed": true
+  },
+  "md_015_c1_verdict": {
+    "demonstrated": true,
+    "note": "C1 alone does not establish scoped validity"
+  },
+  "minimum_successor_semantics": {
+    "shape": "01C-SQLITE-3",
+    "design_option": "SCOPED_COMMAND_APPLY_ONTO_LATEST_SQLITE_AUTHORITY",
+    "parallel_to": "Append 01B-3 SCOPED_COMMAND_APPLY_ONTO_REPLAYED_SNAPSHOT",
+    "preserve": [
+      "SQLite transactional physical model",
+      "writer lease / ownership",
+      "authority_transitions generation as physical order",
+      "oracle validate + distinct canonical fingerprint",
+      "01C-SQLITE-2 as historical accepted"
+    ],
+    "require": [
+      "scope-local precondition validation only",
+      "load latest canonical state in tx",
+      "scoped patch onto latest",
+      "persist merged result",
+      "U1/C1/C3 unit proofs"
+    ]
+  },
+  "governance_finding_confirmed": {
+    "finding_id": "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
+    "preflight_confirms": true
+  },
+  "deferred_by_design": [
+    "FCR-03 observation wiring",
+    "fresh dual-candidate evidence",
+    "mechanism selection"
+  ],
+  "ordered_next": [
+    "owner authorize SQLite scoped-successor implementation WP",
+    "implement 01C-SQLITE-3 minimum semantics",
+    "unified FCR-03 observation wiring + fresh evidence for both candidates"
+  ],
+  "note": "No code changes in this preflight. Avoids patching evidence for old SQLite semantics before successor is defined."
+}

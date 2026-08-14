@@ -123,7 +123,7 @@ pub struct SqliteAuthorityError {
 }
 
 impl SqliteAuthorityError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
@@ -347,7 +347,7 @@ impl SqliteAuthoritativeCandidateAdapter {
             ));
         }
 
-        let mut connection =
+        let connection =
             self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
         let token = opened.writer_token.as_deref().ok_or_else(|| {
             SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
@@ -359,6 +359,35 @@ impl SqliteAuthoritativeCandidateAdapter {
         let (metadata, _) =
             load_authority_for_session(&connection, &opened.session.session_id, false)?;
         validate_preconditions(&metadata, preconditions)?;
+        let preconditions = preconditions.clone();
+        self.persist_canonical_authority_state(
+            opened,
+            canonical_next_state,
+            Some(&|metadata_in_tx| validate_preconditions(metadata_in_tx, &preconditions)),
+        )
+    }
+
+    /// Persist oracle-validated canonical state after optional in-tx metadata checks.
+    /// Used by 01C-SQLITE-2 full-state transitions and 01C-SQLITE-3 scoped merges.
+    pub(crate) fn persist_canonical_authority_state(
+        &self,
+        opened: &mut OpenedSqliteAuthoritySession,
+        canonical_next_state: CurrentContractState,
+        in_tx_metadata_check: Option<
+            &dyn Fn(&SessionMetadata) -> Result<(), SqliteAuthorityError>,
+        >,
+    ) -> Result<DurableSqliteAck, SqliteAuthorityError> {
+        let mut connection =
+            self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
+        let token = opened.writer_token.as_deref().ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
+        })?;
+        let epoch = opened.writer_epoch.ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer epoch")
+        })?;
+        validate_writer_ownership(&connection, token, epoch)?;
+        let (metadata, _) =
+            load_authority_for_session(&connection, &opened.session.session_id, false)?;
         configure_writable_persistence(&connection)?;
 
         let fingerprint = canonical_fingerprint(&canonical_next_state.canonical_projection());
@@ -372,7 +401,9 @@ impl SqliteAuthoritativeCandidateAdapter {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error("sqlite-transition-begin"))?;
         let metadata_in_tx = load_session_metadata_tx(&tx)?;
-        validate_preconditions(&metadata_in_tx, preconditions)?;
+        if let Some(check) = in_tx_metadata_check {
+            check(&metadata_in_tx)?;
+        }
         validate_writer_ownership_tx(&tx, token, epoch)?;
         let duplicate: Option<i64> = tx
             .query_row(
@@ -423,11 +454,116 @@ impl SqliteAuthoritativeCandidateAdapter {
         validate_writer_ownership(&connection, token, epoch)?;
         mark_transition_acknowledged(&connection, next_generation)?;
         opened.committed_generation = next_generation;
-        opened.normalized_state = canonical_next_state;
+        opened.normalized_state = canonical_next_state.clone();
         Ok(DurableSqliteAck {
             committed_generation: next_generation,
             canonical_fingerprint: fingerprint,
         })
+    }
+
+    /// Persist merged authority derived from latest canonical rows loaded inside the tx.
+    pub(crate) fn persist_merged_from_latest_authority(
+        &self,
+        opened: &mut OpenedSqliteAuthoritySession,
+        merge: impl FnOnce(
+            &CurrentContractState,
+        ) -> Result<CurrentContractState, SqliteAuthorityError>,
+    ) -> Result<DurableSqliteAck, SqliteAuthorityError> {
+        self.validate_writable_handle(opened)?;
+        self.validate_session_layout(&opened.session, true)?;
+        let mut connection =
+            self.open_existing_database(&opened.session, SqliteOpenMode::Writable)?;
+        let token = opened.writer_token.as_deref().ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer token")
+        })?;
+        let epoch = opened.writer_epoch.ok_or_else(|| {
+            SqliteAuthorityError::new("not-authoritative-writer", "missing writer epoch")
+        })?;
+        validate_writer_ownership(&connection, token, epoch)?;
+        configure_writable_persistence(&connection)?;
+
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sql_error("sqlite-scoped-transition-begin"))?;
+        let (_, latest) =
+            load_authority_for_session(&tx, &opened.session.session_id, false)?;
+        let canonical_next_state = canonicalized_state(merge(&latest)?);
+        validate_state(&canonical_next_state)?;
+        validate_state_bounds(&canonical_next_state)?;
+        if canonical_next_state.session_id != opened.session.session_id {
+            return Err(SqliteAuthorityError::new(
+                "session-identity-transition",
+                "authoritative transition cannot change the semantic session identity",
+            ));
+        }
+        let metadata_in_tx = load_session_metadata_tx(&tx)?;
+        validate_writer_ownership_tx(&tx, token, epoch)?;
+        let fingerprint = canonical_fingerprint(&canonical_next_state.canonical_projection());
+        let next_generation = metadata_in_tx
+            .committed_generation
+            .checked_add(1)
+            .ok_or_else(|| SqliteAuthorityError::new("generation-overflow", "generation overflow"))?;
+        let duplicate: Option<i64> = tx
+            .query_row(
+                "SELECT 1 FROM authority_transitions WHERE canonical_fingerprint = ?1 LIMIT 1",
+                [&fingerprint],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql_error("sqlite-transition-duplicate-check"))?;
+        if duplicate.is_some() {
+            return Err(SqliteAuthorityError::new(
+                "semantic-duplicate-transition",
+                "authoritative transition repeats a committed canonical identity",
+            ));
+        }
+        replace_canonical_tables(&tx, &canonical_next_state)?;
+        update_session_metadata(&tx, &canonical_next_state, next_generation, &fingerprint)?;
+        tx.execute(
+            "INSERT INTO authority_transitions (generation, canonical_fingerprint, acknowledgement_status) VALUES (?1, ?2, 'committed')",
+            params![u64_to_i64(next_generation)?, fingerprint],
+        )
+        .map_err(sql_error("sqlite-transition-record"))?;
+        renew_writer_lease_tx(&tx, token, epoch)?;
+        rebuild_derived_cache_in_tx(&tx, &canonical_next_state, &fingerprint)?;
+
+        if self.fail_before_commit_for_test.replace(false) {
+            return Err(SqliteAuthorityError::new(
+                "injected-interrupted-transition",
+                "test fault returned before SQLite commit",
+            ));
+        }
+        tx.commit().map_err(sql_error("sqlite-transition-commit"))?;
+
+        let (fresh_metadata, reconstructed) = self.verify_fresh(&opened.session, true)?;
+        let comparison = CurrentContractOracle::compare(&canonical_next_state, &reconstructed);
+        if fresh_metadata.committed_generation != next_generation || !comparison.passed {
+            return Err(SqliteAuthorityError::new(
+                "post-commit-verification-failed",
+                "committed SQLite rows did not independently reconstruct through oracle v3",
+            ));
+        }
+        if self.fail_after_commit_before_ack_for_test.replace(false) {
+            return Err(SqliteAuthorityError::new(
+                "injected-after-commit-before-ack",
+                "test fault returned after commit and before acknowledgement",
+            ));
+        }
+        validate_writer_ownership(&connection, token, epoch)?;
+        mark_transition_acknowledged(&connection, next_generation)?;
+        opened.committed_generation = next_generation;
+        opened.normalized_state = canonical_next_state.clone();
+        Ok(DurableSqliteAck {
+            committed_generation: next_generation,
+            canonical_fingerprint: fingerprint,
+        })
+    }
+
+    pub(crate) fn validate_writable_handle_for_scoped_apply(
+        &self,
+        opened: &OpenedSqliteAuthoritySession,
+    ) -> Result<(), SqliteAuthorityError> {
+        self.validate_writable_handle(opened)
     }
 
     pub fn close(&self, opened: OpenedSqliteAuthoritySession) -> Result<(), SqliteAuthorityError> {
@@ -2553,7 +2689,7 @@ fn canonicalized_state(mut state: CurrentContractState) -> CurrentContractState 
     state.normalize()
 }
 
-fn validate_state(state: &CurrentContractState) -> Result<(), SqliteAuthorityError> {
+pub(crate) fn validate_state(state: &CurrentContractState) -> Result<(), SqliteAuthorityError> {
     let result = CurrentContractOracle::validate(state);
     if result.passed {
         Ok(())

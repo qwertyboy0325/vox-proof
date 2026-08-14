@@ -1,0 +1,22 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-01-OWNER-AUTHORIZATION",
+  "authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorizes": [
+    "FCR-03 observation field persistence in 01C harness scenario-results.json",
+    "unrelated-scope-review-after-reuse-advance scenario in scenario_contract_v4",
+    "Sqlite01C3 harness candidate wiring",
+    "readiness gate validation for FCR-03 fields on 01B-3 and 01C-SQLITE-3"
+  ],
+  "does_not_authorize": [
+    "fresh dual-candidate evidence execution",
+    "Windows cross-platform evidence",
+    "mechanism selection",
+    "modify frozen 91e258c"
+  ],
+  "successor_candidates": {
+    "append": "01B-3",
+    "sqlite": "01C-SQLITE-3"
+  }
+}

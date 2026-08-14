@@ -32,10 +32,64 @@ pub const CORRECTION_03_HARNESS_SHA: &str = "6adb73198813bb8d9d9b7924b8759294a19
 pub const CORRECTION_04_V4_HARNESS_SHA: &str = "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004";
 
 pub const WORK_PACKAGE_ID: &str = "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05";
+pub const APPEND_01B3_EVIDENCE_WORK_PACKAGE_ID: &str =
+    "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01";
+pub const DUAL_SCOPED_EVIDENCE_WORK_PACKAGE_ID: &str =
+    "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppendEvidenceVariant {
+    Historical01B2,
+    Scoped01B3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SqliteEvidenceVariant {
+    Historical01CSqlite2,
+    Scoped01CSqlite3,
+}
+
+impl AppendEvidenceVariant {
+    pub fn from_env() -> Self {
+        match std::env::var("VOXPROOF_APPEND_EVIDENCE_VARIANT")
+            .ok()
+            .as_deref()
+        {
+            Some("01B-3") | Some("01b-3") | Some("append-01b3") => Self::Scoped01B3,
+            _ => Self::Historical01B2,
+        }
+    }
+
+    fn work_package_id(self, sqlite_variant: SqliteEvidenceVariant) -> &'static str {
+        match (self, sqlite_variant) {
+            (Self::Scoped01B3, SqliteEvidenceVariant::Scoped01CSqlite3) => {
+                DUAL_SCOPED_EVIDENCE_WORK_PACKAGE_ID
+            }
+            (Self::Scoped01B3, _) => APPEND_01B3_EVIDENCE_WORK_PACKAGE_ID,
+            _ => WORK_PACKAGE_ID,
+        }
+    }
+}
+
+impl SqliteEvidenceVariant {
+    pub fn from_env() -> Self {
+        match std::env::var("VOXPROOF_SQLITE_EVIDENCE_VARIANT")
+            .ok()
+            .as_deref()
+        {
+            Some("01C-SQLITE-3") | Some("01c-sqlite-3") | Some("sqlite-01c3") => {
+                Self::Scoped01CSqlite3
+            }
+            _ => Self::Historical01CSqlite2,
+        }
+    }
+}
 
 pub struct RunOutput {
     pub package: ComparativeEvidencePackage,
     pub output_root: PathBuf,
+    pub append_variant: AppendEvidenceVariant,
+    pub sqlite_variant: SqliteEvidenceVariant,
 }
 
 pub fn invalid_evidence_chain() -> Vec<InvalidPredecessorEvidence> {
@@ -79,6 +133,34 @@ fn correction_02_evidence_sha() -> String {
 }
 
 pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
+    run_01c_evidence_with_variants(
+        output_root,
+        AppendEvidenceVariant::from_env(),
+        SqliteEvidenceVariant::from_env(),
+    )
+}
+
+pub fn run_01c_evidence_append_01b3(output_root: impl Into<PathBuf>) -> RunOutput {
+    run_01c_evidence_with_variants(
+        output_root,
+        AppendEvidenceVariant::Scoped01B3,
+        SqliteEvidenceVariant::from_env(),
+    )
+}
+
+pub fn run_01c_evidence_dual_scoped(output_root: impl Into<PathBuf>) -> RunOutput {
+    run_01c_evidence_with_variants(
+        output_root,
+        AppendEvidenceVariant::Scoped01B3,
+        SqliteEvidenceVariant::Scoped01CSqlite3,
+    )
+}
+
+fn run_01c_evidence_with_variants(
+    output_root: impl Into<PathBuf>,
+    append_variant: AppendEvidenceVariant,
+    sqlite_variant: SqliteEvidenceVariant,
+) -> RunOutput {
     let output_root = output_root.into();
     let _ = fs::remove_dir_all(&output_root);
     fs::create_dir_all(&output_root).expect("output root");
@@ -91,6 +173,22 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     environment.configuration.insert(
         "sqlite_lease_expiry_wait_ms".to_owned(),
         super::candidate::SQLITE_LEASE_EXPIRY_WAIT_MS.to_string(),
+    );
+    environment.configuration.insert(
+        "append_evidence_variant".to_owned(),
+        match append_variant {
+            AppendEvidenceVariant::Historical01B2 => "01B-2",
+            AppendEvidenceVariant::Scoped01B3 => "01B-3",
+        }
+        .to_owned(),
+    );
+    environment.configuration.insert(
+        "sqlite_evidence_variant".to_owned(),
+        match sqlite_variant {
+            SqliteEvidenceVariant::Historical01CSqlite2 => "01C-SQLITE-2",
+            SqliteEvidenceVariant::Scoped01CSqlite3 => "01C-SQLITE-3",
+        }
+        .to_owned(),
     );
     let methodology = methodology_record();
     fs::write(
@@ -153,8 +251,22 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     let sqlite_root = output_root.join("work/sqlite");
     fs::create_dir_all(&append_root).expect("append work");
     fs::create_dir_all(&sqlite_root).expect("sqlite work");
-    let append = CurrentContractCandidate::append(&append_root).expect("append candidate");
-    let sqlite = CurrentContractCandidate::sqlite(&sqlite_root).expect("sqlite candidate");
+    let append = match append_variant {
+        AppendEvidenceVariant::Historical01B2 => {
+            CurrentContractCandidate::append(&append_root).expect("append candidate")
+        }
+        AppendEvidenceVariant::Scoped01B3 => {
+            CurrentContractCandidate::append_01b3(&append_root).expect("append 01b3 candidate")
+        }
+    };
+    let sqlite = match sqlite_variant {
+        SqliteEvidenceVariant::Historical01CSqlite2 => {
+            CurrentContractCandidate::sqlite(&sqlite_root).expect("sqlite candidate")
+        }
+        SqliteEvidenceVariant::Scoped01CSqlite3 => {
+            CurrentContractCandidate::sqlite_01c3(&sqlite_root).expect("sqlite 01c3 candidate")
+        }
+    };
     let platform = environment.platform_label.clone();
 
     let (append_scenarios, append_disqualifications) =
@@ -193,7 +305,7 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     environment.end_timestamp = Some(timestamp_iso());
     let invalid_chain = invalid_evidence_chain();
     let package = package_from_runs(
-        WORK_PACKAGE_ID,
+        append_variant.work_package_id(sqlite_variant),
         &repository_commit,
         environment.clone(),
         methodology,
@@ -218,6 +330,8 @@ pub fn run_01c_evidence(output_root: impl Into<PathBuf>) -> RunOutput {
     RunOutput {
         package,
         output_root,
+        append_variant,
+        sqlite_variant,
     }
 }
 

@@ -92,6 +92,7 @@ pub fn scenario_contract_v3() -> Vec<ScenarioContractV3> {
         stale_review_ledger_command(),
         stale_reuse_governance_command(),
         stale_analysis_attachment_or_selection(),
+        unrelated_scope_review_after_reuse_advance(),
         concurrent_writer_attempt(),
         writer_crash_and_takeover(),
         read_only_open_during_writer(),
@@ -354,6 +355,32 @@ fn stale_analysis_attachment_or_selection() -> ScenarioContractV3 {
         read_only_open: ReadOnlyOpenPolicy::Allowed,
         oracle_assertions: vec!["current_contract_oracle_v3.validate".to_owned()],
         allowed_evidence_strength: vec!["InterfaceBehavior".to_owned()],
+        prohibited_claims: Vec::new(),
+        platform_requirement: PLATFORM.iter().map(|s| (*s).to_owned()).collect(),
+        capability_requirement: None,
+        measurement_fields: vec!["scenario_elapsed_ms".to_owned()],
+    }
+}
+
+fn unrelated_scope_review_after_reuse_advance() -> ScenarioContractV3 {
+    ScenarioContractV3 {
+        scenario_id: "unrelated-scope-review-after-reuse-advance".to_owned(),
+        scenario_version: 1,
+        requirement: ScenarioRequirementLevel::Required,
+        category: "concurrency".to_owned(),
+        preconditions: "review command prepared; unrelated reuse-only advance".to_owned(),
+        authoritative_command: "unrelated_scope_review_after_reuse_advance".to_owned(),
+        fault_point: "none".to_owned(),
+        fault_layer: FaultLayer::NoFault,
+        expected_durable_boundary: "review_applied_with_unrelated_reuse_authority_preserved"
+            .to_owned(),
+        reopen_required: false,
+        expected_recovery_class: ExpectedRecoveryClass::None,
+        expected_open_state: ExpectedOpenState::Normal,
+        writable_open: true,
+        read_only_open: ReadOnlyOpenPolicy::Allowed,
+        oracle_assertions: vec!["current_contract_oracle_v3.compare".to_owned()],
+        allowed_evidence_strength: vec!["LogicalStateTransition".to_owned()],
         prohibited_claims: Vec::new(),
         platform_requirement: PLATFORM.iter().map(|s| (*s).to_owned()).collect(),
         capability_requirement: None,

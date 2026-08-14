@@ -24,6 +24,7 @@ pub fn run_sample_in_worker(
                 CurrentContractCandidateKind::Append => "append",
                 CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
+                CurrentContractCandidateKind::Sqlite01C3 => "sqlite-01c3",
             },
         )
         .env("VOXPROOF_MEASURE_OPERATION", operation)
@@ -76,6 +77,7 @@ pub fn measure_sample_main() -> Result<(), String> {
         "append" => CurrentContractCandidate::append(&root)?,
         "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
+        "sqlite-01c3" => CurrentContractCandidate::sqlite_01c3(&root)?,
         other => return Err(format!("unknown kind {other}")),
     };
     let sample = execute_measured_operation(&candidate, &operation, scale, index);
@@ -96,6 +98,7 @@ pub fn child_hold_writer_main() -> Result<(), String> {
         "append" => CurrentContractCandidate::append(&root)?,
         "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
+        "sqlite-01c3" => CurrentContractCandidate::sqlite_01c3(&root)?,
         other => return Err(format!("unknown child kind {other}")),
     };
     let writer = candidate.open_writable(&session_id)?;
@@ -121,6 +124,7 @@ pub fn child_interrupt_transition_main() -> Result<(), String> {
         "append" => CurrentContractCandidate::append(&root)?,
         "append-01b3" => CurrentContractCandidate::append_01b3(&root)?,
         "sqlite" => CurrentContractCandidate::sqlite(&root)?,
+        "sqlite-01c3" => CurrentContractCandidate::sqlite_01c3(&root)?,
         other => return Err(format!("unknown child kind {other}")),
     };
     let mut writer = candidate.open_writable(&session_id)?;
@@ -132,6 +136,10 @@ pub fn child_interrupt_transition_main() -> Result<(), String> {
             candidate.append_incomplete_tail_for_test(&mut writer, &next_state)?;
         }
         "sqlite" => {
+            candidate.arm_fail_before_commit_for_test();
+            let _ = candidate.apply_transition(&mut writer, &next_state);
+        }
+        "sqlite-01c3" => {
             candidate.arm_fail_before_commit_for_test();
             let _ = candidate.apply_transition(&mut writer, &next_state);
         }

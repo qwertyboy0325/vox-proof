@@ -298,6 +298,75 @@ fn validate_observation_matches_contract(
             scenario.scenario_id
         ));
     }
+    validate_fcr03_observations(scenario, result, blockers);
+}
+
+fn validate_fcr03_observations(
+    scenario: &ScenarioContractV3,
+    result: &NormalizedScenarioResult,
+    blockers: &mut Vec<String>,
+) {
+    let scoped_candidate = matches!(
+        result.candidate_version.as_str(),
+        "01B-3" | "01C-SQLITE-3"
+    );
+    if !scoped_candidate {
+        return;
+    }
+    if scenario.scenario_id.starts_with("stale-") {
+        let Some(observation) = &result.fcr03_stale_rejection else {
+            blockers.push(format!(
+                "scenario {} missing fcr03_stale_rejection for scoped candidate {}",
+                scenario.scenario_id, result.candidate_version
+            ));
+            return;
+        };
+        if observation.transition_applied {
+            blockers.push(format!(
+                "scenario {} fcr03 transition_applied must be false",
+                scenario.scenario_id
+            ));
+        }
+        if !observation.post_rejection_oracle_compare {
+            blockers.push(format!(
+                "scenario {} fcr03 post_rejection_oracle_compare must be true",
+                scenario.scenario_id
+            ));
+        }
+        if !observation.post_rejection_authority_unchanged {
+            blockers.push(format!(
+                "scenario {} fcr03 post_rejection_authority_unchanged must be true",
+                scenario.scenario_id
+            ));
+        }
+        if result.failure_code.as_deref() != Some(observation.observed_failure_code.as_str()) {
+            blockers.push(format!(
+                "scenario {} failure_code must match fcr03 observed_failure_code",
+                scenario.scenario_id
+            ));
+        }
+    }
+    if scenario.scenario_id == "unrelated-scope-review-after-reuse-advance"
+        && result.status == ScenarioExecutionStatus::Passed
+    {
+        let Some(observation) = &result.fcr03_unrelated_success else {
+            blockers.push(format!(
+                "scenario {} missing fcr03_unrelated_success for scoped candidate {}",
+                scenario.scenario_id, result.candidate_version
+            ));
+            return;
+        };
+        if !observation.transition_applied
+            || !observation.post_apply_oracle_compare
+            || !observation.unrelated_scope_preserved
+            || !observation.stale_full_state_not_persisted
+        {
+            blockers.push(format!(
+                "scenario {} fcr03 unrelated-success fields incomplete",
+                scenario.scenario_id
+            ));
+        }
+    }
 }
 
 fn is_fail_closed_authoritative_corruption(scenario: &ScenarioContractV3) -> bool {

@@ -1,0 +1,14 @@
+[
+  {
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "rationale": "required scenarios executed with valid evidence"
+  },
+  {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "rationale": "required scenarios executed with valid evidence"
+  }
+]

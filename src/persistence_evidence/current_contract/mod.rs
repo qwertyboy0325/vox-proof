@@ -18,6 +18,8 @@ pub mod scenario_contract;
 pub mod serialization;
 #[cfg(feature = "persistence-spike")]
 pub mod sqlite_authoritative;
+#[cfg(feature = "persistence-spike")]
+pub mod sqlite_authoritative_01c3;
 pub mod violations;
 
 #[cfg(feature = "persistence-spike")]
@@ -44,7 +46,10 @@ pub use classification::{
 };
 pub use derivation::{derive_contract_projection, finalize_derived_fields};
 #[cfg(feature = "persistence-spike")]
-pub use evidence_01c::{EVIDENCE_01C_HARNESS_VERSION, methodology_record, run_01c_evidence};
+pub use evidence_01c::{
+    EVIDENCE_01C_HARNESS_VERSION, methodology_record, run_01c_evidence,
+    run_01c_evidence_dual_scoped,
+};
 pub use fixture::{
     GOLDEN_SMALL_TRANSCRIPT, OFFSET_ANCHOR_TRANSCRIPT, VARIANT_BASE_MANUAL_REPLACEMENT,
     VARIANT_CANDIDATE_REJECTED, VARIANT_DUPLICATED_LINEAGE, VARIANT_OFFSET_ANCHOR,
@@ -94,4 +99,13 @@ pub use sqlite_authoritative::{
     SQLITE_AUTHORITATIVE_CANDIDATE_ID, SQLITE_AUTHORITATIVE_CANDIDATE_VERSION,
     SQLITE_AUTHORITATIVE_FORMAT_VERSION, SqliteAuthoritativeCandidateAdapter, SqliteAuthorityError,
     SqliteAuthoritySession, SqliteOpenMode,
+};
+#[cfg(feature = "persistence-spike")]
+pub use sqlite_authoritative_01c3::{
+    command_scope_for_measurement_operation as sqlite_command_scope_for_measurement_operation,
+    command_scope_for_stale_scenario as sqlite_command_scope_for_stale_scenario,
+    infer_command_scope as sqlite_infer_command_scope,
+    reject_full_state_authority_replace as sqlite_reject_full_state_authority_replace,
+    SqliteCommandScope, SqliteScopedCommand, SqliteScopedPreconditionCandidateAdapter,
+    SqliteScopedPreconditions, SQLITE_SCOPED_PRECONDITION_CANDIDATE_VERSION,
 };

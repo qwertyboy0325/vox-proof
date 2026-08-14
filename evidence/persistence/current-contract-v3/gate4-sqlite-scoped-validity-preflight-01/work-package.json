@@ -1,0 +1,49 @@
+{
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "status": "PREFLIGHT_COMPLETE",
+  "phase": "READ_ONLY_PREFLIGHT_GATE",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "mode": "read_only_preflight",
+  "objective": "Determine whether SQLite 01C-SQLITE-2 satisfies MD-015 scoped command validity, especially unrelated-scope success, and identify the minimum bounded successor semantics if it does not.",
+  "predecessors": [
+    "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+    "gate4-sqlite-scoped-validity-finding-01"
+  ],
+  "required_focus": [
+    "committed_generation global check",
+    "review_ledger_head scope",
+    "reuse_governance_head scope",
+    "active_analysis_snapshot_identity scope",
+    "unrelated-scope success cases",
+    "conflicting-scope rejection cases",
+    "full-state overwrite/rebase risk if generation CAS is relaxed"
+  ],
+  "forbidden": [
+    "candidate implementation changes",
+    "frozen 91e258c changes",
+    "MD-015 revision",
+    "mechanism selection",
+    "Material Decision",
+    "product integration",
+    "FCR-03 observation wiring"
+  ],
+  "expected_outcomes": [
+    "SQLITE_SCOPED_VALIDITY_CONFIRMED",
+    "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+    "REQUIRE_NEW_AUTHORITY_SEMANTICS"
+  ],
+  "actual_outcome": "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+  "artifacts": {
+    "owner_authorization": "owner-preflight-authorization.json",
+    "decision_packet": "decision-packet.json",
+    "storage_systems_review": "storage-systems-review.json",
+    "preflight_result": "preflight-result.json"
+  },
+  "downstream": [
+    "owner gate: authorize bounded SQLite scoped-successor implementation WP",
+    "unified FCR-03 observation wiring + fresh evidence after successor semantics fixed"
+  ],
+  "note": "Read-only preflight only. 01C-SQLITE-2 historical acceptance unchanged."
+}

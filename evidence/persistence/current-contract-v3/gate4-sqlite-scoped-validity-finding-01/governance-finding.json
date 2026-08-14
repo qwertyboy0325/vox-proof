@@ -31,6 +31,12 @@
     "record_only": true,
     "downstream": "After 01B-3 proves scoped-command model, open bounded SQLite scoped-validity preflight; likely smaller fix than Append but not yet authorized"
   },
+  "preflight_confirmation": {
+    "status": "CONFIRMED_BY_READ_ONLY_PREFLIGHT",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-preflight-01/preflight-result.json",
+    "verdict": "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+    "confirmed_on": "2026-08-14"
+  },
   "selection_implication": "Eliminating Append without fixing SQLite does not resolve Gate 4 MD-015 selection blocker. Dual-candidate selection-eligible evidence requires both candidates to demonstrate scoped validity.",
   "note": "Governance finding only. 01C-SQLITE-2 historical acceptance unchanged. No candidate modification in finding record."
 }

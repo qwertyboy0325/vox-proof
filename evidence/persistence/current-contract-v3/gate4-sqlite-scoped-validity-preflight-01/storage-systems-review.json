@@ -1,0 +1,38 @@
+{
+  "review_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-STORAGE-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Cursor Grok 4.5",
+  "verdict": "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+  "mode": "read_only_preflight",
+  "reviewed_on": "2026-08-14",
+  "key_code_citations": {
+    "validate_preconditions_generation_first": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:2519-2548",
+    "apply_full_state_replace": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:332-431",
+    "replace_canonical_tables": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:1221-1236",
+    "append_01b3_scoped_apply": "src/persistence_evidence/current_contract/append_authoritative_01b3.rs:162-221",
+    "u1_fixture": "src/persistence_evidence/current_contract/evidence_01c/measurement_transitions.rs:39-92"
+  },
+  "bottom_line": "01C-SQLITE-2 fails MD-015 U1 today via generation-first global CAS and all-heads invalidate-all. Removing generation alone is insufficient: replace_canonical_tables from caller next_state would rewind unrelated authority. Minimum successor requires scoped-command apply onto latest canonical state — same MD-015 class as Append 01B-3.",
+  "u1_trace": {
+    "step_1": "review command prepared at generation N with review_ledger_head X",
+    "step_2": "unrelated reuse advance → generation N+1, reuse_governance_head advances",
+    "step_3_today": "review apply fails stale-generation-precondition before scoped review check",
+    "step_3_if_generation_removed": "fails stale-reuse-governance-precondition (all heads still checked)",
+    "step_3_if_heads_narrowed_only": "preconditions pass but replace_canonical_tables(review_target) rewinds reuse — overwrite trap"
+  },
+  "c1_trace": {
+    "status": "works_today",
+    "mechanism": "stale-review-ledger-precondition rejects before commit"
+  },
+  "overwrite_trap": {
+    "severity": "blocking",
+    "pattern": "scoped token check + caller full next_state replace",
+    "same_class_as": "Append 01B-2 / disqualified 01B-3 pattern in architecture-spec"
+  },
+  "minimum_successor": "SCOPED_COMMAND_APPLY_ONTO_LATEST_SQLITE_AUTHORITY (01C-SQLITE-3 class)",
+  "forbidden_in_preflight": [
+    "implementation changes",
+    "FCR-03 wiring"
+  ]
+}

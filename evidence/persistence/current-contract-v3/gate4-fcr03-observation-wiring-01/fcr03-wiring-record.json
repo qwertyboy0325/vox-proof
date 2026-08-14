@@ -1,0 +1,32 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-01",
+  "status": "WIRING_COMPLETE",
+  "completed_on": "2026-08-14",
+  "harness_changes": {
+    "types": "NormalizedScenarioResult.fcr03_stale_rejection + fcr03_unrelated_success",
+    "scenario_observation": "Fcr03StaleRejectionRecord + Fcr03UnrelatedSuccessRecord (serde)",
+    "scenarios": [
+      "run_stale_precondition records FCR-03 for Append01B3 + Sqlite01C3",
+      "run_unrelated_scope_success U1 scenario"
+    ],
+    "scenario_contract": "unrelated-scope-review-after-reuse-advance",
+    "candidate": "CurrentContractCandidateKind::Sqlite01C3 + sqlite_01c3()",
+    "runner": "run_01c_evidence_dual_scoped + SqliteEvidenceVariant",
+    "readiness": "validate_fcr03_observations for 01B-3 and 01C-SQLITE-3"
+  },
+  "env_controls": {
+    "append": "VOXPROOF_APPEND_EVIDENCE_VARIANT=01B-3",
+    "sqlite": "VOXPROOF_SQLITE_EVIDENCE_VARIANT=01C-SQLITE-3",
+    "dual_scoped_entry": "run_01c_evidence_dual_scoped()"
+  },
+  "tests": {
+    "persistence_01c_evidence::scoped_candidates_persist_fcr03_observations_in_harness": "pass",
+    "persistence_sqlite_scoped_precondition_01c3": "15/15",
+    "persistence_append_scoped_precondition_01b3": "6/6"
+  },
+  "claim_boundary": {
+    "fcr03_demonstrated_in_evidence_artifacts": "requires fresh dual-scoped evidence run",
+    "unit_and_harness_scenario_proof": "complete for macOS harness path"
+  }
+}

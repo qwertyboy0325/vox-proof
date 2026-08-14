@@ -1,0 +1,60 @@
+{
+  "artifact_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-RECORD",
+  "work_package_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01",
+  "status": "MACOS_SINGLE_PLATFORM_COMPLETE",
+  "executed_on": "2026-08-14",
+  "owner_authorization": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/owner-evidence-execution-decision.json",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+  "harness_semantic_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "append_candidate_variant": "01B-3",
+  "platform_scope": "macos_native",
+  "execution_summary": {
+    "append_candidate_version": "01B-3",
+    "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "sqlite_candidate_version": "01C-SQLITE-2",
+    "sqlite_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "append_scenarios_passed": 25,
+    "append_scenarios_failed": 0,
+    "single_platform_readiness": "ready_for_owner_decision",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "comparison_blockers": [
+      "cross_platform: awaiting peer platform evidence aggregation"
+    ]
+  },
+  "md_015_scoped_validity_evidence": {
+    "append_01B_3": {
+      "evidence_strength": "InterfaceBehavior",
+      "stale_scenarios": [
+        "stale-review-ledger-command",
+        "stale-reuse-governance-command",
+        "stale-analysis-attachment-or-selection"
+      ],
+      "stale_limitation_class": "append-01b-3: scoped stale precondition classes exercised",
+      "stale_asymmetry_limitation_absent": true,
+      "eligibility_downgrade_absent": true,
+      "fcr03_fields_in_01c_artifacts": false,
+      "claim": "InterfaceBehavior scoped stale rejection on macOS native; FCR-03 fields unit-tested only"
+    },
+    "sqlite_01C_SQLITE_2": {
+      "claim": "comparison baseline only; md_015_scoped_validity not demonstrated (governance finding recorded)"
+    }
+  },
+  "frozen_evidence_preserved": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "append_variant": "01B-2",
+    "unchanged": true
+  },
+  "not_claimed": [
+    "cross-platform readiness",
+    "mechanism selection",
+    "SQLite md_015 scoped validity",
+    "replacement of frozen 91e258c comparison evidence"
+  ],
+  "required_next": [
+    "evidence-methodology review of 01B-3 macOS evidence record",
+    "SQLite scoped-validity preflight",
+    "Windows cross-platform evidence (separate authorization)",
+    "dual-candidate selection-eligible evidence rebuild"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-01",
+  "status": "MACOS_EVIDENCE_COMPLETE",
+  "phase": "EVIDENCE_METHODOLOGY_REVIEW_GATE",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorization_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/owner-authorization.json",
+  "objective": "Unified FCR-03 observation persistence in 01C harness for Append 01B-3 and SQLite 01C-SQLITE-3 scoped successors.",
+  "scope": [
+    "NormalizedScenarioResult fcr03_stale_rejection + fcr03_unrelated_success fields",
+    "stale-* scenarios record Fcr03StaleRejectionObservation with failure_code",
+    "unrelated-scope-review-after-reuse-advance U1 scenario in scenario_contract_v4",
+    "Sqlite01C3 harness candidate wiring",
+    "readiness validation for FCR-03 fields on scoped candidates",
+    "dual-scoped evidence runner entry point (append 01B-3 + sqlite 01C-SQLITE-3)"
+  ],
+  "forbidden": [
+    "modify frozen 91e258c",
+    "mechanism selection",
+    "fresh evidence execution without separate owner authorization"
+  ],
+  "completed_gates": [
+    "FCR-03 harness wiring",
+    "macOS dual-scoped evidence execution"
+  ],
+  "required_next": [
+    "evidence-methodology review of gate4-01c-d267f0d-dual-scoped-fcr03",
+    "commit harness_semantic_sha",
+    "Windows dual-scoped evidence (separate authorization)"
+  ],
+  "evidence_execution": {
+    "owner_authorization": "owner-evidence-execution-decision.json",
+    "record": "evidence-execution-record.json",
+    "evidence_path": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03"
+  }
+}

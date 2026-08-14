@@ -1,0 +1,53 @@
+{
+  "decision_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-OWNER-DECISION",
+  "owner_decision": "AUTHORIZE_APPEND_01B_3_EVIDENCE_EXECUTION",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-14",
+  "authorization_scope": {
+    "append_candidate_variant": "01B-3",
+    "harness_constructor": "CurrentContractCandidate::append_01b3",
+    "platform_scope": "macos_native_single_platform",
+    "sqlite_candidate": "01C-SQLITE-2 unchanged (historical accepted)",
+    "cross_platform": "not_authorized_in_this_gate"
+  },
+  "preconditions_satisfied": [
+    "implementation_self_check complete",
+    "storage_systems_review PASS_WITH_CAVEATS",
+    "storage_review_corrections applied",
+    "U1/C1/C3 unit proofs pass (6/6)",
+    "01B-2 regression pass (20/20)",
+    "01c harness tests pass (14/14)"
+  ],
+  "hard_boundaries": {
+    "preserve": [
+      "frozen gate4-01c-91e258c evidence immutable",
+      "01B-2 candidate and version constant unchanged",
+      "default 01C runner remains 01B-2 unless VOXPROOF_APPEND_EVIDENCE_VARIANT=01B-3",
+      "MD-015 unchanged",
+      "mechanism selection closed"
+    ],
+    "forbidden": [
+      "rewrite frozen 91e258c",
+      "claim mechanism selection readiness",
+      "cross-platform Windows evidence without separate authorization",
+      "modify SQLite candidate in this gate"
+    ]
+  },
+  "evidence_claim_scope": [
+    "Append 01B-3 scenario contract v4 execution on macOS native",
+    "InterfaceBehavior scoped stale rejection for three stale precondition classes",
+    "md_015_scoped_validity evidence for Append 01B-3 at InterfaceBehavior strength only",
+    "comparison evidence against SQLite 01C-SQLITE-2 for measurement baseline",
+    "FCR-03 fields unit-tested only; not persisted in 01C scenario-results"
+  ],
+  "downstream_after_execution": [
+    "evidence-methodology review of 01B-3 evidence record",
+    "SQLite scoped-validity preflight",
+    "dual-candidate selection-eligible evidence rebuild",
+    "Sol STRONG_FINAL retry on governance chain"
+  ],
+  "authorization_ref": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/owner-preflight-decision.json",
+  "implementation_ref": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/implementation-self-check.json",
+  "storage_review_ref": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/storage-review-corrections.json"
+}

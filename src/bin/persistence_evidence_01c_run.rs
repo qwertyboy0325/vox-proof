@@ -6,6 +6,9 @@ use vox_proof::persistence_evidence::current_contract::evidence_01c::measurement
     child_hold_writer_main, child_interrupt_transition_main, measure_sample_main,
 };
 use vox_proof::persistence_evidence::run_01c_evidence;
+use vox_proof::persistence_evidence::current_contract::evidence_01c::{
+    run_01c_evidence_dual_scoped, AppendEvidenceVariant, SqliteEvidenceVariant,
+};
 
 fn main() {
     if let Some(command) = std::env::args().nth(1) {
@@ -25,10 +28,28 @@ fn main() {
     let run_id = std::env::var("VOXPROOF_01C_RUN_ID")
         .unwrap_or_else(|_| format!("current-contract-v3-01c-{}", timestamp_slug()));
     let output_root = PathBuf::from("evidence/persistence/current-contract-v3/01c").join(&run_id);
-    let output = run_01c_evidence(&output_root);
+    let output = if std::env::var("VOXPROOF_01C_DUAL_SCOPED")
+        .ok()
+        .as_deref()
+        .is_some_and(|value| matches!(value, "1" | "true" | "yes"))
+    {
+        run_01c_evidence_dual_scoped(&output_root)
+    } else {
+        run_01c_evidence(&output_root)
+    };
+    let append_label = match output.append_variant {
+        AppendEvidenceVariant::Historical01B2 => "01B-2",
+        AppendEvidenceVariant::Scoped01B3 => "01B-3",
+    };
+    let sqlite_label = match output.sqlite_variant {
+        SqliteEvidenceVariant::Historical01CSqlite2 => "01C-SQLITE-2",
+        SqliteEvidenceVariant::Scoped01CSqlite3 => "01C-SQLITE-3",
+    };
     println!(
-        "01C evidence written to {} (readiness: {})",
+        "01C evidence written to {} (append: {}, sqlite: {}, readiness: {})",
         output.output_root.display(),
+        append_label,
+        sqlite_label,
         output.package.mechanism_comparison_readiness
     );
 }

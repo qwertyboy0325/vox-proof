@@ -1,0 +1,87 @@
+{
+  "packet_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01-DECISION-PACKET",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "prepared_on": "2026-08-14",
+  "reviewer": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Cursor Grok 4.5",
+  "owner_authorization_ref": "owner-preflight-authorization.json",
+  "preflight_verdict": "PROCEED_SQLITE_SCOPED_SUCCESSOR",
+  "preflight_verdict_meaning": "Current 01C-SQLITE-2 cannot claim MD-015 scoped validity. A bounded SQLite successor is feasible if and only if the write API stops persisting caller-supplied full next_state and instead applies a scoped command onto latest loaded authority (same MD-015 standard as Append 01B-3). Naive remove-generation-check-only is insufficient and creates a full-state overwrite trap.",
+  "verdicts_rejected": {
+    "SQLITE_SCOPED_VALIDITY_CONFIRMED": "false — generation-first CAS + all-heads checks + full-state replace; U1 not demonstrated",
+    "REQUIRE_NEW_AUTHORITY_SEMANTICS": "not primary — physical SQLite transactional container can host the same scoped-apply-onto-latest class as 01B-3"
+  },
+  "critical_judgment": {
+    "criterion": "After removing global generation CAS, can SQLite safely apply scoped commands onto latest canonical state WITHOUT rewinding unrelated authority via stale full-state overwrite?",
+    "answer": "NO under current apply API",
+    "reason": "apply_authoritative_transition always ends in replace_canonical_tables from caller next_state; scoped precondition narrowing alone does not rebase onto latest"
+  },
+  "u1_analysis": {
+    "fixture_ref": "measurement_transitions::unrelated_scope_success_fixture (same class as Append 01B-3 U1)",
+    "sqlite_today": {
+      "outcome": "fails_before_apply",
+      "first_blocker": "stale-generation-precondition (committed_generation checked first)",
+      "second_blocker_if_generation_removed": "stale-reuse-governance-precondition (all heads checked on every transition)",
+      "classification": "global_invalidate_all_after_any_change — same class as Append 01B-2"
+    },
+    "if_generation_removed_and_checks_narrowed_to_review_scope_only": {
+      "precondition_outcome": "would_pass",
+      "persist_path": "replace_canonical_tables with caller review_target",
+      "authority_outcome": "full-state-overwrite / unrelated reuse rewind",
+      "md015_u1": "FAIL"
+    }
+  },
+  "c1_analysis": {
+    "outcome_today": "same-scope conflict rejection works",
+    "mechanism": "stale-review-ledger-precondition before commit",
+    "md015_sufficiency": "C1 alone insufficient; MD-015 also requires U1 and no unrelated rewind"
+  },
+  "naive_remove_generation_check_only": {
+    "sufficient": false,
+    "why": [
+      "U1 still rejected by non-scoped head checks",
+      "Narrowing checks without merge path creates overwrite trap",
+      "committed_generation may remain physical order only but that alone is not the successor"
+    ]
+  },
+  "minimum_successor_semantics": {
+    "candidate_shape": "01C-SQLITE-3 bounded successor; preserve 01C-SQLITE-2 historically accepted",
+    "required": [
+      "explicit command scope (ReviewLedger | ReuseGovernance | ActiveAnalysis)",
+      "validate only relevant write-set token(s) for that scope",
+      "load latest canonical authority inside writer/tx",
+      "apply scoped patch onto latest (preserve unrelated latest heads/events)",
+      "finalize_derived_fields + oracle validate",
+      "persist merged resulting full state",
+      "advance committed_generation as physical/order ack only",
+      "C3 guard against stale full-state unrelated rewind",
+      "U1/C1/C3 proof obligations under same MD-015 standard as Append 01B-3"
+    ],
+    "disqualified": [
+      "remove generation check only",
+      "scoped preconditions + caller next_state full replace",
+      "FCR-03 wiring in preflight"
+    ]
+  },
+  "comparison_to_01b3_md015_standard": {
+    "standard_ref": "docs/governance/decisions/MD-015-proposed-persistence-mechanism-evidence-protocol.md:246-259",
+    "append_01b3_status": "InterfaceBehavior scoped stale + unit U1/C1/C3 with patch-onto-latest",
+    "sqlite_01c_sqlite_2_status": "not_demonstrated",
+    "same_standard": true,
+    "parallel_preflight_outcome": "mirrors Append preflight PROCEED_01B_3"
+  },
+  "recommended_downstream_path": {
+    "next": "owner gate: authorize bounded SQLite scoped-successor implementation WP",
+    "not_yet": [
+      "FCR-03 observation wiring",
+      "dual-candidate selection-eligible evidence rebuild",
+      "mechanism selection"
+    ]
+  },
+  "predecessor_finding_ref": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
+  "possible_owner_outcomes": [
+    "AUTHORIZE_SQLITE_SCOPED_SUCCESSOR_IMPLEMENTATION_WP",
+    "SQLITE_SELECTION_INELIGIBLE_UNDER_MD_015",
+    "DEFER"
+  ]
+}

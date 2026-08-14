@@ -1,0 +1,57 @@
+{
+  "artifact_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-SELF-CHECK",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "status": "SUCCESSOR_FROZEN",
+  "completed_on": "2026-08-14",
+  "candidate_version": "01C-SQLITE-3",
+  "predecessor_preserved": "01C-SQLITE-2",
+  "implementation_summary": {
+    "module": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs",
+    "write_api": "apply_scoped_command(SqliteScopedCommand)",
+    "persist_path": "persist_merged_from_latest_authority → replace_canonical_tables(merged)",
+    "committed_generation_role": "physical ordering only"
+  },
+  "proof_obligations": {
+    "U1_unrelated_success": {
+      "tests": 4,
+      "status": "pass"
+    },
+    "C1_conflict_rejection": {
+      "tests": 3,
+      "status": "pass"
+    },
+    "C3_overwrite_protection": {
+      "tests": 3,
+      "status": "pass"
+    },
+    "persistence": {
+      "tests": 2,
+      "status": "pass"
+    },
+    "regression": {
+      "tests": 1,
+      "status": "pass"
+    },
+    "01C_SQLITE_2_regression": {
+      "test": "tests/persistence_sqlite_authoritative_01c.rs",
+      "status": "pass"
+    }
+  },
+  "test_results": {
+    "persistence_sqlite_scoped_precondition_01c3": "15/15 pass",
+    "persistence_sqlite_authoritative_01c": "16/16 pass",
+    "persistence_append_scoped_precondition_01b3": "6/6 pass"
+  },
+  "storage_review": {
+    "verdict": "PASS_WITH_CAVEATS",
+    "artifact": "storage-systems-review.json",
+    "corrections": "storage-review-corrections.json",
+    "rc1_applied": true
+  },
+  "successor_freeze": "successor-candidate-freeze.json",
+  "required_next": [
+    "unified FCR-03 observation wiring for 01B-3 + 01C-SQLITE-3 (separate authorization)",
+    "harness Sqlite01C3 wiring",
+    "fresh dual-candidate evidence (separate authorization)"
+  ]
+}

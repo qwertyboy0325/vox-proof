@@ -1,0 +1,75 @@
+{
+  "review_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-STORAGE-SYSTEMS-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "commit_reviewed": "d267f0d",
+  "correction_commit": "pending",
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Grok 4.6 Extra High",
+  "reviewed_on": "2026-08-14",
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: PASS",
+  "blocking_before_successor_freeze": false,
+  "findings_summary": {
+    "high": [],
+    "medium": ["M1_U1_ANALYSIS_TEST_WEAK_ORACLE"],
+    "low": [
+      "L1_HARNESS_WIRING_DEFERRED",
+      "L2_INFER_SCOPE_NOT_HARNESS_BOUND",
+      "L3_FCR03_OBSERVATIONS_UNIT_ONLY"
+    ]
+  },
+  "key_code_citations": {
+    "apply_scoped_command": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:153-164",
+    "persist_merged_from_latest_authority": "src/persistence_evidence/current_contract/sqlite_authoritative.rs:465-495",
+    "validate_scoped_preconditions": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:259-297",
+    "apply_review_scope_patch": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:299-309",
+    "apply_reuse_scope_patch": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:311-335",
+    "apply_analysis_scope_patch": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:337-356",
+    "reject_full_state_authority_replace": "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs:167-206",
+    "01c_sqlite_2_version_preserved": "src/persistence_evidence/current_contract/sqlite_authoritative.rs (SQLITE_AUTHORITATIVE_CANDIDATE_VERSION = 01C-SQLITE-2)"
+  },
+  "mechanism_assessment": {
+    "scoped_precondition_validation": "PASS — only command-relevant token validated per scope",
+    "load_latest_in_transaction": "PASS — merge closure receives latest authority loaded inside immediate tx",
+    "scoped_patch_not_caller_full_state": "PASS — apply_*_scope_patch clones current and patches write-set only",
+    "replace_primitive_usage": "PASS — replace_canonical_tables receives merged authority, not caller next_state",
+    "committed_generation_role": "PASS — physical ordering/ack only; not semantic global CAS",
+    "01C_SQLITE_2_regression": "PASS — predecessor version and behavior preserved"
+  },
+  "proof_obligations": {
+    "U1": {
+      "status": "proven_with_one_oracle_correction",
+      "tests": 4,
+      "note": "reuse-path oracle independent; analysis-path oracle corrected under RC1"
+    },
+    "C1": {
+      "status": "proven",
+      "tests": 3
+    },
+    "C3": {
+      "status": "proven",
+      "tests": 3,
+      "note": "off-path reject_full_state_authority_replace plus scoped apply preserves unrelated heads"
+    },
+    "persistence_and_interrupt": {
+      "status": "proven",
+      "tests": 3
+    }
+  },
+  "recommended_corrections": [
+    {
+      "id": "RC1",
+      "severity": "medium",
+      "finding": "M1_U1_ANALYSIS_TEST_WEAK_ORACLE",
+      "description": "u1_review_succeeds_after_unrelated_analysis_advance built expected from writer.normalized_state() after apply — circular weak oracle that would not catch analysis authority rewind",
+      "required_fix": "Build independent expected from analysis-advanced state + review write-set; assert active_analysis_snapshot_identity preserved; add Fcr03UnrelatedSuccessObservation",
+      "blocking": false
+    }
+  ],
+  "claim_boundaries": {
+    "md_015_scoped_validity": "u1_c1_c3_unit_proven — not general MD-015 including harness FCR-03 persistence until wired",
+    "active_analysis_u1": "proven after RC1 oracle hardening",
+    "harness_evidence": "not_executed — Sqlite01C3 harness wiring deferred per work-package ordering"
+  },
+  "bottom_line": "01C-SQLITE-3 scoped apply onto latest canonical authority inside transaction is mechanistically sound. No blocking storage corrections. One bounded test-oracle correction (RC1) recommended before successor freeze."
+}

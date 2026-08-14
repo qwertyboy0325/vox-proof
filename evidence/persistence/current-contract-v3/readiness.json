@@ -1,20 +1,40 @@
 {
-  "package": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
-  "predecessor": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
-  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "package": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
+  "harness_semantic_sha": "4eb049799a6f6d6b106ab8a123ac2ed25f3a4f54",
+  "harness_semantic_sha_note": "FCR-03 wiring committed; dual-scoped macOS evidence executed at pre-commit base d267f0d (see dual_scoped_fcr03_evidence.evidence_execution_harness_sha)",
   "mechanism_comparison_readiness": "accepted_with_documented_caveats",
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "APPEND_01B_3_IMPLEMENTATION_COMPLETE",
+  "tracker_status": "FCR03_WIRING_COMMITTED_HARNESS_SHA_UPDATED",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true
   },
-  "stale_semantic_gate": {
-    "status": "REOPENED_AND_SUPERSEDED",
-    "supersession": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision-supersession.json"
+  "dual_scoped_fcr03_evidence": {
+    "status": "macos_single_platform_complete",
+    "record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+    "evidence_execution_harness_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+    "evidence_execution_harness_sha_note": "macOS evidence run from working tree atop d267f0d before FCR-03 wiring commit 4eb0497; record manifest retains d267f0d provenance",
+    "fcr03_fields_in_artifacts": true,
+    "append_candidate": "01B-3",
+    "sqlite_candidate": "01C-SQLITE-3",
+    "execution_record": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-execution-record.json",
+    "methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
+    "methodology_review_verdict": "PASS_WITH_CAVEATS",
+    "methodology_reviewer_model": "Cursor Grok 4.6"
+  },
+  "append_01b3_evidence": {
+    "status": "superseded_for_fcr03_by_dual_scoped_record",
+    "historical_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+    "fcr03_in_prior_evidence": false
+  },
+  "fcr03_observation_wiring": {
+    "status": "WIRING_COMPLETE",
+    "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/work-package.json",
+    "wiring_record": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/fcr03-wiring-record.json",
+    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/owner-authorization.json"
   },
   "md_015": {
     "unchanged": true
@@ -22,65 +42,68 @@
   "candidates": {
     "append_01B_2": {
       "status": "historical_accepted",
-      "md_015_scoped_validity": "not_demonstrated",
-      "modify_in_current_wp": false
+      "md_015_scoped_validity": "not_demonstrated"
     },
     "append_01B_3": {
-      "status": "implementation_complete_pending_specialist_review",
-      "md_015_scoped_validity": "u1_c1_c3_proven_in_unit_tests",
-      "work_package": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/work-package.json",
-      "architecture_spec": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/architecture-spec.json",
-      "implementation_self_check": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/implementation-self-check.json"
+      "status": "macos_fcr03_evidence_executed",
+      "md_015_scoped_validity": "harness_observation_fidelity_macos_native",
+      "unit_u1_c1_c3": "proven",
+      "fcr03_harness_wired": true,
+      "fcr03_in_macos_evidence": true
     },
     "sqlite_01C_SQLITE_2": {
-      "status": "historical_accepted",
+      "status": "historical_accepted_md015_ineligible",
       "md_015_scoped_validity": "not_demonstrated",
-      "finding": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
       "modify_in_current_wp": false
+    },
+    "sqlite_01C_SQLITE_3": {
+      "status": "macos_fcr03_evidence_executed",
+      "md_015_scoped_validity": "harness_observation_fidelity_macos_native",
+      "unit_u1_c1_c3": "proven",
+      "fcr03_harness_wired": true,
+      "fcr03_in_macos_evidence": true,
+      "successor_freeze": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/successor-candidate-freeze.json"
     }
   },
-  "governance_findings": [
-    {
-      "id": "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED",
-      "severity": "selection_blocking",
-      "artifact": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
-      "note": "SQLite global generation check before scoped checks; same U1 gap class as Append 01B-2"
-    }
-  ],
   "active_work_package": {
-    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
-    "status": "IMPLEMENTATION_COMPLETE_PENDING_SPECIALIST_REVIEW",
-    "phase": "GOLDEN_PATH_IMPLEMENTATION_GATE"
+    "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
+    "status": "COMMIT_COMPLETE",
+    "phase": "WINDOWS_DUAL_SCOPED_AUTHORIZATION"
   },
   "gate_sequence": {
     "completed": [
       "comparison_evidence_owner_accepted",
-      "preflight_PROCEED_01B_3",
-      "owner_AUTHORIZE_01B_3",
-      "append_01B_3_U1_C1_C3_unit_proof"
+      "append_01B_3_implementation_and_macos_evidence",
+      "sqlite_scoped_validity_preflight_PROCEED_SQLITE_SCOPED_SUCCESSOR",
+      "owner_AUTHORIZE_SQLITE_SCOPED_SUCCESSOR",
+      "sqlite_01C_SQLITE_3_U1_C1_C3_unit_proof",
+      "sqlite_01C_SQLITE_3_storage_systems_review_PASS_WITH_CAVEATS",
+      "sqlite_01C_SQLITE_3_RC1_oracle_correction",
+      "sqlite_01C_SQLITE_3_successor_candidate_freeze",
+      "unified_FCR03_observation_wiring_01B3_and_01C_SQLITE3",
+      "macos_dual_scoped_fcr03_evidence_execution",
+      "evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
+      "fcr03_wiring_commit_4eb0497_harness_sha_updated"
     ],
-    "current": "APPEND_01B_3_SPECIALIST_REVIEW",
+    "current": "WINDOWS_DUAL_SCOPED_AUTHORIZATION",
     "blocked": [
       "mechanism_selection",
-      "FINAL_GATE_GOVERNANCE_CHECK",
-      "STRONG_FINAL_CONFLICT_REVIEW_PASS"
+      "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "Append specialist/storage-systems code review",
-      "SQLite scoped-validity preflight",
-      "dual-candidate selection-eligible evidence rebuild",
+      "Windows dual-scoped evidence (separate authorization)",
       "Sol retry on governance chain"
     ]
   },
   "still_closed": [
     "mechanism_selection",
+    "fresh_dual_candidate_evidence_windows",
     "Material_Decision",
     "product_integration",
-    "READY_FOR_OWNER_GATE",
-    "sqlite_modification_without_preflight"
+    "READY_FOR_OWNER_GATE"
   ],
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "01B-3 implementation authorized Option 1 only. SQLite U1 gap recorded; Append elimination does not resolve selection blocker. Selection closed until both candidates demonstrate scoped validity."
+  "note": "FCR-03 wiring committed (4eb0497). macOS dual-scoped evidence at d267f0d base reviewed PASS_WITH_CAVEATS (Grok 4.6). Windows authorization and mechanism selection remain closed."
 }

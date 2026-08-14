@@ -3,22 +3,42 @@ use std::time::{Duration, Instant};
 
 use super::super::measurement::MeasurementFixtureScale;
 use super::scenario_observation::{
-    corruption_tamper_limitation, ScenarioOutcome, APPEND_01B3_STALE_SCOPED_LIMITATION,
+    corruption_tamper_limitation, Fcr03StaleRejectionObservation,
+    Fcr03UnrelatedSuccessObservation, ScenarioOutcome, APPEND_01B3_STALE_SCOPED_LIMITATION,
     APPEND_STALE_ASYMMETRY_LIMITATION, OBSERVED_RECOVERY_SAFE_AUTOMATIC,
 };
+use super::super::oracle::CurrentContractOracle;
 use super::super::scenario_contract::{
     scenario_contract_v4, ScenarioContractV3,
 };
 use super::candidate::{
     fixture_state_for_scale, measurement_transition_states, scenario_fixture_state,
-    updated_writer_token_state, CurrentContractCandidate, CurrentContractCandidateKind,
-    SQLITE_LEASE_EXPIRY_WAIT_MS, SQLITE_WRITER_LEASE_DURATION_MS,
+    unrelated_scope_success_fixture, updated_writer_token_state, CurrentContractCandidate,
+    CurrentContractCandidateKind, SQLITE_LEASE_EXPIRY_WAIT_MS, SQLITE_WRITER_LEASE_DURATION_MS,
 };
 use super::measurement_worker::worker_binary;
 use super::types::{
     fixture_scale_label, CorrectnessDisqualification,
     NormalizedScenarioResult, ScenarioExecutionStatus,
 };
+
+pub fn run_fcr03_observation_scenarios(
+    candidate: &CurrentContractCandidate,
+    platform: &str,
+    work_root: &std::path::Path,
+) -> Vec<NormalizedScenarioResult> {
+    let scenario_ids = [
+        "stale-review-ledger-command",
+        "stale-reuse-governance-command",
+        "stale-analysis-attachment-or-selection",
+        "unrelated-scope-review-after-reuse-advance",
+    ];
+    scenario_contract_v4()
+        .into_iter()
+        .filter(|scenario| scenario_ids.contains(&scenario.scenario_id.as_str()))
+        .map(|scenario| execute_scenario(candidate, &scenario, platform, work_root))
+        .collect()
+}
 
 pub fn run_required_scenarios(
     candidate: &CurrentContractCandidate,
@@ -93,6 +113,9 @@ fn execute_scenario(
         "read-only-open-during-writer" => run_read_only_during_writer(candidate, &scenario_root),
         id if id.starts_with("append-") => run_fixture_round_trip(candidate, &scenario_root, id),
         id if id.starts_with("stale-") => run_stale_precondition(candidate, &scenario_root, id),
+        "unrelated-scope-review-after-reuse-advance" => {
+            run_unrelated_scope_success(candidate, &scenario_root)
+        }
         id if id.contains("corruption") || id.contains("malformed") => {
             run_negative_corruption(candidate, &scenario_root, id)
         }
@@ -144,6 +167,8 @@ fn observation_to_result(
         elapsed_ms,
         correctness_disqualification: None,
         limitations: observation.limitations,
+        fcr03_stale_rejection: observation.fcr03_stale_rejection,
+        fcr03_unrelated_success: observation.fcr03_unrelated_success,
     }
 }
 
@@ -363,6 +388,7 @@ fn run_stale_precondition(
     let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     let next = updated_writer_token_state(state.clone(), "writer:stale-test");
     let baseline = adapter.authoritative_preconditions(&writer).map_err(err_string)?;
+    let before = adapter.normalized_state(&writer)?;
     let stale = stale_preconditions(candidate.kind(), scenario_id, &baseline);
     let stale_result = adapter.apply_transition_with_preconditions(
         &mut writer,
@@ -370,6 +396,7 @@ fn run_stale_precondition(
         &next,
         Some(scenario_id),
     );
+    let after = adapter.normalized_state(&writer)?;
     let expected = expected_stale_code(candidate.kind(), scenario_id);
     let mut limitations = Vec::new();
     if matches!(candidate.kind(), CurrentContractCandidateKind::Append)
@@ -377,19 +404,104 @@ fn run_stale_precondition(
     {
         limitations.push(APPEND_STALE_ASYMMETRY_LIMITATION.to_owned());
     }
-    if matches!(candidate.kind(), CurrentContractCandidateKind::Append01B3)
-        && scenario_id.starts_with("stale-")
+    if matches!(
+        candidate.kind(),
+        CurrentContractCandidateKind::Append01B3 | CurrentContractCandidateKind::Sqlite01C3
+    ) && scenario_id.starts_with("stale-")
     {
         limitations.push(APPEND_01B3_STALE_SCOPED_LIMITATION.to_owned());
     }
     match stale_result {
         Err(code) if code == expected => {
+            let oracle_compare = CurrentContractOracle::compare(&before, &after).passed;
+            let mut outcome = ScenarioOutcome::passed_with_limitations(limitations);
+            if records_fcr03_stale_observation(candidate.kind()) {
+                let observation = Fcr03StaleRejectionObservation::record(
+                    code.clone(),
+                    &before,
+                    &after,
+                    oracle_compare,
+                );
+                if !observation.post_rejection_authority_unchanged {
+                    adapter.close(writer).map_err(err_string)?;
+                    return Err("post-rejection-authority-changed".to_owned());
+                }
+                if !observation.post_rejection_oracle_compare {
+                    adapter.close(writer).map_err(err_string)?;
+                    return Err("post-rejection-oracle-mismatch".to_owned());
+                }
+                outcome = outcome.with_fcr03_stale_rejection(observation);
+            }
             adapter.close(writer).map_err(err_string)?;
-            Ok(ScenarioOutcome::passed_with_limitations(limitations))
+            Ok(outcome)
         }
         Err(code) => Err(code),
         Ok(()) => Err(format!("expected {expected}")),
     }
+}
+
+fn run_unrelated_scope_success(
+    candidate: &CurrentContractCandidate,
+    root: &std::path::Path,
+) -> ScenarioRunResult {
+    if !records_fcr03_unrelated_success_observation(candidate.kind()) {
+        return Ok(ScenarioOutcome::unsupported(vec![
+            "scoped-precondition candidate required for unrelated-scope U1 scenario".to_owned(),
+        ]));
+    }
+    let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
+    let (review_precursor, reuse_advanced, review_target) =
+        unrelated_scope_success_fixture(MeasurementFixtureScale::Small);
+    let (session_id, _) = adapter
+        .create_session(&review_precursor)
+        .map_err(err_string)?;
+    let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
+    adapter
+        .apply_scoped_transition_at_prepare_authority(
+            &mut writer,
+            super::candidate::ScopedCommandScope::ReuseGovernance,
+            &review_precursor,
+            &reuse_advanced,
+        )
+        .map_err(err_string)?;
+    adapter
+        .apply_scoped_transition_at_prepare_authority(
+            &mut writer,
+            super::candidate::ScopedCommandScope::ReviewLedger,
+            &review_precursor,
+            &review_target,
+        )
+        .map_err(err_string)?;
+
+    let mut expected = reuse_advanced.clone();
+    expected.review_ledger_events = review_target.review_ledger_events.clone();
+    expected.effective_review_status = review_target.effective_review_status.clone();
+    expected.durable_command_tokens.review_ledger_head =
+        review_target.durable_command_tokens.review_ledger_head;
+    super::super::finalize_derived_fields(&mut expected);
+    let expected = expected.normalize();
+    let actual = adapter.normalized_state(&writer)?;
+    let unrelated_scope_preserved = actual.durable_command_tokens.reuse_governance_head
+        == reuse_advanced.durable_command_tokens.reuse_governance_head;
+    let observation =
+        Fcr03UnrelatedSuccessObservation::record(&expected, &actual, unrelated_scope_preserved);
+    if !observation.unrelated_scope_preserved || !observation.stale_full_state_not_persisted {
+        adapter.close(writer).map_err(err_string)?;
+        return Err("unrelated-scope-not-preserved".to_owned());
+    }
+    adapter.close(writer).map_err(err_string)?;
+    Ok(ScenarioOutcome::passed_with_oracle().with_fcr03_unrelated_success(observation))
+}
+
+fn records_fcr03_stale_observation(kind: CurrentContractCandidateKind) -> bool {
+    matches!(
+        kind,
+        CurrentContractCandidateKind::Append01B3 | CurrentContractCandidateKind::Sqlite01C3
+    )
+}
+
+fn records_fcr03_unrelated_success_observation(kind: CurrentContractCandidateKind) -> bool {
+    records_fcr03_stale_observation(kind)
 }
 
 fn run_negative_corruption(
@@ -432,7 +544,9 @@ fn expected_corruption_refusal_code(
     match kind {
         CurrentContractCandidateKind::Append => "commit-fingerprint-mismatch",
         CurrentContractCandidateKind::Append01B3 => "commit-fingerprint-mismatch",
-        CurrentContractCandidateKind::Sqlite => "canonical-corruption",
+        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Sqlite01C3 => {
+            "canonical-corruption"
+        }
     }
 }
 
@@ -483,7 +597,10 @@ fn run_writer_takeover(
     let adapter = candidate_for_root(candidate, root).map_err(|(_, code)| code)?;
     let state = fixture_state_for_scale(MeasurementFixtureScale::Small);
     let (session_id, _) = adapter.create_session(&state).map_err(err_string)?;
-    if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
+    if matches!(
+        candidate.kind(),
+        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Sqlite01C3
+    ) {
         adapter
             .configure_sqlite_writer_lease_for_test(&session_id, SQLITE_WRITER_LEASE_DURATION_MS)
             .map_err(err_string)?;
@@ -504,6 +621,7 @@ fn run_writer_takeover(
                 CurrentContractCandidateKind::Append => "append",
                 CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
+                CurrentContractCandidateKind::Sqlite01C3 => "sqlite-01c3",
             },
         )
         .spawn()
@@ -525,7 +643,10 @@ fn run_writer_takeover(
         .wait()
         .map_err(|error| error.to_string())?
         .success());
-    if matches!(candidate.kind(), CurrentContractCandidateKind::Sqlite) {
+    if matches!(
+        candidate.kind(),
+        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Sqlite01C3
+    ) {
         match adapter.open_writable(&session_id) {
             Err(code) if code == "writer-already-open" => {}
             Ok(_) => return Err("takeover-before-lease-expiry-not-rejected".to_owned()),
@@ -578,6 +699,10 @@ fn candidate_for_root(
             CurrentContractCandidate::sqlite(root)
                 .map_err(|code| (ScenarioExecutionStatus::Failed, code))
         }
+        super::candidate::CurrentContractCandidateKind::Sqlite01C3 => {
+            CurrentContractCandidate::sqlite_01c3(root)
+                .map_err(|code| (ScenarioExecutionStatus::Failed, code))
+        }
     }
 }
 
@@ -601,6 +726,12 @@ fn set_format_version(
             .map_err(|error| error.code.to_owned()),
         (
             CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+        ) => adapter
+            .set_format_version_for_test(handle, version)
+            .map_err(|error| error.code.to_owned()),
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
             super::candidate::OpenedCandidateSession::Sqlite(handle),
         ) => adapter
             .set_format_version_for_test(handle, version)
@@ -660,6 +791,56 @@ fn tamper_for_scenario(
         }
         (
             CurrentContractCandidate::Sqlite { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "reuse-governance-order-corruption",
+        ) => {
+            adapter
+                .tamper_reuse_governance_order_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_reuse_governance_order_for_test:reuse-governance-order-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "derived-state-corruption-and-rebuild",
+        ) => {
+            adapter
+                .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_derived_cache_for_test".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "canonical-reference-corruption",
+        ) => {
+            adapter
+                .tamper_canonical_provenance_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_canonical_provenance_for_test:canonical-reference-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "source-locator-corruption",
+        ) => {
+            adapter
+                .tamper_source_locator_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_source_locator_for_test:source-locator-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
+            super::candidate::OpenedCandidateSession::Sqlite(handle),
+            "review-ledger-order-corruption",
+        ) => {
+            adapter
+                .tamper_review_ledger_order_for_test(handle)
+                .map_err(|error| error.code.to_owned())?;
+            "tamper_review_ledger_order_for_test:review-ledger-order-corruption".to_owned()
+        }
+        (
+            CurrentContractCandidate::Sqlite01C3 { adapter, .. },
             super::candidate::OpenedCandidateSession::Sqlite(handle),
             "reuse-governance-order-corruption",
         ) => {
@@ -787,6 +968,7 @@ fn tamper_for_scenario(
         CurrentContractCandidateKind::Append => "append",
         CurrentContractCandidateKind::Append01B3 => "append-01b-3",
         CurrentContractCandidateKind::Sqlite => "sqlite",
+        CurrentContractCandidateKind::Sqlite01C3 => "sqlite-01c-3",
     };
     Ok(corruption_tamper_limitation(
         candidate_label,
@@ -819,6 +1001,7 @@ fn spawn_child_interrupt(
                 CurrentContractCandidateKind::Append => "append",
                 CurrentContractCandidateKind::Append01B3 => "append-01b3",
                 CurrentContractCandidateKind::Sqlite => "sqlite",
+                CurrentContractCandidateKind::Sqlite01C3 => "sqlite-01c3",
             },
         )
         .spawn()
@@ -868,32 +1051,36 @@ fn stale_preconditions(
                 ..baseline.clone()
             },
         },
-        CurrentContractCandidateKind::Sqlite => match scenario_id {
-            "stale-review-ledger-command" => super::super::CurrentContractPreconditions {
-                review_ledger_head: baseline.review_ledger_head + 1,
-                ..baseline.clone()
-            },
-            "stale-reuse-governance-command" => super::super::CurrentContractPreconditions {
-                reuse_governance_head: baseline.reuse_governance_head + 1,
-                ..baseline.clone()
-            },
-            "stale-analysis-attachment-or-selection" => {
-                super::super::CurrentContractPreconditions {
-                    active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Sqlite01C3 => {
+            match scenario_id {
+                "stale-review-ledger-command" => super::super::CurrentContractPreconditions {
+                    review_ledger_head: baseline.review_ledger_head + 1,
                     ..baseline.clone()
+                },
+                "stale-reuse-governance-command" => super::super::CurrentContractPreconditions {
+                    reuse_governance_head: baseline.reuse_governance_head + 1,
+                    ..baseline.clone()
+                },
+                "stale-analysis-attachment-or-selection" => {
+                    super::super::CurrentContractPreconditions {
+                        active_analysis_snapshot_identity: "analysis:stale".to_owned(),
+                        ..baseline.clone()
+                    }
                 }
+                _ => super::super::CurrentContractPreconditions {
+                    expected_generation: baseline.expected_generation.saturating_sub(1),
+                    ..baseline.clone()
+                },
             }
-            _ => super::super::CurrentContractPreconditions {
-                expected_generation: baseline.expected_generation.saturating_sub(1),
-                ..baseline.clone()
-            },
-        },
+        }
     }
 }
 
 fn expected_stale_code(kind: CurrentContractCandidateKind, scenario_id: &str) -> &'static str {
     match kind {
-        CurrentContractCandidateKind::Sqlite | CurrentContractCandidateKind::Append01B3 => {
+        CurrentContractCandidateKind::Sqlite
+        | CurrentContractCandidateKind::Append01B3
+        | CurrentContractCandidateKind::Sqlite01C3 => {
             match scenario_id {
                 "stale-review-ledger-command" => "stale-review-ledger-precondition",
                 "stale-reuse-governance-command" => "stale-reuse-governance-precondition",

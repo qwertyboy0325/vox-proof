@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::scenario_observation::{Fcr03StaleRejectionRecord, Fcr03UnrelatedSuccessRecord};
 use super::super::candidate_equivalence::CandidateEligibilityStatus;
 use super::super::measurement::MeasurementFixtureScale;
 use super::super::scenario_contract::{ExpectedOpenState, ExpectedRecoveryClass};
@@ -45,6 +46,10 @@ pub struct NormalizedScenarioResult {
     pub elapsed_ms: u128,
     pub correctness_disqualification: Option<String>,
     pub limitations: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fcr03_stale_rejection: Option<Fcr03StaleRejectionRecord>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fcr03_unrelated_success: Option<Fcr03UnrelatedSuccessRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

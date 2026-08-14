@@ -1,0 +1,52 @@
+{
+  "work_package_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01",
+  "harness_semantic_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "append_candidate_variant": "01B-3",
+  "aggregation_status": "macos_only_pending_windows",
+  "owner_evidence_execution_decision_ref": "../gate4-append-01b3-scoped-precondition-implementation-01/owner-evidence-execution-decision.json",
+  "required_platforms": [
+    "macos_native",
+    "windows-github-actions"
+  ],
+  "platforms": {
+    "macos_native": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "macos-native",
+      "execution_environment": "macos-native-host",
+      "append_candidate_version": "01B-3",
+      "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION"
+    },
+    "windows-github_actions": {
+      "single_platform_readiness": "not_executed",
+      "note": "requires separate owner authorization per implementation WP"
+    }
+  },
+  "parity_checks": {
+    "harness_sha_match": null,
+    "required_scenario_failures": 0,
+    "append_stale_asymmetry_limitation_absent": true,
+    "append_01b3_scoped_stale_limitation_present": true
+  },
+  "programmatic_readiness": {
+    "single_platform_readiness": "ready_for_owner_decision",
+    "mechanism_comparison_readiness": "not_ready",
+    "mechanism_selection_readiness": "not_ready",
+    "comparison_blockers": [
+      "cross_platform: awaiting peer platform evidence aggregation"
+    ],
+    "selection_blockers": [
+      "cross_platform: awaiting peer platform evidence aggregation",
+      "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED"
+    ]
+  },
+  "frozen_comparison_evidence": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "append_variant": "01B-2",
+    "owner_accepted": true,
+    "unchanged": true
+  },
+  "mechanism_selection": "none",
+  "note": "Append 01B-3 macOS single-platform evidence at d267f0d. Append eligibility no longer downgraded by stale-precondition asymmetry. Cross-platform and selection remain blocked."
+}

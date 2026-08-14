@@ -1,7 +1,7 @@
 {
   "artifact_id": "VP-GATE4-APPEND-01B-3-IMPLEMENTATION-SELF-CHECK",
   "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
-  "status": "IMPLEMENTATION_COMPLETE_PENDING_SPECIALIST_REVIEW",
+  "status": "MACOS_EVIDENCE_EXECUTED_PENDING_METHODOLOGY_REVIEW",
   "completed_on": "2026-08-14",
   "candidate_version": "01B-3",
   "predecessor_preserved": "01B-2",
@@ -50,7 +50,14 @@
     "01B-2 behavior and version constant"
   ],
   "required_next": [
-    "voxproof-storage-systems-reviewer code-depth review",
-    "Append 01B-3 specialist/evidence review before selection-eligible evidence rebuild"
-  ]
+    "evidence-methodology review of macOS 01B-3 evidence record",
+    "SQLite scoped-validity preflight",
+    "Windows cross-platform evidence (separate authorization)"
+  ],
+  "evidence_execution": {
+    "owner_authorization": "owner-evidence-execution-decision.json",
+    "record": "evidence-execution-record.json",
+    "evidence_path": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+    "append_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION"
+  }
 }

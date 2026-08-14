@@ -1,0 +1,25 @@
+{
+  "authorization_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-OWNER-AUTHORIZATION",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "mode": "read_only_preflight",
+  "objective": "Determine whether SQLite 01C-SQLITE-2 satisfies MD-015 scoped command validity, especially unrelated-scope success, and identify the minimum bounded successor semantics if it does not.",
+  "critical_judgment": "After removing global generation CAS, can SQLite safely apply scoped commands onto latest canonical state without rewinding unrelated authority via stale full-state overwrite? Same MD-015 standard as Append 01B-3.",
+  "forbidden": [
+    "candidate implementation changes",
+    "frozen 91e258c changes",
+    "MD-015 revision",
+    "mechanism selection",
+    "Material Decision",
+    "product integration",
+    "FCR-03 observation wiring in this gate"
+  ],
+  "ordered_downstream": [
+    "SQLite scoped-validity preflight",
+    "determine 01C-SQLITE-2 MD-015 U1 compliance",
+    "if gap: define minimum successor semantics",
+    "then unified FCR-03 observation wiring / fresh evidence"
+  ]
+}

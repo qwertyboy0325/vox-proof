@@ -14,6 +14,12 @@ use super::super::fixture::{
     build_promoted_active_state, build_revoked_historical_state, build_superseded_state,
 };
 use super::super::model::CurrentContractState;
+use super::super::sqlite_authoritative_01c3::{
+    command_scope_for_measurement_operation as sqlite_command_scope_for_measurement_operation,
+    command_scope_for_stale_scenario as sqlite_command_scope_for_stale_scenario,
+    infer_command_scope as infer_sqlite_command_scope, SqliteCommandScope, SqliteScopedCommand,
+    SqliteScopedPreconditionCandidateAdapter, SqliteScopedPreconditions,
+};
 use super::super::sqlite_authoritative::{
     OpenedSqliteAuthoritySession, SqliteAuthoritativeCandidateAdapter, SqliteOpenMode,
 };
@@ -22,11 +28,21 @@ use super::super::{finalize_derived_fields, CurrentContractOracle, CurrentContra
 pub const SQLITE_WRITER_LEASE_DURATION_MS: i64 = 1_000;
 pub const SQLITE_LEASE_EXPIRY_WAIT_MS: u64 = 1_100;
 
+pub use super::measurement_transitions::unrelated_scope_success_fixture;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurrentContractCandidateKind {
     Append,
     Append01B3,
     Sqlite,
+    Sqlite01C3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScopedCommandScope {
+    ReviewLedger,
+    ReuseGovernance,
+    ActiveAnalysis,
 }
 
 pub enum CurrentContractCandidate {
@@ -40,6 +56,10 @@ pub enum CurrentContractCandidate {
     },
     Sqlite {
         adapter: SqliteAuthoritativeCandidateAdapter,
+        storage_root: PathBuf,
+    },
+    Sqlite01C3 {
+        adapter: SqliteScopedPreconditionCandidateAdapter,
         storage_root: PathBuf,
     },
 }
@@ -87,11 +107,22 @@ impl CurrentContractCandidate {
             .map_err(|error| error.code.to_owned())
     }
 
+    pub fn sqlite_01c3(root: impl Into<PathBuf>) -> Result<Self, String> {
+        let storage_root = root.into();
+        SqliteScopedPreconditionCandidateAdapter::new(&storage_root)
+            .map(|adapter| Self::Sqlite01C3 {
+                adapter,
+                storage_root,
+            })
+            .map_err(|error| error.code.to_owned())
+    }
+
     pub fn kind(&self) -> CurrentContractCandidateKind {
         match self {
             Self::Append { .. } => CurrentContractCandidateKind::Append,
             Self::Append01B3 { .. } => CurrentContractCandidateKind::Append01B3,
             Self::Sqlite { .. } => CurrentContractCandidateKind::Sqlite,
+            Self::Sqlite01C3 { .. } => CurrentContractCandidateKind::Sqlite01C3,
         }
     }
 
@@ -100,6 +131,7 @@ impl CurrentContractCandidate {
             Self::Append { adapter, .. } => adapter.candidate_id(),
             Self::Append01B3 { adapter, .. } => adapter.candidate_id(),
             Self::Sqlite { adapter, .. } => adapter.candidate_id(),
+            Self::Sqlite01C3 { adapter, .. } => adapter.candidate_id(),
         }
     }
 
@@ -108,6 +140,7 @@ impl CurrentContractCandidate {
             Self::Append { adapter, .. } => adapter.candidate_version(),
             Self::Append01B3 { adapter, .. } => adapter.candidate_version(),
             Self::Sqlite { adapter, .. } => adapter.candidate_version(),
+            Self::Sqlite01C3 { adapter, .. } => adapter.candidate_version(),
         }
     }
 
@@ -127,7 +160,8 @@ impl CurrentContractCandidate {
         match self {
             Self::Append { storage_root, .. }
             | Self::Append01B3 { storage_root, .. }
-            | Self::Sqlite { storage_root, .. } => storage_root,
+            | Self::Sqlite { storage_root, .. }
+            | Self::Sqlite01C3 { storage_root, .. } => storage_root,
         }
     }
 
@@ -157,6 +191,13 @@ impl CurrentContractCandidate {
                     (session.session_id().to_owned(), path)
                 })
                 .map_err(|error| error.code.to_owned()),
+            Self::Sqlite01C3 { adapter, .. } => adapter
+                .create(state)
+                .map(|session| {
+                    let path = session.storage_path_for_test().to_path_buf();
+                    (session.session_id().to_owned(), path)
+                })
+                .map_err(|error| error.code.to_owned()),
         }
     }
 
@@ -171,6 +212,10 @@ impl CurrentContractCandidate {
                 .map(OpenedCandidateSession::Append)
                 .map_err(|error| error.code.to_owned()),
             Self::Sqlite { adapter, .. } => adapter
+                .open_existing(session_id, SqliteOpenMode::Writable)
+                .map(OpenedCandidateSession::Sqlite)
+                .map_err(|error| error.code.to_owned()),
+            Self::Sqlite01C3 { adapter, .. } => adapter
                 .open_existing(session_id, SqliteOpenMode::Writable)
                 .map(OpenedCandidateSession::Sqlite)
                 .map_err(|error| error.code.to_owned()),
@@ -191,6 +236,10 @@ impl CurrentContractCandidate {
                 .open_existing(session_id, SqliteOpenMode::ReadOnly)
                 .map(OpenedCandidateSession::Sqlite)
                 .map_err(|error| error.code.to_owned()),
+            Self::Sqlite01C3 { adapter, .. } => adapter
+                .open_existing(session_id, SqliteOpenMode::ReadOnly)
+                .map(OpenedCandidateSession::Sqlite)
+                .map_err(|error| error.code.to_owned()),
         }
     }
 
@@ -203,6 +252,9 @@ impl CurrentContractCandidate {
                 adapter.close(handle).map_err(|error| error.code.to_owned())
             }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
+                adapter.close(handle).map_err(|error| error.code.to_owned())
+            }
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
                 adapter.close(handle).map_err(|error| error.code.to_owned())
             }
             _ => Err("candidate-handle-mismatch".to_owned()),
@@ -228,6 +280,10 @@ impl CurrentContractCandidate {
                 .map(|session| session.session_id().to_owned())
                 .map_err(|error| error.code.to_owned()),
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .duplicate(handle, new_session_id)
+                .map(|session| session.session_id().to_owned())
+                .map_err(|error| error.code.to_owned()),
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .duplicate(handle, new_session_id)
                 .map(|session| session.session_id().to_owned())
                 .map_err(|error| error.code.to_owned()),
@@ -263,6 +319,9 @@ impl CurrentContractCandidate {
                     .map(|_| ())
                     .map_err(|error| error.code.to_owned())
             }
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
+                apply_sqlite_scoped_transition_stale(adapter, handle, next_state)
+            }
             _ => Err("candidate-handle-mismatch".to_owned()),
         }
     }
@@ -295,7 +354,28 @@ impl CurrentContractCandidate {
                     .map(|_| ())
                     .map_err(|error| error.code.to_owned())
             }
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
+                apply_sqlite_scoped_transition(adapter, handle, next_state, None)
+            }
             _ => Err("candidate-handle-mismatch".to_owned()),
+        }
+    }
+
+    pub fn apply_scoped_transition_at_prepare_authority(
+        &self,
+        opened: &mut OpenedCandidateSession,
+        scope: ScopedCommandScope,
+        prepare_authority: &CurrentContractState,
+        target: &CurrentContractState,
+    ) -> Result<(), String> {
+        match (self, opened) {
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
+                apply_append_scoped_at_prepare(adapter, handle, scope, prepare_authority, target)
+            }
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
+                apply_sqlite_scoped_at_prepare(adapter, handle, scope, prepare_authority, target)
+            }
+            _ => Err("scoped-transition-unsupported".to_owned()),
         }
     }
 
@@ -355,6 +435,9 @@ impl CurrentContractCandidate {
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .tamper_derived_cache_for_test(handle, key)
                 .map_err(|error| error.code.to_owned()),
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .tamper_derived_cache_for_test(handle, key)
+                .map_err(|error| error.code.to_owned()),
             _ => Err("derived-cache-tamper-unsupported".to_owned()),
         }
     }
@@ -371,6 +454,9 @@ impl CurrentContractCandidate {
                 lag_append_checkpoint_for_test_01b3(adapter, handle)
             }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
+                .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
+                .map_err(|error| error.code.to_owned()),
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
                 .tamper_derived_cache_for_test(handle, "not-a-derived-projection")
                 .map_err(|error| error.code.to_owned()),
             _ => Err("derived-projection-tamper-unsupported".to_owned()),
@@ -394,8 +480,10 @@ impl CurrentContractCandidate {
     }
 
     pub fn arm_fail_before_commit_for_test(&self) {
-        if let Self::Sqlite { adapter, .. } = self {
-            adapter.arm_fail_before_commit_for_test();
+        match self {
+            Self::Sqlite { adapter, .. } => adapter.arm_fail_before_commit_for_test(),
+            Self::Sqlite01C3 { adapter, .. } => adapter.arm_fail_before_commit_for_test(),
+            _ => {}
         }
     }
 
@@ -406,6 +494,9 @@ impl CurrentContractCandidate {
     ) -> Result<(), String> {
         match self {
             Self::Sqlite { adapter, .. } => adapter
+                .set_lease_duration_for_session_id_for_test(session_id, lease_duration_ms)
+                .map_err(|error| error.code.to_owned()),
+            Self::Sqlite01C3 { adapter, .. } => adapter
                 .set_lease_duration_for_session_id_for_test(session_id, lease_duration_ms)
                 .map_err(|error| error.code.to_owned()),
             Self::Append { .. } | Self::Append01B3 { .. } => Ok(()),
@@ -441,6 +532,15 @@ impl CurrentContractCandidate {
                 .apply_authoritative_transition(handle, preconditions, next_state)
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
+            (Self::Sqlite01C3 { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
+                apply_sqlite_scoped_transition_with_preconditions(
+                    adapter,
+                    handle,
+                    preconditions,
+                    next_state,
+                    stale_scenario_id,
+                )
+            }
             _ => Err("candidate-handle-mismatch".to_owned()),
         }
     }
@@ -455,6 +555,12 @@ impl CurrentContractCandidate {
             Self::Append01B3 { adapter, .. } => match opened {
                 OpenedCandidateSession::Append(handle) => {
                     apply_scoped_transition(adapter, handle, next_state, Some(operation))
+                }
+                _ => Err("candidate-handle-mismatch".to_owned()),
+            },
+            Self::Sqlite01C3 { adapter, .. } => match opened {
+                OpenedCandidateSession::Sqlite(handle) => {
+                    apply_sqlite_scoped_transition(adapter, handle, next_state, Some(operation))
                 }
                 _ => Err("candidate-handle-mismatch".to_owned()),
             },
@@ -508,6 +614,10 @@ impl CurrentContractCandidate {
                 .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
                 .unwrap_or(0),
             Self::Sqlite { adapter, .. } => adapter
+                .open_existing(session_id, SqliteOpenMode::ReadOnly)
+                .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
+                .unwrap_or(0),
+            Self::Sqlite01C3 { adapter, .. } => adapter
                 .open_existing(session_id, SqliteOpenMode::ReadOnly)
                 .map(|handle| directory_size_bytes(handle.session.storage_path_for_test()))
                 .unwrap_or(0),
@@ -644,6 +754,129 @@ fn resolve_command_scope(
         }
     }
     infer_command_scope(current, next_state).map_err(|error| error.code.to_owned())
+}
+
+fn append_scope(scope: ScopedCommandScope) -> AppendCommandScope {
+    match scope {
+        ScopedCommandScope::ReviewLedger => AppendCommandScope::ReviewLedger,
+        ScopedCommandScope::ReuseGovernance => AppendCommandScope::ReuseGovernance,
+        ScopedCommandScope::ActiveAnalysis => AppendCommandScope::ActiveAnalysis,
+    }
+}
+
+fn sqlite_scope(scope: ScopedCommandScope) -> SqliteCommandScope {
+    match scope {
+        ScopedCommandScope::ReviewLedger => SqliteCommandScope::ReviewLedger,
+        ScopedCommandScope::ReuseGovernance => SqliteCommandScope::ReuseGovernance,
+        ScopedCommandScope::ActiveAnalysis => SqliteCommandScope::ActiveAnalysis,
+    }
+}
+
+fn apply_append_scoped_at_prepare(
+    adapter: &AppendScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedAppendAuthoritySession,
+    scope: ScopedCommandScope,
+    prepare_authority: &CurrentContractState,
+    target: &CurrentContractState,
+) -> Result<(), String> {
+    let command =
+        AppendScopedCommand::from_transition_pair(append_scope(scope), prepare_authority, target);
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_sqlite_scoped_at_prepare(
+    adapter: &SqliteScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedSqliteAuthoritySession,
+    scope: ScopedCommandScope,
+    prepare_authority: &CurrentContractState,
+    target: &CurrentContractState,
+) -> Result<(), String> {
+    let command =
+        SqliteScopedCommand::from_transition_pair(sqlite_scope(scope), prepare_authority, target);
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_sqlite_scoped_transition(
+    adapter: &SqliteScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedSqliteAuthoritySession,
+    next_state: &CurrentContractState,
+    operation: Option<&str>,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = resolve_sqlite_command_scope(&current, next_state, None, operation)?;
+    let command = SqliteScopedCommand::from_transition_pair(scope, &current, next_state);
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_sqlite_scoped_transition_stale(
+    adapter: &SqliteScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedSqliteAuthoritySession,
+    next_state: &CurrentContractState,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = resolve_sqlite_command_scope(&current, next_state, None, None)?;
+    let mut command = SqliteScopedCommand::from_transition_pair(scope, &current, next_state);
+    match scope {
+        SqliteCommandScope::ReviewLedger => command.preconditions.review_ledger_head = 0,
+        SqliteCommandScope::ReuseGovernance => command.preconditions.reuse_governance_head = 0,
+        SqliteCommandScope::ActiveAnalysis => {
+            command.preconditions.active_analysis_snapshot_identity.clear();
+        }
+    }
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn apply_sqlite_scoped_transition_with_preconditions(
+    adapter: &SqliteScopedPreconditionCandidateAdapter,
+    handle: &mut OpenedSqliteAuthoritySession,
+    preconditions: &CurrentContractPreconditions,
+    next_state: &CurrentContractState,
+    stale_scenario_id: Option<&str>,
+) -> Result<(), String> {
+    let current = handle.normalized_state().clone();
+    let scope = resolve_sqlite_command_scope(&current, next_state, stale_scenario_id, None)?;
+    let mut command = SqliteScopedCommand::from_transition_pair(scope, &current, next_state);
+    command.preconditions = SqliteScopedPreconditions {
+        review_ledger_head: preconditions.review_ledger_head,
+        reuse_governance_head: preconditions.reuse_governance_head,
+        active_analysis_snapshot_identity: preconditions
+            .active_analysis_snapshot_identity
+            .clone(),
+    };
+    adapter
+        .apply_scoped_command(handle, &command)
+        .map(|_| ())
+        .map_err(|error| error.code.to_owned())
+}
+
+fn resolve_sqlite_command_scope(
+    current: &CurrentContractState,
+    next_state: &CurrentContractState,
+    stale_scenario_id: Option<&str>,
+    operation: Option<&str>,
+) -> Result<SqliteCommandScope, String> {
+    if let Some(scenario_id) = stale_scenario_id {
+        return sqlite_command_scope_for_stale_scenario(scenario_id)
+            .ok_or_else(|| format!("unknown stale scenario {scenario_id}"));
+    }
+    if let Some(operation) = operation {
+        if let Some(scope) = sqlite_command_scope_for_measurement_operation(operation) {
+            return Ok(scope);
+        }
+    }
+    infer_sqlite_command_scope(current, next_state).map_err(|error| error.code.to_owned())
 }
 
 fn lag_append_checkpoint_for_test(

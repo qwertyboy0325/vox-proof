@@ -333,6 +333,8 @@ fn append_stale_asymmetry_downgrades_eligibility() {
             elapsed_ms: 1,
             correctness_disqualification: None,
             limitations: Vec::new(),
+            fcr03_stale_rejection: None,
+            fcr03_unrelated_success: None,
         })
         .collect();
     let stale = scenario_results
@@ -383,5 +385,70 @@ fn create_session_and_unsupported_compaction_behave_distinctly() {
         "unsupported compaction must not count as measurement failure"
     );
     assert_ne!(create.elapsed_ms, compaction.elapsed_ms);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn scoped_candidates_persist_fcr03_observations_in_harness() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::scenarios::run_fcr03_observation_scenarios;
+
+    let root = std::env::temp_dir().join(format!(
+        "voxproof-01c-fcr03-harness-{}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&root);
+    for (label, candidate) in [
+        (
+            "append-01b3",
+            CurrentContractCandidate::append_01b3(root.join("append-01b3"))
+                .expect("append 01b3"),
+        ),
+        (
+            "sqlite-01c3",
+            CurrentContractCandidate::sqlite_01c3(root.join("sqlite-01c3"))
+                .expect("sqlite 01c3"),
+        ),
+    ] {
+        let results =
+            run_fcr03_observation_scenarios(&candidate, "macos_native", candidate.storage_root());
+        for scenario_id in [
+            "stale-review-ledger-command",
+            "stale-reuse-governance-command",
+            "stale-analysis-attachment-or-selection",
+        ] {
+            let row = results
+                .iter()
+                .find(|row| row.scenario_id == scenario_id)
+                .unwrap_or_else(|| panic!("{label} missing {scenario_id}"));
+            assert_eq!(
+                row.status,
+                vox_proof::persistence_evidence::current_contract::evidence_01c::types::ScenarioExecutionStatus::Passed,
+                "{label} {scenario_id} status"
+            );
+            let observation = row
+                .fcr03_stale_rejection
+                .as_ref()
+                .unwrap_or_else(|| panic!("{label} {scenario_id} missing fcr03_stale_rejection"));
+            assert!(!observation.transition_applied);
+            assert!(observation.post_rejection_oracle_compare);
+            assert!(observation.post_rejection_authority_unchanged);
+            assert_eq!(
+                row.failure_code.as_deref(),
+                Some(observation.observed_failure_code.as_str())
+            );
+        }
+        let u1 = results
+            .iter()
+            .find(|row| row.scenario_id == "unrelated-scope-review-after-reuse-advance")
+            .expect("u1 scenario");
+        let observation = u1
+            .fcr03_unrelated_success
+            .as_ref()
+            .expect("u1 fcr03_unrelated_success");
+        assert!(observation.transition_applied);
+        assert!(observation.post_apply_oracle_compare);
+        assert!(observation.unrelated_scope_preserved);
+        assert!(observation.stale_full_state_not_persisted);
+    }
     let _ = std::fs::remove_dir_all(&root);
 }

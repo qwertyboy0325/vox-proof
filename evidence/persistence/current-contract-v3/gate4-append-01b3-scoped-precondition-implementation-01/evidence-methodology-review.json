@@ -1,0 +1,72 @@
+{
+  "artifact_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-METHODOLOGY-REVIEW",
+  "work_package_id": "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "reviewer_model": "Cursor Grok 4.5",
+  "models_used": ["Cursor Grok 4.5 (cursor-grok-4.5-high-fast)"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-14",
+  "harness_semantic_sha": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-append-01b3",
+  "frozen_comparison_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "owner_authorization_ref": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/owner-evidence-execution-decision.json",
+  "execution_record_ref": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/evidence-execution-record.json",
+  "agent_verdict_line": "EVIDENCE REVIEW: CLAIM DOWNGRADE REQUIRED",
+  "overall_verdict": "PASS_WITH_CAVEATS",
+  "verdict_rationale": "macOS Append 01B-3 scenario_contract_v4 scoped stale rejection is sound at InterfaceBehavior (expected scoped error codes; asymmetry limitation absent; eligibility ELIGIBLE). FCR-03 observation fidelity is not present in the persisted 01C scenario-results, so claims that FCR-03 fields were populated by this evidence run must be downgraded. Evidence is not invalid; selection/cross-platform remain correctly not_ready.",
+  "review_questions": {
+    "md_015_scoped_validity_append_01b3": {
+      "answer": "SUPPORTED_WITH_DOWNGRADE",
+      "supported_claim": "scenario_contract_v4 scoped stale precondition classes reject with expected codes on macos_native for candidate 01B-3; APPEND_STALE_ASYMMETRY_LIMITATION absent; eligibility ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+      "evidence_strength": "InterfaceBehavior",
+      "not_supported": [
+        "FCR-03-complete stale rejection observation fidelity in 01C artifacts",
+        "U1 unrelated-scope success demonstrated inside 01C scenario-results (unit-test only)",
+        "post_rejection_authority_unchanged / post_rejection_oracle_compare recorded in evidence",
+        "cross-platform md_015 scoped validity",
+        "dual-candidate selection-eligible MD-015 conformance"
+      ]
+    },
+    "claim_boundaries_honesty": {
+      "answer": "YES_WITH_MINOR_INCONSISTENCY"
+    },
+    "fcr03_observation_fidelity": {
+      "answer": "NO",
+      "where_fcr03_is_proven": "unit tests only (persistence_append_scoped_precondition_01b3.rs U1/C1); not in 01C evidence artifacts"
+    }
+  },
+  "claim_downgrades_required": [
+    {
+      "claim_id": "FCR03_OBSERVATION_FIELDS_POPULATED_IN_01C_EVIDENCE",
+      "downgrade_to": "FCR-03 observation types exist and are unit-tested for 01B-3 U1/C1; 01C scenario-results do not populate or persist FCR-03 fields"
+    },
+    {
+      "claim_id": "MD_015_SCOPED_VALIDITY_APPEND_01B3",
+      "downgrade_to": "InterfaceBehavior demonstration that Append 01B-3 rejects the three scenario_contract_v4 scoped stale precondition classes with expected codes on macos_native; not FCR-03-complete; not selection-ready; not cross-platform"
+    }
+  ],
+  "may_claim_from_d267f0d_append_01b3": [
+    "Append 01B-3 candidate_version recorded; 25/25 required/capability scenarios non-failing on macos_native",
+    "stale scenarios exercised scoped precondition classes (not generation-only asymmetry path)",
+    "append eligibility ELIGIBLE_FOR_EQUIVALENT_EXECUTION without APPEND_STALE_ASYMMETRY_LIMITATION",
+    "single_platform_readiness ready_for_owner_decision under declared macOS scope",
+    "mechanism comparison and selection remain not_ready"
+  ],
+  "may_not_claim_from_d267f0d_append_01b3": [
+    "FCR-03 observation fields present in 01C scenario-results",
+    "post_rejection_oracle_compare true in evidence record",
+    "cross-platform readiness or Windows parity",
+    "mechanism selection readiness",
+    "SQLite md_015 scoped validity demonstrated"
+  ],
+  "corrections_or_reclassification": {
+    "preserve_evidence_record": true,
+    "modify_frozen_91e258c": false,
+    "required_actions": [
+      "Apply claim_downgrades_required to tracker and owner packet wording",
+      "Do not treat FCR-03 as closed by d267f0d-append-01b3"
+    ]
+  },
+  "requested_owner_decision": "Accept claim-downgraded interpretation of Append 01B-3 macOS 01C evidence (InterfaceBehavior scoped-stale only; FCR-03 not demonstrated in evidence artifacts), and choose whether to authorize follow-on FCR-03 observation-wiring + re-execution before further MD-015 selection-path work."
+}

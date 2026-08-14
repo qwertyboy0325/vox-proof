@@ -1,0 +1,28 @@
+{
+  "repository_commit": "d267f0df312ae9cfde822f0d9040a8078eed13a1",
+  "harness_version": "gate4-01c-evidence-v6",
+  "platform_label": "macos_native",
+  "operating_system": "macos",
+  "operating_system_version": "Darwin 27.0.0",
+  "architecture": "aarch64",
+  "execution_environment": "macos-native-host",
+  "filesystem": "apfs-assumed-native",
+  "hardware_summary": "Apple M4 Max",
+  "rustc_version": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+  "dependency_versions": {
+    "rusqlite": "0.32",
+    "serde": "1",
+    "serde_json": "1"
+  },
+  "timing_source": "std::time::Instant wall clock",
+  "start_timestamp": "1786717923.144Z",
+  "end_timestamp": "1786717941.414Z",
+  "configuration": {
+    "append_evidence_variant": "01B-3",
+    "feature": "persistence-spike",
+    "measurement_contract_version": "2",
+    "sqlite_evidence_variant": "01C-SQLITE-3",
+    "sqlite_lease_expiry_wait_ms": "1100",
+    "sqlite_writer_lease_duration_ms": "1000"
+  }
+}

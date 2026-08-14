@@ -1,0 +1,25 @@
+{
+  "authorization_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-OWNER-AUTHORIZATION",
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "owner_decision": "AUTHORIZE_SQLITE_SCOPED_SUCCESSOR",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "preflight_ref": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-preflight-01/preflight-result.json",
+  "successor_candidate": {
+    "id": "current-contract-sqlite-authoritative-candidate",
+    "version": "01C-SQLITE-3"
+  },
+  "predecessor": {
+    "version": "01C-SQLITE-2",
+    "historical_acceptance": "preserved",
+    "overwrite_predecessor": false,
+    "md015_scoped_validity": "not_demonstrated"
+  },
+  "acceptance_bar": "same MD-015 U1/C1/C3 standard as Append 01B-3",
+  "forbidden": [
+    "FCR-03 observation wiring in this WP",
+    "fresh dual-candidate evidence in this WP",
+    "mechanism selection"
+  ]
+}

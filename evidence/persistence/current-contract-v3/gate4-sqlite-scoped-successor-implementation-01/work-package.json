@@ -1,0 +1,62 @@
+{
+  "work_package_id": "VP-GATE4-SQLITE-SCOPED-SUCCESSOR-IMPLEMENTATION-01",
+  "status": "SUCCESSOR_FROZEN",
+  "phase": "FCR_03_OBSERVATION_WIRING_GATE",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorization_ref": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/owner-authorization.json",
+  "predecessor": "VP-GATE4-SQLITE-SCOPED-VALIDITY-PREFLIGHT-01",
+  "successor_candidate": {
+    "id": "current-contract-sqlite-authoritative-candidate",
+    "version": "01C-SQLITE-3"
+  },
+  "predecessor_candidate": {
+    "version": "01C-SQLITE-2",
+    "historical_acceptance": "preserved",
+    "overwrite_predecessor": false
+  },
+  "objective": "Implement SQLite 01C-SQLITE-3 scoped-command apply onto latest canonical authority inside transaction, satisfying MD-015 U1/C1/C3 at same acceptance bar as Append 01B-3.",
+  "required_design": [
+    "explicit semantic command scope",
+    "validate only command-relevant write-set token(s)",
+    "load latest canonical authority inside the transaction",
+    "apply scoped command onto latest authority",
+    "preserve all unrelated canonical authority",
+    "oracle-validate merged state before commit",
+    "committed_generation remains physical ordering only",
+    "caller-supplied stale full-state must never become replacement authority"
+  ],
+  "forbidden": [
+    "remove generation check only",
+    "scoped token validation followed by replace_canonical_tables(caller_next_state)",
+    "validate every scoped token for every command",
+    "retain committed_generation as semantic invalidate-all CAS",
+    "modify MD-015",
+    "modify frozen 91e258c",
+    "FCR-03 observation wiring",
+    "mechanism selection",
+    "product integration"
+  ],
+  "file_scope": [
+    "src/persistence_evidence/current_contract/sqlite_authoritative.rs",
+    "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs",
+    "src/persistence_evidence/current_contract/mod.rs",
+    "tests/persistence_sqlite_scoped_precondition_01c3.rs"
+  ],
+  "completed_gates": [
+    "voxproof-storage-systems-reviewer code-depth review (PASS_WITH_CAVEATS)",
+    "RC1 analysis U1 oracle correction",
+    "successor candidate freeze"
+  ],
+  "required_next": [
+    "unified FCR-03 observation wiring for 01B-3 + 01C-SQLITE-3 (separate authorization)",
+    "harness Sqlite01C3 wiring",
+    "fresh dual-candidate evidence (separate authorization)"
+  ],
+  "artifacts": {
+    "storage_systems_review": "storage-systems-review.json",
+    "storage_review_corrections": "storage-review-corrections.json",
+    "successor_freeze": "successor-candidate-freeze.json"
+  }
+}

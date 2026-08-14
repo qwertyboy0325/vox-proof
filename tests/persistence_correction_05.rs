@@ -147,6 +147,8 @@ fn passed_scenario_results(
                 elapsed_ms: 1,
                 correctness_disqualification: None,
                 limitations,
+                fcr03_stale_rejection: None,
+                fcr03_unrelated_success: None,
             }
         })
         .collect()
