@@ -1,14 +1,77 @@
 {
   "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "status": "AUTHORIZED",
+  "phase": "GOVERNANCE_ARTIFACT_CORRECTIONS",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
   "parent_work_packages": [
     "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
     "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01"
   ],
-  "status": "AUTHORIZED",
-  "owner_authorized": true,
-  "authorized_by": "Ezra",
-  "authorized_on": "2026-08-14",
   "objective": "Retry governance chain (PRE_FINAL → Sol STRONG_FINAL → FINAL_GATE) after FCR-03 scoped successor work resolves prior Sol blocking conflicts FCR-01/02/03.",
+  "risk_tier": "high",
+  "file_scope": [
+    "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/ (governance artifacts only)",
+    "evidence/persistence/current-contract-v3/readiness.json (parent tracker updates only)"
+  ],
+  "semantic_scope": [
+    "Prior Sol FCR-01/02/03 resolution claims against scoped successors and dual-platform FCR-03 evidence",
+    "Governance artifact completeness and claim-boundary accuracy",
+    "Supersession of stale semantic-gate reconciliation claims on frozen 91e258c",
+    "PRE_FINAL and STRONG_FINAL gate chain eligibility"
+  ],
+  "claim_scope": [
+    "governance artifact corrections only",
+    "no mechanism selection",
+    "no frozen 91e258c rewrite",
+    "no comparison_blockers lift",
+    "no product integration or Material Decision"
+  ],
+  "risk_domain": [
+    "governance",
+    "evidence claim boundaries",
+    "cross-artifact consistency",
+    "gate chain integrity"
+  ],
+  "authorized_scope": "Bounded governance artifact corrections (GOV-01 through GOV-04) and parent tracker updates; prepare PRE_FINAL retry packet",
+  "forbidden_scope": [
+    "modify frozen 91e258c",
+    "mechanism_selection",
+    "Material_Decision",
+    "product_integration",
+    "lift comparison_blockers without methodology authorization",
+    "READY_FOR_OWNER_GATE",
+    "src/ or tests/ changes"
+  ],
+  "authority_dependencies": [
+    "prior Sol BLOCKING_CONTRADICTION verdict",
+    "sol-fcr-resolution-packet.json",
+    "dual-scoped FCR-03 evidence record gate4-01c-d267f0d-dual-scoped-fcr03",
+    "owner-decision-supersession.json (stale semantic gate REOPENED_AND_SUPERSEDED)",
+    "sol-fcr-01-owner-correction.json Path B",
+    "cross-platform evidence-methodology review PASS_WITH_CAVEATS (Grok 4.6)"
+  ],
+  "allowed_actions": [
+    "complete mandatory work-package policy fields",
+    "record governance-reconciliation supersession",
+    "correct pre-final audit packet specialist review representations",
+    "update parent readiness.json tracker",
+    "prepare PRE_FINAL governance audit retry"
+  ],
+  "forbidden_actions": [
+    "modify frozen 91e258c",
+    "mechanism selection",
+    "lift comparison_blockers",
+    "claim persist+reopen FCR-03 verification",
+    "substitute Opus 5 for canonical Sol STRONG_FINAL"
+  ],
+  "required_checks": [
+    "GOV-01: work-package mandatory policy fields present",
+    "GOV-02: governance-reconciliation semantic_blocker resolved claim superseded",
+    "GOV-03: parent tracker references retry WP and prior Sol verdict",
+    "GOV-04: Append 01B-3 storage review CORRECTIONS REQUIRED accurately represented"
+  ],
   "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
   "prior_sol_verdict": "BLOCKING_CONTRADICTION",
   "resolution_packet": "sol-fcr-resolution-packet.json",
@@ -26,8 +89,35 @@
     "lift comparison_blockers without methodology authorization",
     "READY_FOR_OWNER_GATE"
   ],
+  "stop_gate": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY",
+  "stop_conditions": [
+    "PRE_FINAL audit returns BLOCKING CONFLICT",
+    "governance corrections incomplete",
+    "frozen 91e258c modification attempted"
+  ],
+  "model_budget_policy": {
+    "governance_audit": "Claude Opus 5 (voxproof-governance-auditor)",
+    "strong_final_conflict_review": "GPT-5.6 Sol High (mandatory; Opus 5 supplementary only)",
+    "evidence_methodology": "Grok 4.6"
+  },
+  "strong_final_conflict_review": {
+    "status": "required",
+    "required_model": "gpt-5.6-sol-high",
+    "supplementary_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
+    "supplementary_model": "claude-opus-5-thinking-high",
+    "model_requirement_satisfied": false,
+    "authorized_after": "PRE_FINAL_GOVERNANCE_AUDIT: PASS",
+    "note": "Opus 5 supplementary review does NOT satisfy policy. Canonical Sol review still required."
+  },
+  "specialist_reviewer_roles": [
+    "voxproof-governance-auditor",
+    "voxproof-final-conflict-reviewer",
+    "voxproof-evidence-methodology-reviewer",
+    "voxproof-storage-systems-reviewer"
+  ],
   "downstream_gate_sequence": [
-    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "BOUNDED_GOVERNANCE_CORRECTIONS",
+    "PRE_FINAL_GOVERNANCE_AUDIT_RETRY",
     "STRONG_FINAL_CONFLICT_REVIEW",
     "FINAL_GATE_GOVERNANCE_CHECK"
   ],

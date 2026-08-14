@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_CORRECTIONS_REQUIRED",
+  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_AUDIT_ELIGIBLE",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -94,16 +94,20 @@
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
     "pre_final_verdict": "CORRECTIONS_REQUIRED",
+    "pre_final_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
+    "governance_reconciliation_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-reconciliation-supersession.json",
+    "corrections_status": "GOV_01_THROUGH_GOV_04_APPLIED",
     "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
     "strong_final_verdict": "BLOCKING_CONTRADICTION",
     "strong_final_reviewer_model": "Claude Opus 5 (supplementary; Sol gpt-5.6-sol-high still required)",
+    "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
     "prior_sol_verdict": "BLOCKING_CONTRADICTION",
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
-    "status": "PRE_FINAL_CORRECTIONS_REQUIRED",
-    "phase": "GOVERNANCE_ARTIFACT_CORRECTIONS"
+    "status": "PRE_FINAL_AUDIT_RETRY_ELIGIBLE",
+    "phase": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY"
   },
   "gate_sequence": {
     "completed": [
@@ -121,18 +125,19 @@
       "fcr03_wiring_commit_abe8f9a_harness_sha_updated",
       "owner_AUTHORIZE_WINDOWS_DUAL_SCOPED_FCR03_EVIDENCE",
       "windows_dual_scoped_fcr03_evidence_execution_run_31811807394",
-      "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6"
+      "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
+      "governance_corrections_GOV_01_through_GOV_04_applied"
     ],
-    "current": "GOVERNANCE_ARTIFACT_CORRECTIONS",
+    "current": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY",
     "blocked": [
       "STRONG_FINAL_CONFLICT_REVIEW_gpt_5_6_sol_high",
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "bounded governance corrections (GOV-01 through GOV-04)",
-      "PRE_FINAL retry",
-      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)"
+      "PRE_FINAL retry (Opus 5)",
+      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)",
+      "owner decision on FCR-03 field rename/downgrade vs reopen-based evidence"
     ]
   },
   "still_closed": [
@@ -144,5 +149,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Governance chain retry: PRE_FINAL CORRECTIONS_REQUIRED (Opus 5). Opus 5 supplementary STRONG_FINAL BLOCKING_CONTRADICTION. Sol gpt-5.6-sol-high still required. Mechanism selection closed."
+  "note": "Governance corrections GOV-01 through GOV-04 applied. PRE_FINAL retry eligible (Opus 5). Prior Sol BLOCKING_CONTRADICTION preserved. Opus 5 supplementary STRONG_FINAL does not satisfy policy. Sol gpt-5.6-sol-high still required. Mechanism selection closed."
 }

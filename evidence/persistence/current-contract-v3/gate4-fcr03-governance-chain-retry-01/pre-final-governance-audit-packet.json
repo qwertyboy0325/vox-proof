@@ -11,11 +11,19 @@
   "resolution_packet": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-fcr-resolution-packet.json",
   "dual_scoped_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
   "frozen_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "governance_reconciliation_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-reconciliation-supersession.json",
+  "governance_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
   "specialist_reviews_completed": [
     {
       "reviewer": "storage-systems (Append 01B-3)",
       "artifact": "gate4-append-01b3-scoped-precondition-implementation-01/storage-systems-review.json",
-      "verdict": "PASS_WITH_CAVEATS"
+      "corrections_artifact": "gate4-append-01b3-scoped-precondition-implementation-01/storage-review-corrections.json",
+      "verdict": "PASS_WITH_CAVEATS",
+      "storage_review_line": "STORAGE REVIEW: CORRECTIONS REQUIRED",
+      "blocking_before_evidence_execution_gate": true,
+      "corrections_status": "CORRECTIONS_APPLIED",
+      "specialist_re_verified": false,
+      "note": "Initial review required correction before evidence execution gate; corrections self-attested applied, not specialist re-verified"
     },
     {
       "reviewer": "storage-systems (SQLite 01C-SQLITE-3)",

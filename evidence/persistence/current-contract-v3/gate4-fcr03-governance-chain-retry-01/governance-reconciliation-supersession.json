@@ -1,0 +1,48 @@
+{
+  "supersession_id": "VP-GATE4-FCR03-GOVERNANCE-RECONCILIATION-SUPERSESSION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "correction_id": "GOV-02",
+  "superseded_artifact": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/governance-reconciliation.json",
+  "superseded_on": "2026-08-14",
+  "superseded_by": "Ezra",
+  "reason": "Parent governance-reconciliation.json asserts semantic_blocker_status resolved on owner decision that was subsequently REOPENED_AND_SUPERSEDED by Sol FCR-01 conflict resolution.",
+  "superseded_claims": [
+    {
+      "field": "two_layer_model.governance_layer.semantic_blocker_status",
+      "prior_value": "resolved",
+      "superseded_status": "SUPERSEDED_NOT_VALID_FOR_DOWNSTREAM_GATES"
+    },
+    {
+      "field": "two_layer_model.governance_layer.mechanism_selection_readiness_governance",
+      "prior_value": "semantic_blocker_resolved_awaiting_pre_final_chain",
+      "superseded_status": "SUPERSEDED"
+    },
+    {
+      "field": "stale_asymmetry_resolution.resolution",
+      "prior_value": "resolved_by_owner_semantic_decision",
+      "superseded_status": "SUPERSEDED_BY_SCOPED_SUCCESSOR_WORK"
+    },
+    {
+      "field": "pre_final_eligibility.last_known_semantic_blocker",
+      "prior_value": "resolved",
+      "superseded_status": "SUPERSEDED"
+    }
+  ],
+  "supersession_basis": [
+    "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision-supersession.json",
+    "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-fcr-01-owner-correction.json",
+    "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json"
+  ],
+  "current_authoritative_status": {
+    "stale_semantic_gate": "REOPENED_AND_SUPERSEDED",
+    "semantic_blocker_for_selection": "not_resolved_by_prior_reconciliation",
+    "mechanism_selection_readiness": "not_ready",
+    "fcr01_resolution": "ADDRESSED_BY_SCOPED_SUCCESSORS_01B3_AND_01C_SQLITE3_AT_DECLARED_STRENGTH",
+    "comparison_evidence_91e258c": {
+      "owner_accepted": true,
+      "unchanged": true
+    }
+  },
+  "historical_preservation": "governance-reconciliation.json remains immutable historical record for its generation context. Supersession record governs downstream gate eligibility only.",
+  "note": "Do not treat parent reconciliation semantic_blocker resolved claim as current authority. Scoped successor work and FCR-03 dual-platform evidence supersede that reconciliation basis."
+}

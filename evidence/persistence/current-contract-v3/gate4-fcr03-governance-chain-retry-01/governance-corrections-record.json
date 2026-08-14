@@ -1,0 +1,42 @@
+{
+  "record_id": "VP-GATE4-FCR03-GOVERNANCE-CORRECTIONS-RECORD-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "corrected_on": "2026-08-14",
+  "corrected_by": "Ezra",
+  "prior_pre_final_verdict": "CORRECTIONS_REQUIRED",
+  "prior_pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
+  "corrections_applied": [
+    {
+      "correction_id": "GOV-01",
+      "status": "APPLIED",
+      "artifact": "work-package.json",
+      "summary": "Added mandatory policy fields: risk_tier, semantic_scope, claim_scope, risk_domain, stop_gate, stop_conditions, strong_final_conflict_review, specialist_reviewer_roles, model_budget_policy"
+    },
+    {
+      "correction_id": "GOV-02",
+      "status": "APPLIED",
+      "artifact": "governance-reconciliation-supersession.json",
+      "summary": "Recorded supersession of parent governance-reconciliation.json semantic_blocker resolved claims; basis is owner-decision-supersession and Sol FCR-01 correction"
+    },
+    {
+      "correction_id": "GOV-03",
+      "status": "APPLIED",
+      "artifact": "evidence/persistence/current-contract-v3/readiness.json",
+      "summary": "Tracker updated with governance corrections complete, prior Sol BLOCKING_CONTRADICTION, and PRE_FINAL retry eligibility"
+    },
+    {
+      "correction_id": "GOV-04",
+      "status": "APPLIED",
+      "artifact": "pre-final-governance-audit-packet.json",
+      "summary": "Append 01B-3 storage-systems review now represented as STORAGE REVIEW: CORRECTIONS REQUIRED with blocking_before_evidence_execution_gate true; corrections artifact referenced"
+    }
+  ],
+  "authorized_next_step": "PRE_FINAL_GOVERNANCE_AUDIT_RETRY",
+  "not_authorized": [
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "comparison_blockers_lift"
+  ],
+  "note": "Bounded governance corrections complete. PRE_FINAL retry authorized. Sol STRONG_FINAL (gpt-5.6-sol-high) still required after PRE_FINAL PASS."
+}
