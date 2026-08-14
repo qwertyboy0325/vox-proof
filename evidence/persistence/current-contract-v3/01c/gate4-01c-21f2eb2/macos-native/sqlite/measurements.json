@@ -1,0 +1,990 @@
+[
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 5,
+    "median_ms": 5,
+    "p95_ms": 6,
+    "maximum_ms": 6,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7618560,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 13,
+    "median_ms": 13,
+    "p95_ms": 13,
+    "maximum_ms": 13,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8175616,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 8,
+    "median_ms": 9,
+    "p95_ms": 9,
+    "maximum_ms": 9,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7798784,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 18,
+    "median_ms": 18,
+    "p95_ms": 18,
+    "maximum_ms": 18,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8388608,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 9,
+    "median_ms": 9,
+    "p95_ms": 9,
+    "maximum_ms": 10,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7831552,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 46,
+    "median_ms": 46,
+    "p95_ms": 46,
+    "maximum_ms": 47,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8978432,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 126976,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 9,
+    "median_ms": 9,
+    "p95_ms": 10,
+    "maximum_ms": 10,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7815168,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 18,
+    "median_ms": 19,
+    "p95_ms": 20,
+    "maximum_ms": 20,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8355840,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 90112,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 5,
+    "median_ms": 5,
+    "p95_ms": 5,
+    "maximum_ms": 5,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7553024,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 12,
+    "median_ms": 13,
+    "p95_ms": 13,
+    "maximum_ms": 13,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8126464,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 1,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7651328,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 0,
+    "median_ms": 1,
+    "p95_ms": 1,
+    "maximum_ms": 1,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8536064,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 9,
+    "median_ms": 9,
+    "p95_ms": 9,
+    "maximum_ms": 10,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7405568,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 37,
+    "median_ms": 38,
+    "p95_ms": 38,
+    "maximum_ms": 38,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8421376,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 7,
+    "median_ms": 7,
+    "p95_ms": 7,
+    "maximum_ms": 7,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7700480,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 86016,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 32,
+    "median_ms": 32,
+    "p95_ms": 33,
+    "maximum_ms": 33,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8536064,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 114688,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 2,
+    "median_ms": 2,
+    "p95_ms": 2,
+    "maximum_ms": 2,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7471104,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 9,
+    "median_ms": 10,
+    "p95_ms": 10,
+    "maximum_ms": 10,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8388608,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 2,
+    "median_ms": 2,
+    "p95_ms": 2,
+    "maximum_ms": 2,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7733248,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 9,
+    "median_ms": 10,
+    "p95_ms": 10,
+    "maximum_ms": 10,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8519680,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 3,
+    "median_ms": 3,
+    "p95_ms": 3,
+    "maximum_ms": 3,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7602176,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 118784,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 17,
+    "median_ms": 18,
+    "p95_ms": 18,
+    "maximum_ms": 20,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 8617984,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 147456,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 13,
+    "median_ms": 13,
+    "p95_ms": 13,
+    "maximum_ms": 13,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7962624,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 172032,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 52,
+    "median_ms": 53,
+    "p95_ms": 53,
+    "maximum_ms": 54,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 9027584,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 229376,
+      "status": "available",
+      "reason": null
+    }
+  }
+]

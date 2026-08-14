@@ -29,7 +29,9 @@ pub const CORRECTION_02_EVIDENCE_SHA: &str = "e487a0bbaa4e75ac088e47bb48715b453a
 
 pub const CORRECTION_03_HARNESS_SHA: &str = "6adb73198813bb8d9d9b7924b8759294a198f8ff";
 
-pub const WORK_PACKAGE_ID: &str = "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01";
+pub const CORRECTION_04_V4_HARNESS_SHA: &str = "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004";
+
+pub const WORK_PACKAGE_ID: &str = "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05";
 
 pub struct RunOutput {
     pub package: ComparativeEvidencePackage,
@@ -57,6 +59,11 @@ pub fn invalid_evidence_chain() -> Vec<InvalidPredecessorEvidence> {
             harness_sha: CORRECTION_03_HARNESS_SHA.to_owned(),
             evidence_record_sha: "see_gate4-01c-6adb731_with_capability_audit".to_owned(),
             verdict: "CANDIDATE_CONTRACT_CAPABILITY_GAP".to_owned(),
+        },
+        InvalidPredecessorEvidence {
+            harness_sha: CORRECTION_04_V4_HARNESS_SHA.to_owned(),
+            evidence_record_sha: "see_gate4-01c-21f2eb2_readiness_gate_conflation".to_owned(),
+            verdict: "invalid_for_final_gate_preserve".to_owned(),
         },
     ]
 }
@@ -315,17 +322,17 @@ fn selection_validity_record(
         } else {
             "NOT_READY_01C_EVIDENCE".to_owned()
         },
-        reason: if readiness.blockers.is_empty() {
+        reason: if readiness.selection_blockers.is_empty() {
             vec![
                 "single-platform evidence complete; awaiting governance review pipeline".to_owned(),
             ]
         } else {
-            readiness.blockers.clone()
+            readiness.selection_blockers.clone()
         },
         invalid_evidence_chain: invalid_chain.to_vec(),
         preserve_raw_artifacts: true,
         note: format!(
-            "Contract v4 reconciliation harness at {harness_sha}. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
+            "Readiness-separation harness at {harness_sha}. Comparison and selection gates are evaluated independently; mechanism selection remains owner-gated after governance review."
         ),
     }
 }

@@ -17,6 +17,9 @@ pub struct ReadinessAssessment {
     pub mechanism_selection_readiness: String,
     pub single_platform_readiness: String,
     pub limitations: Vec<String>,
+    pub comparison_blockers: Vec<String>,
+    pub selection_blockers: Vec<String>,
+    /// Comparison blockers retained for manifest backward compatibility.
     pub blockers: Vec<String>,
 }
 
@@ -25,7 +28,7 @@ pub fn assess_readiness(
     sqlite: &CandidateRunArtifacts,
 ) -> ReadinessAssessment {
     let mut limitations = Vec::new();
-    let mut blockers = Vec::new();
+    let mut comparison_blockers = Vec::new();
     let contract = comparative_measurement_contract();
 
     for candidate in [&append.scenario_results, &sqlite.scenario_results] {
@@ -35,11 +38,17 @@ pub fn assess_readiness(
                 .find(|row| row.scenario_id == scenario.scenario_id)
             else {
                 if scenario.requirement == ScenarioRequirementLevel::Required {
-                    blockers.push(format!("missing scenario result {}", scenario.scenario_id));
+                    comparison_blockers
+                        .push(format!("missing scenario result {}", scenario.scenario_id));
                 }
                 continue;
             };
-            evaluate_scenario_result(&scenario, result, &mut limitations, &mut blockers);
+            evaluate_scenario_result(
+                &scenario,
+                result,
+                &mut limitations,
+                &mut comparison_blockers,
+            );
         }
     }
 
@@ -49,13 +58,17 @@ pub fn assess_readiness(
                 let Some(aggregate) = artifacts.measurements.iter().find(|row| {
                     row.operation == operation.operation && row.fixture_scale == *scale
                 }) else {
-                    blockers.push(format!(
+                    comparison_blockers.push(format!(
                         "missing measurement {} {:?} for {}",
                         operation.operation, scale, artifacts.candidate_id
                     ));
                     continue;
                 };
-                evaluate_measurement_aggregate(aggregate, operation.sample_count, &mut blockers);
+                evaluate_measurement_aggregate(
+                    aggregate,
+                    operation.sample_count,
+                    &mut comparison_blockers,
+                );
             }
         }
     }
@@ -64,10 +77,9 @@ pub fn assess_readiness(
 
     let append_eligibility = compute_eligibility(append);
     let sqlite_eligibility = compute_eligibility(sqlite);
-    if append_eligibility.status == CandidateEligibilityStatus::ImplementationNotYetEvaluated
-        || sqlite_eligibility.status == CandidateEligibilityStatus::ImplementationNotYetEvaluated
-    {
-        blockers.push(
+    let mut selection_only_blockers = Vec::new();
+    if append_eligibility.status == CandidateEligibilityStatus::ImplementationNotYetEvaluated {
+        selection_only_blockers.push(
             "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
                 .to_owned(),
         );
@@ -75,11 +87,12 @@ pub fn assess_readiness(
     if append_eligibility.status == CandidateEligibilityStatus::DisqualifiedByDemonstratedFailure
         || sqlite_eligibility.status == CandidateEligibilityStatus::DisqualifiedByDemonstratedFailure
     {
-        blockers.push("eligibility: candidate disqualified by demonstrated failure".to_owned());
+        comparison_blockers
+            .push("eligibility: candidate disqualified by demonstrated failure".to_owned());
     }
 
-    let single_platform_ready = blockers.is_empty();
-    let single_platform_readiness = if single_platform_ready {
+    let single_platform_comparison_ready = comparison_blockers.is_empty();
+    let single_platform_readiness = if single_platform_comparison_ready {
         "ready_for_owner_decision".to_owned()
     } else {
         "not_ready".to_owned()
@@ -87,27 +100,33 @@ pub fn assess_readiness(
 
     let cross_platform_complete = std::env::var("VOXPROOF_01C_CROSS_PLATFORM_COMPLETE")
         .is_ok_and(|value| value == "1" || value.eq_ignore_ascii_case("true"));
-    if single_platform_ready && !cross_platform_complete {
-        blockers.push(
+    if single_platform_comparison_ready && !cross_platform_complete {
+        comparison_blockers.push(
             "cross_platform: awaiting peer platform evidence aggregation".to_owned(),
         );
     }
 
-    let comparison_ready = blockers.is_empty();
+    let mut selection_blockers = comparison_blockers.clone();
+    selection_blockers.extend(selection_only_blockers);
+
+    let comparison_ready = comparison_blockers.is_empty();
+    let selection_ready = selection_blockers.is_empty();
     ReadinessAssessment {
         mechanism_comparison_readiness: if comparison_ready {
             "ready_for_owner_decision".to_owned()
         } else {
             "not_ready".to_owned()
         },
-        mechanism_selection_readiness: if comparison_ready {
+        mechanism_selection_readiness: if selection_ready {
             "ready_for_owner_decision".to_owned()
         } else {
             "not_ready".to_owned()
         },
         single_platform_readiness,
         limitations,
-        blockers,
+        comparison_blockers: comparison_blockers.clone(),
+        selection_blockers,
+        blockers: comparison_blockers,
     }
 }
 

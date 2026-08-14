@@ -1,0 +1,14 @@
+[
+  {
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-2",
+    "status": "IMPLEMENTATION_NOT_YET_EVALUATED",
+    "rationale": "required scenarios passed with documented append stale-precondition asymmetry; not equivalent to sqlite precondition-class coverage"
+  },
+  {
+    "candidate_id": "current-contract-sqlite-authoritative-candidate",
+    "candidate_version": "01C-SQLITE-2",
+    "status": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
+    "rationale": "required scenarios executed with valid evidence"
+  }
+]

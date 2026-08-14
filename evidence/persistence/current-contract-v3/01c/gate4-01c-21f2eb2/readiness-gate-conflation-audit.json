@@ -1,0 +1,20 @@
+{
+  "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+  "harness_sha": "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004",
+  "harness_version": "gate4-01c-evidence-v5",
+  "scenario_contract_version": "4",
+  "verdict": "invalid_for_final_gate_preserve",
+  "macos_execution": "completed",
+  "windows_run_at_this_sha": "do_not_run",
+  "pre_final_authorized": false,
+  "sol_review_authorized": false,
+  "scenario_evidence": {
+    "required_scenarios_passed": true
+  },
+  "blocking_defect": {
+    "class": "readiness_gate_conflation",
+    "detail": "Candidate selection eligibility limitation was inserted into the same blocker set used for mechanism-comparison readiness."
+  },
+  "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-21f2eb2",
+  "note": "macOS v4 scenario evidence is valid; harness readiness plumbing conflated comparison and selection gates. Do not use for PRE_FINAL, Sol review, or Windows peer run at this SHA."
+}

@@ -1,0 +1,17 @@
+{
+  "selection_validity": "invalid_for_final_gate_preserve",
+  "harness_semantic_sha": "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004",
+  "harness_version": "gate4-01c-evidence-v5",
+  "evidence_record_sha": "see_gate4-01c-21f2eb2_readiness_gate_conflation",
+  "verdict": "READINESS_GATE_CONFLATION",
+  "reason": [
+    "required v4 scenarios passed on macOS for both accepted candidates",
+    "readiness.rs inserted append ImplementationNotYetEvaluated into shared blockers",
+    "mechanism_comparison_readiness incorrectly forced to not_ready",
+    "Windows run at this SHA: do_not_run"
+  ],
+  "blocking_defect": "readiness_gate_conflation",
+  "audit_artifact": "readiness-gate-conflation-audit.json",
+  "preserve_raw_artifacts": true,
+  "note": "Negative evidence preserved. Rerun required on harness after VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05."
+}

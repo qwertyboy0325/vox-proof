@@ -1,16 +1,16 @@
 {
-  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-04",
-  "predecessor": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
+  "package": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+  "predecessor": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
-  "scenario_contract_version": "3",
+  "scenario_contract_version": "4",
   "measurement_contract_version": "2",
-  "harness_version": "gate4-01c-evidence-v4",
+  "harness_version": "gate4-01c-evidence-v6",
   "mechanism_comparison_readiness": "not_ready",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_CANDIDATE_CONTRACT_CAPABILITY_GAP",
+  "tracker_status": "GATE4_01C_READINESS_SEPARATION_CORRECTION_05",
   "invalid_evidence_chain": [
     {
       "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
@@ -36,48 +36,41 @@
       "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
       "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
       "capability_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json"
+    },
+    {
+      "harness_sha": "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004",
+      "evidence_record_sha": "see_gate4-01c-21f2eb2_readiness_gate_conflation",
+      "verdict": "invalid_for_final_gate_preserve",
+      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-21f2eb2",
+      "blocking_defect": "readiness_gate_conflation"
     }
   ],
-  "correction_04_capability_audit": {
-    "verdict": "CANDIDATE_CONTRACT_CAPABILITY_GAP",
-    "blocked_scenarios": [
-      "canonical-reference-corruption",
-      "source-locator-corruption"
-    ],
-    "harness_correction_04_status": "stopped_before_implementation",
-    "audit_artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/capability-audit-correction-04.json"
+  "salvage_reconciliation": {
+    "owner_decision": "B_tight",
+    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-decision.json"
   },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
-    "owner_accepted": true,
-    "equivalence_status": "blocked_salvage_capability_gap"
+    "owner_accepted": true
   },
   "sqlite_01C_SQLITE_2": {
     "candidate_id": "current-contract-sqlite-authoritative-candidate",
     "candidate_version": "01C-SQLITE-2",
-    "owner_accepted": true,
-    "equivalence_status": "blocked_salvage_capability_gap"
+    "owner_accepted": true
   },
   "01C": {
     "authorized": true,
-    "execution_status": "candidate_contract_capability_gap",
+    "execution_status": "readiness_separation_correction_05",
     "mechanism_selection": "none",
-    "product_integration": "unimplemented"
-  },
-  "open_owner_gate": {
-    "work_package_id": "VP-GATE4-SALVAGE-REQUIREMENT-RECONCILIATION-01",
-    "gate_status": "CLOSED",
-    "owner_decision": "B_tight",
-    "closed_on": "2026-08-14",
-    "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-decision.json",
-    "authorized_downstream": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01"
+    "product_integration": "unimplemented",
+    "windows_at_21f2eb2": "do_not_run"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01",
-    "status": "AUTHORIZED",
+    "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+    "status": "EXECUTING",
     "scenario_contract_version": "4",
-    "base_commit": "e03b15e"
+    "base_commit": "21f2eb2"
   },
-  "note": "Salvage reconciliation closed B_tight. Contract v4 reconciliation authorized. PRE_FINAL not authorized until valid v4 evidence."
+  "note": "21f2eb2 macOS preserved as invalid_for_final_gate (readiness_gate_conflation). Windows not run at that SHA. Fresh macOS+Windows required on post-correction-05 harness."
 }

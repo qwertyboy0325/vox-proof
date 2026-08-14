@@ -53,9 +53,9 @@ fn measurement_contract_v2_medium_is_materialized() {
 fn evidence_01c_methodology_is_frozen() {
     let record = methodology_record();
     assert_eq!(record.harness_version, EVIDENCE_01C_HARNESS_VERSION);
-    assert_eq!(record.harness_version, "gate4-01c-evidence-v5");
+    assert_eq!(record.harness_version, "gate4-01c-evidence-v6");
     assert_eq!(record.candidates_order.len(), 2);
-    assert!(record.freeze_id.contains("V4-RECONCILIATION"));
+    assert!(record.freeze_id.contains("READINESS-SEPARATION"));
 }
 
 #[test]
