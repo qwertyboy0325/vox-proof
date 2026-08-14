@@ -2,11 +2,12 @@
   "package": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
   "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
   "harness_semantic_sha_note": "FCR-03 wiring committed; dual-scoped macOS evidence executed at pre-commit base d267f0d (see dual_scoped_fcr03_evidence.evidence_execution_harness_sha)",
-  "mechanism_comparison_readiness": "accepted_with_documented_caveats",
+  "mechanism_comparison_readiness_frozen_91e258c": "accepted_with_documented_caveats",
+  "mechanism_comparison_readiness_dual_scoped_fcr03": "not_ready",
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "CROSS_PLATFORM_FCR03_METHODOLOGY_REVIEW_PASS_WITH_CAVEATS",
+  "tracker_status": "GOVERNANCE_CHAIN_RETRY_PRE_FINAL_CORRECTIONS_REQUIRED",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -28,8 +29,8 @@
     "dispatch": {
       "dual_scoped_fcr03": "true",
       "fcr03_record_id": "gate4-01c-d267f0d-dual-scoped-fcr03",
-      "evidence_ref": "0030f18fabc8350f3c2dcdeb520bf1dc12b0b0d1",
-      "evidence_ref_note": "0030f18 includes platform-append; supersedes abe8f9a for Windows execution only"
+      "evidence_ref": "9ec3b07a6c71fe79348cf00524128af008964120",
+      "evidence_ref_note": "9ec3b07 includes platform-append + clippy fixes; actual Windows checkout for run 31811807394"
     }
   },
   "dual_scoped_fcr03_evidence": {
@@ -89,10 +90,20 @@
       "successor_freeze": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/successor-candidate-freeze.json"
     }
   },
+  "governance_chain_retry": {
+    "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+    "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
+    "pre_final_verdict": "CORRECTIONS_REQUIRED",
+    "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
+    "strong_final_verdict": "BLOCKING_CONTRADICTION",
+    "strong_final_reviewer_model": "Claude Opus 5 (supplementary; Sol gpt-5.6-sol-high still required)",
+    "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+    "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
+  },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-    "status": "CROSS_PLATFORM_METHODOLOGY_REVIEW_COMPLETE",
-    "phase": "GOVERNANCE_CHAIN_RETRY"
+    "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+    "status": "PRE_FINAL_CORRECTIONS_REQUIRED",
+    "phase": "GOVERNANCE_ARTIFACT_CORRECTIONS"
   },
   "gate_sequence": {
     "completed": [
@@ -112,13 +123,16 @@
       "windows_dual_scoped_fcr03_evidence_execution_run_31811807394",
       "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6"
     ],
-    "current": "GOVERNANCE_CHAIN_RETRY",
+    "current": "GOVERNANCE_ARTIFACT_CORRECTIONS",
     "blocked": [
+      "STRONG_FINAL_CONFLICT_REVIEW_gpt_5_6_sol_high",
       "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK"
     ],
     "downstream": [
-      "Sol retry on governance chain"
+      "bounded governance corrections (GOV-01 through GOV-04)",
+      "PRE_FINAL retry",
+      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)"
     ]
   },
   "still_closed": [
@@ -130,5 +144,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Cross-platform FCR-03 methodology review PASS_WITH_CAVEATS (Grok 4.6). Dual-platform observation fidelity supported; comparison/selection remain not_ready (harness SHA mismatch). Mechanism selection closed."
+  "note": "Governance chain retry: PRE_FINAL CORRECTIONS_REQUIRED (Opus 5). Opus 5 supplementary STRONG_FINAL BLOCKING_CONTRADICTION. Sol gpt-5.6-sol-high still required. Mechanism selection closed."
 }

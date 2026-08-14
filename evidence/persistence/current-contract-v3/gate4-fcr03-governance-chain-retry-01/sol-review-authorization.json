@@ -1,0 +1,21 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-SOL-REVIEW-AUTHORIZATION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "model": "gpt-5.6-sol-high",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "scope": "STRONG_FINAL_CONFLICT_REVIEW retry after FCR-03 scoped successor chain",
+  "precondition": "PRE_FINAL_GOVERNANCE_AUDIT: PASS",
+  "prior_sol_review_ref": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
+  "resolution_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-fcr-resolution-packet.json",
+  "forbidden": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "Material_Decision",
+    "product_integration",
+    "frozen_91e258c_evidence_rewrite",
+    "lift comparison_blockers without explicit methodology authorization"
+  ],
+  "note": "Owner-authorized GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW retry for FCR-03 governance chain."
+}

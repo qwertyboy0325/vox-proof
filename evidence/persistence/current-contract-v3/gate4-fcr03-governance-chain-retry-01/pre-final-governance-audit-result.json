@@ -1,0 +1,55 @@
+{
+  "audit_id": "VP-GATE4-FCR03-PRE-FINAL-GOVERNANCE-AUDIT-2026-08-14",
+  "audit_phase": "PRE_FINAL_GOVERNANCE_AUDIT",
+  "verdict": "CORRECTIONS_REQUIRED",
+  "verdict_line": "PRE_FINAL_GOVERNANCE_AUDIT: CORRECTIONS REQUIRED",
+  "auditor": "voxproof-governance-auditor",
+  "auditor_model": "Claude Opus 5",
+  "models_used": ["claude-opus-5-thinking-high"],
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "audited_commit": "af2a38e",
+  "audit_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-packet.json",
+  "resolution_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-fcr-resolution-packet.json",
+  "governance_status": "FCR-01/02/03 substantively addressed by scoped successors and dual-platform FCR-03 evidence at declared strength. FCR-04/05 not resolved in artifacts. Parent governance-reconciliation.json still asserts superseded semantic blocker resolved.",
+  "frozen_evidence_verified_unchanged": {
+    "readiness_json_selection_not_ready": true,
+    "eligibility_json_append_01b2_implementation_not_yet_evaluated": true,
+    "no_fcr03_fields_backfilled_into_91e258c": true
+  },
+  "corrections_required": [
+    {
+      "correction_id": "GOV-01",
+      "severity": "high",
+      "finding": "Retry work-package.json omits mandatory policy fields (risk_tier, semantic_scope, stop_gate, strong_final_conflict_review, etc.)"
+    },
+    {
+      "correction_id": "GOV-02",
+      "severity": "high",
+      "finding": "governance-reconciliation.json still asserts semantic_blocker resolved on superseded owner decision basis"
+    },
+    {
+      "correction_id": "GOV-03",
+      "severity": "medium",
+      "finding": "Parent tracker does not reference retry work package or prior Sol BLOCKING_CONTRADICTION verdict"
+    },
+    {
+      "correction_id": "GOV-04",
+      "severity": "medium",
+      "finding": "Pre-final packet understates Append 01B-3 storage review (CORRECTIONS REQUIRED line, blocking flag)"
+    }
+  ],
+  "authorized_next_step": "BOUNDED_GOVERNANCE_CORRECTION_THEN_PRE_FINAL_RETRY",
+  "not_authorized": [
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "comparison_blockers_lift"
+  ],
+  "unresolved_risks": [
+    "harness_sha_match false across platforms",
+    "FCR-03 field names can be misread as persist+reopen proof",
+    "STRONG_FINAL requires gpt-5.6-sol-high; Opus 5 review is supplementary only"
+  ],
+  "audited_on": "2026-08-14"
+}

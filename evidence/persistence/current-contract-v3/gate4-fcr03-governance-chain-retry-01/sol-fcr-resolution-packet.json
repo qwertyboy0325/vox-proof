@@ -1,0 +1,65 @@
+{
+  "packet_id": "VP-GATE4-FCR03-SOL-FCR-RESOLUTION-PACKET",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "prepared_on": "2026-08-14",
+  "prior_sol_review_ref": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "owner_fcr01_correction_ref": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-fcr-01-owner-correction.json",
+  "fcr_resolutions": {
+    "FCR-01-MD015-SCOPED-STALE-CONFLICT": {
+      "severity": "critical",
+      "status": "ADDRESSED_BY_SCOPED_SUCCESSORS",
+      "resolution_summary": "Owner path B (MD-015 unchanged; append must evolve). Append 01B-3 and SQLite 01C-SQLITE-3 implement scoped precondition classes with U1 unrelated-scope success. Dual-scoped evidence at harness observation fidelity on macOS + Windows.",
+      "evidence": [
+        "src/persistence_evidence/current_contract/append_authoritative_01b3.rs",
+        "src/persistence_evidence/current_contract/sqlite_authoritative_01c3.rs",
+        "tests/persistence_append_scoped_precondition_01b3.rs",
+        "tests/persistence_sqlite_scoped_precondition_01c3.rs",
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/"
+      ],
+      "methodology_reviews": [
+        "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/evidence-methodology-review.json",
+        "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/cross-platform-evidence-methodology-review.json"
+      ],
+      "remaining_caveat": "Harness observation fidelity at InterfaceBehavior/LogicalStateTransition; not general MD-015 product claim; not persist+reopen"
+    },
+    "FCR-02-MISSING-DOMAIN-REVIEW": {
+      "severity": "high",
+      "status": "ADDRESSED_BY_STORAGE_REVIEWS",
+      "resolution_summary": "Storage-systems reviews PASS_WITH_CAVEATS for Append 01B-3 and SQLite 01C-SQLITE-3 successors with RC1 oracle correction.",
+      "evidence": [
+        "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/storage-systems-review.json",
+        "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/storage-systems-review.json",
+        "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/storage-review-corrections.json"
+      ]
+    },
+    "FCR-03-STALE-EVIDENCE-OVERCLAIM": {
+      "severity": "high",
+      "status": "ADDRESSED_BY_FCR03_WIRING_AND_EVIDENCE",
+      "resolution_summary": "FCR-03 observation fields now persisted in dual-scoped 01C scenario-results for both candidates on macOS and Windows. Prior overclaim on frozen 91e258c and pre-wiring records remains historically correct; not rewritten.",
+      "evidence": [
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/macos-native/append/scenario-results.json",
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/windows-github-actions/append/scenario-results.json",
+        "evidence/persistence/current-contract-v3/gate4-fcr03-observation-wiring-01/fcr03-wiring-record.json"
+      ],
+      "claim_boundary": "fcr03_stale_rejection + fcr03_unrelated_success at harness observation fidelity; not FilesystemDurability"
+    },
+    "FCR-04-INCOMPLETE-WORK-PACKAGE": {
+      "severity": "high",
+      "status": "ADDRESSED_IN_THIS_RETRY_WP",
+      "resolution_summary": "This retry work package declares scope, forbidden actions, and downstream gate sequence explicitly."
+    },
+    "FCR-05-STALE-AUTHORIZATION-TRACKER": {
+      "severity": "medium",
+      "status": "ADDRESSED",
+      "resolution_summary": "Parent readiness.json tracker updated through FCR-03 chain completion; this retry records current gate state."
+    }
+  },
+  "not_resolved_by_this_chain": [
+    "mechanism_selection (explicitly closed)",
+    "comparison_blockers lift (methodology review says NO)",
+    "harness_sha_match across platforms (d267f0d vs 9ec3b07)",
+    "frozen 91e258c rewrite or FCR-03 backfill"
+  ],
+  "frozen_91e258c_policy": "immutable; historical append IMPLEMENTATION_NOT_YET_EVALUATED and failure_code null on stale rows remain accurate for freeze context"
+}

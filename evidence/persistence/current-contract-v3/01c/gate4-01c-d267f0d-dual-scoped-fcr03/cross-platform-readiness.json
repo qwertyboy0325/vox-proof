@@ -25,7 +25,7 @@
       "sqlite_eligibility": "ELIGIBLE_FOR_EQUIVALENT_EXECUTION",
       "fcr03_fields_in_scenario_results": true
     },
-    "windows-github_actions": {
+    "windows-github-actions": {
       "single_platform_readiness": "ready_for_owner_decision",
       "evidence_subdirectory": "windows-github-actions",
       "provenance_file": "windows-provenance.json",

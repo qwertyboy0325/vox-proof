@@ -1,0 +1,35 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "parent_work_packages": [
+    "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+    "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01"
+  ],
+  "status": "AUTHORIZED",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "objective": "Retry governance chain (PRE_FINAL → Sol STRONG_FINAL → FINAL_GATE) after FCR-03 scoped successor work resolves prior Sol blocking conflicts FCR-01/02/03.",
+  "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "resolution_packet": "sol-fcr-resolution-packet.json",
+  "dual_scoped_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "frozen_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "allowed_changes": [
+    "governance artifacts under gate4-fcr03-governance-chain-retry-01/",
+    "parent tracker readiness.json"
+  ],
+  "forbidden": [
+    "modify frozen 91e258c",
+    "mechanism_selection",
+    "Material_Decision",
+    "product_integration",
+    "lift comparison_blockers without methodology authorization",
+    "READY_FOR_OWNER_GATE"
+  ],
+  "downstream_gate_sequence": [
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK"
+  ],
+  "note": "Governance retry only. Mechanism selection remains closed regardless of Sol outcome unless explicitly authorized in separate gate."
+}

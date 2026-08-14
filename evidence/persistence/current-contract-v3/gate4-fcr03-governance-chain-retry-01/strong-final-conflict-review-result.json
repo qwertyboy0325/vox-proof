@@ -1,0 +1,52 @@
+{
+  "review_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-STRONG-FINAL-CONFLICT-REVIEW-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
+  "verdict": "BLOCKING_CONTRADICTION",
+  "verdict_line": "FINAL CONFLICT REVIEW: BLOCKING CONTRADICTION",
+  "reviewer": "voxproof-final-conflict-reviewer",
+  "actual_model": "claude-opus-5-thinking-high",
+  "required_model": "gpt-5.6-sol-high",
+  "model_requirement_satisfied": false,
+  "model_substitution_note": "Opus 5 supplementary review per owner request. Does NOT satisfy STRONG_FINAL_CONFLICT_REVIEW requirement. Canonical Sol review (gpt-5.6-sol-high) still required.",
+  "models_used": ["claude-opus-5-thinking-high"],
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "reviewed_on": "2026-08-14",
+  "fcr_status": {
+    "FCR-01-MD015-SCOPED-STALE-CONFLICT": {
+      "assessed_status": "ADDRESSED_AT_DECLARED_STRENGTH_WITH_RESIDUAL",
+      "note": "01B-3 + 01C-SQLITE-3 scoped preconditions proven; harness observation fidelity only"
+    },
+    "FCR-02-MISSING-DOMAIN-REVIEW": {
+      "assessed_status": "PARTIALLY_RESOLVED",
+      "note": "Storage reviews exist; correction commits not specialist re-verified"
+    },
+    "FCR-03-STALE-EVIDENCE-OVERCLAIM": {
+      "assessed_status": "NOT_RESOLVED_AS_SPECIFIED",
+      "note": "Refusal classification cured; persisted-state non-mutation verification not implemented (in-handle only, reopen_required=false)"
+    },
+    "FCR-04-INCOMPLETE-WORK-PACKAGE": {
+      "assessed_status": "NOT_RESOLVED"
+    },
+    "FCR-05-STALE-AUTHORIZATION-TRACKER": {
+      "assessed_status": "NOT_RESOLVED"
+    }
+  },
+  "blocking_conflicts_summary": {
+    "critical": 2,
+    "high": 6,
+    "key_blockers": [
+      "FCR-R-01: model_requirement_satisfied false (Opus 5 not Sol)",
+      "FCR-R-02: PRE_FINAL audit result was absent at review time (now CORRECTIONS_REQUIRED)",
+      "FCR-R-03/04: stale_full_state_not_persisted and post_rejection_authority_unchanged are in-handle, not persist+reopen",
+      "FCR-R-05/06: tracker comparison_readiness and Windows evidence_ref inconsistencies"
+    ]
+  },
+  "requested_owner_decision": "Do not advance to FINAL_GATE or READY_FOR_OWNER_GATE. Re-run STRONG_FINAL under gpt-5.6-sol-high after governance corrections. Decide on FCR-03 field rename/downgrade vs reopen-based evidence. Mechanism selection remains closed.",
+  "not_authorized": [
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "lifting comparison_blockers",
+    "frozen_91e258c modification"
+  ]
+}
