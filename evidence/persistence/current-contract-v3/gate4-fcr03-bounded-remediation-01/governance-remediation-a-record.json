@@ -1,0 +1,35 @@
+{
+  "record_id": "VP-GATE4-FCR03-GOVERNANCE-REMEDIATION-A-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "phase": "A",
+  "status": "COMPLETE",
+  "completed_on": "2026-08-14",
+  "completed_by": "Ezra",
+  "base_commit": "cf107a4",
+  "remediations_applied": [
+    {
+      "conflict_id": "FCR-04-MISSING-ESCALATION-CONDITIONS",
+      "status": "CLOSED",
+      "artifact": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/work-package.json",
+      "change": "Added escalation_conditions field with five bounded escalation triggers"
+    },
+    {
+      "conflict_id": "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION",
+      "status": "CLOSED",
+      "artifacts": [
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/readiness.json",
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/selection-validity.json"
+      ],
+      "change": "Replaced stale 'awaiting peer platform evidence aggregation' with harness_sha mismatch attribution aligned to cross-platform-readiness.json and methodology review"
+    }
+  ],
+  "not_changed": [
+    "candidate semantics",
+    "evidence artifacts",
+    "comparison_blockers lift",
+    "mechanism_selection_readiness"
+  ],
+  "next_phase": "C",
+  "next_phase_id": "append_storage_specialist_reverification_C",
+  "note": "Phase A complete. No evidence execution. Proceed to Append 01B-3 storage specialist re-verification."
+}

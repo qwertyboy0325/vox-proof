@@ -1,0 +1,28 @@
+{
+  "decision_id": "VP-GATE4-FCR03-PERSIST-REOPEN-OWNER-DECISION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "decision": "AUTHORIZE_PERSIST_REOPEN_EVIDENCE",
+  "decided_by": "Ezra",
+  "decided_on": "2026-08-14",
+  "rejects": [
+    "FCR-03 field rename/downgrade path",
+    "in-handle-only observation as sufficient for FCR-03 closure"
+  ],
+  "stale_rejection_minimum_proof": {
+    "observed_failure_code": "exact",
+    "transition_applied": false,
+    "post_rejection_oracle_compare": true,
+    "post_rejection_authority_unchanged": true,
+    "persist_reopen_oracle_compare": true,
+    "persist_reopen_authority_unchanged": true
+  },
+  "unrelated_success_minimum_proof": {
+    "unrelated_scope_preserved": true,
+    "persist_reopen_oracle_compare": true,
+    "persist_reopen_authority_unchanged": true,
+    "no_unrelated_scope_rewind_after_close_reopen": true
+  },
+  "execution_precondition": "Append storage specialist re-verification (phase C) passes without blocking findings",
+  "evidence_precondition": "Fresh dual-platform evidence at same frozen harness_semantic_sha after wiring freeze",
+  "note": "FCR-03 must be genuinely resolved via persist+reopen verification, not permanent caveat."
+}

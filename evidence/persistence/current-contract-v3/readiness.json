@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GOVERNANCE_CHAIN_RETRY_SOL_BLOCKING_CONTRADICTION",
+  "tracker_status": "BOUNDED_REMEDIATION_PHASE_A_COMPLETE",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -90,6 +90,25 @@
       "successor_freeze": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-successor-implementation-01/successor-candidate-freeze.json"
     }
   },
+  "bounded_remediation": {
+    "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+    "status": "PHASE_A_COMPLETE",
+    "phase": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C",
+    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/owner-authorization.json",
+    "fcr03_owner_decision": "AUTHORIZE_PERSIST_REOPEN_EVIDENCE",
+    "windows_sha_owner_decision": "AUTHORIZE_REPLACEMENT_RUN",
+    "accept_9ec3b07_for_final_gate": false,
+    "phase_a_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/governance-remediation-a-record.json",
+    "closed_in_phase_a": [
+      "FCR-04-MISSING-ESCALATION-CONDITIONS",
+      "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"
+    ],
+    "open_after_phase_a": [
+      "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED",
+      "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM",
+      "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT"
+    ]
+  },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
@@ -108,9 +127,9 @@
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
-    "status": "SOL_BLOCKING_CONTRADICTION",
-    "phase": "BOUNDED_REMEDIATION_REQUIRED"
+    "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+    "status": "PHASE_A_COMPLETE",
+    "phase": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C"
   },
   "gate_sequence": {
     "completed": [
@@ -131,20 +150,25 @@
       "cross_platform_evidence_methodology_review_PASS_WITH_CAVEATS_grok_4_6",
       "governance_corrections_GOV_01_through_GOV_04_applied",
       "PRE_FINAL_governance_audit_retry_PASS_opus_5_f781329",
-      "Sol_STRONG_FINAL_BLOCKING_CONTRADICTION_gpt_5_6_sol_high_f781329"
+      "Sol_STRONG_FINAL_BLOCKING_CONTRADICTION_gpt_5_6_sol_high_f781329",
+      "owner_AUTHORIZE_BOUNDED_REMEDIATION_A_THEN_C",
+      "governance_remediation_A_FCR04_and_FCR_R02_closed"
     ],
-    "current": "BOUNDED_REMEDIATION_REQUIRED",
+    "current": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
-      "READY_FOR_OWNER_GATE"
+      "READY_FOR_OWNER_GATE",
+      "comparison_blocker_lift",
+      "FCR-03_evidence_execution",
+      "Windows_replacement_run"
     ],
     "downstream": [
-      "owner decision: FCR-03 persist+reopen vs field rename/downgrade",
-      "owner decision: Windows 9ec3b07 vs abe8f9a SHA drift",
-      "Append 01B-3 storage specialist re-verification",
-      "work-package escalation_conditions correction",
-      "dual-scoped readiness blocker attribution fix"
+      "Append 01B-3 storage specialist re-verification (phase C)",
+      "FCR-03 persist+reopen evidence package (after C passes)",
+      "Windows replacement run at frozen SHA (after FCR-03 wiring stable)",
+      "rebuild dual-candidate readiness",
+      "Sol STRONG_FINAL retry"
     ]
   },
   "still_closed": [
@@ -156,5 +180,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Sol STRONG_FINAL BLOCKING_CONTRADICTION (gpt-5.6-sol-high, f781329). FCR-01/05 resolved at bounded strength. FCR-02/03/04 + Windows SHA drift + readiness attribution remain blocking. Mechanism selection closed."
+  "note": "Phase A complete (FCR-04 + FCR-R-02 closed). Owner authorized A→C→FCR-03 persist+reopen→Windows replacement. Phase C: Append storage re-verification. 9ec3b07 not accepted for final gate. Mechanism selection closed."
 }

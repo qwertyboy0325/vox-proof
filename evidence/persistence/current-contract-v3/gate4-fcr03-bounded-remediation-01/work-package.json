@@ -1,0 +1,112 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "status": "AUTHORIZED",
+  "phase": "GOVERNANCE_REMEDIATION_A",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "authorization_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/owner-authorization.json",
+  "parent_work_packages": [
+    "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01"
+  ],
+  "objective": "Execute owner-authorized remediation sequence A → C before FCR-03 persist+reopen evidence and Windows replacement run.",
+  "risk_tier": "high",
+  "file_scope": [
+    "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/work-package.json",
+    "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/readiness.json",
+    "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/selection-validity.json",
+    "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/",
+    "evidence/persistence/current-contract-v3/readiness.json"
+  ],
+  "semantic_scope": [
+    "Governance work-package completeness (FCR-04 escalation_conditions)",
+    "Dual-scoped readiness blocker attribution accuracy (FCR-R-02)",
+    "Append 01B-3 storage/concurrency specialist re-verification (FCR-02)"
+  ],
+  "claim_scope": [
+    "governance and specialist review artifacts only in phases A and C",
+    "no candidate semantic changes in A",
+    "no evidence execution in A or C",
+    "no comparison_blockers lift",
+    "no mechanism selection"
+  ],
+  "risk_domain": [
+    "governance",
+    "storage/concurrency correctness",
+    "evidence claim boundaries"
+  ],
+  "authorized_sequence": [
+    {
+      "step": "A",
+      "id": "governance_remediation_A",
+      "closes": ["FCR-04-MISSING-ESCALATION-CONDITIONS", "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"],
+      "forbidden": ["candidate_semantic_changes", "evidence_execution"]
+    },
+    {
+      "step": "C",
+      "id": "append_storage_specialist_reverification_C",
+      "closes": ["FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED"],
+      "precondition": "A complete",
+      "forbidden": ["evidence_execution_before_specialist_pass"]
+    },
+    {
+      "step": "FCR-03",
+      "id": "persist_reopen_evidence_package",
+      "status": "AUTHORIZED_NOT_STARTED",
+      "owner_decision_ref": "fcr03-owner-decision.json",
+      "precondition": "C complete with no blocking findings"
+    },
+    {
+      "step": "Windows",
+      "id": "replacement_run",
+      "status": "AUTHORIZED_NOT_STARTED",
+      "owner_decision_ref": "windows-sha-owner-decision.json",
+      "precondition": "FCR-03 wiring stable; frozen evidence SHA declared"
+    }
+  ],
+  "owner_decisions": {
+    "fcr03": "AUTHORIZE_PERSIST_REOPEN_EVIDENCE",
+    "windows_sha": "AUTHORIZE_REPLACEMENT_RUN",
+    "accept_9ec3b07_for_final_gate": false
+  },
+  "forbidden_scope": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "comparison_blocker_lift_before_remediation_complete",
+    "modify frozen 91e258c",
+    "accept 9ec3b07 Windows run for final gate",
+    "FCR-03 field downgrade path"
+  ],
+  "stop_gate": "APPEND_STORAGE_SPECIALIST_REVERIFICATION",
+  "stop_conditions": [
+    "Append specialist returns CORRECTIONS REQUIRED with blocking findings",
+    "remediation attempts candidate semantic change in phase A"
+  ],
+  "escalation_conditions": [
+    "Append storage re-verification finds new blocking correction beyond self-attested record",
+    "FCR-03 persist+reopen wiring requires semantic change outside separately authorized package",
+    "macOS and Windows cannot execute against same frozen evidence SHA after FCR-03 wiring",
+    "Sol STRONG_FINAL retry returns new BLOCKING_CONTRADICTION after remediation"
+  ],
+  "strong_final_conflict_review": {
+    "status": "required_after_full_sequence",
+    "required_model": "gpt-5.6-sol-high",
+    "preconditions": [
+      "FCR-02 closed",
+      "FCR-03 closed",
+      "FCR-04 closed",
+      "FCR-R-01 closed",
+      "FCR-R-02 closed",
+      "macOS/Windows exact frozen-SHA evidence complete"
+    ]
+  },
+  "specialist_reviewer_roles": [
+    "voxproof-storage-systems-reviewer",
+    "voxproof-governance-auditor",
+    "voxproof-evidence-methodology-reviewer",
+    "voxproof-final-conflict-reviewer"
+  ],
+  "prior_sol_blocking_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
+  "note": "Phases A and C only in this work package execution. FCR-03 wiring and Windows replacement are separately authorized but not started until C passes."
+}

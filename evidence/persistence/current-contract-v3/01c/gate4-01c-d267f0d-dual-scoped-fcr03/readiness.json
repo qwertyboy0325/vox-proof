@@ -13,12 +13,13 @@
     "stress fixture not implemented"
   ],
   "comparison_blockers": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "cross_platform: harness_sha mismatch between platforms (macOS d267f0d vs Windows 9ec3b07); replacement run required at frozen SHA"
   ],
   "selection_blockers": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "cross_platform: harness_sha mismatch between platforms (macOS d267f0d vs Windows 9ec3b07); replacement run required at frozen SHA"
   ],
   "blockers": [
-    "cross_platform: awaiting peer platform evidence aggregation"
-  ]
+    "cross_platform: harness_sha mismatch between platforms (macOS d267f0d vs Windows 9ec3b07); replacement run required at frozen SHA"
+  ],
+  "blocker_attribution_note": "Both platforms executed (macos-native + windows-github-actions). Peer aggregation complete. Remaining blocker is harness SHA identity mismatch, not missing peer evidence."
 }

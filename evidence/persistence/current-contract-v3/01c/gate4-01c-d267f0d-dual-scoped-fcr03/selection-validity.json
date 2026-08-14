@@ -5,8 +5,9 @@
   "evidence_record_sha": "see_git_commit_preserving_this_directory",
   "verdict": "NOT_READY_01C_EVIDENCE",
   "reason": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "cross_platform: harness_sha mismatch between platforms (macOS d267f0d vs Windows 9ec3b07); replacement run required at frozen SHA"
   ],
+  "blocker_attribution_note": "Both platforms executed. Remaining blocker is harness SHA identity mismatch per cross-platform methodology review, not awaiting peer aggregation.",
   "invalid_evidence_chain": [
     {
       "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",

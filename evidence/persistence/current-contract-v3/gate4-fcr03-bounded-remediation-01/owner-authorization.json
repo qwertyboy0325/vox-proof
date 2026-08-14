@@ -1,0 +1,20 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-AUTHORIZATION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "sequence": [
+    "governance_remediation_A",
+    "append_storage_specialist_reverification_C"
+  ],
+  "fcr03_owner_decision_ref": "fcr03-owner-decision.json",
+  "windows_sha_owner_decision_ref": "windows-sha-owner-decision.json",
+  "still_forbidden": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "comparison_blocker_lift_before_remediation_complete"
+  ],
+  "note": "Owner authorizes A then C immediately. FCR-03 persist+reopen and Windows replacement run authorized but deferred until C passes without blocking findings."
+}

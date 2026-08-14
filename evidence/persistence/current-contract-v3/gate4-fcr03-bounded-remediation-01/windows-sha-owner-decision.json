@@ -1,0 +1,28 @@
+{
+  "decision_id": "VP-GATE4-FCR03-WINDOWS-SHA-REPLACEMENT-OWNER-DECISION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "decision": "AUTHORIZE_REPLACEMENT_RUN",
+  "decided_by": "Ezra",
+  "decided_on": "2026-08-14",
+  "accept_9ec3b07_for_final_gate": false,
+  "rationale": "FCR-03 requires fresh persist+reopen evidence; defending 9ec3b07 SHA drift against abe8f9a authorization has low value when replacement run is required anyway.",
+  "prior_run": {
+    "workflow_run_id": 31811807394,
+    "evidence_checkout_sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+    "owner_authorized_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
+    "status": "historical_bounded_fcr03_observation_only_not_final_gate_eligible"
+  },
+  "replacement_run_requirements": {
+    "macos_and_windows_same_frozen_evidence_sha": true,
+    "workflow_control_plane_sha_may_differ": true,
+    "provenance_fields": [
+      "workflow_control_plane_sha",
+      "evidence_checkout_sha",
+      "harness_semantic_sha"
+    ],
+    "harness_semantic_sha_equals_evidence_checkout_sha": true,
+    "precondition": "Append specialist review + FCR-03 persist+reopen wiring stable; evidence SHA frozen and declared"
+  },
+  "closes": "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT",
+  "note": "Replacement run resolves FCR-R-01 together with new FCR-03 Windows evidence at authorized SHA."
+}

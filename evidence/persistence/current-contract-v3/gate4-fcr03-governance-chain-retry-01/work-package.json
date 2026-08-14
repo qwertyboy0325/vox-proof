@@ -1,7 +1,7 @@
 {
   "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
   "status": "AUTHORIZED",
-  "phase": "GOVERNANCE_ARTIFACT_CORRECTIONS",
+  "phase": "BOUNDED_REMEDIATION_SEQUENCE",
   "owner_authorized": true,
   "authorized_by": "Ezra",
   "authorized_on": "2026-08-14",
@@ -94,6 +94,13 @@
     "PRE_FINAL audit returns BLOCKING CONFLICT",
     "governance corrections incomplete",
     "frozen 91e258c modification attempted"
+  ],
+  "escalation_conditions": [
+    "Sol STRONG_FINAL returns BLOCKING_CONTRADICTION requiring owner decision beyond bounded remediation",
+    "Append storage specialist re-verification finds new blocking findings after self-attested corrections",
+    "FCR-03 persist+reopen wiring requires candidate semantic change outside separately authorized package",
+    "macOS and Windows cannot execute against same frozen evidence SHA after FCR-03 wiring freeze",
+    "comparison_blockers lift requested before FCR-02/03/04/FCR-R-01/FCR-R-02 all closed"
   ],
   "model_budget_policy": {
     "governance_audit": "Claude Opus 5 (voxproof-governance-auditor)",
