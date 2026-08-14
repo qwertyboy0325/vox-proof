@@ -22,6 +22,12 @@
     "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0",
     "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0/windows-provenance.json"
   },
+  "corrected_harness_run": {
+    "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+    "verdict": "ready_for_owner_decision",
+    "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91",
+    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91/windows-provenance.json"
+  },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
@@ -42,7 +48,7 @@
     "execution_status": "blocked_evidence_invalid",
     "invalid_predecessor_harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
     "invalid_predecessor_evidence_sha": "5b446b430f358d3da821461775cc50efe0943033",
-    "corrected_round_status": "correction_02_in_progress"
+    "corrected_round_status": "evidence_valid_pending_opus_review"
   },
   "note": "Prior 01C evidence at gate4-01c-970b3c3 is preserved negative evidence and invalid for mechanism selection. Readiness remains not_ready until corrected harness evidence passes programmatic gates on macOS and Windows."
 }

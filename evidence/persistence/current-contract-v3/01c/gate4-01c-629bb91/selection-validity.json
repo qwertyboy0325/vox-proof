@@ -1,0 +1,8 @@
+{
+  "selection_validity": "pending_owner_decision",
+  "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+  "harness_version": "gate4-01c-evidence-v3",
+  "evidence_record_sha": "pending_git_commit",
+  "verdict": "ready_for_owner_decision",
+  "supersedes_blocked_run": "b2569a022856f3cbfecdbdb950bc32584741a9a3"
+}

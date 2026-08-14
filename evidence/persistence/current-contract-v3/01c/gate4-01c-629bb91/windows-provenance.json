@@ -1,0 +1,10 @@
+{
+  "run_id": 31775363582,
+  "job_id": 94689587727,
+  "head_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+  "artifact_id": 9209742877,
+  "artifact_sha256": "107599d01d45da3412a1e3f3a06dee7d18dec75585fbb54c93fe668d471dfd3f",
+  "verdict": "ready_for_owner_decision",
+  "harness_version": "gate4-01c-evidence-v3",
+  "01c_run_id": "current-contract-v3-01c-windows-31775363582"
+}
