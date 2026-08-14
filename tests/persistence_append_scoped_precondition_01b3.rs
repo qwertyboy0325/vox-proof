@@ -176,6 +176,7 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
         &authority_after_competing,
         &authority_after,
         &reopened_state,
+        None,
     );
     assert!(!observation.transition_applied);
     assert_eq!(
@@ -229,7 +230,6 @@ fn c1_stale_reuse_command_rejected_with_authority_unchanged() {
 }
 
 #[test]
-#[ignore = "analysis stale requires owner fixture: oracle-valid competing analysis transition that advances active_analysis_snapshot_identity on review_precursor session"]
 fn c1_stale_active_analysis_command_rejected_with_authority_unchanged() {
     let adapter = new_adapter("c1-stale-analysis");
     let fixture = genuine_stale_scenario_fixture(
@@ -237,36 +237,16 @@ fn c1_stale_active_analysis_command_rejected_with_authority_unchanged() {
         MeasurementFixtureScale::Small,
     )
     .expect("analysis stale fixture");
-    let advances = fixture
-        .analysis_precursor_advances
+    let details = fixture
+        .analysis_details
         .as_ref()
-        .expect("analysis precursor advances");
+        .expect("analysis stale details");
 
     let session = adapter.create(&fixture.prepare_authority).expect("create");
     let mut writer = adapter
         .open_existing(session.session_id(), AppendOpenMode::Writable)
         .expect("open writer");
 
-    adapter
-        .apply_scoped_command(
-            &mut writer,
-            &AppendScopedCommand::from_transition_pair(
-                AppendCommandScope::ReviewLedger,
-                &fixture.prepare_authority,
-                &advances.review_target,
-            ),
-        )
-        .expect("review advance before analysis stale");
-    adapter
-        .apply_scoped_command(
-            &mut writer,
-            &AppendScopedCommand::from_transition_pair(
-                AppendCommandScope::ReuseGovernance,
-                &fixture.prepare_authority,
-                &advances.reuse_advanced,
-            ),
-        )
-        .expect("reuse advance before analysis stale");
     adapter
         .apply_scoped_command(
             &mut writer,
@@ -289,6 +269,23 @@ fn c1_stale_active_analysis_command_rejected_with_authority_unchanged() {
         .expect_err("stale analysis must be rejected");
     assert_eq!(error.code, fixture.expected_failure_code);
     assert_eq!(authority_after_competing, writer.normalized_state().clone());
+    assert_eq!(
+        authority_after_competing
+            .durable_command_tokens
+            .active_analysis_snapshot_identity,
+        details.competing_identity_after
+    );
+    assert_eq!(
+        details.analysis_identity_before,
+        fixture
+            .prepare_authority
+            .durable_command_tokens
+            .active_analysis_snapshot_identity
+    );
+    assert_ne!(
+        details.stale_command_target_identity,
+        details.competing_identity_after
+    );
 }
 
 #[test]

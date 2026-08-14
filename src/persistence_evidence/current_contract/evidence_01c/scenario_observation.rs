@@ -36,6 +36,14 @@ pub struct Fcr03StaleRejectionRecord {
     pub close_reopen_performed: bool,
     pub persist_reopen_oracle_compare: bool,
     pub persist_reopen_authority_unchanged: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub analysis_identity_before: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub competing_identity_after: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stale_command_target_identity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identities_pairwise_distinct: Option<bool>,
 }
 
 /// Persisted FCR-03 unrelated-success observation (scenario-results.json).
@@ -64,6 +72,10 @@ pub struct Fcr03StaleRejectionObservation {
     pub close_reopen_performed: bool,
     pub persist_reopen_oracle_compare: bool,
     pub persist_reopen_authority_unchanged: bool,
+    pub analysis_identity_before: Option<String>,
+    pub competing_identity_after: Option<String>,
+    pub stale_command_target_identity: Option<String>,
+    pub identities_pairwise_distinct: Option<bool>,
 }
 
 /// FCR-03 minimum observation fields for unrelated-scope command success.
@@ -87,7 +99,27 @@ impl Fcr03StaleRejectionObservation {
         authority_after_competing: &super::super::model::CurrentContractState,
         authority_after_rejection: &super::super::model::CurrentContractState,
         authority_after_reopen: &super::super::model::CurrentContractState,
+        analysis_details: Option<
+            &super::measurement_transitions::GenuineStaleAnalysisDetails,
+        >,
     ) -> Self {
+        let (analysis_identity_before, competing_identity_after, stale_command_target_identity, identities_pairwise_distinct) =
+            if let Some(details) = analysis_details {
+                let distinct = details.analysis_identity_before
+                    != details.competing_identity_after
+                    && details.analysis_identity_before
+                        != details.stale_command_target_identity
+                    && details.competing_identity_after
+                        != details.stale_command_target_identity;
+                (
+                    Some(details.analysis_identity_before.clone()),
+                    Some(details.competing_identity_after.clone()),
+                    Some(details.stale_command_target_identity.clone()),
+                    Some(distinct),
+                )
+            } else {
+                (None, None, None, None)
+            };
         Self {
             prepared_precondition: prepared_precondition.into(),
             competing_transition_applied,
@@ -108,6 +140,10 @@ impl Fcr03StaleRejectionObservation {
             )
             .passed,
             persist_reopen_authority_unchanged: authority_after_competing == authority_after_reopen,
+            analysis_identity_before,
+            competing_identity_after,
+            stale_command_target_identity,
+            identities_pairwise_distinct,
         }
     }
 
@@ -124,6 +160,10 @@ impl Fcr03StaleRejectionObservation {
             close_reopen_performed: self.close_reopen_performed,
             persist_reopen_oracle_compare: self.persist_reopen_oracle_compare,
             persist_reopen_authority_unchanged: self.persist_reopen_authority_unchanged,
+            analysis_identity_before: self.analysis_identity_before.clone(),
+            competing_identity_after: self.competing_identity_after.clone(),
+            stale_command_target_identity: self.stale_command_target_identity.clone(),
+            identities_pairwise_distinct: self.identities_pairwise_distinct,
         }
     }
 }

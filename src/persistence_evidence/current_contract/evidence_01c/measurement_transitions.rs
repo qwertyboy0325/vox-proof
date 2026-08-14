@@ -42,14 +42,15 @@ pub struct GenuineStaleScenarioFixture {
     pub competing_target: CurrentContractState,
     pub scope: GenuineStaleCommandScope,
     pub expected_failure_code: &'static str,
-    /// Optional unrelated-scope advances required before competing analysis commands.
-    pub analysis_precursor_advances: Option<AnalysisPrecursorAdvances>,
+    pub analysis_details: Option<GenuineStaleAnalysisDetails>,
 }
 
+/// Pairwise-distinct analysis identities for R2-02 stale-analysis observation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AnalysisPrecursorAdvances {
-    pub reuse_advanced: CurrentContractState,
-    pub review_target: CurrentContractState,
+pub struct GenuineStaleAnalysisDetails {
+    pub analysis_identity_before: String,
+    pub competing_identity_after: String,
+    pub stale_command_target_identity: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,7 +78,7 @@ pub fn genuine_stale_scenario_fixture(
                 competing_target: prepared_target,
                 scope: GenuineStaleCommandScope::ReviewLedger,
                 expected_failure_code: "stale-review-ledger-precondition",
-                analysis_precursor_advances: None,
+                analysis_details: None,
             })
         }
         "stale-reuse-governance-command" => {
@@ -89,36 +90,113 @@ pub fn genuine_stale_scenario_fixture(
                 competing_target: prepared_target,
                 scope: GenuineStaleCommandScope::ReuseGovernance,
                 expected_failure_code: "stale-reuse-governance-precondition",
-                analysis_precursor_advances: None,
+                analysis_details: None,
             })
         }
-        "stale-analysis-attachment-or-selection" => {
-            let (prepare_authority, reuse_advanced, review_target) =
-                unrelated_scope_success_fixture(scale);
-            let (_, promotion_medium) = measurement_transition_states(
-                "append_reusable_promotion",
-                MeasurementFixtureScale::Medium,
-            )?;
-            let (_, promotion_small) =
-                measurement_transition_states("append_reusable_promotion", scale)?;
-            let competing_target =
-                analysis_only_target_from(&prepare_authority, &promotion_small);
-            let prepared_target =
-                analysis_only_target_from(&prepare_authority, &promotion_medium);
-            Some(GenuineStaleScenarioFixture {
-                prepare_authority,
-                prepared_target,
-                competing_target,
-                scope: GenuineStaleCommandScope::ActiveAnalysis,
-                expected_failure_code: "stale-analysis-selection-precondition",
-                analysis_precursor_advances: Some(AnalysisPrecursorAdvances {
-                    reuse_advanced,
-                    review_target,
-                }),
-            })
-        }
+        "stale-analysis-attachment-or-selection" => Some(genuine_stale_analysis_fixture(scale)?),
         _ => None,
     }
+}
+
+/// R2-02 evidence-only analysis stale fixture: review+reuse-advanced medium authority
+/// with two oracle-valid reuse-enabled analysis selections prepared at the same S0.
+fn genuine_stale_analysis_fixture(
+    scale: MeasurementFixtureScale,
+) -> Option<GenuineStaleScenarioFixture> {
+    let prepare_authority = genuine_stale_analysis_prepare_authority(scale);
+    let (_, promotion_medium) = measurement_transition_states(
+        "append_reusable_promotion",
+        MeasurementFixtureScale::Medium,
+    )?;
+    let (_, promotion_small) = measurement_transition_states("append_reusable_promotion", scale)?;
+
+    let analysis_identity_before = prepare_authority
+        .durable_command_tokens
+        .active_analysis_snapshot_identity
+        .clone();
+    let competing_target = analysis_selection_target_from(
+        &prepare_authority,
+        &promotion_medium,
+        reuse_attachment_identity(&promotion_medium).as_deref(),
+    );
+    let prepared_target = analysis_selection_target_from(
+        &prepare_authority,
+        &promotion_small,
+        reuse_attachment_identity(&promotion_small).as_deref(),
+    );
+    let competing_identity_after = competing_target
+        .durable_command_tokens
+        .active_analysis_snapshot_identity
+        .clone();
+    let stale_command_target_identity = prepared_target
+        .durable_command_tokens
+        .active_analysis_snapshot_identity
+        .clone();
+
+    Some(GenuineStaleScenarioFixture {
+        prepare_authority,
+        prepared_target,
+        competing_target,
+        scope: GenuineStaleCommandScope::ActiveAnalysis,
+        expected_failure_code: "stale-analysis-selection-precondition",
+        analysis_details: Some(GenuineStaleAnalysisDetails {
+            analysis_identity_before,
+            competing_identity_after,
+            stale_command_target_identity,
+        }),
+    })
+}
+
+/// Oracle-valid S0 for analysis stale: unrelated review+reuse advances on medium
+/// partial session, plus small-scale source revisions so a second reuse-enabled
+/// analysis attachment remains oracle-valid without changing authority semantics.
+pub fn genuine_stale_analysis_prepare_authority(
+    scale: MeasurementFixtureScale,
+) -> CurrentContractState {
+    use super::super::CurrentContractOracle;
+    use super::super::finalize_derived_fields;
+
+    let (review_precursor, reuse_advanced, review_target) = unrelated_scope_success_fixture(scale);
+    let (_, promotion_small) =
+        measurement_transition_states("append_reusable_promotion", scale).expect("small promotion");
+
+    let mut prepare_authority = review_precursor;
+    prepare_authority.review_ledger_events = review_target.review_ledger_events.clone();
+    prepare_authority.effective_review_status = review_target.effective_review_status.clone();
+    prepare_authority.durable_command_tokens.review_ledger_head =
+        review_target.durable_command_tokens.review_ledger_head;
+    prepare_authority.reuse_governance_events = reuse_advanced.reuse_governance_events.clone();
+    prepare_authority.effective_reusable_records = reuse_advanced.effective_reusable_records.clone();
+    prepare_authority.historical_reusable_records =
+        reuse_advanced.historical_reusable_records.clone();
+    prepare_authority.reusable_snapshot_identity = reuse_advanced.reusable_snapshot_identity.clone();
+    prepare_authority.reuse_enabled_analysis_binding =
+        reuse_advanced.reuse_enabled_analysis_binding.clone();
+    prepare_authority.durable_command_tokens.reuse_governance_head =
+        reuse_advanced.durable_command_tokens.reuse_governance_head;
+    for revision in &promotion_small.source_revisions {
+        if !prepare_authority
+            .source_revisions
+            .iter()
+            .any(|existing| existing.revision_id == revision.revision_id)
+        {
+            prepare_authority.source_revisions.push(revision.clone());
+        }
+    }
+    finalize_derived_fields(&mut prepare_authority);
+    let prepare_authority = prepare_authority.normalize();
+    assert!(
+        CurrentContractOracle::validate(&prepare_authority).passed,
+        "analysis stale S0 must be oracle-valid"
+    );
+    prepare_authority
+}
+
+fn reuse_attachment_identity(state: &CurrentContractState) -> Option<String> {
+    state
+        .reuse_enabled_analysis_binding
+        .as_ref()
+        .map(|binding| binding.analysis_snapshot_identity.clone())
 }
 
 pub fn prepared_precondition_label(
@@ -168,9 +246,10 @@ pub fn authority_changed_in_relevant_scope(
     }
 }
 
-fn analysis_only_target_from(
+fn analysis_selection_target_from(
     precursor: &CurrentContractState,
     attachment_source: &CurrentContractState,
+    selected_identity: Option<&str>,
 ) -> CurrentContractState {
     let mut target = precursor.clone();
     for snapshot in &attachment_source.analysis_snapshots {
@@ -182,10 +261,31 @@ fn analysis_only_target_from(
             target.analysis_snapshots.push(snapshot.clone());
         }
     }
-    target.durable_command_tokens.active_analysis_snapshot_identity = attachment_source
-        .durable_command_tokens
-        .active_analysis_snapshot_identity
-        .clone();
+    if let Some(binding) = &attachment_source.reuse_enabled_analysis_binding
+        && !target
+            .analysis_snapshots
+            .iter()
+            .any(|snapshot| snapshot.identity == binding.analysis_snapshot_identity)
+    {
+        target
+            .analysis_snapshots
+            .push(binding.analysis_snapshot.clone());
+    }
+    let identity = selected_identity
+        .map(str::to_owned)
+        .or_else(|| {
+            attachment_source
+                .reuse_enabled_analysis_binding
+                .as_ref()
+                .map(|binding| binding.analysis_snapshot_identity.clone())
+        })
+        .unwrap_or_else(|| {
+            attachment_source
+                .durable_command_tokens
+                .active_analysis_snapshot_identity
+                .clone()
+        });
+    target.durable_command_tokens.active_analysis_snapshot_identity = identity;
     super::super::finalize_derived_fields(&mut target);
     target.normalize()
 }
@@ -619,22 +719,32 @@ mod tests {
                     fixture.scope,
                     &fixture.prepare_authority,
                     &fixture.competing_target,
-                ) || fixture.scope == GenuineStaleCommandScope::ActiveAnalysis,
-                "{scenario_id}: competing target must advance relevant scope or analysis uses distinct targets"
+                ),
+                "{scenario_id}: competing target must advance relevant scope"
             );
             if fixture.scope == GenuineStaleCommandScope::ActiveAnalysis {
-                assert!(fixture.analysis_precursor_advances.is_some());
+                let details = fixture
+                    .analysis_details
+                    .as_ref()
+                    .expect("analysis stale fixture details");
                 assert_ne!(
-                    fixture.competing_target
-                        .durable_command_tokens
-                        .active_analysis_snapshot_identity,
-                    fixture.prepared_target
-                        .durable_command_tokens
-                        .active_analysis_snapshot_identity,
-                    "{scenario_id}: analysis stale requires distinct prepared vs competing targets"
+                    details.analysis_identity_before,
+                    details.competing_identity_after
                 );
+                assert_ne!(
+                    details.analysis_identity_before,
+                    details.stale_command_target_identity
+                );
+                assert_ne!(
+                    details.competing_identity_after,
+                    details.stale_command_target_identity
+                );
+                assert!(CurrentContractOracle::validate(&fixture.prepare_authority).passed);
+                assert!(CurrentContractOracle::validate(&fixture.competing_target).passed);
+                assert!(CurrentContractOracle::validate(&fixture.prepared_target).passed);
             } else {
                 assert_eq!(fixture.competing_target, fixture.prepared_target);
+                assert!(fixture.analysis_details.is_none());
             }
         }
     }

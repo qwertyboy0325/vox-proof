@@ -403,25 +403,6 @@ fn run_genuine_stale_precondition(
     let mut writer = adapter.open_writable(&session_id).map_err(err_string)?;
     let scope = scoped_command_scope(fixture.scope);
 
-    if let Some(advances) = &fixture.analysis_precursor_advances {
-        adapter
-            .apply_scoped_transition_at_prepare_authority(
-                &mut writer,
-                ScopedCommandScope::ReviewLedger,
-                &fixture.prepare_authority,
-                &advances.review_target,
-            )
-            .map_err(err_string)?;
-        adapter
-            .apply_scoped_transition_at_prepare_authority(
-                &mut writer,
-                ScopedCommandScope::ReuseGovernance,
-                &fixture.prepare_authority,
-                &advances.reuse_advanced,
-            )
-            .map_err(err_string)?;
-    }
-
     adapter
         .apply_scoped_transition_at_prepare_authority(
             &mut writer,
@@ -462,6 +443,7 @@ fn run_genuine_stale_precondition(
                 &authority_after_competing,
                 &authority_after_rejection,
                 &reopened_state,
+                fixture.analysis_details.as_ref(),
             );
             adapter.close(reopened).map_err(err_string)?;
             if !observation.competing_transition_applied
@@ -472,6 +454,10 @@ fn run_genuine_stale_precondition(
                 || !observation.persist_reopen_oracle_compare
                 || !observation.persist_reopen_authority_unchanged
                 || !observation.close_reopen_performed
+                || fixture
+                    .analysis_details
+                    .as_ref()
+                    .is_some_and(|_| !observation.identities_pairwise_distinct.unwrap_or(false))
             {
                 return Err("genuine-stale-observation-incomplete".to_owned());
             }

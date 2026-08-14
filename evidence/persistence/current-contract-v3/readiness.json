@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "R2_01_COMPLETE_R2_02_AUTHORIZED",
+  "tracker_status": "R2_02_COMPLETE_PENDING_REVIEW",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -169,23 +169,25 @@
   },
   "sol_r2_bounded_correction": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_IN_PROGRESS",
+    "status": "R2_02_COMPLETE_PENDING_REVIEW",
     "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
     "decision_path": "A",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
     "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
-    "current_step": "R2_02_genuine_stale_scenarios",
+    "current_step": "R2_02_specialist_and_methodology_review",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
     "open_conflicts": [
-      "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
       "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
       "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
     ],
     "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"],
     "closed_in_r2_01": ["FCR-R2-01-POST-REVERIFICATION-U1-FIX"],
-    "r2_01_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json"
+    "closed_in_r2_02": ["FCR-R2-02-SYNTHETIC-STALE-COMMANDS"],
+    "r2_01_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json",
+    "r2_02_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-phase-record.json",
+    "r2_02_analysis_fixture_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-owner-authorization-analysis-fixture.json"
   },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
@@ -207,7 +209,7 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_IN_PROGRESS",
+    "status": "R2_02_COMPLETE_PENDING_REVIEW",
     "phase": "R2_02_GENUINE_STALE_SCENARIOS",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },

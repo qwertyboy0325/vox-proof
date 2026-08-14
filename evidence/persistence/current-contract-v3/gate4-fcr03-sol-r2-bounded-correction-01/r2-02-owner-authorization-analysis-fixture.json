@@ -1,0 +1,18 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-02-OWNER-AUTHORIZATION-ANALYSIS-FIXTURE",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "owner_decision": "AUTHORIZE_R2_02_ANALYSIS_FIXTURE_EXTENSION",
+  "purpose": "Provide an oracle-valid evidence-only precursor with two distinct genuine ActiveAnalysis commands prepared from the same authority state, so one command can advance the active-analysis scope and the other can then be rejected as genuinely stale.",
+  "synthetic_stale_boundary": {
+    "accepted_as_final_closure": false
+  },
+  "implementation_summary": {
+    "s0_helper": "genuine_stale_analysis_prepare_authority",
+    "competing_target": "medium promotion reuse-enabled analysis selection",
+    "stale_target": "small promotion reuse-enabled analysis selection",
+    "source_revision_extension": "merge small promotion source_revisions into S0 for oracle-valid cross-scale analysis snapshot binding",
+    "fixture_v3_bump": false,
+    "removed": "analysis_precursor_advances harness path"
+  },
+  "recorded_on": "2026-08-15"
+}

@@ -30,7 +30,7 @@ pub const SQLITE_LEASE_EXPIRY_WAIT_MS: u64 = 1_100;
 
 pub use super::measurement_transitions::{
     authority_changed_in_relevant_scope, genuine_stale_scenario_fixture,
-    prepared_precondition_label, unrelated_scope_success_fixture, AnalysisPrecursorAdvances,
+    prepared_precondition_label, unrelated_scope_success_fixture,
     GenuineStaleCommandScope, GenuineStaleScenarioFixture,
 };
 
