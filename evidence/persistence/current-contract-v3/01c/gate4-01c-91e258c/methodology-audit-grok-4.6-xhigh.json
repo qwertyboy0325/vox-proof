@@ -1,0 +1,65 @@
+{
+  "audit_id": "VP-GATE4-01C-91E258C-EVIDENCE-METHODOLOGY-AUDIT-2026-08-14",
+  "auditor_model": "Grok 4.6 Extra High",
+  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "evidence_record_path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/",
+  "overall_verdict": "PASS_WITH_CAVEATS",
+  "comparison_gate": "ready_with_caveats",
+  "selection_gate": "not_ready",
+  "runs_reviewed": {
+    "macos_native": {
+      "execution_environment": "macos-native-host",
+      "repository_commit": "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+    },
+    "windows_github_actions": {
+      "workflow_run_id": 31782086628,
+      "workflow_control_plane_sha": "fc8acfcd5f4d9a8477506cdfe055a6e0161baac4",
+      "evidence_checkout_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+      "01c_run_id": "current-contract-v3-01c-windows-31782086628"
+    },
+    "negative_control": {
+      "workflow_run_id": 31780866924,
+      "failure_class": "CONTROL_PLANE_VALIDATOR_DRIFT",
+      "usable_for_aggregation": false
+    }
+  },
+  "findings_summary": {
+    "provenance": "dual SHA separation correct; frozen contracts unchanged",
+    "readiness_graph": "comparison vs selection separation correctly applied at v6",
+    "cross_platform_parity": "25/25 scenarios per candidate per platform; required failures 0",
+    "aggregation_layer": "cross-platform-readiness.json is post-hoc assembly, not second harness run",
+    "comparison_report": "root comparison.json/md is macos-native only; no comparison-windows.json",
+    "measurement_strength": "n=5 wall-clock; qualitative within-platform signals only",
+    "selection_blocker": "append stale-precondition asymmetry only; correctly blocks selection"
+  },
+  "owner_decision_scope": {
+    "may_decide_now": [
+      "Accept packet as cross-platform comparison evidence at frozen 91e258c",
+      "Compare candidates on required-scenario outcomes, recovery classifications, and qualitative within-platform signals",
+      "Confirm selection remains not_ready due to append stale-precondition asymmetry only",
+      "Confirm 31780866924 is control-plane drift, not candidate/harness failure"
+    ],
+    "remains_blocked": [
+      "Mechanism selection",
+      "Product persistence authority",
+      "Cross-platform latency/RSS ranking or pooling",
+      "PRE_FINAL_GOVERNANCE_AUDIT",
+      "STRONG_FINAL_CONFLICT_REVIEW / Sol",
+      "FINAL_GATE_GOVERNANCE_CHECK",
+      "Contract version bumps without authorization"
+    ]
+  },
+  "do_not_proceed": [
+    "SELECTION_GATE",
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "product_integration",
+    "contract_version_bump"
+  ],
+  "requested_owner_decision": "Accept or reject comparison-only readiness of gate4-01c-91e258c; selection remains blocked regardless until owner governance on append asymmetry."
+}

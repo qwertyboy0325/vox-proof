@@ -7,10 +7,13 @@
   "scenario_contract_version": "4",
   "measurement_contract_version": "2",
   "harness_version": "gate4-01c-evidence-v6",
-  "mechanism_comparison_readiness": "not_ready",
+  "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "mechanism_comparison_readiness": "ready_for_owner_decision",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_READINESS_SEPARATION_CORRECTION_05",
+  "tracker_status": "GATE4_01C_CROSS_PLATFORM_EVIDENCE_CLOSED_AWAITING_OWNER_COMPARISON_DECISION",
+  "authoritative_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "methodology_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
   "invalid_evidence_chain": [
     {
       "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
@@ -61,16 +64,17 @@
   },
   "01C": {
     "authorized": true,
-    "execution_status": "readiness_separation_correction_05",
+    "execution_status": "cross_platform_evidence_closed",
     "mechanism_selection": "none",
     "product_integration": "unimplemented",
-    "windows_at_21f2eb2": "do_not_run"
+    "windows_control_plane_correction": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
+    "windows_workflow_run_id": 31782086628
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
-    "status": "EXECUTING",
+    "status": "AWAITING_OWNER_COMPARISON_DECISION",
     "scenario_contract_version": "4",
-    "base_commit": "21f2eb2"
+    "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
   },
-  "note": "21f2eb2 macOS preserved as invalid_for_final_gate (readiness_gate_conflation). Windows not run at that SHA. Fresh macOS+Windows required on post-correction-05 harness."
+  "note": "Cross-platform v6 evidence closed at gate4-01c-91e258c. Grok 4.6 Extra High methodology audit: PASS_WITH_CAVEATS. Comparison ready for owner decision; selection not_ready (append stale-precondition asymmetry). PRE_FINAL/Sol/selection remain closed."
 }
