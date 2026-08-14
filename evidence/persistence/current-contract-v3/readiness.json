@@ -80,7 +80,7 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
-    "status": "PRE_FINAL_ELIGIBLE",
+    "status": "PRE_FINAL_PASS_AWAITING_SOL_AUTHORIZATION",
     "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
     "owner_accepted_on": "2026-08-14",
     "owner_accepted_by": "Ezra"
@@ -88,9 +88,10 @@
   "gate_sequence": {
     "completed": [
       "comparison_evidence_owner_accepted",
-      "stale_precondition_asymmetry_semantic_gate_closed"
+      "stale_precondition_asymmetry_semantic_gate_closed",
+      "PRE_FINAL_GOVERNANCE_AUDIT_PASS"
     ],
-    "next_authorized": "PRE_FINAL_GOVERNANCE_AUDIT",
+    "next_authorized": "STRONG_FINAL_CONFLICT_REVIEW",
     "then": [
       "STRONG_FINAL_CONFLICT_REVIEW",
       "FINAL_GATE_GOVERNANCE_CHECK",
@@ -111,5 +112,5 @@
       "eligibility.json append IMPLEMENTATION_NOT_YET_EVALUATED"
     ]
   },
-  "note": "Stale asymmetry resolved at governance layer only. Frozen 91e258c evidence unchanged. PRE_FINAL authorized; mechanism selection remains closed until final gate chain completes."
+  "note": "PRE_FINAL_GOVERNANCE_AUDIT PASS at 353ef43. Frozen 91e258c evidence unchanged. Sol API authorization required before STRONG_FINAL_CONFLICT_REVIEW. Mechanism selection remains closed."
 }
