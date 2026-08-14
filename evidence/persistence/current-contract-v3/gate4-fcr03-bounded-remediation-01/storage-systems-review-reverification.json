@@ -1,0 +1,66 @@
+{
+  "review_id": "VP-GATE4-APPEND-01B-3-STORAGE-SYSTEMS-REVERIFICATION-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "phase": "C",
+  "artifact_role": "storage-systems-review-reverification",
+  "prior_review_id": "VP-GATE4-APPEND-01B-3-STORAGE-SYSTEMS-REVIEW-2026-08-14",
+  "prior_review_path": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/storage-systems-review.json",
+  "correction_record_path": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/storage-review-corrections.json",
+  "sol_conflict_target": "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED",
+  "commit_reviewed": "19d2b12",
+  "prior_review_commit": "56c320d",
+  "correction_range": "56c320d..19d2b12",
+  "branch": "v0.2-real-transcript-authoritative-loop",
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "reviewed_on": "2026-08-14",
+  "verdict": "CORRECTIONS_REQUIRED",
+  "storage_review_line": "STORAGE REVIEW: CORRECTIONS REQUIRED",
+  "blocking_before_evidence_execution_gate": true,
+  "evidence_execution_gate": "blocked",
+  "fcr02_status": {
+    "high_severity_code_defects_H1_H2_H3": "CLOSED",
+    "M2": "CLOSED",
+    "specialist_re_verified": true,
+    "fcr02_fully_closed_for_fcr03_evidence": false,
+    "remaining_blockers": ["M1_C3_ALIASED_OBSERVATION", "L1_NO_PERSIST_REOPEN"]
+  },
+  "findings_summary": {
+    "H1_HARNESS_INFER_SCOPE_BREAKS_STALE_AND_U1": { "reverification_status": "closed", "blocks_evidence_execution_gate": false },
+    "H2_INTERRUPT_CHILD_COMMITS_FULL_TRANSITION_ON_01B3": { "reverification_status": "closed", "blocks_evidence_execution_gate": false },
+    "H3_REJECT_STALE_FULL_STATE_REWIND_FALSE_POSITIVE_ON_ANALYSIS": { "reverification_status": "closed", "blocks_evidence_execution_gate": false },
+    "M1_C3_OFFPATH_HELPER_AND_ALIASED_OBSERVATION": { "reverification_status": "partial", "blocks_evidence_execution_gate": true },
+    "M2_REUSE_WRITESET_MISSING_ANALYSIS_SNAPSHOTS": { "reverification_status": "closed", "blocks_evidence_execution_gate": false },
+    "M3_APPLY_TRANSITION_STALE_DEAD_AND_FRAGILE": { "reverification_status": "deferred", "blocks_evidence_execution_gate": false },
+    "L1_C1_NO_REOPEN_ORACLE": { "reverification_status": "deferred", "blocks_evidence_execution_gate": true }
+  },
+  "claim_downgrades": [
+    {
+      "claim": "storage-review-corrections.json M1 independently measured",
+      "downgrade_to": "still derived in-handle token check; not persist+reopen C3 proof"
+    },
+    {
+      "claim": "storage-review-corrections.json L1 optional before evidence gate",
+      "downgrade_to": "not optional under owner FCR-03 persist+reopen decision"
+    },
+    {
+      "claim": "correction record evidence_execution_gate unblocked",
+      "downgrade_to": "self-attested and incorrect; gate remains blocked"
+    }
+  ],
+  "bottom_line": "H1, H2, H3, and M2 closed in actual code. FCR-03 persist+reopen evidence execution remains blocked on M1 (aliased C3) and L1 (no reopen oracle). FCR-03 wiring may proceed as correction package; targeted re-verification of M1 and L1 required before any evidence run.",
+  "explicit_gate_ruling": {
+    "may_execute_fcr03_persist_reopen_evidence_now": false,
+    "may_start_fcr03_wiring_as_correction_package": true,
+    "requires_targeted_reverification_before_evidence": ["M1", "L1"]
+  },
+  "requested_owner_decision": "Proceed to FCR-03 persist+reopen wiring (correction package). Do not execute evidence until M1 and L1 re-verified after wiring.",
+  "not_authorized": [
+    "FCR-03 evidence execution",
+    "EVIDENCE_EXECUTION_GATE unblock",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "comparison_blockers_lift"
+  ]
+}

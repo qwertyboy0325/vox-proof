@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "BOUNDED_REMEDIATION_PHASE_A_COMPLETE",
+  "tracker_status": "BOUNDED_REMEDIATION_PHASE_C_COMPLETE_FCR03_WIRING_NEXT",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -92,19 +92,24 @@
   },
   "bounded_remediation": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "PHASE_A_COMPLETE",
-    "phase": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C",
+    "status": "PHASE_C_COMPLETE",
+    "phase": "FCR03_PERSIST_REOPEN_WIRING",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/owner-authorization.json",
     "fcr03_owner_decision": "AUTHORIZE_PERSIST_REOPEN_EVIDENCE",
     "windows_sha_owner_decision": "AUTHORIZE_REPLACEMENT_RUN",
     "accept_9ec3b07_for_final_gate": false,
     "phase_a_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/governance-remediation-a-record.json",
+    "phase_c_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/append-storage-reverification-c-record.json",
+    "storage_reverification": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-reverification.json",
+    "storage_reverification_verdict": "CORRECTIONS_REQUIRED",
+    "closed_in_phase_c": ["H1", "H2", "H3", "M2"],
+    "blocking_in_phase_c": ["M1_C3_ALIASED", "L1_NO_PERSIST_REOPEN"],
     "closed_in_phase_a": [
       "FCR-04-MISSING-ESCALATION-CONDITIONS",
       "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"
     ],
-    "open_after_phase_a": [
-      "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED",
+    "open_after_phase_c": [
+      "FCR-02_M1_L1_for_fcr03_evidence_path",
       "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM",
       "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT"
     ]
@@ -128,8 +133,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "PHASE_A_COMPLETE",
-    "phase": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C"
+    "status": "PHASE_C_COMPLETE",
+    "phase": "FCR03_PERSIST_REOPEN_WIRING"
   },
   "gate_sequence": {
     "completed": [
@@ -152,22 +157,24 @@
       "PRE_FINAL_governance_audit_retry_PASS_opus_5_f781329",
       "Sol_STRONG_FINAL_BLOCKING_CONTRADICTION_gpt_5_6_sol_high_f781329",
       "owner_AUTHORIZE_BOUNDED_REMEDIATION_A_THEN_C",
-      "governance_remediation_A_FCR04_and_FCR_R02_closed"
+      "governance_remediation_A_FCR04_and_FCR_R02_closed",
+      "append_storage_specialist_reverification_C_CORRECTIONS_REQUIRED"
     ],
-    "current": "APPEND_STORAGE_SPECIALIST_REVERIFICATION_C",
+    "current": "FCR03_PERSIST_REOPEN_WIRING",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
       "READY_FOR_OWNER_GATE",
       "comparison_blocker_lift",
-      "FCR-03_evidence_execution",
-      "Windows_replacement_run"
+      "FCR-03_evidence_execution_until_M1_L1_reverified",
+      "Windows_replacement_run_until_fcr03_wiring_stable"
     ],
     "downstream": [
-      "Append 01B-3 storage specialist re-verification (phase C)",
-      "FCR-03 persist+reopen evidence package (after C passes)",
-      "Windows replacement run at frozen SHA (after FCR-03 wiring stable)",
-      "rebuild dual-candidate readiness",
+      "FCR-03 persist+reopen wiring (M1+L1 correction package)",
+      "targeted storage re-verification of M1 and L1 after wiring",
+      "fresh dual-platform evidence at frozen SHA",
+      "Windows replacement run",
+      "rebuild readiness",
       "Sol STRONG_FINAL retry"
     ]
   },
@@ -180,5 +187,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Phase A complete (FCR-04 + FCR-R-02 closed). Owner authorized A→C→FCR-03 persist+reopen→Windows replacement. Phase C: Append storage re-verification. 9ec3b07 not accepted for final gate. Mechanism selection closed."
+  "note": "Phase A+C complete. FCR-04 and FCR-R-02 closed. Storage re-verification: H1-H3/M2 closed; M1+L1 block FCR-03 evidence. Next: FCR-03 persist+reopen wiring. 9ec3b07 not accepted. Mechanism selection closed."
 }
