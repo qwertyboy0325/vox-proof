@@ -1,0 +1,89 @@
+{
+  "work_package_id": "VP_GATE4_01C_STALE_PRECONDITION_ASYMMETRY_SEMANTIC_GATE",
+  "gate_status": "CLOSED",
+  "gate_closed_on": "2026-08-14",
+  "owner_decision": "ACCEPT_MECHANISM_SPECIFIC_GENERATION_STALE_EQUIVALENCE",
+  "owner_approved": true,
+  "approved_by": "Ezra",
+  "approved_on": "2026-08-14",
+  "gate_type": "semantic_equivalence",
+  "predecessor": {
+    "comparison_evidence_acceptance": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
+    "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+    "evidence_selection_gate_at_freeze": "not_ready",
+    "evidence_blocker_at_freeze": "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
+  },
+  "question": "Is append generation-stale-only coverage an acceptable mechanism-specific equivalence limitation, or must append demonstrate SQLite-equivalent stale class coverage before selection?",
+  "semantic_decision": {
+    "append_generation_stale_only": {
+      "acceptable_equivalence_limitation": true
+    },
+    "sqlite_class_specific_preconditions": {
+      "required_for_append": false
+    },
+    "invariant_required": {
+      "no_stale_authoritative_transition_accepted": true
+    }
+  },
+  "authority_safety_model": {
+    "sqlite": {
+      "concurrency_model": "validates full CurrentContractPreconditions on authoritative transition",
+      "stale_domains": [
+        "stale review head",
+        "stale reuse head",
+        "stale analysis id"
+      ],
+      "refusal_mechanism": "reject stale authority per precondition class"
+    },
+    "append": {
+      "concurrency_model": "serializes authoritative transitions to single committed sequence; replays current authority before transition; CAS on current.committed_sequence == expected_committed_sequence",
+      "stale_domain": "stale global generation",
+      "refusal_mechanism": "reject stale authority via generation boundary",
+      "canonical_projection_note": "review ledger head, reuse governance head, and active analysis snapshot identity belong to canonical projection; authoritative changes advance committed sequence"
+    },
+    "shared_invariant": "no_stale_authoritative_transition_accepted",
+    "not_equivalent_granularity": [
+      "stale failure classification granularity",
+      "per-domain conflict attribution",
+      "fine-grained optimistic concurrency",
+      "ability to distinguish review-vs-reuse-vs-analysis staleness"
+    ]
+  },
+  "validity_condition": {
+    "requires": "All append canonical-authority mutations must advance committed sequence for generation CAS to remain sufficient",
+    "invalidates_decision_if": "Canonical token or state can change without committed sequence advancement",
+    "on_invalidation": "Semantic gate must reopen; this decision is automatically void"
+  },
+  "operational_tradeoff_not_correctness_gap": [
+    "SQLite can identify which precondition class is stale",
+    "SQLite may support finer conflict handling in principle",
+    "Append global sequence is coarser and may reject or retry operations that could be compatible under finer granularity",
+    "Coarse CAS is not weaker on stale-authority acceptance; under current candidate semantics it is a more conservative conflict domain"
+  ],
+  "scenario_contract_v4_note": {
+    "stale_scenarios": [
+      "stale-review-ledger-command",
+      "stale-reuse-governance-command",
+      "stale-analysis-attachment-or-selection"
+    ],
+    "product_invariant": "stale command must be refused",
+    "append_equivalence": "equivalent refusal via global generation boundary despite SQLite-style class vocabulary in scenario names",
+    "expected_durable_boundary": "stale rejection, not a specific storage-level token implementation"
+  },
+  "frozen_evidence_policy": {
+    "do_not_modify": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/readiness.json",
+    "do_not_modify_eligibility": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/eligibility.json",
+    "do_not_rerun_01c": true,
+    "rationale": "selection_gate=not_ready at 91e258c is correct evidence-state before this decision; resolution occurs at governance layer only"
+  },
+  "candidate_semantics_changed": false,
+  "scenario_contract_changed": false,
+  "mechanism_selected": false,
+  "material_decision_created": false,
+  "product_integration_authorized": false,
+  "authorized_downstream": {
+    "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+    "objective": "Reconcile evidence-layer not_ready with governance-layer resolved blocker; prepare PRE_FINAL_GOVERNANCE_AUDIT"
+  },
+  "note": "Append generation-stale-only coverage accepted as legitimate mechanism-specific equivalence limitation. Selection pipeline may proceed toward PRE_FINAL; mechanism selection remains owner-gated separately."
+}

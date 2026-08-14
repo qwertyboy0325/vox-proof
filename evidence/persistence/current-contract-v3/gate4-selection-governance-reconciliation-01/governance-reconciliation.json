@@ -1,0 +1,68 @@
+{
+  "reconciliation_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "reconciled_on": "2026-08-14",
+  "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "two_layer_model": {
+    "evidence_layer": {
+      "description": "Immutable harness output at freeze time",
+      "preserved_unchanged": true,
+      "readiness_snapshot": {
+        "mechanism_comparison_readiness": "ready_for_owner_decision",
+        "mechanism_selection_readiness": "not_ready",
+        "selection_blockers": [
+          "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness"
+        ],
+        "source": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/readiness.json"
+      },
+      "eligibility_snapshot": {
+        "append_status": "IMPLEMENTATION_NOT_YET_EVALUATED",
+        "append_rationale": "required scenarios passed with documented append stale-precondition asymmetry; not equivalent to sqlite precondition-class coverage",
+        "source": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/eligibility.json"
+      },
+      "interpretation": "Correct evidence-state produced before owner semantic decision existed"
+    },
+    "governance_layer": {
+      "description": "Owner semantic resolution without retroactive evidence rewrite",
+      "semantic_gate": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json",
+      "owner_decision": "ACCEPT_MECHANISM_SPECIFIC_GENERATION_STALE_EQUIVALENCE",
+      "blocker_classification": "ACCEPTED_MECHANISM_SPECIFIC_LIMITATION",
+      "semantic_blocker_status": "resolved",
+      "mechanism_selection_readiness_governance": "semantic_blocker_resolved_awaiting_pre_final_chain",
+      "interpretation": "Append stale asymmetry is not a correctness gap blocking selection pipeline eligibility; it is an accepted operational/concurrency tradeoff under shared authority-safety invariant"
+    }
+  },
+  "reconciliation_rule": "Do not rewrite evidence-layer not_ready. Governance resolution supersedes the blocker for downstream gate eligibility only. Historical evidence text remains accurate for its generation context.",
+  "stale_asymmetry_resolution": {
+    "evidence_layer_blocker": "eligibility: append stale-precondition asymmetry blocks mechanism_selection_readiness",
+    "governance_classification": "ACCEPTED_MECHANISM_SPECIFIC_LIMITATION",
+    "resolution": "resolved_by_owner_semantic_decision",
+    "validity_condition": "Void if canonical authority can mutate without committed sequence advancement",
+    "does_not_claim": [
+      "fine-grained stale semantics equivalence",
+      "sqlite-style per-domain stale attribution for append",
+      "append IMPLEMENTATION_NOT_YET_EVALUATED erased from frozen eligibility record"
+    ]
+  },
+  "comparison_gate": {
+    "status": "accepted_with_documented_caveats",
+    "artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json"
+  },
+  "pre_final_eligibility": {
+    "eligible": true,
+    "last_known_semantic_blocker": "resolved",
+    "mechanism_selection_authorized": false
+  },
+  "negative_controls_preserved": [
+    {
+      "id": "windows_attempt_31780866924",
+      "failure_class": "CONTROL_PLANE_VALIDATOR_DRIFT"
+    },
+    {
+      "harness_sha": "21f2eb2a7254ca0bcc1ce5f9e93e7f4445b08004",
+      "verdict": "invalid_for_final_gate_preserve",
+      "defect": "readiness_gate_conflation"
+    }
+  ],
+  "note": "Governance reconciliation complete. Proceed to PRE_FINAL_GOVERNANCE_AUDIT. Mechanism selection remains closed until final gate chain completes."
+}

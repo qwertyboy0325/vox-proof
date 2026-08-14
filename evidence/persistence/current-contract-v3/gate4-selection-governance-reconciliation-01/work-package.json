@@ -1,0 +1,53 @@
+{
+  "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "status": "AUTHORIZED",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-14",
+  "objective": "Reconcile frozen 91e258c evidence-layer selection not_ready with governance-layer resolved stale-precondition asymmetry; prepare PRE_FINAL_GOVERNANCE_AUDIT packet",
+  "predecessors": [
+    {
+      "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
+      "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
+    },
+    {
+      "work_package_id": "VP_GATE4_01C_COMPARISON_OWNER_DECISION",
+      "artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json"
+    },
+    {
+      "work_package_id": "VP_GATE4_01C_STALE_PRECONDITION_ASYMMETRY_SEMANTIC_GATE",
+      "artifact": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json"
+    }
+  ],
+  "frozen_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+  "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "allowed_changes": [
+    "governance and reconciliation artifacts under evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/",
+    "parent tracker evidence/persistence/current-contract-v3/readiness.json",
+    "semantic gate artifacts under evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/"
+  ],
+  "forbidden": [
+    "modify Append candidate",
+    "modify SQLite candidate",
+    "modify scenario contract v4",
+    "modify frozen 91e258c evidence readiness/eligibility/manifest scenario results",
+    "rerun 01C solely to erase the limitation",
+    "mechanism selection",
+    "Material_Decision",
+    "product integration",
+    "contract_version_bump"
+  ],
+  "required_claim_boundary": {
+    "append_proves": "global-generation stale refusal",
+    "sqlite_proves": "class-specific stale refusal",
+    "shared_invariant": "no-stale-authority-accepted",
+    "not_equivalent": "fine-grained stale semantics and per-domain conflict attribution"
+  },
+  "downstream_gate_sequence": [
+    "PRE_FINAL_GOVERNANCE_AUDIT",
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "OWNER_MECHANISM_SELECTION_GATE"
+  ],
+  "note": "Governance-only reconciliation. Raw 91e258c evidence preserved immutable."
+}

@@ -1,0 +1,96 @@
+{
+  "packet_id": "VP-GATE4-01C-PRE-FINAL-GOVERNANCE-AUDIT-PACKET",
+  "audit_phase_requested": "PRE_FINAL_GOVERNANCE_AUDIT",
+  "prepared_on": "2026-08-14",
+  "prepared_for": "voxproof-governance-auditor",
+  "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "branch": "v0.2-real-transcript-authoritative-loop",
+  "diff_scope": "governance artifacts only; no src/, tests/, or frozen 91e258c evidence modifications in this reconciliation",
+  "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "owner_authorization_chain": [
+    {
+      "decision": "B_tight",
+      "artifact": "evidence/persistence/current-contract-v3/gate4-salvage-reconciliation-01/owner-decision.json"
+    },
+    {
+      "decision": "ACCEPT_COMPARISON_EVIDENCE_91E258C",
+      "artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
+      "methodology_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
+      "methodology_audit_verdict": "PASS_WITH_CAVEATS"
+    },
+    {
+      "decision": "ACCEPT_MECHANISM_SPECIFIC_GENERATION_STALE_EQUIVALENCE",
+      "artifact": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json"
+    }
+  ],
+  "authoritative_evidence_record": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "immutable_policy": "readiness.json, eligibility.json, and harness outputs at freeze are not retroactively rewritten",
+    "cross_platform_readiness": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/cross-platform-readiness.json",
+    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/windows-provenance.json"
+  },
+  "governance_reconciliation": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/governance-reconciliation.json",
+  "claim_boundary": {
+    "may_proceed_toward": [
+      "PRE_FINAL_GOVERNANCE_AUDIT",
+      "STRONG_FINAL_CONFLICT_REVIEW upon PRE_FINAL PASS",
+      "FINAL_GATE_GOVERNANCE_CHECK upon Sol PASS"
+    ],
+    "may_claim": [
+      "Append global-generation stale refusal and SQLite class-specific stale refusal both satisfy no-stale-authority-accepted invariant",
+      "Stale asymmetry accepted as mechanism-specific limitation, not correctness gap",
+      "Comparison evidence owner-accepted with documented caveats",
+      "Cross-platform required scenario parity at frozen 91e258c"
+    ],
+    "may_not_claim_yet": [
+      "Mechanism selected",
+      "Material Decision created",
+      "Product integration authorized",
+      "Winner declared from measurements",
+      "Fine-grained stale semantics equivalence between mechanisms"
+    ]
+  },
+  "invalid_evidence_chain": [
+    "970b3c3 BLOCKED_01C_EVIDENCE",
+    "b2569a0 BLOCKED_01C_EVIDENCE",
+    "629bb91 invalid_for_gate_preserve",
+    "6adb731 CANDIDATE_CONTRACT_CAPABILITY_GAP",
+    "21f2eb2 invalid_for_final_gate_preserve readiness_gate_conflation"
+  ],
+  "negative_controls": [
+    {
+      "windows_run_id": 31780866924,
+      "failure_class": "CONTROL_PLANE_VALIDATOR_DRIFT",
+      "must_remain_preserved": true
+    }
+  ],
+  "specialist_reviews_completed": [
+    {
+      "reviewer": "Grok 4.6 Extra High evidence methodology",
+      "artifact": "methodology-audit-grok-4.6-xhigh.json",
+      "verdict": "PASS_WITH_CAVEATS"
+    }
+  ],
+  "strong_final_conflict_review": {
+    "required": true,
+    "model": "gpt-5.6-sol-high",
+    "authorized_after": "PRE_FINAL_GOVERNANCE_AUDIT: PASS"
+  },
+  "forbidden_at_this_stage": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "Material_Decision",
+    "product_integration"
+  ],
+  "audit_questions": [
+    "Is the two-layer evidence/governance reconciliation internally consistent and non-retroactive?",
+    "Are owner authorization dependencies satisfied for PRE_FINAL?",
+    "Was forbidden scope (candidates, contract v4, frozen evidence) respected?",
+    "Are negative controls and invalid evidence chain preserved and not conflated with current packet?",
+    "Does stale asymmetry resolution stay within the declared claim boundary?",
+    "Is the work package eligible for STRONG_FINAL_CONFLICT_REVIEW after PRE_FINAL PASS?"
+  ],
+  "requested_verdict": "PRE_FINAL_GOVERNANCE_AUDIT: PASS | CORRECTIONS REQUIRED | BLOCKING CONFLICT"
+}

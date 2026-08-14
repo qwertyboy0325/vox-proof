@@ -1,6 +1,6 @@
 {
-  "package": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
-  "predecessor": "VP-GATE4-SCENARIO-CONTRACT-V4-RECONCILIATION-01",
+  "package": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "predecessor": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
@@ -9,12 +9,16 @@
   "harness_version": "gate4-01c-evidence-v6",
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
   "mechanism_comparison_readiness": "accepted_with_documented_caveats",
-  "mechanism_selection_readiness": "not_ready",
+  "mechanism_selection_readiness": "semantic_blocker_resolved_awaiting_pre_final_chain",
+  "evidence_layer_selection_readiness": "not_ready",
+  "governance_layer_stale_asymmetry": "ACCEPTED_MECHANISM_SPECIFIC_LIMITATION",
   "selection_status": "none",
-  "tracker_status": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
+  "tracker_status": "SELECTION_SEMANTIC_GATE_CLOSED_PRE_FINAL_ELIGIBLE",
   "authoritative_evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
   "owner_comparison_decision": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
-  "comparison_only_decision_packet": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/comparison-only-decision-packet.json",
+  "stale_precondition_semantic_gate": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision.json",
+  "governance_reconciliation": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/governance-reconciliation.json",
+  "pre_final_audit_packet": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/pre-final-governance-audit-packet.json",
   "methodology_audit": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/methodology-audit-grok-4.6-xhigh.json",
   "invalid_evidence_chain": [
     {
@@ -68,33 +72,44 @@
     "authorized": true,
     "execution_status": "comparison_evidence_owner_accepted",
     "comparison_gate": "accepted_with_documented_caveats",
+    "stale_asymmetry_semantic_gate": "CLOSED_ACCEPT_MECHANISM_SPECIFIC_GENERATION_STALE_EQUIVALENCE",
     "mechanism_selection": "none",
     "product_integration": "unimplemented",
     "windows_control_plane_correction": "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06",
     "windows_workflow_run_id": 31782086628
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05",
-    "status": "COMPARISON_EVIDENCE_OWNER_ACCEPTED",
-    "scenario_contract_version": "4",
+    "work_package_id": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+    "status": "PRE_FINAL_ELIGIBLE",
     "frozen_harness_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
     "owner_accepted_on": "2026-08-14",
     "owner_accepted_by": "Ezra"
   },
-  "next_semantic_gate": {
-    "id": "VP-GATE4-01C-STALE-PRECONDITION-ASYMMETRY-SEMANTIC-GATE",
-    "question": "Accept append generation-stale-only coverage as mechanism-specific limitation, or require sqlite-equivalent stale class coverage before selection",
-    "blocks": "mechanism_selection_readiness"
+  "gate_sequence": {
+    "completed": [
+      "comparison_evidence_owner_accepted",
+      "stale_precondition_asymmetry_semantic_gate_closed"
+    ],
+    "next_authorized": "PRE_FINAL_GOVERNANCE_AUDIT",
+    "then": [
+      "STRONG_FINAL_CONFLICT_REVIEW",
+      "FINAL_GATE_GOVERNANCE_CHECK",
+      "OWNER_MECHANISM_SELECTION_GATE"
+    ]
   },
   "still_closed": [
-    "SELECTION_GATE",
-    "PRE_FINAL_GOVERNANCE_AUDIT",
-    "STRONG_FINAL_CONFLICT_REVIEW",
-    "FINAL_GATE_GOVERNANCE_CHECK",
     "mechanism_selection",
     "Material_Decision",
     "product_integration",
+    "READY_FOR_OWNER_GATE",
     "contract_version_bump"
   ],
-  "note": "Owner accepted comparison evidence at 91e258c with PASS_WITH_CAVEATS methodology audit. Selection blocked on append stale-precondition asymmetry only. PRE_FINAL/Sol/selection remain closed."
+  "frozen_evidence_immutable": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "preserved_fields": [
+      "readiness.json selection_blockers",
+      "eligibility.json append IMPLEMENTATION_NOT_YET_EVALUATED"
+    ]
+  },
+  "note": "Stale asymmetry resolved at governance layer only. Frozen 91e258c evidence unchanged. PRE_FINAL authorized; mechanism selection remains closed until final gate chain completes."
 }
