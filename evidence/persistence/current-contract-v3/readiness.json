@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "SOL_STRONG_FINAL_RETRY_02_BLOCKING",
+  "tracker_status": "R2_04_WP_AUTHORITY_COMPLETE_PENDING_R2_01",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -165,7 +165,26 @@
       "FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE",
       "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
     ],
-    "authorized_next_step": "BLOCKED_REPEATED_FINAL_CONFLICT — owner decision required"
+    "authorized_next_step": "BLOCKED_REPEATED_FINAL_CONFLICT — owner authorized R2 bounded correction package"
+  },
+  "sol_r2_bounded_correction": {
+    "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+    "status": "R2_04_COMPLETE",
+    "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
+    "decision_path": "A",
+    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
+    "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
+    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
+    "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
+    "current_step": "R2_01_storage_reverification",
+    "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
+    "open_conflicts": [
+      "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
+      "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
+      "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
+      "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
+    ],
+    "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"]
   },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
@@ -186,9 +205,10 @@
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02",
-    "status": "BLOCKING_CONTRADICTION",
-    "phase": "OWNER_DECISION_REQUIRED"
+    "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+    "status": "R2_04_COMPLETE",
+    "phase": "R2_01_STORAGE_REVERIFICATION",
+    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
     "completed": [
@@ -223,9 +243,11 @@
       "windows_replacement_success_run_31819274526",
       "cross_platform_methodology_review_PASS_WITH_CAVEATS_grok_4_6_persist_reopen",
       "dual_platform_readiness_rebuilt_1510e3d",
-      "Sol_STRONG_FINAL_RETRY_02_BLOCKING_gpt_5_6_sol_high_b9b9a7a"
+      "Sol_STRONG_FINAL_RETRY_02_BLOCKING_gpt_5_6_sol_high_b9b9a7a",
+      "owner_AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE_path_A",
+      "R2_04_work_package_authority_complete"
     ],
-    "current": "OWNER_DECISION_REQUIRED",
+    "current": "R2_01_STORAGE_REVERIFICATION",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -233,9 +255,10 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "owner decision on bounded correction package for Sol R2 conflicts",
-      "PRE_FINAL governance audit over post-remediation chain",
-      "Sol STRONG_FINAL retry 03 after corrections"
+      "R2-01 storage re-verification 29d76bd..1510e3d",
+      "R2-02 genuine stale scenarios",
+      "R2-05 provenance fix then fresh dual-platform evidence",
+      "R2-03 PRE_FINAL then Sol retry 03"
     ]
   },
   "still_closed": [
@@ -247,5 +270,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Sol STRONG_FINAL retry 02 BLOCKING (gpt-5.6-sol-high, b9b9a7a). FCR-R-01/R-02/FCR-04 resolved; real close/reopen confirmed; Windows 1510e3d accepted. Five blockers remain: post-29d76bd storage re-verification, synthetic stale commands, stale PRE_FINAL, incomplete WP authority, evidence package-ID drift. FINAL_GATE and READY_FOR_OWNER_GATE not authorized."
+  "note": "Owner authorized R2 bounded correction (path A). R2-04 WP authority complete. Next: R2-01 narrow storage re-verification 29d76bd..1510e3d. Genuine stale required. mechanism_selection and READY_FOR_OWNER_GATE remain closed."
 }

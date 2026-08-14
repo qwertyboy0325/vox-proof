@@ -1,0 +1,45 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-AUTHORIZATION-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
+  "decision_path": "A",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-15",
+  "objective": [
+    "close R2-01 through R2-05",
+    "establish genuine stale-command evidence",
+    "rebuild provenance-clean dual-platform evidence",
+    "prepare complete post-remediation governance chain for Sol retry 03"
+  ],
+  "required_order": [
+    "R2_04_work_package_authority_correction",
+    "R2_01_storage_reverification",
+    "R2_02_genuine_stale_scenarios",
+    "specialist_and_methodology_review",
+    "R2_05_package_provenance_correction",
+    "freeze_evidence_sha",
+    "fresh_macos_evidence",
+    "fresh_windows_evidence",
+    "readiness_rebuild",
+    "R2_03_pre_final_governance_audit",
+    "sol_strong_final_retry_03"
+  ],
+  "synthetic_stale_boundary": {
+    "accept_as_final_closure": false,
+    "decision": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS"
+  },
+  "still_forbidden": [
+    "accept synthetic stale evidence as FCR-03 closure",
+    "revise MD-015",
+    "rewrite frozen 91e258c",
+    "accept 9ec3b07 for final evidence",
+    "mechanism_selection",
+    "Material_Decision",
+    "product persistence integration",
+    "READY_FOR_OWNER_GATE",
+    "FINAL_GATE_GOVERNANCE_CHECK before Sol PASS"
+  ],
+  "prior_sol_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
+  "note": "Owner requires true closure not caveat escape. R2-04 must complete before any code or evidence work."
+}

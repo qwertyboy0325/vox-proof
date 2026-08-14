@@ -1,0 +1,11 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "status": "SUPERSEDED_BY_R2_BOUNDED_CORRECTION",
+  "superseded_by": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "superseded_on": "2026-08-15",
+  "supersession_reason": "Sol R2-05: evidence provenance package-ID drift; fresh lineage and complete WP authority under R2 package",
+  "historical_artifacts_preserved": true,
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "evidence_record_status": "historical_not_final_gate",
+  "note": "Execution authority for fresh provenance-clean evidence transfers to VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01."
+}

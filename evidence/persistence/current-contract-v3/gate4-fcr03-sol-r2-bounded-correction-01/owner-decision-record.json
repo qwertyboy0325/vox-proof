@@ -1,0 +1,26 @@
+{
+  "decision_id": "VP-GATE4-FCR03-SOL-R2-OWNER-DECISION-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
+  "decision_path": "A",
+  "decided_by": "Ezra",
+  "decided_on": "2026-08-15",
+  "context": {
+    "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
+    "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+    "reviewed_commit": "b9b9a7a",
+    "blocking_conflicts": [
+      "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
+      "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
+      "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
+      "FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE",
+      "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
+    ]
+  },
+  "owner_rationale": "Execute R2-04 WP authority first to prevent Sol scope rejection on later corrections. Require genuine stale scenarios; do not accept synthetic boundary. Pursue true closure not permanent caveat.",
+  "synthetic_stale_boundary": {
+    "accept_as_final_closure": false,
+    "decision": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS"
+  },
+  "execution_order_override": "R2-04 before any code/evidence; R2-05 before fresh evidence; PRE_FINAL last before Sol retry 03"
+}

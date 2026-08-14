@@ -1,0 +1,93 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-SOL-R2-EXECUTION-PLAN",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "owner_authorization_ref": "owner-authorization.json",
+  "status": "R2_04_IN_PROGRESS",
+  "current_step": "R2_04_work_package_authority_correction",
+  "required_order": [
+    {
+      "step": 1,
+      "id": "R2_04_work_package_authority_correction",
+      "status": "in_progress",
+      "closes": "FCR-R2-04",
+      "outputs": ["work-package.json", "owner-authorization.json", "execution-plan.json", "r2-conflict-register.json", "r2-04-phase-record.json"]
+    },
+    {
+      "step": 2,
+      "id": "R2_01_storage_reverification",
+      "status": "pending",
+      "closes": "FCR-R2-01",
+      "commit_range": "29d76bd..1510e3d",
+      "reviewer": "voxproof-storage-systems-reviewer",
+      "model": "Grok 4.6"
+    },
+    {
+      "step": 3,
+      "id": "R2_02_genuine_stale_scenarios",
+      "status": "pending",
+      "closes": "FCR-R2-02",
+      "implementation": ["scenarios.rs", "scenario_observation.rs", "measurement_transitions.rs", "scenario_contract.rs", "unit tests", "harness tests"]
+    },
+    {
+      "step": 4,
+      "id": "specialist_and_methodology_review",
+      "status": "pending",
+      "reviewers": ["storage-systems-reviewer if R2-02 touches persistence paths", "evidence-methodology-reviewer"]
+    },
+    {
+      "step": 5,
+      "id": "R2_05_package_provenance_correction",
+      "status": "pending",
+      "closes": "FCR-R2-05",
+      "implementation": ["runner.rs work_package_id", "workflow provenance if needed"]
+    },
+    {
+      "step": 6,
+      "id": "freeze_evidence_sha",
+      "status": "pending",
+      "output": "evidence-harness-freeze.json"
+    },
+    {
+      "step": 7,
+      "id": "fresh_macos_evidence",
+      "status": "pending"
+    },
+    {
+      "step": 8,
+      "id": "fresh_windows_evidence",
+      "status": "pending",
+      "dispatch": {
+        "dual_scoped_fcr03": "true",
+        "VOXPROOF_01C_PLATFORM_APPEND": "1"
+      }
+    },
+    {
+      "step": 9,
+      "id": "readiness_rebuild",
+      "status": "pending",
+      "outputs": ["cross-platform-readiness.json", "readiness.json", "cross-platform-evidence-methodology-review.json"]
+    },
+    {
+      "step": 10,
+      "id": "R2_03_pre_final_governance_audit",
+      "status": "pending",
+      "closes": "FCR-R2-03",
+      "auditor": "voxproof-governance-auditor",
+      "model": "Claude Opus 5",
+      "audit_phase": "PRE_FINAL_GOVERNANCE_AUDIT"
+    },
+    {
+      "step": 11,
+      "id": "sol_strong_final_retry_03",
+      "status": "pending",
+      "model": "gpt-5.6-sol-high",
+      "precondition": "PRE_FINAL PASS"
+    }
+  ],
+  "evidence_lineage": {
+    "prior_record_historical": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+    "new_record_id": "TBD at freeze_evidence_sha step",
+    "single_harness_semantic_sha_required": true
+  },
+  "forbidden_until_step_2": ["src_changes", "evidence_execution", "workflow_dispatch"]
+}

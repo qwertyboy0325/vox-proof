@@ -1,0 +1,44 @@
+{
+  "phase_id": "R2_04_WORK_PACKAGE_AUTHORITY_CORRECTION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "status": "COMPLETE_PENDING_COMMIT",
+  "completed_on": "2026-08-15",
+  "closes_conflict": "FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE",
+  "artifacts_created": [
+    "work-package.json",
+    "owner-authorization.json",
+    "owner-decision-record.json",
+    "execution-plan.json",
+    "r2-conflict-register.json",
+    "r2-04-phase-record.json"
+  ],
+  "mandatory_fields_verified": [
+    "work_package_id",
+    "objective",
+    "risk_tier",
+    "file_scope",
+    "semantic_scope",
+    "claim_scope",
+    "risk_domain",
+    "authorized_scope",
+    "forbidden_scope",
+    "authority_dependencies",
+    "allowed_actions",
+    "forbidden_actions",
+    "required_checks",
+    "escalation_conditions",
+    "stop_gate",
+    "model_budget_policy",
+    "strong_final_conflict_review"
+  ],
+  "file_scope_covers": [
+    "src/persistence_evidence/current_contract/evidence_01c/",
+    "src/persistence_evidence/current_contract/scenario_contract.rs",
+    "tests/persistence_*",
+    ".github/workflows/persistence-sqlite-windows.yml",
+    "evidence/persistence/current-contract-v3/01c/",
+    "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/"
+  ],
+  "gate_unblocked": "R2_01_storage_reverification",
+  "note": "No src/ or evidence changes in this phase. Next step authorized only after commit of this package."
+}

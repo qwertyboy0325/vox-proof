@@ -1,0 +1,265 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "status": "AUTHORIZED",
+  "phase": "R2_04_WORK_PACKAGE_AUTHORITY",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-15",
+  "authorization_ref": "owner-authorization.json",
+  "owner_decision_ref": "owner-decision-record.json",
+  "parent_work_packages": [
+    "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+    "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+    "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02"
+  ],
+  "prior_sol_blocking_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "objective": "Close Sol R2-01 through R2-05 with genuine stale-command evidence, provenance-clean dual-platform evidence at one frozen SHA, complete post-remediation governance chain, and prepare Sol STRONG_FINAL retry 03.",
+  "risk_tier": "high",
+  "file_scope": [
+    "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/",
+    "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/work-package.json",
+    "evidence/persistence/current-contract-v3/readiness.json",
+    "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/runner.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/readiness.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/candidate.rs",
+    "src/persistence_evidence/current_contract/scenario_contract.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/measurement_transitions.rs",
+    "tests/persistence_append_scoped_precondition_01b3.rs",
+    "tests/persistence_sqlite_scoped_precondition_01c3.rs",
+    "tests/persistence_01c_evidence.rs",
+    "tests/persistence_correction_05.rs",
+    ".github/workflows/persistence-sqlite-windows.yml",
+    "evidence/persistence/current-contract-v3/01c/gate4-01c-*-fcr03-*"
+  ],
+  "semantic_scope": [
+    "Sol R2-01: storage specialist re-verification of 29d76bd..1510e3d U1 observation semantics only",
+    "Sol R2-02: genuine competing authoritative transition stale scenarios (review, reuse, active_analysis)",
+    "Sol R2-03: fresh PRE_FINAL over complete post-Sol-retry-02 remediation chain",
+    "Sol R2-04: work-package authority completeness and file-scope containment",
+    "Sol R2-05: evidence runner package-ID and provenance generation under this WP",
+    "FCR-03 persist+reopen observation fields with close/reopen durability",
+    "Dual-platform evidence at single frozen harness_semantic_sha"
+  ],
+  "claim_scope": [
+    "genuine stale-command refusal with durable authority unchanged after reopen",
+    "LogicalStateTransition U1 persist+reopen (already demonstrated; preserve)",
+    "InterfaceBehavior stale persist+reopen upgraded to genuine command-fidelity path",
+    "harness observation fidelity; not FilesystemDurability",
+    "not CrossPlatform evidence-strength taxonomy",
+    "not mechanism selection",
+    "not replacement of frozen 91e258c comparison baseline"
+  ],
+  "risk_domain": [
+    "governance",
+    "storage/concurrency observation semantics",
+    "evidence claim boundaries",
+    "scenario epistemic strength",
+    "cross-artifact provenance consistency",
+    "gate chain integrity"
+  ],
+  "authorized_scope": "Bounded correction of Sol R2 conflicts only: complete WP authority (R2-04), narrow storage re-verification (R2-01), genuine stale harness scenarios (R2-02), runner provenance fix (R2-05), fresh dual-platform evidence at one frozen SHA, readiness rebuild, fresh PRE_FINAL (R2-03), Sol retry 03 preparation.",
+  "forbidden_scope": [
+    "accept synthetic stale evidence as FCR-03 final closure",
+    "revise MD-015",
+    "rewrite frozen 91e258c",
+    "accept 9ec3b07 or run 31811807394 for final evidence",
+    "mechanism_selection",
+    "Material_Decision",
+    "product persistence integration",
+    "READY_FOR_OWNER_GATE",
+    "FINAL_GATE_GOVERNANCE_CHECK before Sol STRONG_FINAL retry 03 PASS",
+    "overlay stale package IDs on existing evidence without regeneration",
+    "candidate semantic changes outside R2-02 stale scenario lineage and R2-05 runner provenance"
+  ],
+  "authority_dependencies": [
+    "owner decision AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE (decision path A)",
+    "Sol STRONG_FINAL retry 02 BLOCKING at b9b9a7a",
+    "prior persist+reopen wiring 29d76bd and U1 fix 1510e3d",
+    "prior dual-platform evidence gate4-01c-29d76bd-fcr03-persist-reopen (historical; superseded by fresh lineage)",
+    "cross-platform methodology PASS_WITH_CAVEATS on prior record (Grok 4.6)",
+    "M1+L1 re-verification at 29d76bd (superseded scope for R2-01 narrow extension)"
+  ],
+  "allowed_actions": [
+    "complete mandatory work-package fields (R2-04)",
+    "obtain storage specialist re-verification 29d76bd..1510e3d (R2-01)",
+    "implement genuine stale-command scenario lineage in harness and unit tests (R2-02)",
+    "extend Fcr03StaleRejectionObservation with competing_transition fields if required",
+    "obtain evidence-methodology review after R2-02 implementation",
+    "correct runner work_package_id generation for dual-scoped persist-reopen (R2-05)",
+    "freeze evidence harness SHA and execute fresh macOS + Windows at same SHA",
+    "rebuild cross-platform-readiness and record readiness",
+    "run PRE_FINAL_GOVERNANCE_AUDIT over full post-remediation chain (R2-03)",
+    "prepare Sol STRONG_FINAL retry 03 packet",
+    "update parent readiness.json tracker",
+    "commit and push when explicitly authorized by stop_gate progression"
+  ],
+  "forbidden_actions": [
+    "implement R2-02 or R2-05 before R2-04 WP authority committed",
+    "execute fresh evidence before R2-05 runner provenance fix",
+    "accept synthetic stale boundary as final FCR-03 closure",
+    "use 9ec3b07 Windows artifacts for final gate",
+    "modify frozen 91e258c",
+    "lift mechanism_comparison_readiness to ready_for_owner_decision",
+    "authorize mechanism selection",
+    "skip PRE_FINAL before Sol retry 03",
+    "substitute non-Sol model for canonical STRONG_FINAL"
+  ],
+  "required_checks": [
+    "R2-04: all mandatory WP policy fields present; file_scope covers all planned src/tests/workflow/evidence paths",
+    "R2-01: storage specialist PASS on 1510e3d U1 observation semantics; no candidate implementation change required if PASS",
+    "R2-02: three genuine stale lineages with required_observation fields on both candidates in unit + harness tests",
+    "R2-02: specialist + methodology review PASS before evidence freeze",
+    "R2-05: manifest.json and windows-provenance.json identify VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01 or successor evidence WP constant",
+    "evidence: harness_semantic_sha identical macOS manifest and Windows evidence_checkout_sha",
+    "evidence: 24 passed + 2 unsupported + 0 failed per candidate per platform",
+    "readiness: mechanism_comparison and mechanism_selection remain not_ready",
+    "R2-03: PRE_FINAL PASS over b9b9a7a..final remediation commit chain",
+    "Sol retry 03: gpt-5.6-sol-high mandatory"
+  ],
+  "authorized_sequence": [
+    {
+      "step": 1,
+      "id": "R2_04_work_package_authority_correction",
+      "closes": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"],
+      "forbidden_until_complete": ["src_changes", "evidence_execution"]
+    },
+    {
+      "step": 2,
+      "id": "R2_01_storage_reverification",
+      "closes": ["FCR-R2-01-POST-REVERIFICATION-U1-FIX"],
+      "commit_range": "29d76bd..1510e3d",
+      "precondition": "R2-04 complete"
+    },
+    {
+      "step": 3,
+      "id": "R2_02_genuine_stale_scenarios",
+      "closes": ["FCR-R2-02-SYNTHETIC-STALE-COMMANDS"],
+      "precondition": "R2-01 PASS"
+    },
+    {
+      "step": 4,
+      "id": "specialist_and_methodology_review",
+      "precondition": "R2-02 implementation complete"
+    },
+    {
+      "step": 5,
+      "id": "R2_05_package_provenance_correction",
+      "closes": ["FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"],
+      "precondition": "R2-02 reviewed"
+    },
+    {
+      "step": 6,
+      "id": "freeze_evidence_sha",
+      "precondition": "R2-05 merged"
+    },
+    {
+      "step": 7,
+      "id": "fresh_macos_evidence",
+      "precondition": "SHA frozen"
+    },
+    {
+      "step": 8,
+      "id": "fresh_windows_evidence",
+      "precondition": "macOS complete at frozen SHA"
+    },
+    {
+      "step": 9,
+      "id": "readiness_rebuild",
+      "precondition": "both platforms at same SHA"
+    },
+    {
+      "step": 10,
+      "id": "R2_03_pre_final_governance_audit",
+      "closes": ["FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE"],
+      "precondition": "readiness rebuilt"
+    },
+    {
+      "step": 11,
+      "id": "sol_strong_final_retry_03",
+      "precondition": "PRE_FINAL PASS"
+    }
+  ],
+  "synthetic_stale_boundary": {
+    "accept_as_final_closure": false,
+    "decision": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS"
+  },
+  "genuine_stale_cases": {
+    "review": {
+      "prepare": "review_command_A",
+      "competing_commit": "review_command_B",
+      "execute": "review_command_A",
+      "expect": "stale_review_rejection"
+    },
+    "reuse": {
+      "prepare": "reuse_command_A",
+      "competing_commit": "reuse_command_B",
+      "execute": "reuse_command_A",
+      "expect": "stale_reuse_rejection"
+    },
+    "active_analysis": {
+      "prepare": "analysis_command_A",
+      "competing_commit": "analysis_command_B",
+      "execute": "analysis_command_A",
+      "expect": "stale_analysis_rejection"
+    }
+  },
+  "required_stale_observation": [
+    "prepared_precondition exact",
+    "competing_transition_applied true",
+    "authority_changed_in_relevant_scope true",
+    "stale_command_applied false",
+    "observed_failure_code exact",
+    "post_rejection_oracle_compare true",
+    "post_rejection_authority_unchanged true",
+    "close_reopen_performed true",
+    "persist_reopen_oracle_compare true",
+    "persist_reopen_authority_unchanged true"
+  ],
+  "stop_gate": "SOL_STRONG_FINAL_RETRY_03",
+  "stop_conditions": [
+    "R2-01 storage re-verification CORRECTIONS REQUIRED with blocking findings",
+    "R2-02 cannot implement genuine stale lineage without candidate semantic change outside file_scope",
+    "macOS and Windows evidence harness_semantic_sha mismatch",
+    "PRE_FINAL returns BLOCKING CONFLICT",
+    "Sol retry 03 returns BLOCKING_CONTRADICTION"
+  ],
+  "escalation_conditions": [
+    "R2-01 finds 1510e3d U1 fix invalidates prior M1/L1 closure and requires candidate change",
+    "R2-02 genuine stale implementation requires scope beyond authorized file_scope",
+    "fresh evidence fails acceptance bar on either platform",
+    "PRE_FINAL identifies authority or provenance drift after R2-05",
+    "Sol retry 03 surfaces new substantive conflict beyond hygiene"
+  ],
+  "model_budget_policy": {
+    "storage_systems_review": "Grok 4.6 (voxproof-storage-systems-reviewer)",
+    "evidence_methodology": "Grok 4.6 (voxproof-evidence-methodology-reviewer)",
+    "pre_final_governance_audit": "Claude Opus 5 (voxproof-governance-auditor)",
+    "strong_final_conflict_review": "GPT-5.6 Sol High mandatory (voxproof-final-conflict-reviewer)",
+    "final_gate_governance_check": "Claude Opus 5 after Sol PASS only"
+  },
+  "strong_final_conflict_review": {
+    "status": "required",
+    "required_model": "gpt-5.6-sol-high",
+    "retry_number": 3,
+    "authorized_after": "R2_03_pre_final_governance_audit: PASS",
+    "prior_blocking_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json"
+  },
+  "specialist_reviewer_roles": [
+    "voxproof-storage-systems-reviewer",
+    "voxproof-evidence-methodology-reviewer",
+    "voxproof-governance-auditor",
+    "voxproof-final-conflict-reviewer"
+  ],
+  "evidence_lineage_policy": {
+    "single_frozen_harness_semantic_sha": true,
+    "workflow_control_plane_sha_may_differ": true,
+    "must_record_separately": true,
+    "no_overlay_stale_package_ids": true,
+    "prior_record_superseded": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+    "prior_record_status": "historical_not_final_gate"
+  },
+  "note": "R2-04 executes first: no src/ or evidence changes until this package is committed and tracker updated. Genuine stale required; synthetic boundary not accepted for FCR-03 closure."
+}
