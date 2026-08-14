@@ -39,6 +39,20 @@ fn open_writer(
         .expect("open writer")
 }
 
+fn normalized_state_after_reopen(
+    adapter: &SqliteScopedPreconditionCandidateAdapter,
+    writer: vox_proof::persistence_evidence::OpenedSqliteAuthoritySession,
+) -> vox_proof::persistence_evidence::CurrentContractState {
+    let session_id = writer.session.session_id().to_owned();
+    adapter.close(writer).expect("close writer");
+    let reopened = adapter
+        .open_existing(&session_id, SqliteOpenMode::ReadOnly)
+        .expect("reopen read-only");
+    let state = reopened.normalized_state().clone();
+    adapter.close(reopened).expect("close reopened");
+    state
+}
+
 fn expected_merged_review(
     reuse_advanced: &vox_proof::persistence_evidence::CurrentContractState,
     review_target: &vox_proof::persistence_evidence::CurrentContractState,
@@ -120,11 +134,16 @@ fn u1_review_succeeds_after_unrelated_reuse_advance_preserving_reuse_authority()
     let observation = Fcr03UnrelatedSuccessObservation::record(
         &expected,
         &actual,
+        &normalized_state_after_reopen(&adapter, writer),
         actual.durable_command_tokens.reuse_governance_head
             == reuse_advanced.durable_command_tokens.reuse_governance_head,
+        &review_target,
     );
     assert!(observation.unrelated_scope_preserved);
     assert!(observation.stale_full_state_not_persisted);
+    assert!(observation.persist_reopen_oracle_compare);
+    assert!(observation.persist_reopen_authority_unchanged);
+    assert!(observation.no_unrelated_scope_rewind_after_close_reopen);
 }
 
 #[test]
@@ -175,13 +194,18 @@ fn u1_review_succeeds_after_unrelated_analysis_advance() {
     let observation = Fcr03UnrelatedSuccessObservation::record(
         &expected,
         &actual,
+        &normalized_state_after_reopen(&adapter, writer),
         actual.durable_command_tokens.active_analysis_snapshot_identity
             == analysis_target
                 .durable_command_tokens
                 .active_analysis_snapshot_identity,
+        &review_target,
     );
     assert!(observation.unrelated_scope_preserved);
     assert!(observation.stale_full_state_not_persisted);
+    assert!(observation.persist_reopen_oracle_compare);
+    assert!(observation.persist_reopen_authority_unchanged);
+    assert!(observation.no_unrelated_scope_rewind_after_close_reopen);
 }
 
 #[test]
@@ -333,15 +357,18 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
         .apply_scoped_command(&mut writer, &stale)
         .expect_err("stale review");
     assert_eq!(error.code, "stale-review-ledger-precondition");
-    assert_eq!(before, writer.normalized_state().clone());
+    let after = writer.normalized_state().clone();
+    assert_eq!(before, after);
 
     let observation = Fcr03StaleRejectionObservation::record(
         error.code,
         &before,
-        writer.normalized_state(),
-        true,
+        &after,
+        &normalized_state_after_reopen(&adapter, writer),
     );
     assert!(observation.post_rejection_authority_unchanged);
+    assert!(observation.persist_reopen_oracle_compare);
+    assert!(observation.persist_reopen_authority_unchanged);
 }
 
 #[test]

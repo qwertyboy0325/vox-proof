@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "BOUNDED_REMEDIATION_PHASE_C_COMPLETE_FCR03_WIRING_NEXT",
+  "tracker_status": "FCR03_PERSIST_REOPEN_WIRING_COMPLETE_PENDING_REVERIFICATION",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -92,8 +92,9 @@
   },
   "bounded_remediation": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "PHASE_C_COMPLETE",
-    "phase": "FCR03_PERSIST_REOPEN_WIRING",
+    "status": "FCR03_WIRING_COMPLETE",
+    "phase": "STORAGE_SPECIALIST_M1_L1_REVERIFICATION",
+    "fcr03_wiring_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/fcr03-persist-reopen-wiring-record.json",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/owner-authorization.json",
     "fcr03_owner_decision": "AUTHORIZE_PERSIST_REOPEN_EVIDENCE",
     "windows_sha_owner_decision": "AUTHORIZE_REPLACEMENT_RUN",
@@ -133,8 +134,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "PHASE_C_COMPLETE",
-    "phase": "FCR03_PERSIST_REOPEN_WIRING"
+    "status": "FCR03_WIRING_COMPLETE",
+    "phase": "STORAGE_SPECIALIST_M1_L1_REVERIFICATION"
   },
   "gate_sequence": {
     "completed": [
@@ -187,5 +188,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Phase A+C complete. FCR-04 and FCR-R-02 closed. Storage re-verification: H1-H3/M2 closed; M1+L1 block FCR-03 evidence. Next: FCR-03 persist+reopen wiring. 9ec3b07 not accepted. Mechanism selection closed."
+  "note": "FCR-03 persist+reopen wiring complete (tests pass). Evidence execution blocked until M1+L1 specialist re-verification. Windows replacement deferred until SHA freeze. Mechanism selection closed."
 }

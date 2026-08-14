@@ -7,7 +7,6 @@ use super::scenario_observation::{
     Fcr03UnrelatedSuccessObservation, ScenarioOutcome, APPEND_01B3_STALE_SCOPED_LIMITATION,
     APPEND_STALE_ASYMMETRY_LIMITATION, OBSERVED_RECOVERY_SAFE_AUTOMATIC,
 };
-use super::super::oracle::CurrentContractOracle;
 use super::super::scenario_contract::{
     scenario_contract_v4, ScenarioContractV3,
 };
@@ -413,26 +412,34 @@ fn run_stale_precondition(
     }
     match stale_result {
         Err(code) if code == expected => {
-            let oracle_compare = CurrentContractOracle::compare(&before, &after).passed;
             let mut outcome = ScenarioOutcome::passed_with_limitations(limitations);
             if records_fcr03_stale_observation(candidate.kind()) {
+                adapter.close(writer).map_err(err_string)?;
+                let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
+                let reopened_state = adapter.normalized_state(&reopened)?;
                 let observation = Fcr03StaleRejectionObservation::record(
                     code.clone(),
                     &before,
                     &after,
-                    oracle_compare,
+                    &reopened_state,
                 );
+                adapter.close(reopened).map_err(err_string)?;
                 if !observation.post_rejection_authority_unchanged {
-                    adapter.close(writer).map_err(err_string)?;
                     return Err("post-rejection-authority-changed".to_owned());
                 }
                 if !observation.post_rejection_oracle_compare {
-                    adapter.close(writer).map_err(err_string)?;
                     return Err("post-rejection-oracle-mismatch".to_owned());
                 }
+                if !observation.persist_reopen_oracle_compare {
+                    return Err("persist-reopen-oracle-mismatch".to_owned());
+                }
+                if !observation.persist_reopen_authority_unchanged {
+                    return Err("persist-reopen-authority-changed".to_owned());
+                }
                 outcome = outcome.with_fcr03_stale_rejection(observation);
+            } else {
+                adapter.close(writer).map_err(err_string)?;
             }
-            adapter.close(writer).map_err(err_string)?;
             Ok(outcome)
         }
         Err(code) => Err(code),
@@ -483,13 +490,25 @@ fn run_unrelated_scope_success(
     let actual = adapter.normalized_state(&writer)?;
     let unrelated_scope_preserved = actual.durable_command_tokens.reuse_governance_head
         == reuse_advanced.durable_command_tokens.reuse_governance_head;
-    let observation =
-        Fcr03UnrelatedSuccessObservation::record(&expected, &actual, unrelated_scope_preserved);
-    if !observation.unrelated_scope_preserved || !observation.stale_full_state_not_persisted {
-        adapter.close(writer).map_err(err_string)?;
+    adapter.close(writer).map_err(err_string)?;
+    let reopened = adapter.open_read_only(&session_id).map_err(err_string)?;
+    let reopened_state = adapter.normalized_state(&reopened)?;
+    let observation = Fcr03UnrelatedSuccessObservation::record(
+        &expected,
+        &actual,
+        &reopened_state,
+        unrelated_scope_preserved,
+        &review_target,
+    );
+    adapter.close(reopened).map_err(err_string)?;
+    if !observation.unrelated_scope_preserved
+        || !observation.stale_full_state_not_persisted
+        || !observation.persist_reopen_oracle_compare
+        || !observation.persist_reopen_authority_unchanged
+        || !observation.no_unrelated_scope_rewind_after_close_reopen
+    {
         return Err("unrelated-scope-not-preserved".to_owned());
     }
-    adapter.close(writer).map_err(err_string)?;
     Ok(ScenarioOutcome::passed_with_oracle().with_fcr03_unrelated_success(observation))
 }
 

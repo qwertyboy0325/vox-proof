@@ -82,16 +82,31 @@ fn u1_review_succeeds_after_unrelated_reuse_advance_preserving_reuse_authority()
         "newest reuse authority must be preserved"
     );
 
+    let session_id = session.session_id();
+    adapter
+        .close(writer)
+        .expect("close writer before persist+reopen");
+    let reopened = adapter
+        .open_existing(session_id, AppendOpenMode::ReadOnly)
+        .expect("reopen read-only");
+    let reopened_state = reopened.normalized_state().clone();
+    adapter.close(reopened).expect("close reopened");
+
     let observation = Fcr03UnrelatedSuccessObservation::record(
         &expected,
         &actual,
+        &reopened_state,
         actual.durable_command_tokens.reuse_governance_head
             == reuse_advanced.durable_command_tokens.reuse_governance_head,
+        &review_target,
     );
     assert!(observation.transition_applied);
     assert!(observation.post_apply_oracle_compare);
     assert!(observation.unrelated_scope_preserved);
     assert!(observation.stale_full_state_not_persisted);
+    assert!(observation.persist_reopen_oracle_compare);
+    assert!(observation.persist_reopen_authority_unchanged);
+    assert!(observation.no_unrelated_scope_rewind_after_close_reopen);
 }
 
 #[test]
@@ -134,11 +149,21 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
     let authority_after = writer.normalized_state().clone();
     assert_eq!(authority_before, authority_after);
 
+    let session_id = session.session_id();
+    adapter
+        .close(writer)
+        .expect("close writer before persist+reopen");
+    let reopened = adapter
+        .open_existing(session_id, AppendOpenMode::ReadOnly)
+        .expect("reopen read-only");
+    let reopened_state = reopened.normalized_state().clone();
+    adapter.close(reopened).expect("close reopened");
+
     let observation = Fcr03StaleRejectionObservation::record(
         error.code,
         &authority_before,
         &authority_after,
-        CurrentContractOracle::compare(&authority_before, &authority_after).passed,
+        &reopened_state,
     );
     assert!(!observation.transition_applied);
     assert_eq!(
@@ -147,6 +172,8 @@ fn c1_stale_review_command_rejected_with_authority_unchanged() {
     );
     assert!(observation.post_rejection_oracle_compare);
     assert!(observation.post_rejection_authority_unchanged);
+    assert!(observation.persist_reopen_oracle_compare);
+    assert!(observation.persist_reopen_authority_unchanged);
 }
 
 #[test]

@@ -29,6 +29,8 @@ pub struct Fcr03StaleRejectionRecord {
     pub transition_applied: bool,
     pub post_rejection_oracle_compare: bool,
     pub post_rejection_authority_unchanged: bool,
+    pub persist_reopen_oracle_compare: bool,
+    pub persist_reopen_authority_unchanged: bool,
 }
 
 /// Persisted FCR-03 unrelated-success observation (scenario-results.json).
@@ -38,6 +40,9 @@ pub struct Fcr03UnrelatedSuccessRecord {
     pub post_apply_oracle_compare: bool,
     pub unrelated_scope_preserved: bool,
     pub stale_full_state_not_persisted: bool,
+    pub persist_reopen_oracle_compare: bool,
+    pub persist_reopen_authority_unchanged: bool,
+    pub no_unrelated_scope_rewind_after_close_reopen: bool,
 }
 
 /// FCR-03 minimum observation fields for stale scoped-command rejection.
@@ -47,6 +52,8 @@ pub struct Fcr03StaleRejectionObservation {
     pub transition_applied: bool,
     pub post_rejection_oracle_compare: bool,
     pub post_rejection_authority_unchanged: bool,
+    pub persist_reopen_oracle_compare: bool,
+    pub persist_reopen_authority_unchanged: bool,
 }
 
 /// FCR-03 minimum observation fields for unrelated-scope command success.
@@ -56,20 +63,33 @@ pub struct Fcr03UnrelatedSuccessObservation {
     pub post_apply_oracle_compare: bool,
     pub unrelated_scope_preserved: bool,
     pub stale_full_state_not_persisted: bool,
+    pub persist_reopen_oracle_compare: bool,
+    pub persist_reopen_authority_unchanged: bool,
+    pub no_unrelated_scope_rewind_after_close_reopen: bool,
 }
 
 impl Fcr03StaleRejectionObservation {
     pub fn record(
         observed_failure_code: impl Into<String>,
-        expected: &super::super::model::CurrentContractState,
-        actual: &super::super::model::CurrentContractState,
-        oracle_compare: bool,
+        authority_before: &super::super::model::CurrentContractState,
+        authority_after_in_handle: &super::super::model::CurrentContractState,
+        authority_after_reopen: &super::super::model::CurrentContractState,
     ) -> Self {
         Self {
             observed_failure_code: observed_failure_code.into(),
             transition_applied: false,
-            post_rejection_oracle_compare: oracle_compare,
-            post_rejection_authority_unchanged: expected == actual,
+            post_rejection_oracle_compare: super::super::oracle::CurrentContractOracle::compare(
+                authority_before,
+                authority_after_in_handle,
+            )
+            .passed,
+            post_rejection_authority_unchanged: authority_before == authority_after_in_handle,
+            persist_reopen_oracle_compare: super::super::oracle::CurrentContractOracle::compare(
+                authority_before,
+                authority_after_reopen,
+            )
+            .passed,
+            persist_reopen_authority_unchanged: authority_before == authority_after_reopen,
         }
     }
 
@@ -79,6 +99,8 @@ impl Fcr03StaleRejectionObservation {
             transition_applied: self.transition_applied,
             post_rejection_oracle_compare: self.post_rejection_oracle_compare,
             post_rejection_authority_unchanged: self.post_rejection_authority_unchanged,
+            persist_reopen_oracle_compare: self.persist_reopen_oracle_compare,
+            persist_reopen_authority_unchanged: self.persist_reopen_authority_unchanged,
         }
     }
 }
@@ -86,18 +108,33 @@ impl Fcr03StaleRejectionObservation {
 impl Fcr03UnrelatedSuccessObservation {
     pub fn record(
         expected: &super::super::model::CurrentContractState,
-        actual: &super::super::model::CurrentContractState,
+        actual_in_handle: &super::super::model::CurrentContractState,
+        actual_after_reopen: &super::super::model::CurrentContractState,
         unrelated_scope_preserved: bool,
+        stale_full_state_proposal: &super::super::model::CurrentContractState,
     ) -> Self {
-        let oracle_compare =
-            super::super::oracle::CurrentContractOracle::compare(expected, actual).passed;
-        let stale_full_state_not_persisted = unrelated_scope_preserved
-            && !would_rewind_unrelated_authority(expected, actual);
+        let post_apply_oracle_compare =
+            super::super::oracle::CurrentContractOracle::compare(expected, actual_in_handle).passed;
+        let persist_reopen_oracle_compare =
+            super::super::oracle::CurrentContractOracle::compare(expected, actual_after_reopen)
+                .passed;
+        let persist_reopen_authority_unchanged = expected == actual_after_reopen;
+        let no_unrelated_scope_rewind_after_close_reopen =
+            unrelated_scope_preserved && persist_reopen_authority_unchanged;
+        let stale_full_state_not_persisted = persist_reopen_oracle_compare
+            && !super::super::oracle::CurrentContractOracle::compare(
+                stale_full_state_proposal,
+                actual_after_reopen,
+            )
+            .passed;
         Self {
             transition_applied: true,
-            post_apply_oracle_compare: oracle_compare,
+            post_apply_oracle_compare,
             unrelated_scope_preserved,
             stale_full_state_not_persisted,
+            persist_reopen_oracle_compare,
+            persist_reopen_authority_unchanged,
+            no_unrelated_scope_rewind_after_close_reopen,
         }
     }
 
@@ -107,18 +144,12 @@ impl Fcr03UnrelatedSuccessObservation {
             post_apply_oracle_compare: self.post_apply_oracle_compare,
             unrelated_scope_preserved: self.unrelated_scope_preserved,
             stale_full_state_not_persisted: self.stale_full_state_not_persisted,
+            persist_reopen_oracle_compare: self.persist_reopen_oracle_compare,
+            persist_reopen_authority_unchanged: self.persist_reopen_authority_unchanged,
+            no_unrelated_scope_rewind_after_close_reopen: self
+                .no_unrelated_scope_rewind_after_close_reopen,
         }
     }
-}
-
-fn would_rewind_unrelated_authority(
-    expected: &super::super::model::CurrentContractState,
-    actual: &super::super::model::CurrentContractState,
-) -> bool {
-    actual.durable_command_tokens.reuse_governance_head
-        < expected.durable_command_tokens.reuse_governance_head
-        || actual.durable_command_tokens.review_ledger_head
-            < expected.durable_command_tokens.review_ledger_head
 }
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,50 @@
+{
+  "record_id": "VP-GATE4-FCR03-PERSIST-REOPEN-WIRING-2026-08-14",
+  "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "phase": "FCR03_PERSIST_REOPEN_WIRING",
+  "status": "WIRING_COMPLETE_PENDING_SPECIALIST_REVERIFICATION",
+  "completed_on": "2026-08-14",
+  "owner_decision_ref": "fcr03-owner-decision.json",
+  "code_changes": [
+    "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/scenarios.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/readiness.rs",
+    "src/persistence_evidence/current_contract/scenario_contract.rs",
+    "tests/persistence_append_scoped_precondition_01b3.rs",
+    "tests/persistence_sqlite_scoped_precondition_01c3.rs",
+    "tests/persistence_01c_evidence.rs"
+  ],
+  "wiring_summary": {
+    "stale_rejection_fields_added": [
+      "persist_reopen_oracle_compare",
+      "persist_reopen_authority_unchanged"
+    ],
+    "unrelated_success_fields_added": [
+      "persist_reopen_oracle_compare",
+      "persist_reopen_authority_unchanged",
+      "no_unrelated_scope_rewind_after_close_reopen"
+    ],
+    "stale_full_state_not_persisted": "independently measured after close/reopen against stale_full_state_proposal (review_target), not aliased to in-handle U1 heads",
+    "scenario_contract": "reopen_required true for stale-* and unrelated-scope-review-after-reuse-advance FCR-03 scenarios",
+    "harness_behavior": "close writer after rejection/success, reopen read-only, oracle compare persisted authority"
+  },
+  "tests_passing": {
+    "persistence_append_scoped_precondition_01b3": "6/6",
+    "persistence_sqlite_scoped_precondition_01c3": "15/15",
+    "persistence_01c_evidence": "15/15",
+    "persistence_correction_05": "3/3"
+  },
+  "not_executed": [
+    "fresh dual-platform FCR-03 evidence run",
+    "Windows replacement run",
+    "comparison_blockers lift"
+  ],
+  "required_next": [
+    "targeted storage specialist re-verification of M1 and L1",
+    "freeze evidence SHA",
+    "fresh macOS + Windows evidence at same frozen SHA",
+    "rebuild readiness",
+    "Sol STRONG_FINAL retry"
+  ],
+  "note": "Wiring only. Evidence execution gate remains blocked until specialist re-verifies M1+L1 after this wiring."
+}

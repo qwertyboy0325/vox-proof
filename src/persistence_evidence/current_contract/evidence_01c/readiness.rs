@@ -339,6 +339,18 @@ fn validate_fcr03_observations(
                 scenario.scenario_id
             ));
         }
+        if !observation.persist_reopen_oracle_compare {
+            blockers.push(format!(
+                "scenario {} fcr03 persist_reopen_oracle_compare must be true",
+                scenario.scenario_id
+            ));
+        }
+        if !observation.persist_reopen_authority_unchanged {
+            blockers.push(format!(
+                "scenario {} fcr03 persist_reopen_authority_unchanged must be true",
+                scenario.scenario_id
+            ));
+        }
         if result.failure_code.as_deref() != Some(observation.observed_failure_code.as_str()) {
             blockers.push(format!(
                 "scenario {} failure_code must match fcr03 observed_failure_code",
@@ -360,6 +372,9 @@ fn validate_fcr03_observations(
             || !observation.post_apply_oracle_compare
             || !observation.unrelated_scope_preserved
             || !observation.stale_full_state_not_persisted
+            || !observation.persist_reopen_oracle_compare
+            || !observation.persist_reopen_authority_unchanged
+            || !observation.no_unrelated_scope_rewind_after_close_reopen
         {
             blockers.push(format!(
                 "scenario {} fcr03 unrelated-success fields incomplete",

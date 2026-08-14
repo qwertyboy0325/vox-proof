@@ -432,6 +432,8 @@ fn scoped_candidates_persist_fcr03_observations_in_harness() {
             assert!(!observation.transition_applied);
             assert!(observation.post_rejection_oracle_compare);
             assert!(observation.post_rejection_authority_unchanged);
+            assert!(observation.persist_reopen_oracle_compare);
+            assert!(observation.persist_reopen_authority_unchanged);
             assert_eq!(
                 row.failure_code.as_deref(),
                 Some(observation.observed_failure_code.as_str())
@@ -449,6 +451,9 @@ fn scoped_candidates_persist_fcr03_observations_in_harness() {
         assert!(observation.post_apply_oracle_compare);
         assert!(observation.unrelated_scope_preserved);
         assert!(observation.stale_full_state_not_persisted);
+        assert!(observation.persist_reopen_oracle_compare);
+        assert!(observation.persist_reopen_authority_unchanged);
+        assert!(observation.no_unrelated_scope_rewind_after_close_reopen);
     }
     let _ = std::fs::remove_dir_all(&root);
 }
