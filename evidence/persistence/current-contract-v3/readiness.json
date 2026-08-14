@@ -1,39 +1,50 @@
 {
-  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-01",
-  "predecessor": "VP-GATE4-EVIDENCE-COMPLETION-01C",
+  "package": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-03",
+  "predecessor": "VP-GATE4-01C-EVIDENCE-HARNESS-CORRECTION-02",
   "fixture_id": "voxproof-persistence-evidence-current-contract",
   "fixture_version": "3",
   "oracle_version": "3",
   "scenario_contract_version": "3",
   "measurement_contract_version": "2",
+  "harness_version": "gate4-01c-evidence-v4",
   "mechanism_comparison_readiness": "not_ready",
   "mechanism_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_BLOCKED_EVIDENCE_INVALID",
-  "invalid_predecessor_evidence": {
-    "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
-    "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
-    "verdict": "BLOCKED_01C_EVIDENCE",
-    "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3"
-  },
-  "blocked_harness_correction_run": {
-    "harness_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
-    "verdict": "BLOCKED_01C_EVIDENCE",
-    "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0",
-    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0/windows-provenance.json"
-  },
-  "corrected_harness_run": {
-    "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
-    "verdict": "ready_for_owner_decision",
-    "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91",
-    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91/windows-provenance.json"
+  "tracker_status": "GATE4_01C_CORRECTION_03_EVIDENCE_COLLECTING",
+  "invalid_evidence_chain": [
+    {
+      "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+      "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
+      "verdict": "BLOCKED_01C_EVIDENCE",
+      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-970b3c3"
+    },
+    {
+      "harness_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+      "evidence_record_sha": "see_gate4-01c-b2569a0_negative_evidence",
+      "verdict": "BLOCKED_01C_EVIDENCE",
+      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0"
+    },
+    {
+      "harness_sha": "629bb916a33bee839e24db62d7aea28486bf5790",
+      "evidence_record_sha": "e487a0bbaa4e75ac088e47bb48715b453afe82d9",
+      "verdict": "invalid_for_gate_preserve",
+      "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-629bb91"
+    }
+  ],
+  "correction_03_harness": {
+    "harness_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
+    "harness_version": "gate4-01c-evidence-v4",
+    "macos_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
+    "windows_evidence": "pending_github_actions_run_31777643424",
+    "single_platform_readiness": "ready_for_owner_decision",
+    "cross_platform_readiness": "not_ready"
   },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
     "accepted_head": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
     "owner_accepted": true,
-    "equivalence_status": "pending_corrected_01c_evidence"
+    "equivalence_status": "correction_03_evidence_pending_governance"
   },
   "sqlite_01C_SQLITE_2": {
     "candidate_id": "current-contract-sqlite-authoritative-candidate",
@@ -41,14 +52,13 @@
     "semantic_head": "c62dac64bb05d5714946b5741f474d7e640f07a9",
     "accepted_history_head": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
     "owner_accepted": true,
-    "equivalence_status": "pending_corrected_01c_evidence"
+    "equivalence_status": "correction_03_evidence_pending_governance"
   },
   "01C": {
     "authorized": true,
-    "execution_status": "blocked_evidence_invalid",
-    "invalid_predecessor_harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
-    "invalid_predecessor_evidence_sha": "5b446b430f358d3da821461775cc50efe0943033",
-    "corrected_round_status": "evidence_valid_pending_opus_review"
+    "execution_status": "correction_03_macos_complete_windows_pending",
+    "mechanism_selection": "none",
+    "product_integration": "unimplemented"
   },
-  "note": "Prior 01C evidence at gate4-01c-970b3c3 is preserved negative evidence and invalid for mechanism selection. Readiness remains not_ready until corrected harness evidence passes programmatic gates on macOS and Windows."
+  "note": "Correction-03 harness v4 at 6adb731. Prior rounds preserved as invalid-for-gate negative evidence. Cross-platform aggregation and governance pipeline (Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High, FINAL_GATE_GOVERNANCE_CHECK) remain before owner mechanism-selection gate."
 }
