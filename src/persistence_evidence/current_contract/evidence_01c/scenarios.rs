@@ -364,7 +364,12 @@ fn run_stale_precondition(
     let next = updated_writer_token_state(state.clone(), "writer:stale-test");
     let baseline = adapter.authoritative_preconditions(&writer).map_err(err_string)?;
     let stale = stale_preconditions(candidate.kind(), scenario_id, &baseline);
-    let stale_result = adapter.apply_transition_with_preconditions(&mut writer, &stale, &next);
+    let stale_result = adapter.apply_transition_with_preconditions(
+        &mut writer,
+        &stale,
+        &next,
+        Some(scenario_id),
+    );
     let expected = expected_stale_code(candidate.kind(), scenario_id);
     let mut limitations = Vec::new();
     if matches!(candidate.kind(), CurrentContractCandidateKind::Append)

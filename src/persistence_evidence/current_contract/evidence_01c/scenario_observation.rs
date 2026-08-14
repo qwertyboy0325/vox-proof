@@ -62,13 +62,25 @@ impl Fcr03UnrelatedSuccessObservation {
     ) -> Self {
         let oracle_compare =
             super::super::oracle::CurrentContractOracle::compare(expected, actual).passed;
+        let stale_full_state_not_persisted = unrelated_scope_preserved
+            && !would_rewind_unrelated_authority(expected, actual);
         Self {
             transition_applied: true,
             post_apply_oracle_compare: oracle_compare,
             unrelated_scope_preserved,
-            stale_full_state_not_persisted: unrelated_scope_preserved,
+            stale_full_state_not_persisted,
         }
     }
+}
+
+fn would_rewind_unrelated_authority(
+    expected: &super::super::model::CurrentContractState,
+    actual: &super::super::model::CurrentContractState,
+) -> bool {
+    actual.durable_command_tokens.reuse_governance_head
+        < expected.durable_command_tokens.reuse_governance_head
+        || actual.durable_command_tokens.review_ledger_head
+            < expected.durable_command_tokens.review_ledger_head
 }
 
 #[derive(Debug, Clone)]

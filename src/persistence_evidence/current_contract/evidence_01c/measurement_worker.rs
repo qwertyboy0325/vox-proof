@@ -129,7 +129,7 @@ pub fn child_interrupt_transition_main() -> Result<(), String> {
             candidate.append_incomplete_tail_for_test(&mut writer, &next_state)?;
         }
         "append-01b3" => {
-            candidate.apply_transition(&mut writer, &next_state)?;
+            candidate.append_incomplete_tail_for_test(&mut writer, &next_state)?;
         }
         "sqlite" => {
             candidate.arm_fail_before_commit_for_test();

@@ -29,8 +29,9 @@ pub use append_authoritative::{
 };
 #[cfg(feature = "persistence-spike")]
 pub use append_authoritative_01b3::{
-    infer_command_scope, AppendCommandScope, AppendScopedCommand,
-    AppendScopedPreconditionCandidateAdapter, AppendScopedPreconditions,
+    command_scope_for_measurement_operation, command_scope_for_stale_scenario,
+    infer_command_scope, reject_full_state_authority_replace, AppendCommandScope,
+    AppendScopedCommand, AppendScopedPreconditionCandidateAdapter, AppendScopedPreconditions,
     APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
 };
 pub use candidate_equivalence::{

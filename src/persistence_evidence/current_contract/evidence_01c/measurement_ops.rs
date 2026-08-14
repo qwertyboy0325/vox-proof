@@ -64,7 +64,9 @@ pub fn execute_measured_operation(
                 return failed_sample(started, storage_scope);
             };
             let timer = Instant::now();
-            let failed = candidate.apply_transition(&mut writer, &target).is_err();
+            let failed = candidate
+                .apply_transition_for_operation(&mut writer, operation, &target)
+                .is_err();
             let _ = candidate.close(writer);
             return finalize_sample(timer, failed, storage_scope);
         }

@@ -5,8 +5,9 @@ use super::super::append_authoritative::{
     AppendAuthoritativeCandidateAdapter, AppendOpenMode, OpenedAppendAuthoritySession,
 };
 use super::super::append_authoritative_01b3::{
-    infer_command_scope, AppendScopedCommand, AppendScopedPreconditionCandidateAdapter,
-    AppendScopedPreconditions,
+    command_scope_for_measurement_operation, command_scope_for_stale_scenario,
+    infer_command_scope, AppendCommandScope, AppendScopedCommand,
+    AppendScopedPreconditionCandidateAdapter, AppendScopedPreconditions,
 };
 use super::super::fixture::{
     build_base_manual_replacement_state, build_candidate_rejected_state, build_golden_small_state,
@@ -277,7 +278,7 @@ impl CurrentContractCandidate {
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
             (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => {
-                apply_scoped_transition(adapter, handle, next_state)
+                apply_scoped_transition(adapter, handle, next_state, None)
             }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => {
                 let preconditions = handle.authoritative_preconditions();
@@ -385,9 +386,9 @@ impl CurrentContractCandidate {
             (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
                 .append_incomplete_tail_for_test(handle, next_state)
                 .map_err(|error| error.code.to_owned()),
-            (Self::Append01B3 { .. }, OpenedCandidateSession::Append(_)) => {
-                Err("incomplete-tail-unsupported".to_owned())
-            }
+            (Self::Append01B3 { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
+                .append_incomplete_tail_for_test(handle, next_state)
+                .map_err(|error| error.code.to_owned()),
             _ => Err("incomplete-tail-unsupported".to_owned()),
         }
     }
@@ -416,6 +417,7 @@ impl CurrentContractCandidate {
         opened: &mut OpenedCandidateSession,
         preconditions: &CurrentContractPreconditions,
         next_state: &CurrentContractState,
+        stale_scenario_id: Option<&str>,
     ) -> Result<(), String> {
         match (self, opened) {
             (Self::Append { adapter, .. }, OpenedCandidateSession::Append(handle)) => adapter
@@ -432,6 +434,7 @@ impl CurrentContractCandidate {
                     handle,
                     preconditions,
                     next_state,
+                    stale_scenario_id,
                 )
             }
             (Self::Sqlite { adapter, .. }, OpenedCandidateSession::Sqlite(handle)) => adapter
@@ -439,6 +442,23 @@ impl CurrentContractCandidate {
                 .map(|_| ())
                 .map_err(|error| error.code.to_owned()),
             _ => Err("candidate-handle-mismatch".to_owned()),
+        }
+    }
+
+    pub fn apply_transition_for_operation(
+        &self,
+        opened: &mut OpenedCandidateSession,
+        operation: &str,
+        next_state: &CurrentContractState,
+    ) -> Result<(), String> {
+        match self {
+            Self::Append01B3 { adapter, .. } => match opened {
+                OpenedCandidateSession::Append(handle) => {
+                    apply_scoped_transition(adapter, handle, next_state, Some(operation))
+                }
+                _ => Err("candidate-handle-mismatch".to_owned()),
+            },
+            _ => self.apply_transition(opened, next_state),
         }
     }
 
@@ -549,9 +569,10 @@ fn apply_scoped_transition(
     adapter: &AppendScopedPreconditionCandidateAdapter,
     handle: &mut OpenedAppendAuthoritySession,
     next_state: &CurrentContractState,
+    operation: Option<&str>,
 ) -> Result<(), String> {
     let current = handle.normalized_state().clone();
-    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let scope = resolve_command_scope(&current, next_state, None, operation)?;
     let command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
     adapter
         .apply_scoped_command(handle, &command)
@@ -565,16 +586,16 @@ fn apply_scoped_transition_stale(
     next_state: &CurrentContractState,
 ) -> Result<(), String> {
     let current = handle.normalized_state().clone();
-    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let scope = resolve_command_scope(&current, next_state, None, None)?;
     let mut command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
     match scope {
-        super::super::append_authoritative_01b3::AppendCommandScope::ReviewLedger => {
+        AppendCommandScope::ReviewLedger => {
             command.preconditions.review_ledger_head = 0;
         }
-        super::super::append_authoritative_01b3::AppendCommandScope::ReuseGovernance => {
+        AppendCommandScope::ReuseGovernance => {
             command.preconditions.reuse_governance_head = 0;
         }
-        super::super::append_authoritative_01b3::AppendCommandScope::ActiveAnalysis => {
+        AppendCommandScope::ActiveAnalysis => {
             command.preconditions.active_analysis_snapshot_identity.clear();
         }
     }
@@ -589,9 +610,10 @@ fn apply_scoped_transition_with_preconditions(
     handle: &mut OpenedAppendAuthoritySession,
     preconditions: &CurrentContractPreconditions,
     next_state: &CurrentContractState,
+    stale_scenario_id: Option<&str>,
 ) -> Result<(), String> {
     let current = handle.normalized_state().clone();
-    let scope = infer_command_scope(&current, next_state).map_err(|error| error.code.to_owned())?;
+    let scope = resolve_command_scope(&current, next_state, stale_scenario_id, None)?;
     let mut command = AppendScopedCommand::from_transition_pair(scope, &current, next_state);
     command.preconditions = AppendScopedPreconditions {
         review_ledger_head: preconditions.review_ledger_head,
@@ -604,6 +626,24 @@ fn apply_scoped_transition_with_preconditions(
         .apply_scoped_command(handle, &command)
         .map(|_| ())
         .map_err(|error| error.code.to_owned())
+}
+
+fn resolve_command_scope(
+    current: &CurrentContractState,
+    next_state: &CurrentContractState,
+    stale_scenario_id: Option<&str>,
+    operation: Option<&str>,
+) -> Result<AppendCommandScope, String> {
+    if let Some(scenario_id) = stale_scenario_id {
+        return command_scope_for_stale_scenario(scenario_id)
+            .ok_or_else(|| format!("unknown stale scenario {scenario_id}"));
+    }
+    if let Some(operation) = operation {
+        if let Some(scope) = command_scope_for_measurement_operation(operation) {
+            return Ok(scope);
+        }
+    }
+    infer_command_scope(current, next_state).map_err(|error| error.code.to_owned())
 }
 
 fn lag_append_checkpoint_for_test(

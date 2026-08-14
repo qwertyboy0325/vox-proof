@@ -3,8 +3,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use vox_proof::persistence_evidence::current_contract::append_authoritative_01b3::{
-    AppendCommandScope, AppendScopedCommand, AppendScopedPreconditionCandidateAdapter,
-    APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
+    reject_full_state_authority_replace, AppendCommandScope, AppendScopedCommand,
+    AppendScopedPreconditionCandidateAdapter, APPEND_SCOPED_PRECONDITION_CANDIDATE_VERSION,
 };
 use vox_proof::persistence_evidence::current_contract::evidence_01c::measurement_transitions::{
     measurement_transition_states, unrelated_scope_success_fixture,
@@ -169,7 +169,7 @@ fn c3_stale_full_state_proposal_cannot_rewind_unrelated_reuse_authority() {
         .apply_scoped_command(&mut writer, &reuse_command)
         .expect("reuse advance");
 
-    let rewind_error = AppendScopedPreconditionCandidateAdapter::reject_full_state_authority_replace(
+    let rewind_error = reject_full_state_authority_replace(
         writer.normalized_state(),
         &review_precursor,
     )
@@ -194,6 +194,41 @@ fn c3_stale_full_state_proposal_cannot_rewind_unrelated_reuse_authority() {
         reuse_advanced.durable_command_tokens.reuse_governance_head,
         "scoped apply must not rewind reuse via stale full-state target fields"
     );
+}
+
+#[test]
+fn harness_stale_review_ledger_rejects_with_explicit_scenario_scope() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::candidate::{
+        CurrentContractCandidate, updated_writer_token_state,
+    };
+    use vox_proof::persistence_evidence::current_contract::fixture::build_golden_small_state;
+
+    let adapter = CurrentContractCandidate::append_01b3(
+        std::env::temp_dir().join(format!(
+            "voxproof-01b3-stale-harness-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        )),
+    )
+    .expect("candidate");
+    let state = build_golden_small_state();
+    let (session_id, _) = adapter.create_session(&state).expect("create");
+    let mut writer = adapter.open_writable(&session_id).expect("open");
+    let next = updated_writer_token_state(state.clone(), "writer:stale-test");
+    let baseline = adapter.authoritative_preconditions(&writer).expect("baseline");
+    let mut stale = baseline.clone();
+    stale.review_ledger_head = baseline.review_ledger_head + 1;
+    let error = adapter
+        .apply_transition_with_preconditions(
+            &mut writer,
+            &stale,
+            &next,
+            Some("stale-review-ledger-command"),
+        )
+        .expect_err("stale review precondition");
+    assert_eq!(error, "stale-review-ledger-precondition");
 }
 
 #[test]

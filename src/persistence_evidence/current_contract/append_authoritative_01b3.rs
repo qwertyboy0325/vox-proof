@@ -73,7 +73,6 @@ impl AppendScopedCommand {
     }
 
     fn apply_onto(&self, current: &CurrentContractState) -> Result<CurrentContractState, AppendAuthorityError> {
-        reject_stale_full_state_rewind(current, self.scope, &self.precursor, &self.target)?;
         match self.scope {
             AppendCommandScope::ReviewLedger => {
                 apply_review_scope_patch(current, &self.target)
@@ -152,6 +151,14 @@ impl AppendScopedPreconditionCandidateAdapter {
             .tamper_committed_state_for_test(opened, from, to)
     }
 
+    pub fn append_incomplete_tail_for_test(
+        &self,
+        opened: &mut OpenedAppendAuthoritySession,
+        state: &CurrentContractState,
+    ) -> Result<(), AppendAuthorityError> {
+        self.inner.append_incomplete_tail_for_test(opened, state)
+    }
+
     pub fn apply_scoped_command(
         &self,
         opened: &mut OpenedAppendAuthoritySession,
@@ -212,29 +219,50 @@ impl AppendScopedPreconditionCandidateAdapter {
         opened.set_normalized_state(next_state);
         Ok(acknowledgement)
     }
+}
 
-    /// Disqualified 01B-3 path: reject caller-supplied full authority replacement.
-    pub fn reject_full_state_authority_replace(
-        current: &CurrentContractState,
-        proposed: &CurrentContractState,
-    ) -> Result<(), AppendAuthorityError> {
-        if proposed.durable_command_tokens.reuse_governance_head
-            < current.durable_command_tokens.reuse_governance_head
-        {
-            return Err(AppendAuthorityError::new(
-                "stale-full-state-unrelated-rewind",
-                "full-state proposal would rewind reuse-governance authority",
-            ));
+/// Reject disqualified full-state authority replacement (off-path guard for C3 class).
+pub fn reject_full_state_authority_replace(
+    current: &CurrentContractState,
+    proposed: &CurrentContractState,
+) -> Result<(), AppendAuthorityError> {
+    if proposed.durable_command_tokens.reuse_governance_head
+        < current.durable_command_tokens.reuse_governance_head
+    {
+        return Err(AppendAuthorityError::new(
+            "stale-full-state-unrelated-rewind",
+            "full-state proposal would rewind reuse-governance authority",
+        ));
+    }
+    if proposed.durable_command_tokens.review_ledger_head
+        < current.durable_command_tokens.review_ledger_head
+    {
+        return Err(AppendAuthorityError::new(
+            "stale-full-state-unrelated-rewind",
+            "full-state proposal would rewind review-ledger authority",
+        ));
+    }
+    Ok(())
+}
+
+pub fn command_scope_for_stale_scenario(scenario_id: &str) -> Option<AppendCommandScope> {
+    match scenario_id {
+        "stale-review-ledger-command" => Some(AppendCommandScope::ReviewLedger),
+        "stale-reuse-governance-command" => Some(AppendCommandScope::ReuseGovernance),
+        "stale-analysis-attachment-or-selection" => Some(AppendCommandScope::ActiveAnalysis),
+        _ => None,
+    }
+}
+
+pub fn command_scope_for_measurement_operation(operation: &str) -> Option<AppendCommandScope> {
+    match operation {
+        "append_review_decision" | "append_manual_replacement" => {
+            Some(AppendCommandScope::ReviewLedger)
         }
-        if proposed.durable_command_tokens.review_ledger_head
-            < current.durable_command_tokens.review_ledger_head
-        {
-            return Err(AppendAuthorityError::new(
-                "stale-full-state-unrelated-rewind",
-                "full-state proposal would rewind review-ledger authority",
-            ));
-        }
-        Ok(())
+        "append_reusable_promotion"
+        | "append_reusable_revocation"
+        | "append_reusable_supersession" => Some(AppendCommandScope::ReuseGovernance),
+        _ => None,
     }
 }
 
@@ -308,37 +336,6 @@ fn validate_scoped_preconditions(
     Ok(())
 }
 
-fn reject_stale_full_state_rewind(
-    current: &CurrentContractState,
-    scope: AppendCommandScope,
-    precursor: &CurrentContractState,
-    target: &CurrentContractState,
-) -> Result<(), AppendAuthorityError> {
-    if scope != AppendCommandScope::ReviewLedger
-        && current.durable_command_tokens.reuse_governance_head
-            > precursor.durable_command_tokens.reuse_governance_head
-        && target.durable_command_tokens.reuse_governance_head
-            == precursor.durable_command_tokens.reuse_governance_head
-    {
-        return Err(AppendAuthorityError::new(
-            "stale-full-state-unrelated-rewind",
-            "command target would rewind unrelated reuse-governance authority",
-        ));
-    }
-    if scope != AppendCommandScope::ReuseGovernance
-        && current.durable_command_tokens.review_ledger_head
-            > precursor.durable_command_tokens.review_ledger_head
-        && target.durable_command_tokens.review_ledger_head
-            == precursor.durable_command_tokens.review_ledger_head
-    {
-        return Err(AppendAuthorityError::new(
-            "stale-full-state-unrelated-rewind",
-            "command target would rewind unrelated review-ledger authority",
-        ));
-    }
-    Ok(())
-}
-
 fn apply_review_scope_patch(
     current: &CurrentContractState,
     target: &CurrentContractState,
@@ -361,6 +358,17 @@ fn apply_reuse_scope_patch(
     result.historical_reusable_records = target.historical_reusable_records.clone();
     result.reusable_snapshot_identity = target.reusable_snapshot_identity.clone();
     result.reuse_enabled_analysis_binding = target.reuse_enabled_analysis_binding.clone();
+    if let Some(binding) = &target.reuse_enabled_analysis_binding {
+        if !result
+            .analysis_snapshots
+            .iter()
+            .any(|snapshot| snapshot.identity == binding.analysis_snapshot_identity)
+        {
+            result
+                .analysis_snapshots
+                .push(binding.analysis_snapshot.clone());
+        }
+    }
     result.durable_command_tokens.reuse_governance_head =
         target.durable_command_tokens.reuse_governance_head;
     finalize_and_validate(&mut result)
