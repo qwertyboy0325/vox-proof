@@ -1,0 +1,15 @@
+{
+  "platform": "windows-github-actions",
+  "workflow": "persistence-sqlite-windows",
+  "run_id": "31774033649",
+  "job_id": "94685635425",
+  "head_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "runner": "windows-latest",
+  "evidence_run_id": "current-contract-v3-01c-windows-31774033649",
+  "artifact_id": "9209278197",
+  "artifact_sha256": "6e30a65766774404b9840a70be159234a56dbc7b6b183874a084ff4b8ab16b73",
+  "verdict": "BLOCKED_01C_EVIDENCE",
+  "mechanism_comparison_readiness": "not_ready",
+  "note": "Windows artifact not vendored in Git; digest anchors remote Actions artifact."
+}

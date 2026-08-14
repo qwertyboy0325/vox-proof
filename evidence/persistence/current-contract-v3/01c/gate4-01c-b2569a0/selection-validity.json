@@ -1,0 +1,20 @@
+{
+  "selection_validity": "invalid",
+  "harness_semantic_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+  "evidence_record_sha": "see_git_commit_preserving_this_directory",
+  "verdict": "BLOCKED_01C_EVIDENCE",
+  "reason": [
+    "append transition measurements all failure_count=5 (measurement_transition_states preconditions invalid)",
+    "append stale scenarios reject with non-stale-append-precondition errors",
+    "sqlite writer-crash-and-takeover failed with writer-already-open during takeover path",
+    "mechanism_comparison_readiness and mechanism_selection_readiness remain not_ready"
+  ],
+  "predecessor_invalid_evidence": {
+    "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
+    "evidence_record_sha": "5b446b430f358d3da821461775cc50efe0943033",
+    "verdict": "BLOCKED_01C_EVIDENCE"
+  },
+  "superseded_by": "pending_corrected_01c_round",
+  "preserve_raw_artifacts": true,
+  "note": "Negative evidence at harness correction SHA b2569a0. Do not use for mechanism selection. Do not rerun at this SHA after correction."
+}

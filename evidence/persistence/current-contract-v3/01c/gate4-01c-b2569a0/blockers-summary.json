@@ -1,0 +1,51 @@
+{
+  "harness_semantic_sha": "b2569a022856f3cbfecdbdb950bc32584741a9a3",
+  "verdict": "BLOCKED_01C_EVIDENCE",
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
+  "macos_evidence_dir": "evidence/persistence/current-contract-v3/01c/gate4-01c-b2569a0",
+  "root_defects": [
+    {
+      "id": "transition-measurement-precursor-target",
+      "class": "harness_defect",
+      "detail": "measurement_transition_states pairs use cross-fixture session identities; apply_transition fails for all append_* operations (failure_count=5 per aggregate)"
+    },
+    {
+      "id": "append-stale-precondition-precedence",
+      "class": "harness_defect",
+      "detail": "stale_preconditions() match arms use (_, scenario) before Append-specific generation stale; Append receives SQLite-style mutations but expects stale-append-precondition"
+    },
+    {
+      "id": "sqlite-writer-takeover-lease-timing",
+      "class": "harness_defect",
+      "detail": "writer-crash-and-takeover reopens immediately after child abort without waiting for 1000ms lease expiry (regression requires 1100ms sleep)"
+    }
+  ],
+  "measurement_summary": {
+    "per_candidate_valid_aggregates": 14,
+    "per_candidate_failed_aggregates": 10,
+    "failed_operations": [
+      "append_review_decision",
+      "append_manual_replacement",
+      "append_reusable_promotion",
+      "append_reusable_revocation",
+      "append_reusable_supersession"
+    ]
+  },
+  "scenario_failures": {
+    "append": [
+      "stale-review-ledger-command",
+      "stale-reuse-governance-command",
+      "stale-analysis-attachment-or-selection"
+    ],
+    "sqlite": ["writer-crash-and-takeover"]
+  },
+  "improvements_vs_970b3c3": [
+    "per-sample storage isolation",
+    "subprocess peak memory with non-zero RSS on valid aggregates",
+    "non-zero storage metrics on valid aggregates",
+    "readiness gating enforces not_ready",
+    "child-process interrupted transition execution",
+    "no fabricated append interrupted-transition pass"
+  ]
+}

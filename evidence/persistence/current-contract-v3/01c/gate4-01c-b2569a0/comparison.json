@@ -1,0 +1,27 @@
+{
+  "platform": "macos-native",
+  "tradeoffs": [
+    "close small: append lower peak memory (3964928 vs 5980160 bytes)",
+    "close medium: append lower peak memory (5128192 vs 6995968 bytes)",
+    "create_session small: sqlite lower median latency (4 ms vs 16 ms)",
+    "create_session small: append lower peak memory (3588096 vs 5849088 bytes)",
+    "create_session medium: sqlite lower median latency (5 ms vs 18 ms)",
+    "create_session medium: append lower peak memory (4587520 vs 6848512 bytes)",
+    "derived_rebuild small: append lower median latency (0 ms vs 2 ms)",
+    "derived_rebuild small: append lower peak memory (4079616 vs 6193152 bytes)",
+    "derived_rebuild medium: append lower median latency (1 ms vs 4 ms)",
+    "derived_rebuild medium: append lower peak memory (5292032 vs 7143424 bytes)",
+    "open_cold small: append lower peak memory (3964928 vs 5980160 bytes)",
+    "open_cold medium: append lower peak memory (5128192 vs 6930432 bytes)",
+    "open_warm small: append lower peak memory (4063232 vs 5963776 bytes)",
+    "open_warm medium: append lower peak memory (5193728 vs 6946816 bytes)",
+    "reopen_and_validate small: append lower peak memory (4046848 vs 6094848 bytes)",
+    "reopen_and_validate medium: append lower peak memory (5128192 vs 7028736 bytes)",
+    "semantic_duplication small: sqlite lower median latency (5 ms vs 16 ms)",
+    "semantic_duplication small: append lower peak memory (4079616 vs 6389760 bytes)",
+    "semantic_duplication medium: sqlite lower median latency (8 ms vs 19 ms)",
+    "semantic_duplication medium: append lower peak memory (5324800 vs 7454720 bytes)"
+  ],
+  "append_disqualified": true,
+  "sqlite_disqualified": true
+}
