@@ -1,0 +1,16 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-02-PHASE-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "status": "IN_PROGRESS",
+  "started_on": "2026-08-15",
+  "completed_scopes": ["review", "reuse"],
+  "pending_scopes": ["active_analysis"],
+  "analysis_blocker": {
+    "issue": "oracle-valid competing analysis command on review_precursor session does not advance active_analysis_snapshot_identity; alternate snapshot attachments fail current-contract-oracle-rejected",
+    "owner_escalation_required": true,
+    "interim_harness_behavior": "review+reuse genuine stale wired with full R2-02 observation fields; analysis scenario fixture defined but unit tests ignored pending owner fixture"
+  },
+  "implementation_commits": "pending",
+  "note": "Do not run evidence, PRE_FINAL, Opus, or Sol until R2-02 complete."
+}
