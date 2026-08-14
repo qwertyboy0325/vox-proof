@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "FCR03_CROSS_PLATFORM_EVIDENCE_COMPLETE_PENDING_SOL_RETRY",
+  "tracker_status": "SOL_STRONG_FINAL_RETRY_02_BLOCKING",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -146,6 +146,27 @@
     "mechanism_comparison_readiness": "not_ready",
     "mechanism_selection_readiness": "not_ready"
   },
+  "sol_strong_final_retry_02": {
+    "work_package_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02",
+    "status": "BLOCKING_CONTRADICTION",
+    "reviewed_commit": "b9b9a7a",
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "canonical_result": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
+    "remediation_closure_packet": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-remediation-closure-packet.json",
+    "reviewer_model": "gpt-5.6-sol-high",
+    "verdict": "BLOCKING_CONTRADICTION",
+    "blocking_count": 5,
+    "resolved_from_prior_sol": ["FCR-R-01", "FCR-R-02", "FCR-04"],
+    "confirmed_pass": ["REAL_CLOSE_REOPEN", "WINDOWS_1510e3d_REPLACEMENT", "READINESS_BOUNDARY"],
+    "open_conflicts": [
+      "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
+      "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
+      "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
+      "FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE",
+      "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
+    ],
+    "authorized_next_step": "BLOCKED_REPEATED_FINAL_CONFLICT — owner decision required"
+  },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
@@ -154,9 +175,10 @@
     "pre_final_corrections_record": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-corrections-record.json",
     "governance_reconciliation_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/governance-reconciliation-supersession.json",
     "corrections_status": "GOV_01_THROUGH_GOV_04_APPLIED",
-    "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
+    "strong_final_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
     "strong_final_verdict": "BLOCKING_CONTRADICTION",
     "strong_final_reviewer_model": "gpt-5.6-sol-high",
+    "strong_final_retry_01_preserved": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
     "strong_final_supplementary_review": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/strong-final-conflict-review-result.json",
     "strong_final_supplementary_model": "Claude Opus 5 (non-canonical)",
     "prior_sol_review": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
@@ -164,9 +186,9 @@
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
-    "status": "CROSS_PLATFORM_COMPLETE",
-    "phase": "SOL_STRONG_FINAL_RETRY"
+    "work_package_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02",
+    "status": "BLOCKING_CONTRADICTION",
+    "phase": "OWNER_DECISION_REQUIRED"
   },
   "gate_sequence": {
     "completed": [
@@ -200,9 +222,10 @@
       "windows_replacement_dispatch_run_31818699362",
       "windows_replacement_success_run_31819274526",
       "cross_platform_methodology_review_PASS_WITH_CAVEATS_grok_4_6_persist_reopen",
-      "dual_platform_readiness_rebuilt_1510e3d"
+      "dual_platform_readiness_rebuilt_1510e3d",
+      "Sol_STRONG_FINAL_RETRY_02_BLOCKING_gpt_5_6_sol_high_b9b9a7a"
     ],
-    "current": "SOL_STRONG_FINAL_RETRY",
+    "current": "OWNER_DECISION_REQUIRED",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -210,8 +233,9 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "Sol STRONG_FINAL retry (gpt-5.6-sol-high)",
-      "FINAL_GATE_GOVERNANCE_CHECK if Sol PASS"
+      "owner decision on bounded correction package for Sol R2 conflicts",
+      "PRE_FINAL governance audit over post-remediation chain",
+      "Sol STRONG_FINAL retry 03 after corrections"
     ]
   },
   "still_closed": [
@@ -223,5 +247,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Dual-platform FCR-03 persist+reopen evidence complete at harness 1510e3d (run 31819274526). Cross-platform methodology PASS_WITH_CAVEATS (Grok 4.6); harness_sha_match true; aggregation blocker lifted. FCR-R-01 closed. Next: Sol STRONG_FINAL retry. mechanism_selection and READY_FOR_OWNER_GATE remain closed. 9ec3b07 not accepted."
+  "note": "Sol STRONG_FINAL retry 02 BLOCKING (gpt-5.6-sol-high, b9b9a7a). FCR-R-01/R-02/FCR-04 resolved; real close/reopen confirmed; Windows 1510e3d accepted. Five blockers remain: post-29d76bd storage re-verification, synthetic stale commands, stale PRE_FINAL, incomplete WP authority, evidence package-ID drift. FINAL_GATE and READY_FOR_OWNER_GATE not authorized."
 }

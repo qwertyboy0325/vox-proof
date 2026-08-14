@@ -1,0 +1,76 @@
+{
+  "packet_id": "VP-GATE4-FCR03-SOL-REMEDIATION-CLOSURE-PACKET-02",
+  "work_package_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02",
+  "parent_work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "prepared_on": "2026-08-15",
+  "tracker_commit": "b9b9a7a",
+  "prior_sol_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "prior_sol_reviewed_commit": "f781329",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "wiring_commits": {
+    "persist_reopen_wiring": "29d76bdde5815e1e9effa3e787f10547036500d1",
+    "u1_observation_fix": "1510e3d544839d094f51e94a40a2c4f6e1ccada9"
+  },
+  "fcr_closure_map": {
+    "FCR-02-REVIEW-CORRECTIONS-NOT-REVERIFIED": {
+      "status": "CLOSED",
+      "closure_artifact": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
+      "verdict": "PASS_WITH_CAVEATS",
+      "reviewer_model": "Cursor Grok 4.6",
+      "commit_reviewed": "29d76bd",
+      "m1_l1_closed": true,
+      "fcr02_fully_closed_for_fcr03_evidence": true
+    },
+    "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM": {
+      "status": "CLOSED_AT_BOUNDED_CLAIM",
+      "closure_artifacts": [
+        "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/fcr03-persist-reopen-wiring-record.json",
+        "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen/",
+        "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/cross-platform-evidence-methodology-review.json"
+      ],
+      "harness_behavior": "close writer; open_read_only(session_id); oracle compare reopened authority",
+      "scenario_contract_reopen_required": true,
+      "claim_boundary": "InterfaceBehavior (stale persist+reopen) + LogicalStateTransition (U1 persist+reopen); not FilesystemDurability"
+    },
+    "FCR-04-MISSING-ESCALATION-CONDITIONS": {
+      "status": "CLOSED",
+      "closure_artifact": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/work-package.json",
+      "commit": "19d2b12"
+    },
+    "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT": {
+      "status": "CLOSED_BY_REPLACEMENT_RUN",
+      "accepted_run": {
+        "workflow_run_id": 31819274526,
+        "evidence_checkout_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+        "workflow_control_plane_sha": "22932599ebec83732c8f9064021102b6b38d798c"
+      },
+      "superseded_run": {
+        "workflow_run_id": 31811807394,
+        "sha": "9ec3b07a6c71fe79348cf00524128af008964120",
+        "accepted_for_final_gate": false
+      },
+      "owner_decision": "AUTHORIZE_WINDOWS_FCR03_REPLACEMENT_RUN"
+    },
+    "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION": {
+      "status": "CLOSED",
+      "closure_commit": "f781329",
+      "successor_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen/cross-platform-readiness.json"
+    }
+  },
+  "evidence_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "cross_platform": {
+    "harness_sha_match": true,
+    "methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/cross-platform-evidence-methodology-review.json",
+    "methodology_verdict": "PASS_WITH_CAVEATS",
+    "windows_run_id": 31819274526,
+    "status_counts_per_candidate_per_platform": "24 passed + 2 unsupported + 0 failed"
+  },
+  "still_not_resolved": [
+    "mechanism_selection (owner gate closed)",
+    "mechanism_comparison_readiness ready (frozen 91e258c remains baseline)",
+    "READY_FOR_OWNER_GATE until Sol + FINAL_GATE_GOVERNANCE_CHECK",
+    "CrossPlatform taxonomy / FilesystemDurability for FCR-03"
+  ],
+  "frozen_91e258c_policy": "immutable unchanged"
+}

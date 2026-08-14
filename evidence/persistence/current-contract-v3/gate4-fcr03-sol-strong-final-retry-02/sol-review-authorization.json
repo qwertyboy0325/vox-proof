@@ -1,0 +1,27 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02-AUTHORIZATION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-02",
+  "model": "gpt-5.6-sol-high",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-15",
+  "scope": "STRONG_FINAL_CONFLICT_REVIEW retry after bounded remediation A+C and dual-platform persist+reopen evidence at 1510e3d",
+  "preconditions_satisfied": [
+    "PRE_FINAL_GOVERNANCE_AUDIT PASS (f781329)",
+    "bounded remediation FCR-04 + FCR-R-02 closed",
+    "M1+L1 storage re-verification PASS (29d76bd)",
+    "FCR-03 persist+reopen wiring + U1 fix (1510e3d)",
+    "dual-platform evidence complete harness_sha_match true",
+    "cross-platform methodology PASS_WITH_CAVEATS (Grok 4.6)",
+    "Windows replacement run 31819274526 at 1510e3d; 9ec3b07 not accepted"
+  ],
+  "remediation_closure_packet_ref": "sol-remediation-closure-packet.json",
+  "prior_sol_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-strong-final-conflict-review-result.json",
+  "forbidden": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE without FINAL_GATE_GOVERNANCE_CHECK",
+    "frozen_91e258c rewrite",
+    "accept 9ec3b07 for final gate",
+    "FilesystemDurability or CrossPlatform taxonomy promotion for FCR-03"
+  ]
+}
