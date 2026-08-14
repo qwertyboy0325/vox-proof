@@ -369,6 +369,7 @@ impl SqliteAuthoritativeCandidateAdapter {
 
     /// Persist oracle-validated canonical state after optional in-tx metadata checks.
     /// Used by 01C-SQLITE-2 full-state transitions and 01C-SQLITE-3 scoped merges.
+    #[allow(clippy::type_complexity)]
     pub(crate) fn persist_canonical_authority_state(
         &self,
         opened: &mut OpenedSqliteAuthoritySession,
@@ -557,13 +558,6 @@ impl SqliteAuthoritativeCandidateAdapter {
             committed_generation: next_generation,
             canonical_fingerprint: fingerprint,
         })
-    }
-
-    pub(crate) fn validate_writable_handle_for_scoped_apply(
-        &self,
-        opened: &OpenedSqliteAuthoritySession,
-    ) -> Result<(), SqliteAuthorityError> {
-        self.validate_writable_handle(opened)
     }
 
     pub fn close(&self, opened: OpenedSqliteAuthoritySession) -> Result<(), SqliteAuthorityError> {
@@ -987,7 +981,7 @@ impl SqliteAuthoritativeCandidateAdapter {
 }
 
 #[derive(Debug)]
-struct SessionMetadata {
+pub(crate) struct SessionMetadata {
     session_id: String,
     duplicated_from_session_id: Option<String>,
     format_version: u32,

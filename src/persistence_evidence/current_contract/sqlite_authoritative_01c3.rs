@@ -354,16 +354,15 @@ fn apply_reuse_scope_patch(
     result.historical_reusable_records = target.historical_reusable_records.clone();
     result.reusable_snapshot_identity = target.reusable_snapshot_identity.clone();
     result.reuse_enabled_analysis_binding = target.reuse_enabled_analysis_binding.clone();
-    if let Some(binding) = &target.reuse_enabled_analysis_binding {
-        if !result
+    if let Some(binding) = &target.reuse_enabled_analysis_binding
+        && !result
             .analysis_snapshots
             .iter()
             .any(|snapshot| snapshot.identity == binding.analysis_snapshot_identity)
-        {
-            result
-                .analysis_snapshots
-                .push(binding.analysis_snapshot.clone());
-        }
+    {
+        result
+            .analysis_snapshots
+            .push(binding.analysis_snapshot.clone());
     }
     result.durable_command_tokens.reuse_governance_head =
         target.durable_command_tokens.reuse_governance_head;

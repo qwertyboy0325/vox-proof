@@ -222,16 +222,15 @@ fn u1_reuse_succeeds_after_unrelated_review_advance() {
         reuse_advanced.reuse_enabled_analysis_binding.clone();
     expected.durable_command_tokens.reuse_governance_head =
         reuse_advanced.durable_command_tokens.reuse_governance_head;
-    if let Some(binding) = &reuse_advanced.reuse_enabled_analysis_binding {
-        if !expected
+    if let Some(binding) = &reuse_advanced.reuse_enabled_analysis_binding
+        && !expected
             .analysis_snapshots
             .iter()
             .any(|snapshot| snapshot.identity == binding.analysis_snapshot_identity)
-        {
-            expected
-                .analysis_snapshots
-                .push(binding.analysis_snapshot.clone());
-        }
+    {
+        expected
+            .analysis_snapshots
+            .push(binding.analysis_snapshot.clone());
     }
     finalize_derived_fields(&mut expected);
     let expected = expected.normalize();

@@ -6,14 +6,17 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_AUTHORIZED_PENDING_EXECUTION",
+  "tracker_status": "WINDOWS_DUAL_SCOPED_FCR03_WORKFLOW_DISPATCHED",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true
   },
   "windows_dual_scoped_fcr03_evidence": {
-    "status": "owner_authorized_pending_execution",
+    "status": "workflow_dispatched",
+    "workflow_run_id": 31811296220,
+    "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31811296220",
+    "dispatch_record": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/workflow-dispatch-record.json",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/work-package.json",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/owner-authorization.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-windows-dual-scoped-evidence-01/execution-plan.json",
@@ -23,7 +26,8 @@
     "dispatch": {
       "dual_scoped_fcr03": "true",
       "fcr03_record_id": "gate4-01c-d267f0d-dual-scoped-fcr03",
-      "evidence_ref": "abe8f9adf5330470a24d83842db6c43f1fe89a1a"
+      "evidence_ref": "0030f18fabc8350f3c2dcdeb520bf1dc12b0b0d1",
+      "evidence_ref_note": "0030f18 includes platform-append; supersedes abe8f9a for Windows execution only"
     }
   },
   "dual_scoped_fcr03_evidence": {

@@ -748,10 +748,10 @@ fn resolve_command_scope(
         return command_scope_for_stale_scenario(scenario_id)
             .ok_or_else(|| format!("unknown stale scenario {scenario_id}"));
     }
-    if let Some(operation) = operation {
-        if let Some(scope) = command_scope_for_measurement_operation(operation) {
-            return Ok(scope);
-        }
+    if let Some(operation) = operation
+        && let Some(scope) = command_scope_for_measurement_operation(operation)
+    {
+        return Ok(scope);
     }
     infer_command_scope(current, next_state).map_err(|error| error.code.to_owned())
 }
@@ -871,10 +871,10 @@ fn resolve_sqlite_command_scope(
         return sqlite_command_scope_for_stale_scenario(scenario_id)
             .ok_or_else(|| format!("unknown stale scenario {scenario_id}"));
     }
-    if let Some(operation) = operation {
-        if let Some(scope) = sqlite_command_scope_for_measurement_operation(operation) {
-            return Ok(scope);
-        }
+    if let Some(operation) = operation
+        && let Some(scope) = sqlite_command_scope_for_measurement_operation(operation)
+    {
+        return Ok(scope);
     }
     infer_sqlite_command_scope(current, next_state).map_err(|error| error.code.to_owned())
 }
