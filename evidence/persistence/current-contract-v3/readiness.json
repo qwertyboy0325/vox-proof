@@ -7,10 +7,10 @@
   "scenario_contract_version": "3",
   "measurement_contract_version": "2",
   "harness_version": "gate4-01c-evidence-v4",
-  "mechanism_comparison_readiness": "not_ready",
-  "mechanism_selection_readiness": "not_ready",
+  "mechanism_comparison_readiness": "ready_for_owner_decision",
+  "mechanism_selection_readiness": "ready_for_owner_decision",
   "selection_status": "none",
-  "tracker_status": "GATE4_01C_CORRECTION_03_EVIDENCE_COLLECTING",
+  "tracker_status": "GATE4_01C_CORRECTION_03_EVIDENCE_COMPLETE_PENDING_GOVERNANCE",
   "invalid_evidence_chain": [
     {
       "harness_sha": "970b3c38bfbf07fd9750df93b285527b73beb43c",
@@ -34,17 +34,22 @@
   "correction_03_harness": {
     "harness_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
     "harness_version": "gate4-01c-evidence-v4",
-    "macos_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
-    "windows_evidence": "pending_github_actions_run_31777643424",
+    "evidence_package": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731",
+    "macos_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/macos-native",
+    "windows_evidence": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/windows-github-actions",
+    "windows_provenance": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/windows-provenance.json",
+    "cross_platform_readiness": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/cross-platform-readiness.json",
+    "windows_run_id": 31777643424,
     "single_platform_readiness": "ready_for_owner_decision",
-    "cross_platform_readiness": "not_ready"
+    "cross_platform_readiness_status": "ready_for_owner_decision",
+    "governance_status": "pending"
   },
   "append_01B_2": {
     "candidate_id": "current-contract-append-authoritative-candidate",
     "candidate_version": "01B-2",
     "accepted_head": "cee1b0c7ae8e03b8ece1f9f6051b174e49ec44b0",
     "owner_accepted": true,
-    "equivalence_status": "correction_03_evidence_pending_governance"
+    "equivalence_status": "correction_03_evidence_complete_pending_governance"
   },
   "sqlite_01C_SQLITE_2": {
     "candidate_id": "current-contract-sqlite-authoritative-candidate",
@@ -52,13 +57,13 @@
     "semantic_head": "c62dac64bb05d5714946b5741f474d7e640f07a9",
     "accepted_history_head": "0b7d0a2d53f6213ffe4d2d925be471299ed48a35",
     "owner_accepted": true,
-    "equivalence_status": "correction_03_evidence_pending_governance"
+    "equivalence_status": "correction_03_evidence_complete_pending_governance"
   },
   "01C": {
     "authorized": true,
-    "execution_status": "correction_03_macos_complete_windows_pending",
+    "execution_status": "correction_03_cross_platform_complete",
     "mechanism_selection": "none",
     "product_integration": "unimplemented"
   },
-  "note": "Correction-03 harness v4 at 6adb731. Prior rounds preserved as invalid-for-gate negative evidence. Cross-platform aggregation and governance pipeline (Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High, FINAL_GATE_GOVERNANCE_CHECK) remain before owner mechanism-selection gate."
+  "note": "Correction-03 harness v4 at 6adb731. macOS + Windows evidence aggregated in gate4-01c-6adb731. Programmatic readiness passes; governance pipeline (Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High, FINAL_GATE_GOVERNANCE_CHECK) required before owner mechanism-selection gate."
 }

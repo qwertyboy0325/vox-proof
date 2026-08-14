@@ -1,18 +1,21 @@
 {
-  "mechanism_comparison_readiness": "not_ready",
-  "mechanism_selection_readiness": "not_ready",
+  "mechanism_comparison_readiness": "ready_for_owner_decision",
+  "mechanism_selection_readiness": "ready_for_owner_decision",
   "single_platform_readiness": "ready_for_owner_decision",
+  "cross_platform_readiness": "ready_for_owner_decision",
   "limitations": [
-    "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
-    "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
     "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
     "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
     "bytes_read unavailable",
     "bytes_written unavailable",
     "compaction_where_supported unsupported for measured candidates",
-    "stress fixture not implemented"
+    "stress fixture not implemented",
+    "append: equivalent generation stale only; sqlite-specific precondition classes not exercised"
   ],
   "blockers": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "governance: Grok evidence-methodology review pending",
+    "governance: PRE_FINAL_GOVERNANCE_AUDIT pending",
+    "governance: GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW pending",
+    "governance: FINAL_GATE_GOVERNANCE_CHECK pending"
   ]
 }

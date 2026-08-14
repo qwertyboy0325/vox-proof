@@ -1,0 +1,12 @@
+{
+  "run_id": 31777643424,
+  "job_id": 94696351526,
+  "head_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
+  "artifact_id": 9210566891,
+  "artifact_sha256": "d3b2ddad09469d15fedf264f180fbf5ed9ee63e23cc75510857dc21b0da00b3d",
+  "verdict": "ready_for_owner_decision",
+  "harness_version": "gate4-01c-evidence-v4",
+  "01c_run_id": "current-contract-v3-01c-windows-31777643424",
+  "platform_label": "windows-github-actions",
+  "preserved_at": "evidence/persistence/current-contract-v3/01c/gate4-01c-6adb731/windows-github-actions"
+}

@@ -1,11 +1,13 @@
 {
-  "selection_validity": "not_ready_for_selection",
+  "selection_validity": "pending_owner_gate_review",
   "harness_semantic_sha": "6adb73198813bb8d9d9b7924b8759294a198f8ff",
   "harness_version": "gate4-01c-evidence-v4",
   "evidence_record_sha": "see_git_commit_preserving_this_directory",
-  "verdict": "NOT_READY_01C_EVIDENCE",
+  "verdict": "EVIDENCE_PACKAGE_COMPLETE_PENDING_GOVERNANCE",
   "reason": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "macOS and Windows single-platform evidence aggregated at harness SHA 6adb731",
+    "programmatic mechanism_comparison_readiness and mechanism_selection_readiness pass",
+    "mechanism selection remains none until governance pipeline completes"
   ],
   "invalid_evidence_chain": [
     {
@@ -24,6 +26,8 @@
       "verdict": "invalid_for_gate_preserve"
     }
   ],
+  "cross_platform_readiness": "ready_for_owner_decision",
+  "windows_provenance": "windows-provenance.json",
   "preserve_raw_artifacts": true,
-  "note": "Correction-03 harness at 6adb73198813bb8d9d9b7924b8759294a198f8ff. Mechanism selection remains owner-gated after Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK."
+  "note": "Correction-03 cross-platform evidence complete. Owner mechanism-selection decision blocked until Grok methodology, PRE_FINAL_GOVERNANCE_AUDIT, GPT-5.6 Sol High STRONG_FINAL_CONFLICT_REVIEW, and FINAL_GATE_GOVERNANCE_CHECK pass."
 }
