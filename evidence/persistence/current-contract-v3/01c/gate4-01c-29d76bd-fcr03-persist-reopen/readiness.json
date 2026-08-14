@@ -1,0 +1,24 @@
+{
+  "mechanism_comparison_readiness": "not_ready",
+  "mechanism_selection_readiness": "not_ready",
+  "single_platform_readiness": "ready_for_owner_decision",
+  "limitations": [
+    "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
+    "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
+    "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
+    "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
+    "bytes_read unavailable",
+    "bytes_written unavailable",
+    "compaction_where_supported unsupported for measured candidates",
+    "stress fixture not implemented"
+  ],
+  "comparison_blockers": [
+    "cross_platform: awaiting peer platform evidence aggregation"
+  ],
+  "selection_blockers": [
+    "cross_platform: awaiting peer platform evidence aggregation"
+  ],
+  "blockers": [
+    "cross_platform: awaiting peer platform evidence aggregation"
+  ]
+}

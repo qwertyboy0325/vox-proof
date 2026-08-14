@@ -92,8 +92,8 @@
   },
   "bounded_remediation": {
     "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "M1_L1_REVERIFICATION_COMPLETE",
-    "phase": "FREEZE_EVIDENCE_SHA",
+    "status": "MACOS_PERSIST_REOPEN_EVIDENCE_COMPLETE",
+    "phase": "WINDOWS_REPLACEMENT_RUN",
     "m1_l1_reverification": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
     "m1_l1_reverification_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/m1-l1-reverification-record.json",
     "m1_l1_verdict": "PASS_WITH_CAVEATS",
@@ -116,10 +116,29 @@
       "FCR-R-02-STALE-DUAL-SCOPED-BLOCKER-ATTRIBUTION"
     ],
     "open_after_m1_l1": [
-      "FCR-03-IN_HANDLE-PERSISTENCE-CLAIM (pending fresh evidence)",
-      "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT (pending replacement run)"
+      "FCR-R-01-WINDOWS-AUTHORIZATION-SHA-DRIFT (pending replacement run at 1510e3d)"
     ]
   },
+  "fcr03_persist_reopen_evidence": {
+    "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+    "status": "macos_single_platform_complete",
+    "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "harness_semantic_sha_short": "1510e3d",
+    "wiring_base_sha": "29d76bdde5815e1e9effa3e787f10547036500d1",
+    "observation_fix_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+    "record": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+    "harness_freeze": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/evidence-harness-freeze.json",
+    "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/owner-authorization.json",
+    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-persist-reopen-evidence-01/execution-plan.json",
+    "single_platform_readiness": "ready_for_owner_decision",
+    "fcr03_persist_reopen_fields_populated": true,
+    "accept_9ec3b07_for_final_gate": false,
+    "windows_dispatch": {
+      "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "dual_scoped_fcr03": "true",
+      "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+      "VOXPROOF_01C_PLATFORM_APPEND": "1"
+    }
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
     "pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/pre-final-governance-audit-result.json",
@@ -138,9 +157,9 @@
     "sol_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-governance-chain-retry-01/sol-review-authorization.json"
   },
   "active_work_package": {
-    "work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
-    "status": "M1_L1_REVERIFICATION_COMPLETE",
-    "phase": "FREEZE_EVIDENCE_SHA"
+    "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+    "status": "MACOS_COMPLETE_WINDOWS_PENDING",
+    "phase": "WINDOWS_REPLACEMENT_RUN"
   },
   "gate_sequence": {
     "completed": [
@@ -166,9 +185,12 @@
       "governance_remediation_A_FCR04_and_FCR_R02_closed",
       "append_storage_specialist_reverification_C_CORRECTIONS_REQUIRED",
       "fcr03_persist_reopen_wiring_complete",
-      "storage_specialist_M1_L1_reverification_PASS_grok_4_6_29d76bd"
+      "storage_specialist_M1_L1_reverification_PASS_grok_4_6_29d76bd",
+      "fcr03_u1_observation_fix_1510e3d",
+      "harness_SHA_frozen_1510e3d",
+      "macos_persist_reopen_fcr03_evidence_complete"
     ],
-    "current": "FREEZE_EVIDENCE_SHA",
+    "current": "WINDOWS_REPLACEMENT_RUN",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -176,9 +198,8 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "freeze evidence SHA (29d76bd or post-freeze commit)",
-      "fresh macOS + Windows FCR-03 persist+reopen evidence at frozen SHA",
-      "Windows replacement run (not 9ec3b07)",
+      "Windows replacement run at 1510e3d (not 9ec3b07)",
+      "cross-platform methodology review",
       "rebuild readiness",
       "Sol STRONG_FINAL retry"
     ]
@@ -192,5 +213,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "M1+L1 re-verification PASS (Grok 4.6, 29d76bd). FCR-02 closed for FCR-03 evidence path. Evidence execution gate unblocked. Next: freeze SHA + fresh dual-platform evidence. 9ec3b07 not accepted. Mechanism selection closed."
+  "note": "macOS FCR-03 persist+reopen evidence PASS at frozen harness 1510e3d (29d76bd wiring + U1 observation fix). single_platform_readiness ready_for_owner_decision. Next: Windows replacement run at 1510e3d, then cross-platform review and Sol retry. 9ec3b07 not accepted."
 }

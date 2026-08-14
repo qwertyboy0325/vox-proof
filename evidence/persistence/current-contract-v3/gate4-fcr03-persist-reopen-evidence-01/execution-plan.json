@@ -1,0 +1,62 @@
+{
+  "artifact_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-EXECUTION-PLAN",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "owner_authorization_ref": "owner-authorization.json",
+  "harness_freeze_ref": "evidence-harness-freeze.json",
+  "status": "MACOS_COMPLETE_WINDOWS_PENDING",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "evidence_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+  "macos_execution": {
+    "environment_variables": {
+      "VOXPROOF_01C_DUAL_SCOPED": "1",
+      "VOXPROOF_01C_RUN_ID": "gate4-01c-29d76bd-fcr03-persist-reopen",
+      "VOXPROOF_PLATFORM_LABEL": "macos_native"
+    }
+  },
+  "windows_execution": {
+    "workflow": ".github/workflows/persistence-sqlite-windows.yml",
+    "dispatch_inputs": {
+      "evidence_ref": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+      "dual_scoped_fcr03": "true",
+      "fcr03_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen"
+    },
+    "environment_variables": {
+      "VOXPROOF_01C_DUAL_SCOPED": "1",
+      "VOXPROOF_01C_PLATFORM_APPEND": "1",
+      "VOXPROOF_01C_RUN_ID": "gate4-01c-29d76bd-fcr03-persist-reopen",
+      "VOXPROOF_APPEND_EVIDENCE_VARIANT": "01B-3",
+      "VOXPROOF_SQLITE_EVIDENCE_VARIANT": "01C-SQLITE-3",
+      "VOXPROOF_PLATFORM_LABEL": "windows-github-actions"
+    },
+    "precondition": "macos-native subdirectory present in evidence record"
+  },
+  "fcr03_persist_reopen_fields_required": {
+    "stale_rejection": [
+      "observed_failure_code",
+      "transition_applied",
+      "post_rejection_oracle_compare",
+      "post_rejection_authority_unchanged",
+      "persist_reopen_oracle_compare",
+      "persist_reopen_authority_unchanged"
+    ],
+    "unrelated_success": [
+      "transition_applied",
+      "post_apply_oracle_compare",
+      "unrelated_scope_preserved",
+      "stale_full_state_not_persisted",
+      "persist_reopen_oracle_compare",
+      "persist_reopen_authority_unchanged",
+      "no_unrelated_scope_rewind_after_close_reopen"
+    ]
+  },
+  "validation_checks": [
+    "harness_sha_match true across platforms",
+    "all persist_reopen fields true on scoped candidates",
+    "24 passed + 2 unsupported per candidate per platform"
+  ],
+  "not_claimed_until": [
+    "cross-platform methodology review",
+    "readiness rebuild",
+    "Sol STRONG_FINAL retry"
+  ]
+}

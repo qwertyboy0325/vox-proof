@@ -14,8 +14,8 @@ on:
       evidence_ref:
         description: >-
           Git ref (commit SHA, branch, or tag) for checkout/compile/test/01C evidence
-          generation. Defaults to frozen Gate 4 harness revision 91e258c, or abe8f9a
-          when dual_scoped_fcr03 is enabled.
+          generation. Defaults to frozen Gate 4 harness revision 91e258c, or 1510e3d
+          (FCR-03 persist+reopen freeze) when dual_scoped_fcr03 is enabled.
         required: false
         default: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
         type: string
@@ -34,7 +34,7 @@ on:
           01C evidence record directory name for dual-scoped FCR-03 platform-append.
           Must already contain macos-native artifacts when appending Windows evidence.
         required: false
-        default: "gate4-01c-d267f0d-dual-scoped-fcr03"
+        default: "gate4-01c-29d76bd-fcr03-persist-reopen"
         type: string
   push:
     branches:
@@ -63,11 +63,11 @@ on:
 
 env:
   FROZEN_EVIDENCE_REF: "91e258cf00cbaa5100c14678454f13fb8c2f14b5"
-  FCR03_HARNESS_REF: "abe8f9adf5330470a24d83842db6c43f1fe89a1a"
+  FCR03_HARNESS_REF: "1510e3d544839d094f51e94a40a2c4f6e1ccada9"
   WORKFLOW_CONTROL_PLANE_SHA: ${{ github.sha }}
   DUAL_SCOPED_FCR03: ${{ github.event.inputs.dual_scoped_fcr03 || 'false' }}
-  FCR03_RECORD_ID: ${{ github.event.inputs.fcr03_record_id || 'gate4-01c-d267f0d-dual-scoped-fcr03' }}
-  EVIDENCE_REF: ${{ github.event.inputs.dual_scoped_fcr03 == 'true' && (github.event.inputs.evidence_ref || 'abe8f9adf5330470a24d83842db6c43f1fe89a1a') || (github.event.inputs.evidence_ref || '91e258cf00cbaa5100c14678454f13fb8c2f14b5') }}
+  FCR03_RECORD_ID: ${{ github.event.inputs.fcr03_record_id || 'gate4-01c-29d76bd-fcr03-persist-reopen' }}
+  EVIDENCE_REF: ${{ github.event.inputs.dual_scoped_fcr03 == 'true' && (github.event.inputs.evidence_ref || '1510e3d544839d094f51e94a40a2c4f6e1ccada9') || (github.event.inputs.evidence_ref || '91e258cf00cbaa5100c14678454f13fb8c2f14b5') }}
 
 jobs:
   windows-v3-evidence:

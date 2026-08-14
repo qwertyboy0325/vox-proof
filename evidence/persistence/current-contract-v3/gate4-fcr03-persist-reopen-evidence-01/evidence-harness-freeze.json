@@ -1,0 +1,31 @@
+{
+  "freeze_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-HARNESS-FREEZE-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "frozen_on": "2026-08-15",
+  "frozen_by": "Ezra",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "harness_semantic_sha_short": "1510e3d",
+  "freeze_note": "Wiring at 29d76bd plus U1 observation fix 1510e3d (persist_reopen_authority_unchanged compares in-handle vs reopen). Tracker commit f24098a is evidence-only predecessor.",
+  "tracker_commit_at_freeze": "f24098a",
+  "wiring_record": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/fcr03-persist-reopen-wiring-record.json",
+  "m1_l1_reverification": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
+  "candidate_variants": {
+    "append": "01B-3",
+    "sqlite": "01C-SQLITE-3"
+  },
+  "evidence_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+  "evidence_record_path": "evidence/persistence/current-contract-v3/01c/gate4-01c-29d76bd-fcr03-persist-reopen",
+  "prior_superseded_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03",
+  "prior_superseded_note": "Pre-persist+reopen FCR-03 observations; historical only, not final-gate eligible",
+  "frozen_91e258c": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "unchanged": true
+  },
+  "provenance_fields_required": {
+    "workflow_control_plane_sha": "may differ from harness_semantic_sha",
+    "evidence_checkout_sha": "must equal harness_semantic_sha",
+    "harness_semantic_sha": "must equal evidence_checkout_sha"
+  },
+  "accept_9ec3b07_for_final_gate": false
+}

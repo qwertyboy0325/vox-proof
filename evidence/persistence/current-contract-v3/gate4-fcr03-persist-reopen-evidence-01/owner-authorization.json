@@ -1,0 +1,29 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-AUTHORIZATION-2026-08-15",
+  "work_package_id": "VP-GATE4-FCR03-PERSIST-REOPEN-EVIDENCE-01",
+  "parent_work_package_id": "VP-GATE4-FCR03-BOUNDED-REMEDIATION-01",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-15",
+  "harness_freeze_ref": "evidence-harness-freeze.json",
+  "harness_semantic_sha": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "evidence_record_id": "gate4-01c-29d76bd-fcr03-persist-reopen",
+  "candidate_variants": {
+    "append": "01B-3",
+    "sqlite": "01C-SQLITE-3"
+  },
+  "authorized_platforms": ["macos_native", "windows-github-actions"],
+  "windows_replacement_run": true,
+  "accept_9ec3b07_for_final_gate": false,
+  "preconditions": [
+    "M1+L1 storage re-verification PASS",
+    "evidence harness SHA frozen at 1510e3d (29d76bd wiring + U1 observation fix)"
+  ],
+  "still_forbidden": [
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "comparison_blockers_lift_before_cross_platform_review",
+    "accept 9ec3b07 Windows run"
+  ],
+  "note": "Fresh dual-platform FCR-03 persist+reopen evidence at single frozen harness SHA."
+}
