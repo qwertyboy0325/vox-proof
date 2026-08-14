@@ -1,61 +1,73 @@
 {
-  "package": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
-  "predecessor": "VP-GATE4-01C-SELECTION-GOVERNANCE-RECONCILIATION-01",
+  "package": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+  "predecessor": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
   "harness_semantic_sha": "91e258cf00cbaa5100c14678454f13fb8c2f14b5",
   "mechanism_comparison_readiness": "accepted_with_documented_caveats",
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "APPEND_SCOPED_PRECONDITION_PREFLIGHT_COMPLETE",
+  "tracker_status": "APPEND_01B_3_IMPLEMENTATION_AUTHORIZED",
   "comparison_evidence": {
     "owner_accepted": true,
-    "artifact": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c/owner-comparison-decision.json",
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true
   },
   "stale_semantic_gate": {
     "status": "REOPENED_AND_SUPERSEDED",
-    "reason": "SOL_FCR_01",
-    "supersession": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision-supersession.json",
-    "previous_decision_preserved": "owner-decision.json"
+    "supersession": "evidence/persistence/current-contract-v3/gate4-stale-precondition-asymmetry-semantic-gate-01/owner-decision-supersession.json"
   },
   "md_015": {
-    "unchanged": true,
-    "owner_path": "B_append_must_evolve"
+    "unchanged": true
   },
-  "append_01B_2": {
-    "historical_acceptance": "unchanged",
-    "selection_conformance_to_MD_015": "not_demonstrated"
+  "candidates": {
+    "append_01B_2": {
+      "status": "historical_accepted",
+      "md_015_scoped_validity": "not_demonstrated",
+      "modify_in_current_wp": false
+    },
+    "append_01B_3": {
+      "status": "implementation_authorized",
+      "work_package": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/work-package.json",
+      "architecture_spec": "evidence/persistence/current-contract-v3/gate4-append-01b3-scoped-precondition-implementation-01/architecture-spec.json"
+    },
+    "sqlite_01C_SQLITE_2": {
+      "status": "historical_accepted",
+      "md_015_scoped_validity": "not_demonstrated",
+      "finding": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
+      "modify_in_current_wp": false
+    }
   },
-  "sol_review": {
-    "verdict": "BLOCKING_CONTRADICTION",
-    "artifact": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/strong-final-conflict-review-result.json",
-    "owner_correction": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/sol-fcr-01-owner-correction.json",
-    "fcr03_claim_correction": "evidence/persistence/current-contract-v3/gate4-selection-governance-reconciliation-01/fcr-03-claim-boundary-correction.json"
-  },
+  "governance_findings": [
+    {
+      "id": "SQLITE_01C_2_MD015_SCOPED_VALIDITY_NOT_DEMONSTRATED",
+      "severity": "selection_blocking",
+      "artifact": "evidence/persistence/current-contract-v3/gate4-sqlite-scoped-validity-finding-01/governance-finding.json",
+      "note": "SQLite global generation check before scoped checks; same U1 gap class as Append 01B-2"
+    }
+  ],
   "active_work_package": {
-    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-PREFLIGHT-01",
-    "status": "PREFLIGHT_COMPLETE_AWAITING_OWNER_GATE",
-    "artifact": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/work-package.json",
-    "decision_packet": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/decision-packet.json",
-    "storage_systems_review": "evidence/persistence/current-contract-v3/gate4-append-scoped-precondition-preflight-01/storage-systems-review.json"
+    "work_package_id": "VP-GATE4-APPEND-SCOPED-PRECONDITION-01B-3-IMPLEMENTATION-01",
+    "status": "AUTHORIZED",
+    "phase": "GOLDEN_PATH_IMPLEMENTATION_GATE"
   },
   "gate_sequence": {
     "completed": [
       "comparison_evidence_owner_accepted",
-      "PRE_FINAL_GOVERNANCE_AUDIT_PASS",
-      "STRONG_FINAL_CONFLICT_REVIEW_EXECUTED",
-      "semantic_gate_reopened_owner_correction"
+      "preflight_PROCEED_01B_3",
+      "owner_AUTHORIZE_01B_3"
     ],
+    "current": "APPEND_01B_3_IMPLEMENTATION",
     "blocked": [
-      "STRONG_FINAL_CONFLICT_REVIEW_PASS",
+      "mechanism_selection",
       "FINAL_GATE_GOVERNANCE_CHECK",
-      "mechanism_selection"
+      "STRONG_FINAL_CONFLICT_REVIEW_PASS"
     ],
-    "current": "APPEND_SCOPED_PRECONDITION_PREFLIGHT_OWNER_GATE",
-    "after_preflight_owner_gate": [
-      "optional_01B_3_implementation_wp",
-      "or_append_selection_ineligible_decision"
+    "downstream": [
+      "01B-3 U1/C1 proof",
+      "Append specialist review",
+      "SQLite scoped-validity preflight",
+      "dual-candidate selection-eligible evidence rebuild",
+      "Sol retry on governance chain"
     ]
   },
   "still_closed": [
@@ -63,12 +75,10 @@
     "Material_Decision",
     "product_integration",
     "READY_FOR_OWNER_GATE",
-    "FINAL_GATE_GOVERNANCE_CHECK",
-    "PRE_FINAL_RETRY_until_specialist_chain_complete"
+    "sqlite_modification_without_preflight"
   ],
   "frozen_evidence_immutable": {
-    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
-    "policy": "readiness eligibility scenario-results not retroactively rewritten"
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Owner corrected semantic gate per Sol FCR-01. MD-015 preserved. Preflight authorized before any 01B-3 coding."
+  "note": "01B-3 implementation authorized Option 1 only. SQLite U1 gap recorded; Append elimination does not resolve selection blocker. Selection closed until both candidates demonstrate scoped validity."
 }

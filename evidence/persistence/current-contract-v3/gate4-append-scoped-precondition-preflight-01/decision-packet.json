@@ -65,6 +65,11 @@
     "APPEND_SELECTION_INELIGIBLE_UNDER_MD_015",
     "DEFER"
   ],
+  "owner_decision": {
+    "decision": "AUTHORIZE_01B_3",
+    "artifact": "owner-preflight-decision.json",
+    "authorized_on": "2026-08-14"
+  },
   "stop_conditions": [
     "01B-3 proposes scoped tokens + next_state replace",
     "01B-3 claims MD-015 from 91e258c or C4-only stale tests",
@@ -75,6 +80,6 @@
     "stale_semantic_gate": "REOPENED_AND_SUPERSEDED",
     "md_015": "unchanged",
     "selection_gate": "closed",
-    "preflight": "COMPLETE_AWAITING_OWNER_GATE"
+    "preflight": "OWNER_AUTHORIZED_01B_3_IMPLEMENTATION"
   }
 }
