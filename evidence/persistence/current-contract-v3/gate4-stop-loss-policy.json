@@ -1,0 +1,76 @@
+{
+  "policy_id": "VP-GATE4-STOP-LOSS-POLICY-01",
+  "status": "ACTIVE",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-16",
+  "applies_from_commit": "74e13aeb4547c75f21efd94538c12b29cdd945f4",
+  "scope": "Gate 4 persistence mechanism comparison and FCR-03 bounded correction closure",
+  "work_package_context": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "blocking_finding_classes": {
+    "class_a_substantive": {
+      "may_block_gate_4": true,
+      "may_reopen_implementation_or_evidence_after_sol": true,
+      "domains": [
+        "authority_safety",
+        "persistence_correctness",
+        "scoped_concurrency_correctness",
+        "evidence_validity_or_authenticity",
+        "cross_platform_semantic_parity",
+        "append_vs_sqlite_mechanism_selection_decision"
+      ]
+    },
+    "class_b_hygiene": {
+      "label": "NON_MATERIAL_GOVERNANCE_CAVEAT",
+      "may_block_gate_4": false,
+      "may_initiate_full_remediation_cycle": false,
+      "may_initiate_evidence_rerun": false,
+      "may_initiate_pre_final_correction_cycle": false,
+      "examples": [
+        "wording_inconsistencies",
+        "stale_tracker_fields",
+        "historical_metadata_or_attribution",
+        "authorization_document_hygiene",
+        "clerical_provenance_issues",
+        "reviewer_aesthetics_or_expected_readiness_wording"
+      ]
+    }
+  },
+  "decision_test": "Could this finding plausibly cause the owner to select the wrong persistence mechanism or accept an unsafe authority transition? If no, record NON_MATERIAL_GOVERNANCE_CAVEAT and continue.",
+  "cycle_limits": {
+    "last_full_pre_final_correction_cycle": {
+      "description": "R2-03 bounded PRE_FINAL correction (91c9f5c) followed by successor Opus PRE_FINAL PASS (74e13ae)",
+      "no_further_full_pre_final_correction_cycles_for_gate_4": true
+    },
+    "last_planned_comprehensive_final_conflict_review": {
+      "id": "sol_strong_final_retry_03",
+      "required_model": "gpt-5.6-sol-high",
+      "authorization_ref": "gate4-fcr03-sol-r2-bounded-correction-01/sol-review-authorization-retry-03.json"
+    },
+    "after_sol_retry_03": {
+      "only_class_a_may_reopen_implementation_or_evidence": true,
+      "forbidden": [
+        "new_R3_R4_style_governance_remediation_packages_for_class_b",
+        "evidence_alteration_for_readiness_wording_or_reviewer_aesthetics",
+        "assess_readiness_rule_tuning_for_cosmetic_alignment"
+      ]
+    }
+  },
+  "evidence_integrity_rule": "Evidence must never be altered merely to satisfy expected readiness wording or reviewer aesthetics.",
+  "reviewer_obligations": {
+    "governance_auditor": "Classify every new finding as Class-A substantive or NON_MATERIAL_GOVERNANCE_CAVEAT before recommending another remediation cycle",
+    "strong_final_conflict_reviewer": "Apply decision_test; do not escalate Class-B hygiene to blocking conflicts",
+    "specialist_reviewers": "Same classification; Fast-tier routing remains invalid for closure but does not by itself reopen evidence when superseded by valid non-Fast successor"
+  },
+  "preserved_negative_provenance": [
+    "pre-final-governance-audit-result.json CORRECTIONS_REQUIRED at d66caad/895314e",
+    "storage-systems-review-r2-01.json Fast-tier routing",
+    "Windows run 31922792419 clippy failure"
+  ],
+  "unchanged_constraints": [
+    "FINAL_FROZEN_EVIDENCE_SHA 86f5b8f2856155bff9a5216593c1659fef707add",
+    "frozen 91e258c comparison baseline",
+    "mechanism_selection forbidden until explicit owner gate",
+    "READY_FOR_OWNER_GATE forbidden without FINAL_GATE after Sol PASS"
+  ]
+}

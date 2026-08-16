@@ -338,5 +338,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "R2-03 successor PRE_FINAL PASS at 91c9f5c. FCR-R2-03 closed. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Sol retry 03 authorized; not executed."
+  "note": "R2-03 successor PRE_FINAL PASS at 91c9f5c. FCR-R2-03 closed. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Sol retry 03 authorized; not executed. Gate 4 stop-loss policy active: evidence/persistence/current-contract-v3/gate4-stop-loss-policy.json"
 }

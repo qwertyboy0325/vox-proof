@@ -24,6 +24,8 @@
     "GOV-R2-03-01 satisfied via storage-systems-review-r2-01-nonfast.json"
   ],
   "standing_api_window_note": "Repository standing API authorization lapsed 2026-08-11; this artifact provides per-package owner_authorization_reference for retry 03 upon execution_condition satisfaction",
+  "gate4_stop_loss_policy": "evidence/persistence/current-contract-v3/gate4-stop-loss-policy.json",
+  "stop_loss_applies": true,
   "forbidden": [
     "execution before successor PRE_FINAL PASS",
     "mechanism_selection",
