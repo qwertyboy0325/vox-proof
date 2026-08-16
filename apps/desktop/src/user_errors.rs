@@ -49,7 +49,7 @@ pub fn user_message(error: &ControllerError) -> String {
             "This review is open read-only.".to_owned()
         }
         ControllerError::WriterOwnershipHeld => {
-            "Another copy of VoxProof already has this review open for editing.".to_owned()
+            "This review is currently open for editing elsewhere.".to_owned()
         }
     }
 }

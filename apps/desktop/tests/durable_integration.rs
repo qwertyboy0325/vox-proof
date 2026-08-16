@@ -6,7 +6,8 @@ use vox_proof::application_service::{
 };
 use vox_proof::review::CorrectionDecision;
 use vox_proof::session_persistence::{
-    ProductSessionStore, arm_force_hydrate_failure_for_test, disarm_force_hydrate_failure_for_test,
+    ProductSessionStore, SessionPersistenceError, arm_force_hydrate_failure_for_test,
+    disarm_force_hydrate_failure_for_test,
 };
 use voxproof_desktop::controller::{ControllerError, DesktopController, DesktopPhase};
 
@@ -150,4 +151,55 @@ fn replacing_active_session_releases_prior_writer_ownership() {
     controller.reset().unwrap();
     controller.select_resume_session_id(first_id);
     controller.open_selected_session_writable().unwrap();
+}
+
+#[test]
+fn writable_resume_opens_editable_session() {
+    let temp = tempdir().unwrap();
+    let store_path = temp.path().to_path_buf();
+    let mut creator = DesktopController::with_store(ProductSessionStore::new(&store_path));
+    start(&mut creator);
+    let session_id = creator.session_id().unwrap().to_owned();
+    creator.reset().unwrap();
+    assert_eq!(creator.phase(), DesktopPhase::Setup);
+
+    let mut resumer = DesktopController::with_store(ProductSessionStore::new(&store_path));
+    resumer.select_resume_session_id(session_id);
+    resumer.open_selected_session_writable().unwrap();
+    assert_eq!(resumer.phase(), DesktopPhase::ActiveReview);
+    assert!(!resumer.is_read_only());
+}
+
+#[test]
+fn writer_held_leaves_setup_until_explicit_read_only_open() {
+    let temp = tempdir().unwrap();
+    let store_path = temp.path().to_path_buf();
+    let mut holder = DesktopController::with_store(ProductSessionStore::new(&store_path));
+    start(&mut holder);
+    let session_id = holder.session_id().unwrap().to_owned();
+    assert_eq!(holder.phase(), DesktopPhase::ActiveReview);
+
+    let mut resumer = DesktopController::with_store(ProductSessionStore::new(&store_path));
+    resumer.select_resume_session_id(session_id);
+    assert!(matches!(
+        resumer.open_selected_session_writable(),
+        Err(ControllerError::WriterOwnershipHeld)
+    ));
+    assert_eq!(resumer.phase(), DesktopPhase::Setup);
+
+    resumer.open_selected_session_read_only().unwrap();
+    assert_eq!(resumer.phase(), DesktopPhase::ActiveReview);
+    assert!(resumer.is_read_only());
+}
+
+#[test]
+fn non_writer_writable_error_stays_on_setup_without_implicit_read_only() {
+    let (mut controller, _temp) = controller_with_store();
+    let missing_session_id = "00000000-0000-4000-8000-000000000000";
+    controller.select_resume_session_id(missing_session_id);
+    assert!(matches!(
+        controller.open_selected_session_writable(),
+        Err(ControllerError::Persistence(SessionPersistenceError::SessionNotFound))
+    ));
+    assert_eq!(controller.phase(), DesktopPhase::Setup);
 }

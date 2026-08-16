@@ -31,6 +31,7 @@ pub struct ReviewApp {
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
     resume_session_id_draft: String,
+    resume_writer_held_session_id: Option<String>,
     show_advanced: bool,
     error: Option<String>,
     status: String,
@@ -54,6 +55,7 @@ impl ReviewApp {
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
             resume_session_id_draft: String::new(),
+            resume_writer_held_session_id: None,
             show_advanced: false,
             error: None,
             status: "Start a new review or continue a recent one.".to_owned(),
@@ -194,6 +196,7 @@ impl ReviewApp {
                 self.bottom_tab = BottomTab::CurrentPreview;
                 self.confirm_unresolved_source_retained = false;
                 self.show_advanced = false;
+                self.resume_writer_held_session_id = None;
                 self.error = None;
                 self.status = "Review closed. Start a new review or continue a recent one."
                     .to_owned();
@@ -415,39 +418,68 @@ impl ReviewApp {
                             Self::format_session_date(session.created_at_unix_ms),
                             session.authority_display_label
                         ));
-                        ui.horizontal(|ui| {
-                            if ui.button("Continue").clicked() {
-                                self.resume_session_id_draft = session.session_id.clone();
-                                self.controller
-                                    .select_resume_session_id(session.session_id.clone());
-                                match self.controller.open_selected_session_writable() {
-                                    Ok(()) => {
-                                        self.error = None;
-                                        self.status = format!(
-                                            "Opened {}.",
-                                            session.source_display_name
-                                        );
-                                    }
-                                    Err(_) => {
-                                        self.controller
-                                            .select_resume_session_id(session.session_id.clone());
-                                        match self.controller.open_selected_session_read_only() {
-                                            Ok(()) => {
-                                                self.error = None;
-                                                self.status = format!(
-                                                    "Opened {} read-only.",
-                                                    session.source_display_name
-                                                );
-                                            }
-                                            Err(error) => {
-                                                self.error =
-                                                    Some(user_errors::user_message(&error));
-                                            }
+                        if self.resume_writer_held_session_id.as_deref()
+                            == Some(session.session_id.as_str())
+                        {
+                            ui.label(
+                                "This review is currently open for editing elsewhere.",
+                            );
+                            ui.horizontal(|ui| {
+                                if ui.button("Open read-only").clicked() {
+                                    self.resume_session_id_draft = session.session_id.clone();
+                                    self.controller
+                                        .select_resume_session_id(session.session_id.clone());
+                                    match self.controller.open_selected_session_read_only() {
+                                        Ok(()) => {
+                                            self.resume_writer_held_session_id = None;
+                                            self.error = None;
+                                            self.status = format!(
+                                                "Opened {} read-only.",
+                                                session.source_display_name
+                                            );
+                                        }
+                                        Err(error) => {
+                                            self.error =
+                                                Some(user_errors::user_message(&error));
                                         }
                                     }
                                 }
-                            }
-                        });
+                                if ui.button("Cancel").clicked() {
+                                    self.resume_writer_held_session_id = None;
+                                    self.error = None;
+                                }
+                            });
+                        } else {
+                            ui.horizontal(|ui| {
+                                if ui.button("Continue").clicked() {
+                                    self.resume_session_id_draft = session.session_id.clone();
+                                    self.resume_writer_held_session_id = None;
+                                    self.controller.select_resume_session_id(
+                                        session.session_id.clone(),
+                                    );
+                                    match self.controller.open_selected_session_writable() {
+                                        Ok(()) => {
+                                            self.error = None;
+                                            self.status = format!(
+                                                "Opened {}.",
+                                                session.source_display_name
+                                            );
+                                        }
+                                        Err(
+                                            crate::controller::ControllerError::WriterOwnershipHeld,
+                                        ) => {
+                                            self.error = None;
+                                            self.resume_writer_held_session_id =
+                                                Some(session.session_id.clone());
+                                        }
+                                        Err(error) => {
+                                            self.error =
+                                                Some(user_errors::user_message(&error));
+                                        }
+                                    }
+                                }
+                            });
+                        }
                     });
                 }
             }
