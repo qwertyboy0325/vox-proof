@@ -1,0 +1,98 @@
+{
+  "audit_id": "VP-GATE4-FCR03-R2-03-PRE-FINAL-GOVERNANCE-AUDIT-2026-08-16",
+  "audit_phase": "PRE_FINAL_GOVERNANCE_AUDIT",
+  "verdict": "CORRECTIONS_REQUIRED",
+  "verdict_line": "PRE_FINAL_GOVERNANCE_AUDIT: CORRECTIONS REQUIRED",
+  "auditor": "voxproof-governance-auditor",
+  "requested_model": "Claude Opus 5",
+  "requested_model_slug": "claude-opus-5-thinking-high",
+  "auditor_model": "Claude Opus 5",
+  "models_used": ["claude-opus-5-thinking-high"],
+  "actual_model": "Claude Opus 5",
+  "model_requirement_satisfied": true,
+  "fast_fallback_used": false,
+  "routing_valid_for_pre_final": true,
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "audited_commit": "d66caad8a0aab4e056bb0f5d8c6b36295282b0f6",
+  "prior_blocking_anchor": "b9b9a7a",
+  "audit_range": "b9b9a7a..d66caad",
+  "evidence_execution_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "audit_packet_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/pre-final-governance-audit-packet.json",
+  "fcr_r2_03_status": "PENDING",
+  "fcr_r2_03_closure_deferred_reason": "CORRECTIONS_REQUIRED — conflict register not updated to CLOSED",
+  "governance_tension_adjudication": {
+    "tension_1_wp_vs_deterministic_readiness": {
+      "ruling": "two_layer_semantics_plus_stale_wp_wording",
+      "authorization_boundary_violation": false,
+      "acceptable_as_clarification": true,
+      "correction_required": "GOV-R2-03-02 tracker layer encoding asymmetry"
+    },
+    "tension_2_programmatic_vs_tracker_selection": {
+      "ruling": "legitimate_two_layer_semantics",
+      "authorization_boundary_violation": false,
+      "correction_required": false
+    }
+  },
+  "corrections_required": [
+    {
+      "id": "GOV-R2-03-01",
+      "severity": "blocking_for_sol_retry_03",
+      "summary": "FCR-R2-01 closed on storage-systems-review-r2-01.json with models_used cursor-grok-4.6-high-fast; owner non-Fast directive may apply retroactively",
+      "owner_decision_required": "Rule directive non-retroactive (record explicitly) OR obtain non-Fast R2-01 re-review"
+    },
+    {
+      "id": "GOV-R2-03-02",
+      "severity": "governance_clarification",
+      "summary": "Tracker encodes comparison readiness at top level as programmatic value while selection uses nested layer; reconcile additively without WP rewrite"
+    },
+    {
+      "id": "GOV-R2-03-03",
+      "severity": "staleness",
+      "summary": "Tracker stale fields at d66caad endpoint (package id, harness note, downstream list, R2-05 next step)"
+    },
+    {
+      "id": "GOV-R2-03-04",
+      "severity": "scope_declaration",
+      "summary": "WP file_scope enumeration vs r2-04 directory-level coverage; reconcile additively"
+    },
+    {
+      "id": "GOV-R2-03-05",
+      "severity": "precondition_for_sol",
+      "summary": "No sol-review-authorization.json for retry 03; standing API window lapsed 2026-08-11 — per-package owner_authorization_reference required before Sol"
+    }
+  ],
+  "verified_clean": {
+    "evidence_bar": "24 passed / 2 unsupported / 0 failed per candidate both platforms",
+    "final_frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add unchanged",
+    "control_plane_commits": ["8e4ad1212fef2eb7d6aaf23099567e47caaacd65", "d66caad8a0aab4e056bb0f5d8c6b36295282b0f6"],
+    "frozen_91e258c_untouched": true,
+    "clippy_exception_ci_hygiene_only": true,
+    "claim_strength_bounded_below_filesystem_durability": true,
+    "negative_evidence_preserved": ["31922792419", "fc9099e", "superseded_fast_r2_02_reviews"],
+    "r2_05_provenance_ids_consistent": true,
+    "macos_semantic_preservation_vs_5bebd48": true
+  },
+  "governance_status": "Evidence chain mechanically complete at frozen SHA; governance corrections required before Sol retry 03",
+  "authorized_next_step": "Owner ruling on GOV-R2-03-01; bounded additive corrections GOV-R2-03-02 through 05; re-run PRE_FINAL after correction endpoint",
+  "not_authorized": [
+    "STRONG_FINAL_CONFLICT_REVIEW",
+    "sol_strong_final_retry_03",
+    "FINAL_GATE_GOVERNANCE_CHECK",
+    "READY_FOR_OWNER_GATE",
+    "mechanism_selection",
+    "comparison_blocker_lift",
+    "evidence_rerun",
+    "FINAL_FROZEN_EVIDENCE_SHA_change",
+    "wp_required_checks_rewrite_to_erase_tensions",
+    "assess_readiness_rule_tuning"
+  ],
+  "unresolved_risks": [
+    "R2-01 Fast-tier closure validity contested",
+    "readiness rebuild used macOS artifacts with cross_platform env assert — methodology judgment deferred",
+    "tracker layer encoding inconsistency",
+    "Sol API standing authorization lapsed"
+  ],
+  "audited_on": "2026-08-16"
+}

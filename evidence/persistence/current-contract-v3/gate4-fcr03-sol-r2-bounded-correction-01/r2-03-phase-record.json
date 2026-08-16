@@ -1,0 +1,30 @@
+{
+  "phase_id": "R2_03_PRE_FINAL_GOVERNANCE_AUDIT",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "status": "CORRECTIONS_REQUIRED",
+  "recorded_on": "2026-08-16",
+  "owner_authorization": "AUTHORIZE_R2_03_OPUS5_PRE_FINAL_GOVERNANCE_AUDIT",
+  "audit_result": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/pre-final-governance-audit-result.json",
+  "audit_packet": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/pre-final-governance-audit-packet.json",
+  "canonical_review_endpoint": "d66caad8a0aab4e056bb0f5d8c6b36295282b0f6",
+  "audit_range": "b9b9a7a..d66caad",
+  "auditor_model": {
+    "requested": "Claude Opus 5",
+    "requested_slug": "claude-opus-5-thinking-high",
+    "actual": "Claude Opus 5",
+    "fast_fallback": false,
+    "valid_for_pre_final": true
+  },
+  "verdict_line": "PRE_FINAL_GOVERNANCE_AUDIT: CORRECTIONS REQUIRED",
+  "fcr_r2_03_conflict": {
+    "id": "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
+    "register_status": "PENDING",
+    "closed": false
+  },
+  "governance_tensions_ruled_non_blocking": [
+    "WP required_checks vs deterministic ready_for_owner_decision — two-layer semantics, stale WP wording",
+    "programmatic selection_readiness vs tracker mechanism_selection none — two-layer semantics"
+  ],
+  "blocking_correction": "GOV-R2-03-01 R2-01 Fast-tier closure validity — owner ruling required",
+  "next_step": "Owner decision on GOV-R2-03-01; bounded tracker/WP clarifications; PRE_FINAL re-run; then Sol retry 03 if PASS"
+}
