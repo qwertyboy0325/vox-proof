@@ -1,0 +1,990 @@
+[
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 14,
+    "median_ms": 14,
+    "p95_ms": 14,
+    "maximum_ms": 14,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5734400,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 6869,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_manual_replacement",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 20,
+    "median_ms": 21,
+    "p95_ms": 21,
+    "maximum_ms": 24,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6504448,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 16304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 16,
+    "median_ms": 17,
+    "p95_ms": 18,
+    "maximum_ms": 18,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5980160,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 13078,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_promotion",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 26,
+    "median_ms": 27,
+    "p95_ms": 27,
+    "maximum_ms": 30,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6651904,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 33435,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 17,
+    "median_ms": 17,
+    "p95_ms": 18,
+    "maximum_ms": 18,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5996544,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 18713,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_revocation",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 52,
+    "median_ms": 53,
+    "p95_ms": 53,
+    "maximum_ms": 54,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7520256,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 100966,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 17,
+    "median_ms": 18,
+    "p95_ms": 18,
+    "maximum_ms": 18,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6111232,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 21709,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_reusable_supersession",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 26,
+    "median_ms": 27,
+    "p95_ms": 27,
+    "maximum_ms": 27,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6766592,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 40258,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 14,
+    "median_ms": 14,
+    "p95_ms": 14,
+    "maximum_ms": 15,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5767168,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 6863,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "append_review_decision",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 20,
+    "median_ms": 21,
+    "p95_ms": 22,
+    "maximum_ms": 22,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6455296,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 16298,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5881856,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "close",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6930432,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "compaction_where_supported",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 0,
+    "minimum_ms": 0,
+    "median_ms": 0,
+    "p95_ms": 0,
+    "maximum_ms": 0,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    },
+    "storage_size_after": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "compaction unsupported"
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 18,
+    "median_ms": 18,
+    "p95_ms": 18,
+    "maximum_ms": 20,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5144576,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "create_session",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 30,
+    "median_ms": 30,
+    "p95_ms": 32,
+    "maximum_ms": 32,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6127616,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 3,
+    "median_ms": 3,
+    "p95_ms": 3,
+    "maximum_ms": 3,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5963776,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "derived_rebuild",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 21,
+    "median_ms": 22,
+    "p95_ms": 22,
+    "maximum_ms": 22,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7176192,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 2,
+    "median_ms": 2,
+    "p95_ms": 2,
+    "maximum_ms": 2,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5914624,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_cold",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 13,
+    "median_ms": 13,
+    "p95_ms": 13,
+    "maximum_ms": 14,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 6963200,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 1,
+    "median_ms": 1,
+    "p95_ms": 1,
+    "maximum_ms": 2,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5914624,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "open_warm",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 13,
+    "median_ms": 13,
+    "p95_ms": 13,
+    "maximum_ms": 14,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7143424,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 3,
+    "median_ms": 3,
+    "p95_ms": 3,
+    "maximum_ms": 3,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5931008,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 9304,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "reopen_and_validate",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 21,
+    "median_ms": 21,
+    "p95_ms": 21,
+    "maximum_ms": 21,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7127040,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 50422,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "small",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 22,
+    "median_ms": 23,
+    "p95_ms": 23,
+    "maximum_ms": 25,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 5914624,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 18669,
+      "status": "available",
+      "reason": null
+    }
+  },
+  {
+    "operation": "semantic_duplication",
+    "fixture_scale": "medium",
+    "candidate_id": "current-contract-append-authoritative-candidate",
+    "candidate_version": "01B-3",
+    "platform": "macos_native",
+    "count": 5,
+    "minimum_ms": 58,
+    "median_ms": 59,
+    "p95_ms": 59,
+    "maximum_ms": 60,
+    "failure_count": 0,
+    "peak_memory_bytes": {
+      "value": 7094272,
+      "status": "available",
+      "reason": null
+    },
+    "bytes_read": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "bytes_written": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "not observed"
+    },
+    "storage_size_before": {
+      "value": null,
+      "status": "unavailable",
+      "reason": "isolated per-sample measurement root"
+    },
+    "storage_size_after": {
+      "value": 100903,
+      "status": "available",
+      "reason": null
+    }
+  }
+]
