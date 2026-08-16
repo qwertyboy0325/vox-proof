@@ -1,0 +1,116 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-02-STORAGE-SEMANTIC-REVIEW-2026-08-16",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "artifact_role": "storage-systems-review-r2-02-genuine-stale-semantics",
+  "commit_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff",
+  "commit_reviewed_note": "Owner referenced c1e9f82; amended to ee509e3 to include readiness.json tracker (no semantic code delta). Pushed to origin/v0.2-real-transcript-authoritative-loop.",
+  "prior_implementation_commits": ["c0f289f", "139daea", "c1e9f82"],
+  "adjudication_scope": [
+    "R2-02 genuine stale review case",
+    "R2-02 genuine stale reuse case",
+    "R2-02 genuine stale active-analysis case",
+    "genuine_stale_analysis_prepare_authority / genuine_stale_analysis_fixture",
+    "run_genuine_stale_precondition harness",
+    "Append 01B-3 vs SQLite 01C-3 scoped ActiveAnalysis apply",
+    "Fcr03StaleRejectionRecord analysis identity observation fields"
+  ],
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "reviewer_model": "Cursor Grok 4.6 Extra High",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-16",
+  "review_mode": "code_path_plus_post_review_test_execution",
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: PASS",
+  "blocking_before_methodology": false,
+  "may_close_r2_02_semantic": true,
+  "closes_conflict": "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
+  "required_questions": {
+    "abc_genuine_oracle_valid": {
+      "answer": "YES",
+      "rationale": "A/B/C are projected from real promotion/review transitions; analysis states pass CurrentContractOracle::validate in fixture construction."
+    },
+    "bc_preparable_from_same_s0": {
+      "answer": "YES",
+      "rationale": "Both commands use S0 preconditions via from_transition_pair; C requires merged small source_revision for snapshot binding."
+    },
+    "b_mutates_active_analysis_via_candidate_path": {
+      "answer": "YES",
+      "rationale": "Competing apply goes through apply_scoped_command(ActiveAnalysis); validate_scoped_preconditions then analysis scope patch only."
+    },
+    "c_fails_because_frozen_a_stale": {
+      "answer": "YES",
+      "rationale": "Precondition identity mismatch after B; reject before persist; not duplicate/oracle-forced."
+    },
+    "failure_code_semantically_correct": {
+      "answer": "YES",
+      "rationale": "stale-analysis-selection-precondition matches frozen active_analysis_snapshot_identity CAS."
+    },
+    "post_rejection_authority_unchanged_at_b": {
+      "answer": "YES",
+      "rationale": "Reject returns before apply_onto/persist; harness and unit tests assert B unchanged."
+    },
+    "close_reopen_preserves_b": {
+      "answer": "YES",
+      "rationale": "run_genuine_stale_precondition close/reopen with persist_reopen_oracle_compare and authority unchanged vs B."
+    },
+    "source_revisions_merge_legitimate": {
+      "answer": "YES",
+      "rationale": "Copies real EvidenceSourceRevision from small promotion; enables oracle binding for second analysis snapshot without forging tokens or weakening oracle rules. Evidence-only two-root composition, not production lifecycle."
+    },
+    "identity_or_token_forged": {
+      "answer": "NO",
+      "rationale": "Identities projected from analysis snapshots; synthetic analysis:stale path not used for 01B-3/01C-3 genuine harness."
+    },
+    "scenario_id_forces_stale": {
+      "answer": "NO",
+      "rationale": "scenario_id selects fixture only; stale from actual precondition mismatch."
+    },
+    "candidate_persistence_semantics_changed": {
+      "answer": "NO",
+      "rationale": "Existing scoped CAS apply; no new reject class for R2-02."
+    },
+    "append_sqlite_equivalent_three_cases": {
+      "answer": "YES",
+      "rationale": "Same fixtures, codes, no-persist-on-reject; analysis C rejected before patch divergence matters."
+    }
+  },
+  "blockers": [],
+  "caveats": [
+    "Analysis C is evidence-composed cross-scale second command, not same-transcript production rival",
+    "S0 is two-root source_revisions session (medium + golden-small); oracle-valid but not current projection lifecycle",
+    "No test applies C first at S0 (oracle-valid but not demonstrated apply)",
+    "c1_stale analysis/reuse unit tests omit close/reopen; harness covers persist+reopen",
+    "genuine_stale_analysis_fixture scale-fragile at Medium (B and C would collide)",
+    "Append replaces analysis_snapshots; SQLite merges — latent divergence not on reject path",
+    "Specialist initial pass was code-path only; post-review cargo test execution confirmed c1_stale green"
+  ],
+  "claim_boundary": {
+    "may_claim": [
+      "01B-3 and 01C-3 reject scoped commands whose frozen S0 token no longer matches after competing same-scope apply",
+      "Analysis stale code is stale-analysis-selection-precondition; post-reject authority remains B; harness close/reopen preserves B",
+      "A/B/C oracle-valid; identities projected not forged; scenario_id does not force reject",
+      "source_revisions merge is evidence-only composition of real revision bytes for second snapshot binding"
+    ],
+    "may_not_claim": [
+      "Production single-transcript session can prepare two distinct ActiveAnalysis commands at one S0",
+      "C is same-session same-transcript competing analysis selection",
+      "Multi-root source_revisions is product lifecycle",
+      "Pairwise-distinct identities prove two production analysis commands",
+      "FilesystemDurability or cross-platform from unit tests alone",
+      "Evidence execution, Sol, Opus, or final SHA freeze"
+    ]
+  },
+  "bottom_line": "R2-02 genuine stale semantics are sound: real scoped CAS causality, correct failure code, authority preserved at B, Append/SQLite agree. source_revisions merge is adversarially acceptable as evidence-only fixture composition, not forged authority. Close R2-02 semantic gate; proceed to methodology review with bounded claims.",
+  "not_authorized": [
+    "evidence execution",
+    "final SHA freeze",
+    "Sol STRONG_FINAL",
+    "Opus PRE_FINAL",
+    "mechanism selection",
+    "FINAL_GATE"
+  ],
+  "authorized_next_step": "methodology_review"
+}
