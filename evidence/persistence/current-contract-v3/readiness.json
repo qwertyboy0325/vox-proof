@@ -3,11 +3,11 @@
   "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
   "harness_semantic_sha_note": "FCR-03 wiring committed; dual-scoped macOS evidence executed at pre-commit base d267f0d (see dual_scoped_fcr03_evidence.evidence_execution_harness_sha)",
   "mechanism_comparison_readiness_frozen_91e258c": "accepted_with_documented_caveats",
-  "mechanism_comparison_readiness_dual_scoped_fcr03": "not_ready",
+  "mechanism_comparison_readiness_dual_scoped_fcr03": "ready_for_owner_decision",
   "mechanism_selection_readiness": "not_ready",
-  "evidence_layer_selection_readiness": "not_ready",
+  "evidence_layer_selection_readiness": "pending_owner_gate_review",
   "selection_status": "none",
-  "tracker_status": "R2_CONSOLIDATED_FROZEN_SHA_PENDING_REMOTE_VERIFY",
+  "tracker_status": "R2_DUAL_PLATFORM_CANONICALIZED_READINESS_REBUILT",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -169,14 +169,33 @@
   },
   "sol_r2_bounded_correction": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-  "status": "R2_05_COMPLETE_FROZEN_SHA_PENDING_REMOTE_VERIFY",
+  "status": "DUAL_PLATFORM_COMPLETE_READINESS_REBUILT",
   "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
     "decision_path": "A",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
     "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
-    "current_step": "frozen_sha_pending_remote_verify",
+    "current_step": "readiness_rebuild_complete_stop_before_pre_final",
+    "dual_platform_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-86f5b8f-dual-scoped-fcr03",
+    "cross_platform_readiness": "evidence/persistence/current-contract-v3/01c/gate4-01c-86f5b8f-dual-scoped-fcr03/cross-platform-readiness.json",
+    "final_frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+    "macos_evidence_preservation_commit": "5bebd48",
+    "windows_recovery_run": {
+      "workflow_run_id": 31923049784,
+      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31923049784",
+      "workflow_control_plane_sha": "8e4ad1212fef2eb7d6aaf23099567e47caaacd65",
+      "evidence_checkout_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+      "gha_artifact_digest": "8dac96e83374b2ee579db637500eb507526ac6620dba74a74f47cddde9c8aeb7"
+    },
+    "windows_prior_failed_run": 31922792419,
+    "programmatic_readiness_rebuild": {
+      "comparison_readiness": "ready_for_owner_decision",
+      "selection_readiness": "ready_for_owner_decision",
+      "selection_validity": "pending_owner_gate_review",
+      "rebuild_env": "VOXPROOF_01C_CROSS_PLATFORM_COMPLETE=1",
+      "work_package_readiness_expectation_note": "WP required_checks listed not_ready; assess_readiness yielded ready_for_owner_decision for both gates — preserved without rule tuning"
+    },
     "final_harness_freeze_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-harness-freeze.json",
     "final_frozen_evidence_sha_resolution": "git_commit_preserving_evidence-harness-freeze.json",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
@@ -221,9 +240,9 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_CONSOLIDATED_FROZEN_SHA_PENDING_REMOTE_VERIFY",
-    "phase": "FREEZE_ONE_SHA",
-    "phase_note": "Final consolidation committed; FINAL_FROZEN_EVIDENCE_SHA equals preserving commit on v0.2-real-transcript-authoritative-loop.",
+    "status": "DUAL_PLATFORM_CANONICALIZED_READINESS_REBUILT",
+    "phase": "READINESS_REBUILD_COMPLETE",
+    "phase_note": "Dual-platform evidence canonicalized from GHA run 31923049784; readiness rebuilt at frozen SHA 86f5b8f; STOP before R2-03 PRE_FINAL (Opus).",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -267,9 +286,12 @@
       "R2_02_fast_review_invalid_for_closure_fc9099e",
       "R2_02_nonfast_specialist_and_methodology_PASS_WITH_CAVEATS_ee509e3",
       "R2_05_package_provenance_generator_fix",
-      "R2_final_consolidation_and_freeze_one_sha"
+      "R2_final_consolidation_and_freeze_one_sha",
+      "macos_dual_platform_evidence_at_frozen_sha_86f5b8f",
+      "windows_recovery_run_31923049784",
+      "dual_platform_validation_and_readiness_rebuild"
     ],
-    "current": "FREEZE_ONE_SHA_REMOTE_VERIFY",
+    "current": "STOP_BEFORE_R2_03_PRE_FINAL",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",

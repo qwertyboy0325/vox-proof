@@ -1,11 +1,11 @@
 {
-  "selection_validity": "not_ready_for_selection",
+  "selection_validity": "pending_owner_gate_review",
   "harness_semantic_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
   "harness_version": "gate4-01c-evidence-v6",
   "evidence_record_sha": "see_git_commit_preserving_this_directory",
-  "verdict": "NOT_READY_01C_EVIDENCE",
+  "verdict": "EVIDENCE_PACKAGE_COMPLETE_PENDING_GOVERNANCE",
   "reason": [
-    "cross_platform: awaiting peer platform evidence aggregation"
+    "dual-platform evidence complete; awaiting governance review pipeline"
   ],
   "invalid_evidence_chain": [
     {

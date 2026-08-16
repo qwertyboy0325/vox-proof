@@ -1,0 +1,28 @@
+{
+  "repository_commit": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "harness_version": "gate4-01c-evidence-v6",
+  "platform_label": "windows-github-actions",
+  "operating_system": "windows",
+  "operating_system_version": "Microsoft Windows [Version 10.0.26100.33158]",
+  "architecture": "x86_64",
+  "execution_environment": "github-actions-windows-latest",
+  "filesystem": "ntfs-github-actions-runner",
+  "hardware_summary": "github-actions-windows-latest-runner",
+  "rustc_version": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "dependency_versions": {
+    "rusqlite": "0.32",
+    "serde": "1",
+    "serde_json": "1"
+  },
+  "timing_source": "std::time::Instant wall clock",
+  "start_timestamp": "1786849233.221Z",
+  "end_timestamp": "1786849258.716Z",
+  "configuration": {
+    "append_evidence_variant": "01B-3",
+    "feature": "persistence-spike",
+    "measurement_contract_version": "2",
+    "sqlite_evidence_variant": "01C-SQLITE-3",
+    "sqlite_lease_expiry_wait_ms": "1100",
+    "sqlite_writer_lease_duration_ms": "1000"
+  }
+}

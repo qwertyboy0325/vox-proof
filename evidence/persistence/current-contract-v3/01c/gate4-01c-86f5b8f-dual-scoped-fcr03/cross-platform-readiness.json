@@ -1,0 +1,65 @@
+{
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "harness_semantic_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "harness_version": "gate4-01c-evidence-v6",
+  "scenario_contract_version": "4",
+  "append_candidate_variant": "01B-3",
+  "sqlite_candidate_variant": "01C-SQLITE-3",
+  "package_id": "gate4-01c-86f5b8f-dual-scoped-fcr03",
+  "aggregation_status": "both_platforms_executed_readiness_rebuilt",
+  "owner_authorization_ref": "../../gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
+  "required_platforms": ["macos_native", "windows-github-actions"],
+  "platforms": {
+    "macos_native": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "macos-native",
+      "execution_harness_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+      "evidence_preservation_commit": "5bebd48",
+      "fcr03_persist_reopen_fields_in_scenario_results": true
+    },
+    "windows-github-actions": {
+      "single_platform_readiness": "ready_for_owner_decision",
+      "evidence_subdirectory": "windows-github-actions",
+      "provenance_file": "windows-provenance.json",
+      "execution_harness_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+      "workflow_control_plane_sha": "8e4ad1212fef2eb7d6aaf23099567e47caaacd65",
+      "workflow_run_id": 31923049784,
+      "workflow_run_url": "https://github.com/qwertyboy0325/vox-proof/actions/runs/31923049784",
+      "prior_failed_run": 31922792419,
+      "fcr03_persist_reopen_fields_in_scenario_results": true
+    }
+  },
+  "parity_checks": {
+    "harness_sha_match": true,
+    "work_package_id_match": true,
+    "fcr03_persist_reopen_fields_true_both_platforms": true,
+    "stale_failure_codes_match_across_platforms": true,
+    "macos_native_preserved_semantically_vs_5bebd48": true,
+    "candidate_failures_zero_both_platforms": true,
+    "capability_gaps_interrupted_compaction_cleanup_unsupported_both_platforms": true
+  },
+  "programmatic_readiness": {
+    "mechanism_comparison_readiness": "ready_for_owner_decision",
+    "mechanism_selection_readiness": "ready_for_owner_decision",
+    "comparison_blockers": [],
+    "selection_blockers": [],
+    "limitations": [
+      "capability-dependent scenario interrupted-compaction unsupported: capability compaction_supported not declared",
+      "capability-dependent scenario interrupted-cleanup unsupported: capability destructive_cleanup_supported not declared",
+      "bytes_read unavailable",
+      "bytes_written unavailable",
+      "compaction_where_supported unsupported for measured candidates",
+      "stress fixture not implemented"
+    ],
+    "rebuild_method": "assess_readiness with VOXPROOF_01C_CROSS_PLATFORM_COMPLETE=1 on macos-native artifacts after dual-platform validation",
+    "clippy_exception_not_persistence_caveat": true
+  },
+  "frozen_comparison_evidence": {
+    "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "unchanged": true,
+    "note": "R2 bounded-correction dual-platform record does not replace frozen 91e258c comparison baseline"
+  },
+  "mechanism_selection": "none",
+  "final_frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "evidence_execution_sha_note": "FINAL_FROZEN_EVIDENCE_SHA unchanged; branch HEAD may advance for evidence preservation only"
+}

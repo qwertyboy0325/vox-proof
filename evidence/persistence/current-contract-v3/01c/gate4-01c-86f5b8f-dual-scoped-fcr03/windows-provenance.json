@@ -1,0 +1,20 @@
+{
+  "workflow_control_plane_sha": "8e4ad1212fef2eb7d6aaf23099567e47caaacd65",
+  "evidence_checkout_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "harness_semantic_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "workflow_run_id": 31923049784,
+  "01c_run_id": "gate4-01c-86f5b8f-dual-scoped-fcr03",
+  "platform_label": "windows-github-actions",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "dual_scoped_fcr03": true,
+  "append_candidate_variant": "01B-3",
+  "sqlite_candidate_variant": "01C-SQLITE-3",
+  "clippy_exception": {
+    "applied": true,
+    "lint": "clippy::too_many_arguments",
+    "reason": "frozen-evidence CI hygiene blocker",
+    "frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+    "prior_failed_run": 31922792419,
+    "source_modified_for_exception": false
+  }
+}
