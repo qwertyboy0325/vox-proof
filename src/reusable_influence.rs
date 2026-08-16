@@ -11,7 +11,8 @@ use crate::pipeline::CanonicalTermReviewRun;
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeId, PromotionCandidateRejectionIdentity, ReusableInfluenceRecordId,
     ReusableInfluenceSnapshotIdentity, SnapshotIdentityRecordProvenance, SourceDecisionLocator,
-    SourceDecisionPromotionOrigin, compute_snapshot_identity, decision_digest,
+    SourceDecisionLocatorOrigin, SourceDecisionPromotionOrigin, compute_snapshot_identity,
+    decision_digest,
 };
 use crate::review::{
     CorrectionDecision, ManualReplacementText, ReviewCase, ReviewCaseId, ReviewCaseStatus,
@@ -346,19 +347,81 @@ pub fn build_source_decision_locator(
 ) -> SourceDecisionLocator {
     SourceDecisionLocator {
         source_revision: observed_revision,
-        source_analysis_snapshot: analysis_snapshot,
-        source_review_case_id: case_id,
+        origin: SourceDecisionLocatorOrigin::DetectorRaised {
+            source_analysis_snapshot: analysis_snapshot,
+            source_review_case_id: case_id,
+        },
         review_ledger_position: ledger_position,
         decision_digest: decision_digest(case_id, observed_revision, replacement),
         effective_at_ledger_length: ledger_length,
     }
 }
 
+/// Locator for a promotion whose source decision came from a human-raised case.
+///
+/// No analysis snapshot is recorded: human-raised cases are never injected into
+/// analysis snapshots, so borrowing the session snapshot would fabricate detector
+/// provenance.
+pub fn build_human_raised_source_decision_locator(
+    case_id: ReviewCaseId,
+    ledger_position: usize,
+    observed_revision: crate::anchor::TranscriptRevisionId,
+    replacement: &ManualReplacementText,
+    ledger_length: usize,
+) -> SourceDecisionLocator {
+    SourceDecisionLocator {
+        source_revision: observed_revision,
+        origin: SourceDecisionLocatorOrigin::HumanRaised {
+            human_raised_case_id: case_id,
+        },
+        review_ledger_position: ledger_position,
+        decision_digest: decision_digest(case_id, observed_revision, replacement),
+        effective_at_ledger_length: ledger_length,
+    }
+}
+
+/// Review case referenced by a locator, resolved in the family the origin declares.
+pub fn resolve_locator_review_case<'a>(
+    locator: &SourceDecisionLocator,
+    canonical_run: &'a CanonicalTermReviewRun,
+    human_raised_cases: &'a [ReviewCase],
+) -> Option<&'a ReviewCase> {
+    match &locator.origin {
+        SourceDecisionLocatorOrigin::DetectorRaised {
+            source_review_case_id,
+            ..
+        } => canonical_run
+            .review_cases()
+            .get(source_review_case_id.local_index()),
+        SourceDecisionLocatorOrigin::HumanRaised {
+            human_raised_case_id,
+        } => human_raised_cases
+            .iter()
+            .find(|case| case.id() == *human_raised_case_id),
+    }
+}
+
+/// Observed source text for a review case, valid for both review-case families.
+pub fn resolve_review_case_observed_text<'a>(
+    transcript: &'a Transcript,
+    review_case: &ReviewCase,
+) -> Result<&'a str, ReusableInfluenceError> {
+    let observed = transcript
+        .resolve(&review_case.source_anchor())
+        .ok_or(ReusableInfluenceError::SourceTextMismatch)?;
+    if let Some(selection) = review_case.as_human_selection()
+        && selection.observed_text() != observed
+    {
+        return Err(ReusableInfluenceError::SourceTextMismatch);
+    }
+    Ok(observed)
+}
+
 impl From<&ReuseCandidateKey> for PromotionCandidateRejectionIdentity {
     fn from(key: &ReuseCandidateKey) -> Self {
         Self {
             project_scope_id: key.project_scope_id.clone(),
-            source_review_case_id: key.source_locator.source_review_case_id,
+            source_review_case_id: key.source_locator.source_review_case_id(),
             review_ledger_position: key.source_locator.review_ledger_position,
             decision_digest: key.source_locator.decision_digest,
         }
@@ -398,7 +461,7 @@ pub fn source_decision_still_matches_locator(
     locator: &SourceDecisionLocator,
     canonical_run: &CanonicalTermReviewRun,
 ) -> bool {
-    let case_id = locator.source_review_case_id;
+    let case_id = locator.source_review_case_id();
     let ReviewCaseStatus::Decided {
         observed_revision,
         decision: CorrectionDecision::ManualReplacement { replacement },
@@ -520,6 +583,7 @@ pub fn fold_effective_state(
 pub fn derive_reuse_candidates(
     transcript: &Transcript,
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     project_scope: &ProjectScope,
     effective: &ReusableInfluenceEffectiveState,
@@ -527,7 +591,11 @@ pub fn derive_reuse_candidates(
     let analysis_snapshot = canonical_run.analysis_run().snapshot();
     let mut candidates = Vec::new();
 
-    for review_case in canonical_run.review_cases() {
+    for review_case in canonical_run
+        .review_cases()
+        .iter()
+        .chain(human_raised_cases.iter())
+    {
         let case_id = review_case.id();
         let ReviewCaseStatus::Decided {
             observed_revision,
@@ -543,19 +611,26 @@ pub fn derive_reuse_candidates(
             return Err(ReusableInfluenceError::InvalidSourceLocator);
         };
 
-        let observed_text = transcript
-            .resolve(review_case.candidate_span().anchor())
-            .ok_or(ReusableInfluenceError::SourceTextMismatch)?
-            .to_owned();
+        let observed_text = resolve_review_case_observed_text(transcript, review_case)?.to_owned();
 
-        let source_locator = build_source_decision_locator(
-            analysis_snapshot,
-            case_id,
-            ledger_position,
-            observed_revision,
-            &replacement,
-            ledger.events().len(),
-        );
+        let source_locator = if case_id.is_human_raised() {
+            build_human_raised_source_decision_locator(
+                case_id,
+                ledger_position,
+                observed_revision,
+                &replacement,
+                ledger.events().len(),
+            )
+        } else {
+            build_source_decision_locator(
+                analysis_snapshot,
+                case_id,
+                ledger_position,
+                observed_revision,
+                &replacement,
+                ledger.events().len(),
+            )
+        };
         let key = ReuseCandidateKey {
             source_locator: source_locator.clone(),
             project_scope_id: project_scope.stable_id.clone(),
@@ -603,9 +678,15 @@ pub fn derive_reuse_candidates(
             .then_with(|| {
                 left.key
                     .source_locator
-                    .source_review_case_id
+                    .source_review_case_id()
                     .local_index()
-                    .cmp(&right.key.source_locator.source_review_case_id.local_index())
+                    .cmp(
+                        &right
+                            .key
+                            .source_locator
+                            .source_review_case_id()
+                            .local_index(),
+                    )
             })
     });
     Ok(candidates)
@@ -824,9 +905,7 @@ pub fn verify_source_locator_against_ledger(
     {
         return Err(ReusableInfluenceError::ReplacementMismatch);
     }
-    let observed = transcript
-        .resolve(review_case.candidate_span().anchor())
-        .ok_or(ReusableInfluenceError::SourceTextMismatch)?;
+    let observed = resolve_review_case_observed_text(transcript, review_case)?;
     if observed != expected_observed_text {
         return Err(ReusableInfluenceError::SourceTextMismatch);
     }
@@ -850,7 +929,7 @@ pub fn verify_source_locator_effective_at_historical_boundary(
         return Err(ReusableInfluenceError::InvalidSourceLocator);
     }
     verify_source_locator_event_fields(ledger, locator, canonical_run)?;
-    let case_id = locator.source_review_case_id;
+    let case_id = locator.source_review_case_id();
     let ReviewCaseStatus::Decided {
         observed_revision,
         decision: CorrectionDecision::ManualReplacement { replacement },
@@ -950,6 +1029,7 @@ pub fn validate_reuse_candidate_key_at_historical_boundary(
     candidate_key: &ReuseCandidateKey,
     review_ledger: &ReviewLedger,
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     transcript: &Transcript,
     replay_effective: &ReusableInfluenceEffectiveState,
 ) -> Result<(), ReusableInfluenceError> {
@@ -958,18 +1038,13 @@ pub fn validate_reuse_candidate_key_at_historical_boundary(
         &candidate_key.source_locator,
         canonical_run,
     )?;
-    let review_case = canonical_run
-        .review_cases()
-        .get(
-            candidate_key
-                .source_locator
-                .source_review_case_id
-                .local_index(),
-        )
-        .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
-    let observed = transcript
-        .resolve(review_case.candidate_span().anchor())
-        .ok_or(ReusableInfluenceError::SourceTextMismatch)?;
+    let review_case = resolve_locator_review_case(
+        &candidate_key.source_locator,
+        canonical_run,
+        human_raised_cases,
+    )
+    .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
+    let observed = resolve_review_case_observed_text(transcript, review_case)?;
     if observed.is_empty() {
         return Err(ReusableInfluenceError::SourceTextMismatch);
     }
@@ -1012,9 +1087,17 @@ fn verify_source_locator_event_fields(
     else {
         return Err(ReusableInfluenceError::InvalidSourceLocator);
     };
-    if *case_id != locator.source_review_case_id
-        || *observed_revision != locator.source_revision
-        || canonical_run.analysis_run().snapshot() != locator.source_analysis_snapshot
+    if *case_id != locator.source_review_case_id() || *observed_revision != locator.source_revision
+    {
+        return Err(ReusableInfluenceError::InvalidSourceLocator);
+    }
+    // Detector-raised locators stay bound to the session analysis snapshot.
+    // Human-raised locators have no snapshot to compare, by MD-022.
+    if let SourceDecisionLocatorOrigin::DetectorRaised {
+        source_analysis_snapshot,
+        ..
+    } = &locator.origin
+        && canonical_run.analysis_run().snapshot() != *source_analysis_snapshot
     {
         return Err(ReusableInfluenceError::InvalidSourceLocator);
     }
@@ -1226,11 +1309,17 @@ mod correction_03_snapshot_integrity_tests {
             .expect("decision");
         let mut ledger = ReusableInfluenceLedger::new();
         let effective = fold_effective_state(&ledger, &review_ledger, &canonical);
-        let key =
-            derive_reuse_candidates(&transcript, &canonical, &review_ledger, &scope, &effective)
-                .expect("candidates")[0]
-                .key
-                .clone();
+        let key = derive_reuse_candidates(
+            &transcript,
+            &canonical,
+            &[],
+            &review_ledger,
+            &scope,
+            &effective,
+        )
+        .expect("candidates")[0]
+            .key
+            .clone();
         ledger.append(ReusableGovernanceEvent::PromotionAccepted {
             candidate_key: Box::new(key.clone()),
             payload: ExactReusableCorrection {

@@ -92,7 +92,14 @@ fn materializing_edits(
 
         let replacement_text = match decision {
             CorrectionDecision::AcceptAlternative { alternative_index } => {
-                let alternatives = review_case.candidate_span().alternatives();
+                let alternatives = review_case
+                    .as_detector_span()
+                    .ok_or(ReviewedOutputError::InvalidAlternativeIndex {
+                        case_id,
+                        alternative_index,
+                        alternative_count: 0,
+                    })?
+                    .alternatives();
                 let alternative = alternatives.get(alternative_index).ok_or(
                     ReviewedOutputError::InvalidAlternativeIndex {
                         case_id,
@@ -114,9 +121,8 @@ fn materializing_edits(
             return Err(ReviewedOutputError::RevisionMismatch { case_id });
         }
 
-        let candidate = review_case.candidate_span();
-        let anchor = candidate.anchor();
-        if transcript.resolve(anchor).is_none() {
+        let anchor = review_case.source_anchor();
+        if transcript.resolve(&anchor).is_none() {
             return Err(ReviewedOutputError::AnchorResolutionFailed { case_id });
         }
 

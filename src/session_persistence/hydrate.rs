@@ -11,13 +11,14 @@ use crate::application_service::{
 };
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::project_memory::{
-    PROJECT_MEMORY_FORMAT_VERSION, ProjectMemoryRecord, ProjectMemorySnapshotIdentity,
-    compute_project_memory_snapshot_identity,
+    ProjectMemoryRecord, ProjectMemorySnapshotIdentity, compute_project_memory_snapshot_identity,
+    required_project_memory_format_version,
 };
 use crate::reuse_primitives::ProjectScope;
 use crate::review::ReviewLedger;
 use crate::session_persistence::canonical::{
-    PRODUCT_SESSION_FORMAT_VERSION_V2, restore_frozen_project_reuse, restore_ledger_event,
+    PRODUCT_SESSION_FORMAT_VERSION_V2, PRODUCT_SESSION_FORMAT_VERSION_V3,
+    restore_frozen_project_reuse, restore_human_raised_cases, restore_ledger_event,
     restore_reuse_proposal_target, restore_session_terms, restore_transcript,
     verify_analysis_snapshot, verify_review_cases,
 };
@@ -90,6 +91,14 @@ pub(crate) fn hydrate_application_review_session(
         .as_ref()
         .map(restore_frozen_project_reuse)
         .transpose()?;
+    if !capture.human_raised_cases.is_empty()
+        && capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "human-raised cases require session format v3".to_owned(),
+        ));
+    }
+    let human_raised_cases = restore_human_raised_cases(&capture.human_raised_cases, &transcript)?;
     let mut ledger = ReviewLedger::new();
     for persisted_event in &capture.ledger_events {
         let event = restore_ledger_event(persisted_event, transcript.revision_id())?;
@@ -99,12 +108,15 @@ pub(crate) fn hydrate_application_review_session(
                 observed_revision,
                 decision,
             } => {
-                let review_case = canonical_run
-                    .review_cases()
-                    .get(case_id.local_index())
-                    .ok_or_else(|| {
-                        SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
-                    })?;
+                let review_case = if case_id.is_human_raised() {
+                    human_raised_cases.get(case_id.local_index())
+                } else {
+                    canonical_run.review_cases().get(case_id.local_index())
+                }
+                .filter(|review_case| review_case.id() == case_id)
+                .ok_or_else(|| {
+                    SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
+                })?;
                 ledger
                     .record_decision(review_case, observed_revision, decision)
                     .map_err(|error| {
@@ -118,7 +130,9 @@ pub(crate) fn hydrate_application_review_session(
                 observed_revision,
                 decision,
             } => {
-                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2 {
+                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2
+                    && capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3
+                {
                     return Err(SessionPersistenceError::CanonicalMismatch(
                         "v1 session must not contain reuse proposal decisions".to_owned(),
                     ));
@@ -133,6 +147,32 @@ pub(crate) fn hydrate_application_review_session(
                 }
                 ledger
                     .record_reuse_decision(target_identity, observed_revision, decision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+            crate::review::ReviewLedgerEvent::CaseRaised {
+                case_id,
+                observed_revision,
+                ..
+            } => {
+                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3 {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "CaseRaised requires session format v3".to_owned(),
+                    ));
+                }
+                let review_case = human_raised_cases
+                    .iter()
+                    .find(|case| case.id() == case_id)
+                    .ok_or_else(|| {
+                        SessionPersistenceError::CanonicalMismatch(
+                            "unknown human-raised case".to_owned(),
+                        )
+                    })?;
+                ledger
+                    .record_case_raised(review_case, observed_revision)
                     .map_err(|error| {
                         SessionPersistenceError::Replay(
                             crate::application_service::ApplicationServiceError::Decision(error),
@@ -158,6 +198,7 @@ pub(crate) fn hydrate_application_review_session(
         &transcript,
         &session_terms,
         &canonical_run,
+        &human_raised_cases,
         &ledger,
         project_overlay,
     )?;
@@ -169,13 +210,14 @@ pub(crate) fn hydrate_application_review_session(
             &transcript,
             &session_terms,
             &canonical_run,
+            &human_raised_cases,
             &ledger,
             &reuse_state,
             frozen.as_ref(),
         )?
     };
 
-    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+    if capture.bound_project_id.is_some() {
         if let (Some(run), Some(frozen_analysis), Some(scope)) = (
             reuse_enabled_run.as_ref(),
             frozen.as_ref(),
@@ -223,6 +265,7 @@ pub(crate) fn hydrate_application_review_session(
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases,
         ledger,
         material_use,
         session_authority,
@@ -232,7 +275,9 @@ pub(crate) fn hydrate_application_review_session(
     )
     .map_err(SessionPersistenceError::Replay)?;
 
-    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+        || capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+    {
         session.verify_canonical_replay().map_err(|_| {
             SessionPersistenceError::CanonicalMismatch(
                 "in-memory replay verification failed".to_owned(),
@@ -262,18 +307,19 @@ fn restore_reuse_state(
     transcript: &crate::transcript::Transcript,
     session_terms: &[crate::candidate::SessionTermEntry],
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[crate::review::ReviewCase],
     ledger: &ReviewLedger,
     project_overlay: Option<&ProjectMemoryHydrateOverlay>,
 ) -> Result<ApplicationReuseState, SessionPersistenceError> {
-    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+    if capture.bound_project_id.is_some() {
         let overlay = project_overlay.ok_or_else(|| {
             SessionPersistenceError::CanonicalMismatch(
-                "v2 session missing project overlay".to_owned(),
+                "project-bound session missing project overlay".to_owned(),
             )
         })?;
         if !capture.reuse_governance_events.is_empty() {
             return Err(SessionPersistenceError::CanonicalMismatch(
-                "v2 session must not hold session-local reuse authority".to_owned(),
+                "project-bound session must not hold session-local reuse authority".to_owned(),
             ));
         }
         if overlay.available {
@@ -287,7 +333,7 @@ fn restore_reuse_state(
                 let prefix = overlay.records[..frozen.governance_event_boundary].to_vec();
                 let computed = compute_project_memory_snapshot_identity(
                     &overlay.project_scope.stable_id,
-                    PROJECT_MEMORY_FORMAT_VERSION,
+                    required_project_memory_format_version(&prefix),
                     frozen.governance_event_boundary,
                     &prefix,
                 );
@@ -312,7 +358,7 @@ fn restore_reuse_state(
     }
     if project_overlay.is_some() {
         return Err(SessionPersistenceError::CanonicalMismatch(
-            "v1 session must not carry project overlay".to_owned(),
+            "unbound session must not carry project overlay".to_owned(),
         ));
     }
     if project_scope_is_uninitialized(&capture.project_scope) {
@@ -333,6 +379,7 @@ fn restore_reuse_state(
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases,
         ledger,
     };
     let replayed = replay_reuse_governance_for_hydrate(
@@ -360,6 +407,7 @@ fn reconstruct_reuse_enabled_run(
     transcript: &crate::transcript::Transcript,
     session_terms: &[crate::candidate::SessionTermEntry],
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[crate::review::ReviewCase],
     ledger: &ReviewLedger,
     reuse_state: &ApplicationReuseState,
     frozen: Option<&crate::reuse_proposal_target::FrozenProjectReuseAnalysis>,
@@ -368,9 +416,10 @@ fn reconstruct_reuse_enabled_run(
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases,
         ledger,
     };
-    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+    if capture.bound_project_id.is_some() {
         let Some(frozen) = frozen else {
             return Ok(None);
         };

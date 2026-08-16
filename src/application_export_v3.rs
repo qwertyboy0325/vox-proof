@@ -238,7 +238,7 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
                 candidate
                     .key
                     .source_locator
-                    .source_review_case_id
+                    .source_review_case_id()
                     .local_index()
             ));
             output.push_str(&format!(
@@ -323,7 +323,7 @@ pub fn render_application_session_summary_v3(bundle: &ApplicationReviewExportBun
                         ));
                         output.push_str(&format!(
                             "        source_case_local: {}\n",
-                            source_locator.source_review_case_id.local_index() + 1
+                            source_locator.source_review_case_id().local_index() + 1
                         ));
                     }
                 }
@@ -367,7 +367,7 @@ fn render_governance_event(index: usize, event: &ReusableGovernanceEvent, output
                 "source_case: local:{}\n",
                 candidate_key
                     .source_locator
-                    .source_review_case_id
+                    .source_review_case_id()
                     .local_index()
             ));
         }
@@ -401,7 +401,7 @@ fn render_governance_event(index: usize, event: &ReusableGovernanceEvent, output
             ));
             output.push_str(&format!(
                 "source_case: local:{}\n",
-                source_locator.source_review_case_id.local_index()
+                source_locator.source_review_case_id().local_index()
             ));
             output.push_str(&format!(
                 "review_ledger_position: {}\n",

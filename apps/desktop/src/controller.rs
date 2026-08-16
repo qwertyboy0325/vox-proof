@@ -51,6 +51,7 @@ pub enum ReviewItemOrigin {
     PreviousCorrection {
         conflict_with_canonical: bool,
     },
+    HumanRaisedCorrection,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -456,6 +457,47 @@ impl DesktopController {
         })
     }
 
+    pub fn human_raised_available(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_some_and(|durable| durable.format_version() == 3)
+    }
+
+    pub fn cue_texts(&self) -> Result<Vec<(usize, String)>, ControllerError> {
+        let session = self.presentable_session()?;
+        Ok(session
+            .source()
+            .segments()
+            .iter()
+            .enumerate()
+            .map(|(position, segment)| (position, segment.text().to_owned()))
+            .collect())
+    }
+
+    pub fn raise_and_manual_replace(
+        &mut self,
+        expected_ui_session_epoch: u64,
+        segment_position: usize,
+        start_byte: usize,
+        end_byte: usize,
+        replacement: impl Into<String>,
+    ) -> Result<(), ControllerError> {
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let case_id = {
+            let durable = self.writable_durable_mut()?;
+            durable.raise_and_manual_replace(segment_position, start_byte, end_byte, replacement)?
+        };
+        self.exported_paths = None;
+        let refreshed = self.presentable_session()?.review_items();
+        if let Some(index) = refreshed
+            .iter()
+            .position(|item| item.review_case.id() == case_id)
+        {
+            self.selected_index = index;
+        }
+        Ok(())
+    }
+
     pub fn session_id(&self) -> Option<&str> {
         self.durable.as_ref().map(|durable| durable.session_id())
     }
@@ -749,6 +791,7 @@ impl DesktopController {
         if !matches!(
             item.target,
             ApplicationReviewTarget::CanonicalTermCase { .. }
+                | ApplicationReviewTarget::HumanRaisedCase { .. }
         ) {
             return Ok(None);
         }
@@ -765,7 +808,7 @@ impl DesktopController {
         Ok(session
             .reuse_candidates()?
             .into_iter()
-            .find(|candidate| candidate.key.source_locator.source_review_case_id == case_id))
+            .find(|candidate| candidate.key.source_locator.source_review_case_id() == case_id))
     }
 
     pub fn project_memory_entries(&self) -> Result<Vec<ProjectMemoryEntryView>, ControllerError> {
@@ -887,17 +930,17 @@ impl DesktopController {
             .into_iter()
             .enumerate()
             .map(|(queue_index, item)| {
-                let candidate = item.review_case.candidate_span();
-                let position = candidate.anchor().segment_position();
+                let detector_span = item.review_case.as_detector_span();
+                let anchor = item.review_case.source_anchor();
+                let position = anchor.segment_position();
                 let segment = &segments[position];
                 let occurrence = (
-                    candidate.anchor().segment_position(),
-                    candidate.anchor().start_byte(),
-                    candidate.anchor().end_byte(),
+                    anchor.segment_position(),
+                    anchor.start_byte(),
+                    anchor.end_byte(),
                 );
-                let canonical_replacement = candidate
-                    .alternatives()
-                    .first()
+                let canonical_replacement = detector_span
+                    .and_then(|span| span.alternatives().first())
                     .map(|alternative| alternative.replacement_text());
                 let origin = match item.kind {
                     ApplicationReviewItemKind::CanonicalTermCase { .. } => {
@@ -913,6 +956,9 @@ impl DesktopController {
                             also_supported_by_previous_correction: also_supported,
                             disagrees_with_previous_correction: disagrees,
                         }
+                    }
+                    ApplicationReviewItemKind::HumanRaisedCase {} => {
+                        ReviewItemOrigin::HumanRaisedCorrection
                     }
                     ApplicationReviewItemKind::ProjectReuseProposal {
                         conflict_with_canonical,
@@ -931,7 +977,7 @@ impl DesktopController {
                     cue_index: segment.index(),
                     source_text: session
                         .source()
-                        .resolve(candidate.anchor())
+                        .resolve(&anchor)
                         .unwrap_or_default()
                         .to_owned(),
                     context_before: position
@@ -941,13 +987,20 @@ impl DesktopController {
                     context_after: segments
                         .get(position + 1)
                         .map(|segment| segment.text().to_owned()),
-                    alternatives: candidate
-                        .alternatives()
-                        .iter()
-                        .map(|alternative| alternative.replacement_text().to_owned())
-                        .collect(),
-                    evidence: evidence_label(candidate.evidence()),
-                    detector: friendly_detector_label(candidate.provenance().detector_id()),
+                    alternatives: detector_span
+                        .map(|span| {
+                            span.alternatives()
+                                .iter()
+                                .map(|alternative| alternative.replacement_text().to_owned())
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    evidence: detector_span
+                        .map(|span| evidence_label(span.evidence()))
+                        .unwrap_or_else(|| "Text you selected".to_owned()),
+                    detector: detector_span
+                        .map(|span| friendly_detector_label(span.provenance().detector_id()))
+                        .unwrap_or_else(|| "You".to_owned()),
                     status: status_label(item.status.clone()),
                     origin,
                     uses_reuse_proposal_target,
@@ -1036,7 +1089,11 @@ impl DesktopController {
                 .get(selected_index)
                 .ok_or(ControllerError::NoSelectedCase)?;
             if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
-                let count = item.review_case.candidate_span().alternatives().len();
+                let count = item
+                    .review_case
+                    .as_detector_span()
+                    .map(|span| span.alternatives().len())
+                    .unwrap_or(0);
                 if alternative_index >= count {
                     return Err(ControllerError::AlternativeOutOfRange {
                         index: alternative_index,

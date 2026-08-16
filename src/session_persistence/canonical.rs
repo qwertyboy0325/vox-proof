@@ -22,6 +22,27 @@ use crate::transcript::{Segment, Transcript};
 
 pub(crate) const PRODUCT_SESSION_FORMAT_VERSION: u32 = 1;
 pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V2: u32 = 2;
+/// New-session-only successor format that may carry HumanRaised review cases. There is no
+/// automatic migration from v1 or v2.
+pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V3: u32 = 3;
+
+pub(crate) fn latest_supported_session_format() -> u32 {
+    PRODUCT_SESSION_FORMAT_VERSION_V3
+}
+
+pub(crate) fn supported_session_format(format_version: u32) -> bool {
+    format_version == PRODUCT_SESSION_FORMAT_VERSION
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+}
+
+pub(crate) fn session_format_supports_human_raised(format_version: u32) -> bool {
+    format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+}
+
+const LEDGER_EVENT_KIND_CASE_RAISED: &str = "case_raised";
+const CASE_FAMILY_HUMAN: &str = "human";
+const CASE_FAMILY_DETECTOR: &str = "detector";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PersistedSegmentV1 {
@@ -131,6 +152,15 @@ pub(crate) struct PersistedReviewCaseV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedHumanRaisedCaseV1 {
+    pub(crate) local_index: usize,
+    pub(crate) segment_position: usize,
+    pub(crate) start_byte: usize,
+    pub(crate) end_byte: usize,
+    pub(crate) observed_text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "decision_kind", rename_all = "snake_case")]
 pub(crate) enum PersistedCorrectionDecisionV1 {
     Reject,
@@ -147,6 +177,18 @@ pub(crate) struct PersistedReviewLedgerEventV1 {
     decision: PersistedCorrectionDecisionV1,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reuse_proposal_target_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    event_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    case_family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raised_segment_position: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raised_start_byte: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raised_end_byte: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raised_observed_text: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -575,29 +617,146 @@ pub(crate) fn restore_review_case(
     ))
 }
 
-pub(crate) fn persist_ledger_event(event: &ReviewLedgerEvent) -> PersistedReviewLedgerEventV1 {
+pub(crate) fn persist_ledger_event(
+    event: &ReviewLedgerEvent,
+) -> Result<PersistedReviewLedgerEventV1, SessionPersistenceError> {
     match event {
         ReviewLedgerEvent::DecisionRecorded {
             case_id,
             observed_revision,
             decision,
-        } => PersistedReviewLedgerEventV1 {
+        } => Ok(PersistedReviewLedgerEventV1 {
             case_local_index: case_id.local_index(),
             observed_revision: observed_revision.to_tagged_string(),
             decision: persist_correction_decision(decision),
             reuse_proposal_target_identity: None,
-        },
+            event_kind: None,
+            case_family: persist_case_family(*case_id),
+            raised_segment_position: None,
+            raised_start_byte: None,
+            raised_end_byte: None,
+            raised_observed_text: None,
+        }),
         ReviewLedgerEvent::ReuseProposalDecisionRecorded {
             target_identity,
             observed_revision,
             decision,
-        } => PersistedReviewLedgerEventV1 {
+        } => Ok(PersistedReviewLedgerEventV1 {
             case_local_index: 0,
             observed_revision: observed_revision.to_tagged_string(),
             decision: persist_correction_decision(decision),
             reuse_proposal_target_identity: Some(target_identity.to_tagged_string()),
-        },
+            event_kind: None,
+            case_family: None,
+            raised_segment_position: None,
+            raised_start_byte: None,
+            raised_end_byte: None,
+            raised_observed_text: None,
+        }),
+        ReviewLedgerEvent::CaseRaised {
+            case_id,
+            observed_revision,
+            segment_position,
+            start_byte,
+            end_byte,
+            observed_text,
+        } => {
+            if !case_id.is_human_raised() {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "CaseRaised requires a HumanRaised case id".to_owned(),
+                ));
+            }
+            Ok(PersistedReviewLedgerEventV1 {
+                case_local_index: case_id.local_index(),
+                observed_revision: observed_revision.to_tagged_string(),
+                decision: PersistedCorrectionDecisionV1::Reject,
+                reuse_proposal_target_identity: None,
+                event_kind: Some(LEDGER_EVENT_KIND_CASE_RAISED.to_owned()),
+                case_family: Some(CASE_FAMILY_HUMAN.to_owned()),
+                raised_segment_position: Some(*segment_position),
+                raised_start_byte: Some(*start_byte),
+                raised_end_byte: Some(*end_byte),
+                raised_observed_text: Some(observed_text.clone()),
+            })
+        }
     }
+}
+
+fn persist_case_family(case_id: ReviewCaseId) -> Option<String> {
+    if case_id.is_human_raised() {
+        Some(CASE_FAMILY_HUMAN.to_owned())
+    } else {
+        None
+    }
+}
+
+fn restore_case_id(
+    local_index: usize,
+    family: Option<&str>,
+) -> Result<ReviewCaseId, SessionPersistenceError> {
+    match family {
+        None | Some(CASE_FAMILY_DETECTOR) => Ok(ReviewCaseId::local(local_index)),
+        Some(CASE_FAMILY_HUMAN) => Ok(ReviewCaseId::human(local_index)),
+        Some(_) => Err(SessionPersistenceError::CanonicalMismatch(
+            "unknown review case family".to_owned(),
+        )),
+    }
+}
+
+pub(crate) fn persist_human_raised_case(
+    review_case: &ReviewCase,
+) -> Result<PersistedHumanRaisedCaseV1, SessionPersistenceError> {
+    let selection = review_case.as_human_selection().ok_or_else(|| {
+        SessionPersistenceError::CanonicalMismatch(
+            "human-raised capture requires a HumanRaised review case".to_owned(),
+        )
+    })?;
+    let anchor = selection.anchor();
+    Ok(PersistedHumanRaisedCaseV1 {
+        local_index: review_case.id().local_index(),
+        segment_position: anchor.segment_position(),
+        start_byte: anchor.start_byte(),
+        end_byte: anchor.end_byte(),
+        observed_text: selection.observed_text().to_owned(),
+    })
+}
+
+/// Restores human-raised cases in persisted `local_index` order and refuses gaps, reordering, or
+/// observed text that no longer matches the current source revision.
+pub(crate) fn restore_human_raised_cases(
+    persisted: &[PersistedHumanRaisedCaseV1],
+    transcript: &Transcript,
+) -> Result<Vec<ReviewCase>, SessionPersistenceError> {
+    let revision = transcript.revision_id();
+    let mut restored = Vec::with_capacity(persisted.len());
+    for (position, case) in persisted.iter().enumerate() {
+        if case.local_index != position {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "human-raised case local index is not dense and ordered".to_owned(),
+            ));
+        }
+        let anchor = crate::anchor::SourceAnchor {
+            revision,
+            segment_position: case.segment_position,
+            start_byte: case.start_byte,
+            end_byte: case.end_byte,
+        };
+        let observed = transcript.resolve(&anchor).ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "human-raised anchor does not resolve in the persisted source".to_owned(),
+            )
+        })?;
+        if observed != case.observed_text {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "human-raised observed text mismatch".to_owned(),
+            ));
+        }
+        restored.push(ReviewCase::human_raised(
+            ReviewCaseId::human(position),
+            crate::review::HumanSelectedSpan::new(anchor, case.observed_text.clone()),
+        ));
+    }
+    Ok(restored)
 }
 
 pub(crate) fn restore_ledger_event(
@@ -607,6 +766,43 @@ pub(crate) fn restore_ledger_event(
     if persisted.observed_revision != revision.to_tagged_string() {
         return Err(SessionPersistenceError::CanonicalMismatch(
             "ledger event revision mismatch".to_owned(),
+        ));
+    }
+    if persisted.event_kind.as_deref() == Some(LEDGER_EVENT_KIND_CASE_RAISED) {
+        if persisted.reuse_proposal_target_identity.is_some() {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "CaseRaised must not carry a reuse proposal identity".to_owned(),
+            ));
+        }
+        let case_id =
+            restore_case_id(persisted.case_local_index, persisted.case_family.as_deref())?;
+        if !case_id.is_human_raised() {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "CaseRaised requires a HumanRaised case family".to_owned(),
+            ));
+        }
+        let (Some(segment_position), Some(start_byte), Some(end_byte), Some(observed_text)) = (
+            persisted.raised_segment_position,
+            persisted.raised_start_byte,
+            persisted.raised_end_byte,
+            persisted.raised_observed_text.as_ref(),
+        ) else {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "CaseRaised missing span fields".to_owned(),
+            ));
+        };
+        return Ok(ReviewLedgerEvent::CaseRaised {
+            case_id,
+            observed_revision: revision,
+            segment_position,
+            start_byte,
+            end_byte,
+            observed_text: observed_text.clone(),
+        });
+    }
+    if persisted.event_kind.is_some() {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "unknown ledger event kind".to_owned(),
         ));
     }
     let decision = restore_correction_decision(&persisted.decision)?;
@@ -625,7 +821,7 @@ pub(crate) fn restore_ledger_event(
         });
     }
     Ok(ReviewLedgerEvent::DecisionRecorded {
-        case_id: ReviewCaseId::local(persisted.case_local_index),
+        case_id: restore_case_id(persisted.case_local_index, persisted.case_family.as_deref())?,
         observed_revision: revision,
         decision,
     })
@@ -772,7 +968,12 @@ pub(crate) fn capture_from_session(
             .events()
             .iter()
             .map(persist_ledger_event)
-            .collect(),
+            .collect::<Result<Vec<_>, _>>()?,
+        human_raised_cases: session
+            .human_raised_cases()
+            .iter()
+            .map(persist_human_raised_case)
+            .collect::<Result<Vec<_>, _>>()?,
         project_scope,
         reuse_governance_events,
         reuse_governance_head,
@@ -796,6 +997,7 @@ pub(crate) struct SessionCanonicalCapture {
     pub authority_display_label: String,
     pub review_ledger_head: usize,
     pub ledger_events: Vec<PersistedReviewLedgerEventV1>,
+    pub human_raised_cases: Vec<PersistedHumanRaisedCaseV1>,
     pub project_scope: PersistedProjectScopeV1,
     pub reuse_governance_events: Vec<PersistedReuseGovernanceEventV1>,
     pub reuse_governance_head: usize,

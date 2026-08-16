@@ -17,13 +17,37 @@ pub fn render_decision_log(ledger: &ReviewLedger) -> String {
 
 fn render_event(event: &ReviewLedgerEvent, output: &mut String) {
     match event {
+        ReviewLedgerEvent::CaseRaised {
+            case_id,
+            observed_revision,
+            segment_position,
+            start_byte,
+            end_byte,
+            observed_text,
+        } => {
+            output.push_str("type: case_raised\n");
+            output.push_str(&format!("case_id: human:{}\n", case_id.local_index()));
+            output.push_str(&format!(
+                "observed_revision: {}\n",
+                observed_revision.to_tagged_string()
+            ));
+            output.push_str(&format!("segment_position: {segment_position}\n"));
+            output.push_str(&format!("start_byte: {start_byte}\n"));
+            output.push_str(&format!("end_byte: {end_byte}\n"));
+            output.push_str(&format!("observed_text: {observed_text}\n"));
+        }
         ReviewLedgerEvent::DecisionRecorded {
             case_id,
             observed_revision,
             decision,
         } => {
             output.push_str("type: decision_recorded\n");
-            output.push_str(&format!("case_id: local:{}\n", case_id.local_index()));
+            let family = if case_id.is_human_raised() {
+                "human"
+            } else {
+                "local"
+            };
+            output.push_str(&format!("case_id: {family}:{}\n", case_id.local_index()));
             output.push_str(&format!(
                 "observed_revision: {}\n",
                 observed_revision.to_tagged_string()

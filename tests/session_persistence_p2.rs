@@ -7,8 +7,8 @@ use vox_proof::application_service::{
 };
 
 use vox_proof::candidate::SessionTermEntry;
-use vox_proof::review::CorrectionDecision;
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
+use vox_proof::review::CorrectionDecision;
 use vox_proof::session_persistence::{
     AuthorityScope, DurableApplicationSession, OpenMode, ProductSessionStore,
     SessionPersistenceError,
@@ -134,9 +134,16 @@ fn durable_accept_reuse_candidate_survives_reopen() {
     durable.close().expect("close");
     let reopened =
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly).expect("reopen");
-    assert_eq!(reopened.session().reuse_state().governance_events().len(), 1);
     assert_eq!(
-        reopened.session().active_reusable_records().expect("records").len(),
+        reopened.session().reuse_state().governance_events().len(),
+        1
+    );
+    assert_eq!(
+        reopened
+            .session()
+            .active_reusable_records()
+            .expect("records")
+            .len(),
         1
     );
 }
@@ -157,7 +164,13 @@ fn durable_reject_reuse_candidate_persists_governance_event() {
         .record_reject_reuse_candidate(prepared)
         .expect("record reject");
     assert_eq!(durable.session().reuse_state().governance_events().len(), 1);
-    assert!(durable.session().reuse_candidates().expect("candidates").is_empty());
+    assert!(
+        durable
+            .session()
+            .reuse_candidates()
+            .expect("candidates")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -183,11 +196,13 @@ fn durable_revoke_reusable_influence_persists() {
     durable
         .record_revoke_reusable_influence(prepared)
         .expect("record revoke");
-    assert!(durable
-        .session()
-        .active_reusable_records()
-        .expect("records")
-        .is_empty());
+    assert!(
+        durable
+            .session()
+            .active_reusable_records()
+            .expect("records")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -208,7 +223,9 @@ fn revoke_prepared_before_review_ledger_change_still_commits() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     initialize_scope(&mut durable);
@@ -259,13 +276,17 @@ fn durable_supersede_persists_two_governance_events_atomically() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     initialize_scope(&mut durable);
@@ -338,13 +359,17 @@ fn historical_bindings_preserved_after_second_reuse_enabled_commit() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     initialize_scope(&mut durable);
@@ -397,13 +422,17 @@ fn stale_reuse_governance_precondition_on_accept() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     initialize_scope(&mut durable);
@@ -518,13 +547,17 @@ fn partial_supersession_single_event_fails_reopen() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     initialize_scope(&mut durable);
@@ -636,7 +669,9 @@ fn accept_prepared_before_unrelated_review_ledger_change_still_commits() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     initialize_scope(&mut durable);
@@ -710,13 +745,17 @@ fn distinct_selection_tokens_for_different_reusable_snapshots() {
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     initialize_scope(&mut durable);
@@ -845,9 +884,7 @@ fn export_v3_parity_after_reopen_with_reuse_state() {
     assert_eq!(before.unwrap(), after.unwrap());
 }
 
-fn two_case_durable(
-    store: &ProductSessionStore,
-) -> DurableApplicationSession {
+fn two_case_durable(store: &ProductSessionStore) -> DurableApplicationSession {
     let transcript = parse_srt(
         "1\n00:00:00,000 --> 00:00:01,000\nKafak\n\n2\n00:00:01,000 --> 00:00:02,000\nKafak",
     )
@@ -863,13 +900,17 @@ fn two_case_durable(
     let first = durable.session().review_items()[0].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(first, "Kafka")
+                .expect("prep"),
         )
         .expect("manual first");
     let second = durable.session().review_items()[1].target;
     durable
         .record_manual_replacement(
-            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+            durable
+                .prepare_manual_replacement(second, "Kafka")
+                .expect("prep"),
         )
         .expect("manual second");
     durable
@@ -901,10 +942,10 @@ fn promoted_source_decision_does_not_reappear_after_unrelated_ledger_growth() {
         .expect("unrelated review");
     let candidates = durable.session().reuse_candidates().expect("candidates");
     assert!(
-        candidates
-            .iter()
-            .all(|candidate| candidate.key.source_locator.review_ledger_position
-                != key.source_locator.review_ledger_position),
+        candidates.iter().all(
+            |candidate| candidate.key.source_locator.review_ledger_position
+                != key.source_locator.review_ledger_position
+        ),
         "promoted source decision must not reappear as candidate"
     );
     assert_eq!(durable.session().reuse_state().governance_events().len(), 1);

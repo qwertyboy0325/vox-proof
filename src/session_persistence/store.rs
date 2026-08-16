@@ -3,17 +3,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rusqlite::{Connection, OpenFlags, TransactionBehavior, params};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, TransactionBehavior};
 use uuid::Uuid;
 
 use crate::application_service::{
-    ApplicationMaterialUseDeclaration, DeclaredSessionAuthority, PreparedHumanDecision,
-    begin_application_review,
+    begin_application_review, ApplicationMaterialUseDeclaration, DeclaredSessionAuthority,
+    PreparedHumanDecision,
 };
 use crate::candidate::SessionTermEntry;
+use crate::review::{ReviewCase, ReviewLedgerEvent};
 use crate::session_persistence::canonical::{
-    PRODUCT_SESSION_FORMAT_VERSION, PRODUCT_SESSION_FORMAT_VERSION_V2, SessionCanonicalCapture,
-    capture_from_session, persist_ledger_event, restore_transcript,
+    capture_from_session, latest_supported_session_format, persist_human_raised_case,
+    persist_ledger_event, restore_transcript, session_format_supports_human_raised,
+    supported_session_format, SessionCanonicalCapture, PRODUCT_SESSION_FORMAT_VERSION,
+    PRODUCT_SESSION_FORMAT_VERSION_V2, PRODUCT_SESSION_FORMAT_VERSION_V3,
 };
 use crate::session_persistence::error::{
     AuthorityScope, SessionPersistenceError, StaleAuthorityPrecondition,
@@ -23,6 +26,7 @@ use crate::transcript::Transcript;
 thread_local! {
     static FAIL_BEFORE_COMMIT: Cell<bool> = const { Cell::new(false) };
     static FAIL_AFTER_TARGET_BEFORE_LEDGER: Cell<bool> = const { Cell::new(false) };
+    static FAIL_AFTER_HUMAN_RAISE_BEFORE_DECISION: Cell<bool> = const { Cell::new(false) };
 }
 
 #[doc(hidden)]
@@ -43,6 +47,16 @@ pub fn arm_fail_after_target_before_ledger_for_test() {
 #[doc(hidden)]
 pub fn disarm_fail_after_target_before_ledger_for_test() {
     FAIL_AFTER_TARGET_BEFORE_LEDGER.with(|flag| flag.set(false));
+}
+
+#[doc(hidden)]
+pub fn arm_fail_after_human_raise_before_decision_for_test() {
+    FAIL_AFTER_HUMAN_RAISE_BEFORE_DECISION.with(|flag| flag.set(true));
+}
+
+#[doc(hidden)]
+pub fn disarm_fail_after_human_raise_before_decision_for_test() {
+    FAIL_AFTER_HUMAN_RAISE_BEFORE_DECISION.with(|flag| flag.set(false));
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,11 +211,17 @@ impl ProductSessionStore {
             .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
         configure_connection(&connection)?;
         initialize_schema(&connection)?;
+        initialize_schema_v3_extras(&connection)?;
         let writer_token = Uuid::new_v4().to_string();
         let tx = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
-        insert_initial_canonical(&tx, &session_id, &capture)?;
+        insert_initial_canonical(
+            &tx,
+            &session_id,
+            &capture,
+            PRODUCT_SESSION_FORMAT_VERSION_V3,
+        )?;
         tx.execute(
             "INSERT INTO authority_transitions (session_id, generation, acknowledgement_status) VALUES (?1, 1, 'committed')",
             [&session_id],
@@ -223,7 +243,7 @@ impl ProductSessionStore {
                 connection,
                 mode: OpenMode::Writable,
                 writer_token: Some(writer_token),
-                format_version: PRODUCT_SESSION_FORMAT_VERSION,
+                format_version: PRODUCT_SESSION_FORMAT_VERSION_V3,
             },
         ))
     }
@@ -256,11 +276,155 @@ impl ProductSessionStore {
         configure_connection(&connection)?;
         initialize_schema(&connection)?;
         initialize_schema_v2_extras(&connection)?;
+        initialize_schema_v3_extras(&connection)?;
         let writer_token = Uuid::new_v4().to_string();
         let tx = connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
-        insert_initial_canonical(&tx, &session_id, &capture)?;
+        insert_initial_canonical(
+            &tx,
+            &session_id,
+            &capture,
+            PRODUCT_SESSION_FORMAT_VERSION_V3,
+        )?;
+        let updated = tx
+            .execute(
+                "UPDATE project_scope SET stable_id = ?1, display_name = ?2 WHERE session_id = ?3",
+                params![project_id, project_display_name, session_id],
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        if updated != 1 {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "v3 project scope bind".to_owned(),
+            ));
+        }
+        tx.execute(
+            "INSERT INTO project_binding (session_id, project_id, project_memory_format_version) VALUES (?1, ?2, ?3)",
+            params![
+                session_id,
+                project_id,
+                crate::project_memory::PROJECT_MEMORY_FORMAT_VERSION
+            ],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO authority_transitions (session_id, generation, acknowledgement_status) VALUES (?1, 1, 'committed')",
+            [&session_id],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let pid = std::process::id() as i64;
+        tx.execute(
+            "INSERT INTO writer_ownership (session_id, writer_token, holder_pid, lease_expires_at_unix_ms) VALUES (?1, ?2, ?3, 0)",
+            params![session_id, writer_token.clone(), pid],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        tx.commit()
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        Ok((
+            session_id.clone(),
+            OpenedStoreSession {
+                session_id,
+                db_path,
+                connection,
+                mode: OpenMode::Writable,
+                writer_token: Some(writer_token),
+                format_version: PRODUCT_SESSION_FORMAT_VERSION_V3,
+            },
+        ))
+    }
+
+    /// Compatibility-test constructor: historical unbound format 1 (pre-MD-022 create path).
+    ///
+    /// Not a product create path. Does not install `human_raised_cases`.
+    pub fn create_historical_unbound_format_v1_for_compatibility_test(
+        &self,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+    ) -> Result<(String, OpenedStoreSession), SessionPersistenceError> {
+        let session =
+            begin_application_review(transcript, session_terms, material_use, session_authority)
+                .map_err(SessionPersistenceError::Replay)?;
+        let capture = capture_from_session(&session)?;
+        let session_id = Uuid::new_v4().to_string();
+        let db_path = self.database_path(&session_id);
+        if db_path.exists() {
+            return Err(SessionPersistenceError::SessionAlreadyExists);
+        }
+        fs::create_dir_all(db_path.parent().expect("database parent"))
+            .map_err(|error| SessionPersistenceError::Io(error.to_string()))?;
+        let mut connection = Connection::open(&db_path)
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        configure_connection(&connection)?;
+        initialize_schema(&connection)?;
+        let writer_token = Uuid::new_v4().to_string();
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        insert_initial_canonical(&tx, &session_id, &capture, PRODUCT_SESSION_FORMAT_VERSION)?;
+        tx.execute(
+            "INSERT INTO authority_transitions (session_id, generation, acknowledgement_status) VALUES (?1, 1, 'committed')",
+            [&session_id],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let pid = std::process::id() as i64;
+        tx.execute(
+            "INSERT INTO writer_ownership (session_id, writer_token, holder_pid, lease_expires_at_unix_ms) VALUES (?1, ?2, ?3, 0)",
+            params![session_id, writer_token.clone(), pid],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        tx.commit()
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        Ok((
+            session_id.clone(),
+            OpenedStoreSession {
+                session_id,
+                db_path,
+                connection,
+                mode: OpenMode::Writable,
+                writer_token: Some(writer_token),
+                format_version: PRODUCT_SESSION_FORMAT_VERSION,
+            },
+        ))
+    }
+
+    /// Compatibility-test constructor: historical bound format 2 (pre-MD-022 create path).
+    ///
+    /// Not a product create path. Does not install `human_raised_cases`.
+    pub fn create_historical_bound_format_v2_for_compatibility_test(
+        &self,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+        project_id: &str,
+        project_display_name: &str,
+    ) -> Result<(String, OpenedStoreSession), SessionPersistenceError> {
+        validate_session_id(project_id).map_err(|_| {
+            SessionPersistenceError::CanonicalMismatch("invalid project id".to_owned())
+        })?;
+        let session =
+            begin_application_review(transcript, session_terms, material_use, session_authority)
+                .map_err(SessionPersistenceError::Replay)?;
+        let capture = capture_from_session(&session)?;
+        let session_id = Uuid::new_v4().to_string();
+        let db_path = self.database_path(&session_id);
+        if db_path.exists() {
+            return Err(SessionPersistenceError::SessionAlreadyExists);
+        }
+        fs::create_dir_all(db_path.parent().expect("database parent"))
+            .map_err(|error| SessionPersistenceError::Io(error.to_string()))?;
+        let mut connection = Connection::open(&db_path)
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        configure_connection(&connection)?;
+        initialize_schema(&connection)?;
+        initialize_schema_v2_extras(&connection)?;
+        let writer_token = Uuid::new_v4().to_string();
+        let tx = connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        insert_initial_canonical(&tx, &session_id, &capture, PRODUCT_SESSION_FORMAT_VERSION)?;
         tx.execute(
             "UPDATE session_metadata SET format_version = ?1 WHERE session_id = ?2",
             params![PRODUCT_SESSION_FORMAT_VERSION_V2, session_id],
@@ -333,11 +497,17 @@ impl ProductSessionStore {
         if !supported_session_format(format_version) {
             return Err(SessionPersistenceError::UnsupportedFormatVersion {
                 found: format_version,
-                supported: PRODUCT_SESSION_FORMAT_VERSION_V2,
+                supported: latest_supported_session_format(),
             });
         }
         if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
             ensure_v2_p3_schema(&connection)?;
+        }
+        if format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+            ensure_v3_schema(&connection)?;
+            if table_exists(&connection, "project_binding")? {
+                ensure_v2_p3_schema(&connection)?;
+            }
         }
         let writer_token = if mode == OpenMode::Writable {
             let token = Uuid::new_v4().to_string();
@@ -452,7 +622,7 @@ impl ProductSessionStore {
                 observed_revision,
                 decision: prepared.decision.clone(),
             },
-        });
+        })?;
         let event_json = serde_json::to_string(&persisted)
             .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
         tx.execute(
@@ -466,6 +636,105 @@ impl ProductSessionStore {
             params![new_head as i64, opened.session_id],
         )
         .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let generation: i64 = tx
+            .query_row(
+                "SELECT COALESCE(MAX(generation), 0) + 1 FROM authority_transitions WHERE session_id = ?1",
+                [&opened.session_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO authority_transitions (session_id, generation, acknowledgement_status) VALUES (?1, ?2, 'committed')",
+            params![opened.session_id, generation],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        tx.commit()
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        Ok(DurableAck {
+            committed_generation: generation as u64,
+        })
+    }
+
+    pub fn append_human_raised_raise_and_decision(
+        opened: &mut OpenedStoreSession,
+        expected_review_ledger_head: usize,
+        review_case: &ReviewCase,
+        case_raised: &ReviewLedgerEvent,
+        decision: &ReviewLedgerEvent,
+    ) -> Result<DurableAck, SessionPersistenceError> {
+        if opened.mode != OpenMode::Writable {
+            return Err(SessionPersistenceError::SessionNotWritable);
+        }
+        if !session_format_supports_human_raised(opened.format_version) {
+            return Err(SessionPersistenceError::Replay(
+                crate::application_service::ApplicationServiceError::HumanRaisedRequiresFormatV3,
+            ));
+        }
+        if opened.writer_token.is_none() {
+            return Err(SessionPersistenceError::WriterOwnershipHeld);
+        }
+        let writer_token = opened
+            .writer_token
+            .as_ref()
+            .expect("writer token checked above")
+            .clone();
+        let tx = opened
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        verify_writer_token_in_transaction(&tx, &opened.session_id, &writer_token)?;
+        let current_head: usize = tx
+            .query_row(
+                "SELECT review_ledger_head FROM command_tokens WHERE session_id = ?1",
+                [&opened.session_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        if current_head != expected_review_ledger_head {
+            return Err(SessionPersistenceError::StaleAuthorityPrecondition(
+                StaleAuthorityPrecondition {
+                    scope: AuthorityScope::ReviewLedger,
+                },
+            ));
+        }
+        let persisted_case = persist_human_raised_case(review_case)?;
+        let case_json = serde_json::to_string(&persisted_case)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO human_raised_cases (session_id, local_index, case_json) VALUES (?1, ?2, ?3)",
+            params![opened.session_id, persisted_case.local_index as i64, case_json],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let raised_json = serde_json::to_string(&persist_ledger_event(case_raised)?)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO review_ledger_events (session_id, event_index, event_json) VALUES (?1, ?2, ?3)",
+            params![opened.session_id, current_head as i64, raised_json],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        if FAIL_AFTER_HUMAN_RAISE_BEFORE_DECISION.with(|flag| flag.get()) {
+            return Err(SessionPersistenceError::Sqlite(
+                "test fail after CaseRaised before DecisionRecorded".to_owned(),
+            ));
+        }
+        let decision_json = serde_json::to_string(&persist_ledger_event(decision)?)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO review_ledger_events (session_id, event_index, event_json) VALUES (?1, ?2, ?3)",
+            params![opened.session_id, (current_head + 1) as i64, decision_json],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let new_head = current_head + 2;
+        tx.execute(
+            "UPDATE command_tokens SET review_ledger_head = ?1 WHERE session_id = ?2",
+            params![new_head as i64, opened.session_id],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        if FAIL_BEFORE_COMMIT.with(|flag| flag.get()) {
+            return Err(SessionPersistenceError::Sqlite(
+                "test fail before commit".to_owned(),
+            ));
+        }
         let generation: i64 = tx
             .query_row(
                 "SELECT COALESCE(MAX(generation), 0) + 1 FROM authority_transitions WHERE session_id = ?1",
@@ -512,9 +781,11 @@ impl ProductSessionStore {
         prepared: &crate::application_reuse::PreparedActiveAnalysis,
         precondition_selection_token: &str,
     ) -> Result<(), SessionPersistenceError> {
-        if opened.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if opened.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2
+            && opened.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3
+        {
             return Err(SessionPersistenceError::CanonicalMismatch(
-                "v2 freeze requires session format 2".to_owned(),
+                "project reuse freeze requires a project-bound session".to_owned(),
             ));
         }
         if opened.mode != OpenMode::Writable {
@@ -632,7 +903,7 @@ pub(crate) fn load_canonical_capture_from_connection(
     if !supported_session_format(format_version) {
         return Err(SessionPersistenceError::UnsupportedFormatVersion {
             found: format_version,
-            supported: PRODUCT_SESSION_FORMAT_VERSION_V2,
+            supported: latest_supported_session_format(),
         });
     }
     let transcript_json: String = connection
@@ -797,6 +1068,11 @@ pub(crate) fn load_canonical_capture_from_connection(
         authority_display_label,
         review_ledger_head,
         ledger_events,
+        human_raised_cases: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+            load_human_raised_cases(connection, session_id)?
+        } else {
+            Vec::new()
+        },
         project_scope,
         reuse_governance_events,
         reuse_governance_head,
@@ -804,15 +1080,23 @@ pub(crate) fn load_canonical_capture_from_connection(
         format_version,
         bound_project_id: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
             Some(load_bound_project_id(connection, session_id)?)
+        } else if format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+            load_optional_bound_project_id(connection, session_id)?
         } else {
             None
         },
-        frozen_project_reuse: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        frozen_project_reuse: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+            || (format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+                && table_exists(connection, "frozen_project_reuse_analysis")?)
+        {
             load_frozen_project_reuse(connection, session_id)?
         } else {
             None
         },
-        reuse_proposal_targets: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        reuse_proposal_targets: if format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+            || (format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+                && table_exists(connection, "reuse_proposal_targets")?)
+        {
             load_reuse_proposal_targets(connection, session_id)?
         } else {
             Vec::new()
@@ -824,6 +1108,7 @@ fn insert_initial_canonical(
     tx: &rusqlite::Transaction<'_>,
     session_id: &str,
     capture: &SessionCanonicalCapture,
+    format_version: u32,
 ) -> Result<(), SessionPersistenceError> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -831,7 +1116,7 @@ fn insert_initial_canonical(
         .as_millis() as i64;
     tx.execute(
         "INSERT INTO session_metadata (session_id, format_version, duplicated_from_session_id, created_at_unix_ms) VALUES (?1, ?2, NULL, ?3)",
-        params![session_id, PRODUCT_SESSION_FORMAT_VERSION, now],
+        params![session_id, format_version, now],
     )
     .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
     let transcript_json = serde_json::to_string(&capture.transcript)
@@ -881,6 +1166,17 @@ fn insert_initial_canonical(
             params![session_id, review_case.local_index as i64, case_json],
         )
         .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    }
+    if format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+        for human_case in &capture.human_raised_cases {
+            let case_json = serde_json::to_string(human_case)
+                .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+            tx.execute(
+                "INSERT INTO human_raised_cases (session_id, local_index, case_json) VALUES (?1, ?2, ?3)",
+                params![session_id, human_case.local_index as i64, case_json],
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        }
     }
     tx.execute(
         "INSERT INTO project_scope (session_id, stable_id, display_name) VALUES (?1, ?2, ?3)",
@@ -1056,9 +1352,35 @@ fn ensure_v2_p3_schema(connection: &Connection) -> Result<(), SessionPersistence
     Ok(())
 }
 
-fn supported_session_format(format_version: u32) -> bool {
-    format_version == PRODUCT_SESSION_FORMAT_VERSION
-        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+fn ensure_v3_schema(connection: &Connection) -> Result<(), SessionPersistenceError> {
+    initialize_schema_v3_extras(connection)
+}
+
+fn initialize_schema_v3_extras(connection: &Connection) -> Result<(), SessionPersistenceError> {
+    connection
+        .execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS human_raised_cases (
+              session_id TEXT NOT NULL,
+              local_index INTEGER NOT NULL,
+              case_json TEXT NOT NULL,
+              PRIMARY KEY (session_id, local_index)
+            );
+            ",
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    Ok(())
+}
+
+fn table_exists(connection: &Connection, name: &str) -> Result<bool, SessionPersistenceError> {
+    let count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+            [name],
+            |row| row.get(0),
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    Ok(count > 0)
 }
 
 pub(crate) fn load_list_project_display_name(
@@ -1090,6 +1412,57 @@ pub(crate) fn load_bound_project_id(
             |row| row.get(0),
         )
         .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))
+}
+
+pub(crate) fn load_optional_bound_project_id(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<Option<String>, SessionPersistenceError> {
+    if !table_exists(connection, "project_binding")? {
+        return Ok(None);
+    }
+    connection
+        .query_row(
+            "SELECT project_id FROM project_binding WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))
+}
+
+fn load_human_raised_cases(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<
+    Vec<crate::session_persistence::canonical::PersistedHumanRaisedCaseV1>,
+    SessionPersistenceError,
+> {
+    let mut cases = Vec::new();
+    let mut stmt = connection
+        .prepare(
+            "SELECT local_index, case_json FROM human_raised_cases WHERE session_id = ?1 ORDER BY local_index ASC",
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    let rows = stmt
+        .query_map([session_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    for row in rows {
+        let (local_index, case_json) =
+            row.map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let persisted: crate::session_persistence::canonical::PersistedHumanRaisedCaseV1 =
+            serde_json::from_str(&case_json)
+                .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        if persisted.local_index != local_index as usize {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "human-raised case local index mismatch".to_owned(),
+            ));
+        }
+        cases.push(persisted);
+    }
+    Ok(cases)
 }
 
 fn load_frozen_project_reuse(

@@ -8,10 +8,12 @@ Decision authority: Ezra
 
 Classification: review-case origin, correction-decision semantics, review-ledger history, and reviewed-output materialization extension (not accepted)
 
-Relationship update: accepted MD-017 now owns the bounded Manual Replacement
-slice for existing detector-raised ReviewCases. This proposed decision remains
-unaccepted for HumanRaised cases, withdrawal, explicit supersession event
-identity, undo/reapplication, and its broader history fold.
+Relationship update: accepted MD-017 owns the bounded Manual Replacement slice
+for existing detector-raised ReviewCases. Accepted MD-022 owns the narrow
+HumanRaised + ManualReplacement + CaseRaised + session v3 slice. This proposed
+decision remains unaccepted for withdrawal, explicit supersession event
+identity, undo/reapplication, unresolved human flags, and its broader history
+fold.
 
 ## Context
 

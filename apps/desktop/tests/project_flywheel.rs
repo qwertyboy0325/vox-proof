@@ -412,3 +412,90 @@ fn different_y_coverage_uses_canonical_total_not_composed_len() {
     );
     assert!(!export_enabled(progress));
 }
+
+const MIXED_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\nKafak and Postgres\n";
+const B_POSTGRES_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\nHello Postgres\n";
+
+#[test]
+fn human_raised_corrects_unflagged_span_and_reuses_on_material_b() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(
+        &mut controller,
+        MIXED_SRT,
+        KAFKA_TERMS,
+        "a.srt",
+        &project_id,
+    );
+    let epoch = controller.ui_session_epoch();
+    controller
+        .raise_and_manual_replace(epoch, 0, 10, 18, "PostgreSQL")
+        .unwrap();
+    let items = controller.items().unwrap();
+    assert!(items.iter().any(|item| {
+        matches!(item.origin, ReviewItemOrigin::HumanRaisedCorrection)
+            && item.source_text == "Postgres"
+    }));
+    assert!(controller.projection().unwrap().srt.contains("PostgreSQL"));
+    controller
+        .use_selected_correction_in_related_reviews(epoch)
+        .unwrap();
+    let entries = controller.project_memory_entries().unwrap();
+    assert!(
+        entries.iter().any(|entry| entry.observed_text == "Postgres"
+            && entry.confirmed_replacement == "PostgreSQL")
+    );
+    controller.reset().unwrap();
+
+    start_bound(
+        &mut controller,
+        B_POSTGRES_SRT,
+        EMPTY_TERMS,
+        "b.srt",
+        &project_id,
+    );
+    let items = controller.items().unwrap();
+    assert!(items.iter().any(|item| {
+        matches!(
+            item.origin,
+            ReviewItemOrigin::PreviousCorrection {
+                conflict_with_canonical: false
+            }
+        ) && item.source_text == "Postgres"
+    }));
+    assert!(controller.projection().unwrap().srt.contains("Postgres"));
+    assert!(!controller.projection().unwrap().srt.contains("PostgreSQL"));
+    let epoch = controller.ui_session_epoch();
+    controller
+        .record_decision(
+            epoch,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .unwrap();
+    assert!(controller.projection().unwrap().srt.contains("PostgreSQL"));
+}
+
+#[test]
+fn human_raised_overlap_with_detector_span_is_refused() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(
+        &mut controller,
+        MIXED_SRT,
+        KAFKA_TERMS,
+        "a.srt",
+        &project_id,
+    );
+    let epoch = controller.ui_session_epoch();
+    let error = controller
+        .raise_and_manual_replace(epoch, 0, 0, 5, "Kafka")
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        ControllerError::Service(
+            vox_proof::application_service::ApplicationServiceError::HumanRaisedOverlap
+        )
+    ));
+}

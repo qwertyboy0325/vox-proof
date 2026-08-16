@@ -100,6 +100,16 @@ fn session_terms_message(error: &SessionTermsError) -> String {
 
 fn service_message(error: &ApplicationServiceError) -> String {
     match error {
+        ApplicationServiceError::HumanRaisedRequiresFormatV3 => {
+            "This saved review cannot record a new unflagged correction. Start a new review.".to_owned()
+        }
+        ApplicationServiceError::HumanRaisedOverlap => {
+            "That span overlaps another correction or an item still waiting for a decision.".to_owned()
+        }
+        ApplicationServiceError::HumanRaisedAnchorInvalid(_)
+        | ApplicationServiceError::HumanRaisedRevisionStale => {
+            "Select a contiguous span inside one subtitle line.".to_owned()
+        }
         ApplicationServiceError::ManualReplacement(inner) => manual_replacement_message(inner),
         ApplicationServiceError::DecisionCoverageIncomplete { undecided } => {
             format!("Review {undecided} remaining item(s) before exporting.")

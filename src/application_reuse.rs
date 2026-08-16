@@ -4,7 +4,8 @@ use crate::application_service::{DeclaredSessionAuthority, DeclaredSessionOperat
 use crate::candidate::DetectionError;
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::project_memory::{
-    PROJECT_MEMORY_FORMAT_VERSION, ProjectMemoryRecord, compute_project_memory_snapshot_identity,
+    ProjectMemoryRecord, compute_project_memory_snapshot_identity,
+    required_project_memory_format_version,
 };
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ExactReusableCorrection, GovernanceActorContext,
@@ -18,7 +19,7 @@ use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ProjectScopeTextError,
     PromotionCandidateRejectionIdentity, ReusableInfluenceRecordId,
 };
-use crate::review::{CorrectionDecision, ReviewLedger, ReviewLedgerEvent};
+use crate::review::{CorrectionDecision, ReviewCase, ReviewLedger, ReviewLedgerEvent};
 use crate::transcript::Transcript;
 
 #[derive(Copy, Clone)]
@@ -26,6 +27,9 @@ pub struct ReuseSessionParts<'a> {
     pub transcript: &'a Transcript,
     pub session_terms: &'a [crate::candidate::SessionTermEntry],
     pub canonical_run: &'a CanonicalTermReviewRun,
+    /// Human-raised cases are not part of the analysis snapshot, so they travel
+    /// beside the canonical run rather than inside it.
+    pub human_raised_cases: &'a [ReviewCase],
     pub ledger: &'a ReviewLedger,
 }
 
@@ -200,6 +204,7 @@ pub fn reuse_candidates_for_parts(
     derive_reuse_candidates(
         parts.transcript,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.ledger,
         project_scope,
         &effective,
@@ -245,6 +250,7 @@ pub fn validate_accept_reuse_candidate(
         candidate_key,
         parts.ledger,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.transcript,
         &effective,
     )?;
@@ -256,21 +262,17 @@ fn build_reuse_candidate_from_key(
     project_scope: &crate::reuse_primitives::ProjectScope,
     candidate_key: &ReuseCandidateKey,
 ) -> Result<ReuseCandidate, ApplicationReuseError> {
-    let review_case = parts
-        .canonical_run
-        .review_cases()
-        .get(
-            candidate_key
-                .source_locator
-                .source_review_case_id
-                .local_index(),
-        )
-        .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
-    let observed_text = parts
-        .transcript
-        .resolve(review_case.candidate_span().anchor())
-        .ok_or(ReusableInfluenceError::SourceTextMismatch)?
-        .to_owned();
+    let review_case = crate::reusable_influence::resolve_locator_review_case(
+        &candidate_key.source_locator,
+        parts.canonical_run,
+        parts.human_raised_cases,
+    )
+    .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
+    let observed_text = crate::reusable_influence::resolve_review_case_observed_text(
+        parts.transcript,
+        review_case,
+    )?
+    .to_owned();
     let event = parts
         .ledger
         .events()
@@ -319,6 +321,7 @@ pub fn validate_accept_reuse_candidate_for_governance_commit(
         candidate_key,
         parts.ledger,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.transcript,
         &effective,
     )?;
@@ -348,6 +351,7 @@ pub fn validate_reject_reuse_candidate_for_governance_commit(
         candidate_key,
         parts.ledger,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.transcript,
         &effective,
     )?;
@@ -416,6 +420,7 @@ pub fn reject_reuse_candidate(
     let candidates = derive_reuse_candidates(
         parts.transcript,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.ledger,
         project_scope,
         &effective,
@@ -638,6 +643,7 @@ pub fn prepare_reject_reuse_candidate(
     let candidates = derive_reuse_candidates(
         parts.transcript,
         parts.canonical_run,
+        parts.human_raised_cases,
         parts.ledger,
         project_scope,
         &effective,
@@ -711,11 +717,12 @@ pub fn prepare_reuse_enabled_review(
         let scope = reuse_state
             .project_scope()
             .ok_or(ApplicationReuseError::MissingProjectScope)?;
+        let records = reuse_state.project_memory_records();
         Some(compute_project_memory_snapshot_identity(
             &scope.stable_id,
-            PROJECT_MEMORY_FORMAT_VERSION,
-            reuse_state.project_memory_records().len(),
-            reuse_state.project_memory_records(),
+            required_project_memory_format_version(records),
+            records.len(),
+            records,
         ))
     } else {
         None

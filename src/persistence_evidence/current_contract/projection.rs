@@ -154,16 +154,36 @@ pub fn project_current_contract_state(
     state.normalize()
 }
 
+/// Marker used where a human-raised locator has no analysis snapshot.
+///
+/// The v3 evidence contract has not been extended for human-raised promotions, so
+/// this marker is deliberately unresolvable: downstream evidence validation fails
+/// closed instead of accepting a fabricated detector snapshot identity.
+pub const HUMAN_RAISED_ANALYSIS_SNAPSHOT_NOT_APPLICABLE: &str =
+    "analysis-snapshot:human-raised-not-applicable";
+
 pub fn map_locator(locator: &SourceDecisionLocator) -> EvidenceSourceDecisionLocator {
+    let (source_analysis_snapshot_identity, source_review_case_id) =
+        match locator.source_analysis_snapshot() {
+            Some(snapshot) => (
+                analysis_snapshot_identity(*snapshot),
+                format!(
+                    "review-case:{}",
+                    locator.source_review_case_id().local_index()
+                ),
+            ),
+            None => (
+                HUMAN_RAISED_ANALYSIS_SNAPSHOT_NOT_APPLICABLE.to_owned(),
+                format!(
+                    "review-case:human:{}",
+                    locator.source_review_case_id().local_index()
+                ),
+            ),
+        };
     EvidenceSourceDecisionLocator {
         source_revision_id: locator.source_revision.to_tagged_string(),
-        source_analysis_snapshot_identity: analysis_snapshot_identity(
-            locator.source_analysis_snapshot,
-        ),
-        source_review_case_id: format!(
-            "review-case:{}",
-            locator.source_review_case_id.local_index()
-        ),
+        source_analysis_snapshot_identity,
+        source_review_case_id,
         review_ledger_position: locator.review_ledger_position,
         decision_digest: digest_hex(locator.decision_digest),
         effective_at_ledger_length: locator.effective_at_ledger_length,
@@ -241,6 +261,22 @@ fn map_ledger_event(index: usize, event: &ReviewLedgerEvent) -> EvidenceReviewLe
             observed_revision,
             decision,
         ),
+        ReviewLedgerEvent::CaseRaised {
+            case_id,
+            observed_revision,
+            ..
+        } => {
+            return EvidenceReviewLedgerEvent {
+                event_index: index,
+                case_id: format!("human-raised:{}", case_id.local_index()),
+                observed_revision_id: observed_revision.to_tagged_string(),
+                action_kind: "case_raised".to_owned(),
+                manual_replacement_bytes: None,
+                alternative_index: None,
+                target_event_index: None,
+                provenance: "human".to_owned(),
+            };
+        }
     };
     let (action_kind, manual_replacement_bytes, alternative_index) = match decision {
         CorrectionDecision::AcceptAlternative { alternative_index } => (
@@ -331,22 +367,20 @@ fn rejection_payload_for_key(
 ) -> ExactReusableCorrection {
     let parts = session.reuse_parts();
     let locator = &candidate_key.source_locator;
-    let case_id = locator.source_review_case_id;
-    let Some(review_case) = parts
-        .canonical_run
-        .review_cases()
-        .get(case_id.local_index())
-    else {
+    let Some(review_case) = crate::reusable_influence::resolve_locator_review_case(
+        locator,
+        parts.canonical_run,
+        parts.human_raised_cases,
+    ) else {
         return ExactReusableCorrection {
             observed_text: String::new(),
             confirmed_replacement: String::new(),
         };
     };
-    let observed_text = parts
-        .transcript
-        .resolve(review_case.candidate_span().anchor())
-        .unwrap_or("")
-        .to_owned();
+    let observed_text =
+        crate::reusable_influence::resolve_review_case_observed_text(parts.transcript, review_case)
+            .unwrap_or("")
+            .to_owned();
     let replacement = parts
         .ledger
         .events()
@@ -358,7 +392,8 @@ fn rejection_payload_for_key(
                 }
                 _ => None,
             },
-            ReviewLedgerEvent::ReuseProposalDecisionRecorded { .. } => None,
+            ReviewLedgerEvent::ReuseProposalDecisionRecorded { .. }
+            | ReviewLedgerEvent::CaseRaised { .. } => None,
         })
         .unwrap_or_default();
     ExactReusableCorrection {

@@ -9,6 +9,44 @@ use crate::reuse_primitives::{
 };
 
 pub const PROJECT_MEMORY_FORMAT_VERSION: u32 = 1;
+/// Format that may contain human-raised promotion records (MD-022).
+///
+/// A project stays at version 1 until its first human-raised promotion append, so
+/// detector-only projects keep byte-identical snapshot identities.
+pub const PROJECT_MEMORY_FORMAT_VERSION_V2: u32 = 2;
+pub const SUPPORTED_PROJECT_MEMORY_FORMAT_VERSIONS: [u32; 2] = [
+    PROJECT_MEMORY_FORMAT_VERSION,
+    PROJECT_MEMORY_FORMAT_VERSION_V2,
+];
+
+pub fn is_supported_project_memory_format_version(version: u32) -> bool {
+    matches!(
+        version,
+        PROJECT_MEMORY_FORMAT_VERSION | PROJECT_MEMORY_FORMAT_VERSION_V2
+    )
+}
+
+/// Format version required to persist `records` losslessly.
+pub fn required_project_memory_format_version(records: &[ProjectMemoryRecord]) -> u32 {
+    if records.iter().any(record_is_human_raised) {
+        PROJECT_MEMORY_FORMAT_VERSION_V2
+    } else {
+        PROJECT_MEMORY_FORMAT_VERSION
+    }
+}
+
+pub fn record_is_human_raised(record: &ProjectMemoryRecord) -> bool {
+    match &record.event {
+        ReusableGovernanceEvent::PromotionAccepted { source_locator, .. } => {
+            source_locator.is_human_raised()
+        }
+        ReusableGovernanceEvent::PromotionCandidateRejected { candidate_key, .. } => {
+            candidate_key.source_locator.is_human_raised()
+        }
+        ReusableGovernanceEvent::ReusableInfluenceRevoked { .. }
+        | ReusableGovernanceEvent::ReusableInfluenceSuperseded { .. } => false,
+    }
+}
 pub const PROJECT_MEMORY_SNAPSHOT_IDENTITY_DOMAIN: &[u8] =
     b"voxproof-project-memory-snapshot-identity-v1";
 pub const PROJECT_MEMORY_SNAPSHOT_IDENTITY_TAG_PREFIX: &str = "project-memory-snapshot:sha256-v1:";

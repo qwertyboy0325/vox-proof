@@ -8,8 +8,10 @@ use uuid::Uuid;
 
 use crate::project_memory::error::{ProjectMemoryError, ProjectMemoryOpenMode};
 use crate::project_memory::identity::{
-    PROJECT_MEMORY_FORMAT_VERSION, ProjectMemoryRecord, ProjectMemorySnapshotIdentity,
-    compute_project_memory_snapshot_identity,
+    PROJECT_MEMORY_FORMAT_VERSION, PROJECT_MEMORY_FORMAT_VERSION_V2, ProjectMemoryRecord,
+    ProjectMemorySnapshotIdentity, compute_project_memory_snapshot_identity,
+    is_supported_project_memory_format_version, record_is_human_raised,
+    required_project_memory_format_version,
 };
 use crate::reusable_influence::ReusableGovernanceEvent;
 use crate::reuse_primitives::{ProjectScope, ProjectScopeDisplayName, ProjectScopeId};
@@ -30,6 +32,7 @@ pub struct ProductProjectMemoryStore {
 pub struct DurableProjectMemory {
     project_id: ProjectScopeId,
     display_name: ProjectScopeDisplayName,
+    format_version: u32,
     opened: OpenedProject,
     records: Vec<ProjectMemoryRecord>,
 }
@@ -112,6 +115,7 @@ impl ProductProjectMemoryStore {
         Ok(DurableProjectMemory {
             project_id: project_id.clone(),
             display_name,
+            format_version: PROJECT_MEMORY_FORMAT_VERSION,
             opened: OpenedProject {
                 _project_id: project_id.as_str().to_owned(),
                 _db_path: db_path,
@@ -147,10 +151,10 @@ impl ProductProjectMemoryStore {
                 |row| row.get(0),
             )
             .map_err(|error| ProjectMemoryError::Sqlite(error.to_string()))?;
-        if format_version != PROJECT_MEMORY_FORMAT_VERSION {
+        if !is_supported_project_memory_format_version(format_version) {
             return Err(ProjectMemoryError::UnsupportedFormatVersion {
                 found: format_version,
-                supported: PROJECT_MEMORY_FORMAT_VERSION,
+                supported: PROJECT_MEMORY_FORMAT_VERSION_V2,
             });
         }
         let display_name_raw: String = connection
@@ -184,9 +188,15 @@ impl ProductProjectMemoryStore {
             None
         };
         let records = load_records(&connection, project_id.as_str())?;
+        if required_project_memory_format_version(&records) > format_version {
+            return Err(ProjectMemoryError::CanonicalMismatch(
+                "human-raised promotion records require format version 2".to_owned(),
+            ));
+        }
         Ok(DurableProjectMemory {
             project_id: project_id.clone(),
             display_name,
+            format_version,
             opened: OpenedProject {
                 _project_id: project_id.as_str().to_owned(),
                 _db_path: db_path,
@@ -228,7 +238,7 @@ impl ProductProjectMemoryStore {
                 Ok(value) => value,
                 Err(_) => continue,
             };
-            if format_version != PROJECT_MEMORY_FORMAT_VERSION {
+            if !is_supported_project_memory_format_version(format_version) {
                 continue;
             }
             let display_name: String = match connection.query_row(
@@ -290,10 +300,14 @@ impl DurableProjectMemory {
         &self.records
     }
 
+    pub fn format_version(&self) -> u32 {
+        self.format_version
+    }
+
     pub fn snapshot_identity(&self) -> ProjectMemorySnapshotIdentity {
         compute_project_memory_snapshot_identity(
             &self.project_id,
-            PROJECT_MEMORY_FORMAT_VERSION,
+            self.format_version,
             self.records.len(),
             &self.records,
         )
@@ -324,6 +338,14 @@ impl DurableProjectMemory {
                 "project memory P1 accepts PromotionAccepted only".to_owned(),
             ));
         }
+        let candidate_record = ProjectMemoryRecord {
+            source_session_id: source_session_id.clone(),
+            event: event.clone(),
+        };
+        // Additive bump: only the metadata format_version changes. Historical event
+        // rows are never rewritten.
+        let bump_to_v2 = record_is_human_raised(&candidate_record)
+            && self.format_version < PROJECT_MEMORY_FORMAT_VERSION_V2;
         let writer_token = self
             .opened
             .writer_token
@@ -368,9 +390,19 @@ impl DurableProjectMemory {
             params![(current_head + 1) as i64, self.project_id.as_str()],
         )
         .map_err(|error| ProjectMemoryError::Sqlite(error.to_string()))?;
+        if bump_to_v2 {
+            tx.execute(
+                "UPDATE project_metadata SET format_version = ?1 WHERE project_id = ?2",
+                params![PROJECT_MEMORY_FORMAT_VERSION_V2, self.project_id.as_str()],
+            )
+            .map_err(|error| ProjectMemoryError::Sqlite(error.to_string()))?;
+        }
         insert_authority_transition(&tx, self.project_id.as_str())?;
         tx.commit()
             .map_err(|error| ProjectMemoryError::Sqlite(error.to_string()))?;
+        if bump_to_v2 {
+            self.format_version = PROJECT_MEMORY_FORMAT_VERSION_V2;
+        }
         self.records.push(ProjectMemoryRecord {
             source_session_id: persisted.source_session_id,
             event,

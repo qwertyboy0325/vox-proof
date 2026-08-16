@@ -724,7 +724,7 @@ fn l_v1_create_and_canonical_decision_remain_available() {
         session_authority("operator"),
     )
     .expect("v1 create");
-    assert_eq!(durable.format_version(), 1);
+    assert_eq!(durable.format_version(), 3);
     assert!(!durable.session().compose_project_reuse_proposals());
     let target = durable.session().review_items()[0].target;
     assert!(matches!(

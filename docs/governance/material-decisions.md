@@ -94,6 +94,8 @@ Accepted Gate 4 product-session authority decision: `decisions/MD-020-product-sq
 
 Accepted cross-material Project Memory decision: `decisions/MD-021-cross-material-governed-project-memory-and-reuse-decision-boundary.md` — one SQLite Project Memory store per project, product-generated opaque `ProjectScopeId`, derived reuse proposals with thin targets persisted only on first human decision, new Project Memory snapshot identity domain, v2 new-session-only binding, promotion writes project authority only, missing project blocks writable reuse without erasing committed Material-B readability, and Gate 7 avoided-correction attribution. Accepted per explicit owner authorization on 2026-08-16. Acceptance records the durable boundary; P1/P2 implementation remains a separately authorized work package and does not establish Gate 7 or v0.3.
 
+Accepted HumanRaised Manual Correction decision: `decisions/MD-022-human-raised-single-span-manual-correction-boundary.md` — HumanRaised ReviewCase family with HumanSelectedSpan, atomic CaseRaised + ManualReplacement, session format v3 new-session-only, origin-aware SourceDecisionLocator, and additive Project Memory format 2 for HumanRaised promotion. Accepted per explicit owner authorization on 2026-08-16. Does not accept broader MD-011 withdrawal/supersession or Session Terms reanalysis.
+
 ## Decision record shape
 
 Each Material Decision should include:

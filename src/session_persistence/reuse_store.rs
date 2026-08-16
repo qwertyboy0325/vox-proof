@@ -419,6 +419,7 @@ struct LoadedReuseContext {
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
     canonical_run: CanonicalTermReviewRun,
+    human_raised_cases: Vec<crate::review::ReviewCase>,
     ledger: ReviewLedger,
 }
 
@@ -428,6 +429,7 @@ impl LoadedReuseContext {
             transcript: &self.transcript,
             session_terms: &self.session_terms,
             canonical_run: &self.canonical_run,
+            human_raised_cases: &self.human_raised_cases,
             ledger: &self.ledger,
         }
     }
@@ -506,12 +508,18 @@ fn load_reuse_context_from_connection(
                         )
                     })?;
             }
+            ReviewLedgerEvent::CaseRaised { .. } => {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "reuse store reconstruct does not support CaseRaised".to_owned(),
+                ));
+            }
         }
     }
     Ok(LoadedReuseContext {
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases: Vec::new(),
         ledger,
     })
 }

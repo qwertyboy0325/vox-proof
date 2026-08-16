@@ -364,7 +364,7 @@ fn unknown_format_version_fails_closed() {
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly),
         Err(SessionPersistenceError::UnsupportedFormatVersion {
             found: 99,
-            supported: 2
+            supported: 3
         })
     ));
 }
@@ -400,6 +400,7 @@ fn schema_skeleton_tables_exist_on_disk() {
         "command_tokens",
         "authority_transitions",
         "writer_ownership",
+        "human_raised_cases",
     ] {
         let count: i64 = connection
             .query_row(

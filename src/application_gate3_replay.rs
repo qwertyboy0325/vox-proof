@@ -17,7 +17,8 @@ use crate::reuse_primitives::PromotionCandidateRejectionIdentity;
 pub fn verify_gate3_independent_replay(
     session: &ApplicationReviewSession,
 ) -> Result<(), ApplicationReplayError> {
-    if session.reuse_state().governance_events().is_empty() && session.reuse_enabled_run().is_none() {
+    if session.reuse_state().governance_events().is_empty() && session.reuse_enabled_run().is_none()
+    {
         return Ok(());
     }
 
@@ -115,7 +116,8 @@ pub fn verify_gate3_independent_replay(
             session.reuse_state(),
             session.reuse_enabled_run(),
         )?;
-        let replay_v3 = materialize_v3_for_reuse_state(session, &replay_state, replay_run.as_ref())?;
+        let replay_v3 =
+            materialize_v3_for_reuse_state(session, &replay_state, replay_run.as_ref())?;
         if current_v3 != replay_v3 {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ExportBundleV3,
@@ -234,6 +236,7 @@ fn validate_governance_event(
                 candidate_key.as_ref(),
                 parts.ledger,
                 parts.canonical_run,
+                parts.human_raised_cases,
                 parts.transcript,
                 &replay_effective,
             )
@@ -276,25 +279,28 @@ fn validate_governance_event(
                 candidate_key.as_ref(),
                 parts.ledger,
                 parts.canonical_run,
+                parts.human_raised_cases,
                 parts.transcript,
                 &replay_effective,
             )
             .map_err(|_| ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::ReuseGovernanceLedger,
             })?;
-            let review_case = parts
-                .canonical_run
-                .review_cases()
-                .get(source_locator.source_review_case_id.local_index())
-                .ok_or(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseGovernanceLedger,
-                })?;
-            let observed = parts
-                .transcript
-                .resolve(review_case.candidate_span().anchor())
-                .ok_or(ApplicationReplayError::Mismatch {
-                    field: ApplicationReplayField::ReuseGovernanceLedger,
-                })?;
+            let review_case = crate::reusable_influence::resolve_locator_review_case(
+                source_locator.as_ref(),
+                parts.canonical_run,
+                parts.human_raised_cases,
+            )
+            .ok_or(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
+            let observed = crate::reusable_influence::resolve_review_case_observed_text(
+                parts.transcript,
+                review_case,
+            )
+            .map_err(|_| ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ReuseGovernanceLedger,
+            })?;
             if observed != payload.observed_text
                 || payload.confirmed_replacement
                     != match parts

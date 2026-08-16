@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt;
 
 use crate::analysis::AnalysisSnapshot;
-use crate::anchor::TranscriptRevisionId;
+use crate::anchor::{AnchorError, TranscriptRevisionId};
 use crate::application_export_v3::{ApplicationReviewExportBundleV3, build_export_bundle_v3};
 use crate::application_reuse::{
     ApplicationReuseError, ApplicationReuseState, ReuseSessionParts, accept_reuse_candidate,
@@ -20,8 +20,8 @@ use crate::reuse_proposal_target::{
     derive_reuse_proposal_targets,
 };
 use crate::review::{
-    CorrectionDecision, ManualReplacementText, ManualReplacementTextError, ReviewCase,
-    ReviewCaseId, ReviewCaseStatus, ReviewLedger, ReviewLedgerError, ReviewLedgerEvent,
+    CorrectionDecision, HumanSelectedSpan, ManualReplacementText, ManualReplacementTextError,
+    ReviewCase, ReviewCaseId, ReviewCaseStatus, ReviewLedger, ReviewLedgerError, ReviewLedgerEvent,
 };
 use crate::reviewed_output::{ReviewedOutputError, derive_reviewed_srt_with_reuse};
 use crate::transcript::Transcript;
@@ -120,6 +120,9 @@ pub enum ApplicationReviewTarget {
         analysis_snapshot: AnalysisSnapshot,
         case_id: ReviewCaseId,
     },
+    HumanRaisedCase {
+        case_id: ReviewCaseId,
+    },
     ProjectReuseProposal {
         reuse_analysis_snapshot: AnalysisSnapshot,
         target_identity: ReuseProposalTargetIdentity,
@@ -129,20 +132,25 @@ pub enum ApplicationReviewTarget {
 impl ApplicationReviewTarget {
     pub fn case_id(self) -> Option<ReviewCaseId> {
         match self {
-            Self::CanonicalTermCase { case_id, .. } => Some(case_id),
+            Self::CanonicalTermCase { case_id, .. } | Self::HumanRaisedCase { case_id } => {
+                Some(case_id)
+            }
             Self::ProjectReuseProposal { .. } => None,
         }
     }
 
-    pub fn analysis_snapshot(self) -> AnalysisSnapshot {
+    /// A HumanRaised target binds no analysis snapshot: it is not detector output and must not
+    /// carry a fabricated analysis identity.
+    pub fn analysis_snapshot(self) -> Option<AnalysisSnapshot> {
         match self {
             Self::CanonicalTermCase {
                 analysis_snapshot, ..
-            } => analysis_snapshot,
+            } => Some(analysis_snapshot),
             Self::ProjectReuseProposal {
                 reuse_analysis_snapshot,
                 ..
-            } => reuse_analysis_snapshot,
+            } => Some(reuse_analysis_snapshot),
+            Self::HumanRaisedCase { .. } => None,
         }
     }
 
@@ -151,7 +159,7 @@ impl ApplicationReviewTarget {
             Self::ProjectReuseProposal {
                 target_identity, ..
             } => Some(target_identity),
-            Self::CanonicalTermCase { .. } => None,
+            Self::CanonicalTermCase { .. } | Self::HumanRaisedCase { .. } => None,
         }
     }
 }
@@ -161,6 +169,7 @@ pub enum ApplicationReviewItemKind {
     CanonicalTermCase {
         gate7_repeated_correction_avoided_eligible: bool,
     },
+    HumanRaisedCase {},
     ProjectReuseProposal {
         gate7_repeated_correction_avoided_eligible: bool,
         conflict_with_canonical: bool,
@@ -300,6 +309,10 @@ pub enum ApplicationServiceError {
     ManualReplacement(ManualReplacementTextError),
     DecisionCoverageIncomplete { undecided: usize },
     ReviewedOutput(ReviewedOutputError),
+    HumanRaisedRequiresFormatV3,
+    HumanRaisedAnchorInvalid(AnchorError),
+    HumanRaisedRevisionStale,
+    HumanRaisedOverlap,
 }
 
 impl fmt::Display for ApplicationServiceError {
@@ -374,6 +387,7 @@ pub struct ApplicationReviewSession {
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
     canonical_run: CanonicalTermReviewRun,
+    human_raised_cases: Vec<ReviewCase>,
     ledger: ReviewLedger,
     material_use: BoundApplicationMaterialUseDeclaration,
     session_authority: BoundDeclaredSessionAuthority,
@@ -407,6 +421,7 @@ pub fn begin_application_review(
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases: Vec::new(),
         ledger: ReviewLedger::new(),
         material_use: BoundApplicationMaterialUseDeclaration {
             declaration: material_use,
@@ -427,6 +442,7 @@ pub(crate) fn assemble_application_review_session(
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
     canonical_run: CanonicalTermReviewRun,
+    human_raised_cases: Vec<ReviewCase>,
     ledger: ReviewLedger,
     material_use: ApplicationMaterialUseDeclaration,
     session_authority: DeclaredSessionAuthority,
@@ -441,6 +457,7 @@ pub(crate) fn assemble_application_review_session(
         transcript,
         session_terms,
         canonical_run,
+        human_raised_cases,
         ledger,
         material_use: BoundApplicationMaterialUseDeclaration {
             declaration: material_use,
@@ -468,6 +485,10 @@ impl ApplicationReviewSession {
 
     pub(crate) fn canonical_run(&self) -> &CanonicalTermReviewRun {
         &self.canonical_run
+    }
+
+    pub fn human_raised_cases(&self) -> &[ReviewCase] {
+        &self.human_raised_cases
     }
 
     pub(crate) fn session_terms(&self) -> &[SessionTermEntry] {
@@ -533,6 +554,7 @@ impl ApplicationReviewSession {
             transcript: &self.transcript,
             session_terms: &self.session_terms,
             canonical_run: &self.canonical_run,
+            human_raised_cases: &self.human_raised_cases,
             ledger: &self.ledger,
         }
     }
@@ -570,6 +592,7 @@ impl ApplicationReviewSession {
             transcript: &self.transcript,
             session_terms: &self.session_terms,
             canonical_run: &self.canonical_run,
+            human_raised_cases: &self.human_raised_cases,
             ledger: &self.ledger,
         };
         let record_id =
@@ -587,6 +610,7 @@ impl ApplicationReviewSession {
             transcript: &self.transcript,
             session_terms: &self.session_terms,
             canonical_run: &self.canonical_run,
+            human_raised_cases: &self.human_raised_cases,
             ledger: &self.ledger,
         };
         reject_reuse_candidate(parts, &mut self.reuse_state, &authority, candidate_key)?;
@@ -620,6 +644,7 @@ impl ApplicationReviewSession {
             transcript: &self.transcript,
             session_terms: &self.session_terms,
             canonical_run: &self.canonical_run,
+            human_raised_cases: &self.human_raised_cases,
             ledger: &self.ledger,
         };
         let record_id = supersede_reusable_influence(
@@ -762,6 +787,58 @@ impl ApplicationReviewSession {
         compose_review_items(self)
     }
 
+    /// Raise one human-selected span and immediately decide it as a Manual Replacement.
+    ///
+    /// Creation and decision stay two ledger events recorded in one gesture. The span is refused
+    /// before any mutation when it is not a Unicode-safe single-cue range, or when it overlaps an
+    /// existing human-raised anchor, an effective materializing edit, or an undecided card.
+    pub fn raise_and_manual_replace(
+        &mut self,
+        segment_position: usize,
+        start_byte: usize,
+        end_byte: usize,
+        replacement: impl Into<String>,
+    ) -> Result<ReviewCaseId, ApplicationServiceError> {
+        let anchor = self
+            .transcript
+            .anchor(segment_position, start_byte, end_byte)
+            .map_err(ApplicationServiceError::HumanRaisedAnchorInvalid)?;
+        let observed_text = self
+            .transcript
+            .resolve(&anchor)
+            .ok_or(ApplicationServiceError::HumanRaisedRevisionStale)?
+            .to_owned();
+
+        let requested = (segment_position, start_byte, end_byte);
+        if human_raise_blocked_ranges(self)
+            .into_iter()
+            .any(|occupied| spans_overlap(requested, occupied))
+        {
+            return Err(ApplicationServiceError::HumanRaisedOverlap);
+        }
+
+        let replacement = ManualReplacementText::new(replacement, &observed_text)
+            .map_err(ApplicationServiceError::ManualReplacement)?;
+        let case_id = ReviewCaseId::human(self.human_raised_cases.len());
+        let review_case =
+            ReviewCase::human_raised(case_id, HumanSelectedSpan::new(anchor, observed_text));
+        let observed_revision = self.transcript.revision_id();
+
+        self.ledger
+            .record_case_raised(&review_case, observed_revision)
+            .map_err(ApplicationServiceError::Decision)?;
+        self.ledger
+            .record_decision(
+                &review_case,
+                observed_revision,
+                CorrectionDecision::ManualReplacement { replacement },
+            )
+            .map_err(ApplicationServiceError::Decision)?;
+        self.human_raised_cases.push(review_case);
+
+        Ok(case_id)
+    }
+
     pub fn prepare_human_decision(
         &self,
         target: ApplicationReviewTarget,
@@ -776,6 +853,23 @@ impl ApplicationReviewSession {
                     return Err(ApplicationServiceError::TargetAnalysisMismatch);
                 }
                 let review_case = resolve_case(&self.canonical_run, case_id)
+                    .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
+                let decision =
+                    revalidate_decision_for_case(&self.transcript, review_case, decision)?;
+                Ok(PreparedHumanDecision {
+                    target,
+                    decision,
+                    expected_review_ledger_head: self.review_ledger_head(),
+                    reuse_proposal_target: None,
+                })
+            }
+            ApplicationReviewTarget::HumanRaisedCase { case_id } => {
+                if matches!(decision, CorrectionDecision::AcceptAlternative { .. }) {
+                    return Err(ApplicationServiceError::Decision(
+                        ReviewLedgerError::AcceptAlternativeOnHumanRaised { case_id },
+                    ));
+                }
+                let review_case = resolve_human_raised_case(&self.human_raised_cases, case_id)
                     .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
                 let decision =
                     revalidate_decision_for_case(&self.transcript, review_case, decision)?;
@@ -851,14 +945,12 @@ impl ApplicationReviewSession {
                 }
                 let review_case = resolve_case(&self.canonical_run, case_id)
                     .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
-                self.transcript
-                    .resolve(review_case.candidate_span().anchor())
-                    .ok_or(ApplicationServiceError::ReviewedOutput(
-                        ReviewedOutputError::AnchorResolutionFailed {
-                            case_id: review_case.id(),
-                        },
-                    ))?
-                    .to_owned()
+                resolve_selected_source_text(&self.transcript, review_case)?
+            }
+            ApplicationReviewTarget::HumanRaisedCase { case_id } => {
+                let review_case = resolve_human_raised_case(&self.human_raised_cases, case_id)
+                    .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
+                resolve_selected_source_text(&self.transcript, review_case)?
             }
             ApplicationReviewTarget::ProjectReuseProposal {
                 target_identity, ..
@@ -888,8 +980,12 @@ impl ApplicationReviewSession {
                     .target
                     .case_id()
                     .ok_or(ApplicationServiceError::UnknownReuseProposal)?;
-                let review_case = resolve_case(&self.canonical_run, case_id)
-                    .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
+                let review_case = if case_id.is_human_raised() {
+                    resolve_human_raised_case(&self.human_raised_cases, case_id)
+                } else {
+                    resolve_case(&self.canonical_run, case_id)
+                }
+                .ok_or(ApplicationServiceError::UnknownReviewCase { case_id })?;
                 self.ledger
                     .record_decision(
                         review_case,
@@ -932,6 +1028,7 @@ impl ApplicationReviewSession {
     pub fn progress(&self) -> ApplicationReviewProgress {
         derive_progress(
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
         )
@@ -940,6 +1037,7 @@ impl ApplicationReviewSession {
     pub fn decision_summary(&self) -> ApplicationDecisionSummary {
         derive_decision_summary(
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
         )
@@ -951,6 +1049,7 @@ impl ApplicationReviewSession {
         build_current_projection(
             &self.transcript,
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
         )
@@ -962,6 +1061,7 @@ impl ApplicationReviewSession {
         build_reviewed_output(
             &self.transcript,
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
         )
@@ -974,6 +1074,7 @@ impl ApplicationReviewSession {
             &self.transcript,
             &self.session_terms,
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             self.material_use,
             self.session_authority.clone(),
@@ -1034,11 +1135,14 @@ impl ApplicationReviewSession {
                             field: ApplicationReplayField::LedgerEvents,
                         });
                     }
-                    let review_case = resolve_case(&replay_run, *case_id).ok_or(
-                        ApplicationReplayError::Mismatch {
-                            field: ApplicationReplayField::ReviewCases,
-                        },
-                    )?;
+                    let review_case = if case_id.is_human_raised() {
+                        resolve_human_raised_case(&self.human_raised_cases, *case_id)
+                    } else {
+                        resolve_case(&replay_run, *case_id)
+                    }
+                    .ok_or(ApplicationReplayError::Mismatch {
+                        field: ApplicationReplayField::ReviewCases,
+                    })?;
                     let replay_decision = revalidate_decision_for_case(
                         &self.transcript,
                         review_case,
@@ -1080,6 +1184,28 @@ impl ApplicationReviewSession {
                         .map_err(ApplicationServiceError::Decision)
                         .map_err(ApplicationReplayError::Service)?;
                 }
+                ReviewLedgerEvent::CaseRaised {
+                    case_id,
+                    observed_revision,
+                    ..
+                } => {
+                    if *observed_revision != self.transcript.revision_id() {
+                        return Err(ApplicationReplayError::Mismatch {
+                            field: ApplicationReplayField::LedgerEvents,
+                        });
+                    }
+                    let review_case = self
+                        .human_raised_cases
+                        .iter()
+                        .find(|case| case.id() == *case_id)
+                        .ok_or(ApplicationReplayError::Mismatch {
+                            field: ApplicationReplayField::LedgerEvents,
+                        })?;
+                    replay_ledger
+                        .record_case_raised(review_case, *observed_revision)
+                        .map_err(ApplicationServiceError::Decision)
+                        .map_err(ApplicationReplayError::Service)?;
+                }
             }
         }
 
@@ -1089,8 +1215,8 @@ impl ApplicationReviewSession {
             });
         }
 
-        if effective_statuses(&replay_run, &replay_ledger)
-            != effective_statuses(&self.canonical_run, &self.ledger)
+        if effective_statuses(&replay_run, &self.human_raised_cases, &replay_ledger)
+            != effective_statuses(&self.canonical_run, &self.human_raised_cases, &self.ledger)
         {
             return Err(ApplicationReplayError::Mismatch {
                 field: ApplicationReplayField::EffectiveStatuses,
@@ -1099,6 +1225,7 @@ impl ApplicationReviewSession {
 
         if derive_progress(
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
         ) != self.progress()
@@ -1109,6 +1236,7 @@ impl ApplicationReviewSession {
         }
         if derive_decision_summary(
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
         ) != self.decision_summary()
@@ -1121,6 +1249,7 @@ impl ApplicationReviewSession {
             &self.transcript,
             self.session_terms.len(),
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
         );
@@ -1128,6 +1257,7 @@ impl ApplicationReviewSession {
             &self.transcript,
             self.session_terms.len(),
             &self.canonical_run,
+            &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
         );
@@ -1140,6 +1270,7 @@ impl ApplicationReviewSession {
         let replay_projection = build_current_projection(
             &self.transcript,
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
         );
@@ -1153,6 +1284,7 @@ impl ApplicationReviewSession {
         let replay_output = build_reviewed_output(
             &self.transcript,
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
         );
@@ -1167,6 +1299,7 @@ impl ApplicationReviewSession {
             &self.transcript,
             &self.session_terms,
             &replay_run,
+            &self.human_raised_cases,
             &replay_ledger,
             self.material_use,
             self.session_authority.clone(),
@@ -1197,6 +1330,30 @@ fn resolve_case(
         .filter(|review_case| review_case.id() == case_id)
 }
 
+fn resolve_human_raised_case(
+    human_raised_cases: &[ReviewCase],
+    case_id: ReviewCaseId,
+) -> Option<&ReviewCase> {
+    human_raised_cases
+        .get(case_id.local_index())
+        .filter(|review_case| review_case.id() == case_id)
+}
+
+fn resolve_selected_source_text(
+    transcript: &Transcript,
+    review_case: &ReviewCase,
+) -> Result<String, ApplicationServiceError> {
+    let anchor = review_case.source_anchor();
+    transcript
+        .resolve(&anchor)
+        .map(str::to_owned)
+        .ok_or(ApplicationServiceError::ReviewedOutput(
+            ReviewedOutputError::AnchorResolutionFailed {
+                case_id: review_case.id(),
+            },
+        ))
+}
+
 fn revalidate_decision_for_case(
     transcript: &Transcript,
     review_case: &ReviewCase,
@@ -1205,16 +1362,61 @@ fn revalidate_decision_for_case(
     let CorrectionDecision::ManualReplacement { replacement } = decision else {
         return Ok(decision);
     };
-    let selected_source_text = transcript
-        .resolve(review_case.candidate_span().anchor())
-        .ok_or(ApplicationServiceError::ReviewedOutput(
-            ReviewedOutputError::AnchorResolutionFailed {
-                case_id: review_case.id(),
-            },
-        ))?;
-    let replacement = ManualReplacementText::new(replacement.as_str(), selected_source_text)
+    let selected_source_text = resolve_selected_source_text(transcript, review_case)?;
+    let replacement = ManualReplacementText::new(replacement.as_str(), &selected_source_text)
         .map_err(ApplicationServiceError::ManualReplacement)?;
     Ok(CorrectionDecision::ManualReplacement { replacement })
+}
+
+fn spans_overlap(left: (usize, usize, usize), right: (usize, usize, usize)) -> bool {
+    left.0 == right.0 && left.1 < right.2 && right.1 < left.2
+}
+
+fn decision_materializes_text(status: &ReviewCaseStatus) -> bool {
+    match status {
+        ReviewCaseStatus::Decided { decision, .. } => matches!(
+            decision,
+            CorrectionDecision::AcceptAlternative { .. }
+                | CorrectionDecision::ManualReplacement { .. }
+        ),
+        ReviewCaseStatus::Undecided => false,
+    }
+}
+
+/// Source ranges a new human-raised span must not touch: existing human anchors, effective
+/// materializing detector or reuse edits, and undecided cards still awaiting a decision.
+fn human_raise_blocked_ranges(session: &ApplicationReviewSession) -> Vec<(usize, usize, usize)> {
+    let mut occupied = Vec::new();
+
+    for review_case in &session.human_raised_cases {
+        let anchor = review_case.source_anchor();
+        occupied.push((
+            anchor.segment_position(),
+            anchor.start_byte(),
+            anchor.end_byte(),
+        ));
+    }
+
+    for review_case in session.canonical_run.review_cases() {
+        let status = session.ledger.status_for(review_case.id());
+        if matches!(status, ReviewCaseStatus::Undecided) || decision_materializes_text(&status) {
+            let anchor = review_case.source_anchor();
+            occupied.push((
+                anchor.segment_position(),
+                anchor.start_byte(),
+                anchor.end_byte(),
+            ));
+        }
+    }
+
+    for target in visible_reuse_targets(session) {
+        let status = session.ledger.status_for_reuse(target.identity());
+        if matches!(status, ReviewCaseStatus::Undecided) || decision_materializes_text(&status) {
+            occupied.push(target.occurrence_key());
+        }
+    }
+
+    occupied
 }
 
 fn revalidate_decision_for_reuse(
@@ -1285,6 +1487,25 @@ fn collapsed_same_replacement_canonical(
         })
 }
 
+fn visible_reuse_targets(session: &ApplicationReviewSession) -> Vec<ReuseProposalTarget> {
+    if session.project_reuse.compose {
+        derived_targets_from_session(session)
+    } else {
+        session
+            .project_reuse
+            .persisted_targets
+            .iter()
+            .filter(|target| {
+                !matches!(
+                    session.ledger.status_for_reuse(target.identity()),
+                    ReviewCaseStatus::Undecided
+                )
+            })
+            .cloned()
+            .collect()
+    }
+}
+
 fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationReviewItem> {
     let analysis_snapshot = session.canonical_run.analysis_run().snapshot();
     let mut items: Vec<ApplicationReviewItem> = session
@@ -1304,24 +1525,18 @@ fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationRe
         })
         .collect();
 
-    let reuse_targets = if session.project_reuse.compose {
-        derived_targets_from_session(session)
-    } else {
-        session
-            .project_reuse
-            .persisted_targets
-            .iter()
-            .filter(|target| {
-                !matches!(
-                    session.ledger.status_for_reuse(target.identity()),
-                    ReviewCaseStatus::Undecided
-                )
-            })
-            .cloned()
-            .collect()
-    };
+    for review_case in &session.human_raised_cases {
+        items.push(ApplicationReviewItem {
+            target: ApplicationReviewTarget::HumanRaisedCase {
+                case_id: review_case.id(),
+            },
+            review_case: review_case.clone(),
+            status: session.ledger.status_for(review_case.id()),
+            kind: ApplicationReviewItemKind::HumanRaisedCase {},
+        });
+    }
 
-    for target in reuse_targets {
+    for target in visible_reuse_targets(session) {
         if collapsed_same_replacement_canonical(session, &target).is_some() {
             continue;
         }
@@ -1352,8 +1567,8 @@ fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationRe
     }
 
     items.sort_by(|left, right| {
-        let left_anchor = left.review_case.candidate_span().anchor();
-        let right_anchor = right.review_case.candidate_span().anchor();
+        let left_anchor = left.review_case.source_anchor();
+        let right_anchor = right.review_case.source_anchor();
         (
             left_anchor.segment_position(),
             left_anchor.start_byte(),
@@ -1375,7 +1590,8 @@ fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationRe
 fn review_item_kind_rank(kind: ApplicationReviewItemKind) -> u8 {
     match kind {
         ApplicationReviewItemKind::CanonicalTermCase { .. } => 0,
-        ApplicationReviewItemKind::ProjectReuseProposal { .. } => 1,
+        ApplicationReviewItemKind::HumanRaisedCase {} => 1,
+        ApplicationReviewItemKind::ProjectReuseProposal { .. } => 2,
     }
 }
 
@@ -1400,11 +1616,13 @@ fn apply_decided_status_counts(summary: &mut ApplicationDecisionSummary, status:
 
 fn effective_statuses(
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
 ) -> Vec<(ReviewCaseId, ReviewCaseStatus)> {
     canonical_run
         .review_cases()
         .iter()
+        .chain(human_raised_cases)
         .map(|review_case| {
             let case_id = review_case.id();
             (case_id, ledger.status_for(case_id))
@@ -1414,10 +1632,11 @@ fn effective_statuses(
 
 fn derive_progress(
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
 ) -> ApplicationReviewProgress {
-    let summary = derive_decision_summary(canonical_run, ledger, reuse_targets);
+    let summary = derive_decision_summary(canonical_run, human_raised_cases, ledger, reuse_targets);
     let decision_coverage = if summary.undecided == 0 {
         ApplicationDecisionCoverage::Complete
     } else {
@@ -1442,11 +1661,12 @@ fn derive_progress(
 
 fn derive_decision_summary(
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
 ) -> ApplicationDecisionSummary {
     let mut summary = ApplicationDecisionSummary {
-        total_review_cases: canonical_run.review_cases().len(),
+        total_review_cases: canonical_run.review_cases().len() + human_raised_cases.len(),
         total_recorded_events: ledger.events().len(),
         accepted_alternatives: 0,
         manual_replacements: 0,
@@ -1456,7 +1676,11 @@ fn derive_decision_summary(
         undecided: 0,
     };
 
-    for review_case in canonical_run.review_cases() {
+    for review_case in canonical_run
+        .review_cases()
+        .iter()
+        .chain(human_raised_cases)
+    {
         apply_decided_status_counts(&mut summary, ledger.status_for(review_case.id()));
     }
     for target in reuse_targets {
@@ -1473,6 +1697,7 @@ fn derive_session_summary_projection(
     transcript: &Transcript,
     session_term_entry_count: usize,
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
 ) -> ApplicationSessionSummaryProjection {
@@ -1513,15 +1738,18 @@ fn derive_session_summary_projection(
     let mut affected_segments = HashSet::new();
     let mut accepted_replacements = BTreeMap::<String, usize>::new();
 
-    for review_case in canonical_run.review_cases() {
+    for review_case in canonical_run
+        .review_cases()
+        .iter()
+        .chain(human_raised_cases)
+    {
         match ledger.status_for(review_case.id()) {
             ReviewCaseStatus::Undecided => {}
             ReviewCaseStatus::Decided { decision, .. } => {
                 let replacement_text = match decision {
                     CorrectionDecision::AcceptAlternative { alternative_index } => review_case
-                        .candidate_span()
-                        .alternatives()
-                        .get(alternative_index)
+                        .as_detector_span()
+                        .and_then(|span| span.alternatives().get(alternative_index))
                         .map(|alternative| alternative.replacement_text()),
                     CorrectionDecision::ManualReplacement { ref replacement } => {
                         Some(replacement.as_str())
@@ -1532,8 +1760,7 @@ fn derive_session_summary_projection(
                 };
                 if let Some(replacement_text) = replacement_text {
                     accepted_replacements_materialized += 1;
-                    affected_segments
-                        .insert(review_case.candidate_span().anchor().segment_position());
+                    affected_segments.insert(review_case.source_anchor().segment_position());
                     *accepted_replacements
                         .entry(replacement_text.to_string())
                         .or_default() += 1;
@@ -1581,7 +1808,7 @@ fn derive_session_summary_projection(
         source_revision: transcript.revision_id(),
         transcript_segments: transcript.segments().len(),
         session_term_entry_count,
-        review_cases_raised: canonical_run.review_cases().len(),
+        review_cases_raised: canonical_run.review_cases().len() + human_raised_cases.len(),
         cases_by_detection_kind,
         cases_by_detector,
         outcomes: ApplicationSessionOutcomeCounts {
@@ -1609,31 +1836,32 @@ fn derive_decision_projection_records(
         .events()
         .iter()
         .enumerate()
-        .map(|(event_index, event)| match event {
+        .filter_map(|(event_index, event)| match event {
             ReviewLedgerEvent::DecisionRecorded {
                 case_id,
                 observed_revision,
                 decision,
-            } => ApplicationDecisionProjectionRecord {
+            } => Some(ApplicationDecisionProjectionRecord {
                 event_index,
                 case_id: Some(*case_id),
                 reuse_proposal_target_identity: None,
                 observed_revision: *observed_revision,
                 decision: decision.clone(),
                 session_authority: session_authority.clone(),
-            },
+            }),
             ReviewLedgerEvent::ReuseProposalDecisionRecorded {
                 target_identity,
                 observed_revision,
                 decision,
-            } => ApplicationDecisionProjectionRecord {
+            } => Some(ApplicationDecisionProjectionRecord {
                 event_index,
                 case_id: None,
                 reuse_proposal_target_identity: Some(*target_identity),
                 observed_revision: *observed_revision,
                 decision: decision.clone(),
                 session_authority: session_authority.clone(),
-            },
+            }),
+            ReviewLedgerEvent::CaseRaised { .. } => None,
         })
         .collect()
 }
@@ -1642,16 +1870,24 @@ fn build_export_bundle(
     transcript: &Transcript,
     session_terms: &[SessionTermEntry],
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     material_use: BoundApplicationMaterialUseDeclaration,
     session_authority: BoundDeclaredSessionAuthority,
     reuse_targets: &[ReuseProposalTarget],
 ) -> Result<ApplicationReviewExportBundle, ApplicationServiceError> {
-    let reviewed_output = build_reviewed_output(transcript, canonical_run, ledger, reuse_targets)?;
+    let reviewed_output = build_reviewed_output(
+        transcript,
+        canonical_run,
+        human_raised_cases,
+        ledger,
+        reuse_targets,
+    )?;
     let session_summary = derive_session_summary_projection(
         transcript,
         session_terms.len(),
         canonical_run,
+        human_raised_cases,
         ledger,
         reuse_targets,
     );
@@ -1670,50 +1906,68 @@ fn build_export_bundle(
     })
 }
 
+/// Detector-raised and human-raised cases share one materialization plane, so overlap refusal in
+/// `reviewed_output` sees both families together.
+fn materializable_review_cases(
+    canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
+) -> Vec<ReviewCase> {
+    canonical_run
+        .review_cases()
+        .iter()
+        .chain(human_raised_cases)
+        .cloned()
+        .collect()
+}
+
 fn build_current_projection(
     transcript: &Transcript,
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
 ) -> Result<ApplicationCurrentProjection, ApplicationServiceError> {
-    let srt = derive_reviewed_srt_with_reuse(
-        transcript,
-        canonical_run.review_cases(),
-        ledger,
-        reuse_targets,
-    )
-    .map_err(ApplicationServiceError::ReviewedOutput)?;
+    let materializable = materializable_review_cases(canonical_run, human_raised_cases);
+    let srt = derive_reviewed_srt_with_reuse(transcript, &materializable, ledger, reuse_targets)
+        .map_err(ApplicationServiceError::ReviewedOutput)?;
 
     Ok(ApplicationCurrentProjection {
         srt,
-        progress: derive_progress(canonical_run, ledger, reuse_targets),
-        decision_summary: derive_decision_summary(canonical_run, ledger, reuse_targets),
+        progress: derive_progress(canonical_run, human_raised_cases, ledger, reuse_targets),
+        decision_summary: derive_decision_summary(
+            canonical_run,
+            human_raised_cases,
+            ledger,
+            reuse_targets,
+        ),
     })
 }
 
 fn build_reviewed_output(
     transcript: &Transcript,
     canonical_run: &CanonicalTermReviewRun,
+    human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
 ) -> Result<ApplicationReviewedOutput, ApplicationServiceError> {
-    let progress = derive_progress(canonical_run, ledger, reuse_targets);
+    let progress = derive_progress(canonical_run, human_raised_cases, ledger, reuse_targets);
     if let ApplicationDecisionCoverage::Incomplete { undecided } = progress.decision_coverage {
         return Err(ApplicationServiceError::DecisionCoverageIncomplete { undecided });
     }
 
-    let srt = derive_reviewed_srt_with_reuse(
-        transcript,
-        canonical_run.review_cases(),
-        ledger,
-        reuse_targets,
-    )
-    .map_err(ApplicationServiceError::ReviewedOutput)?;
+    let materializable = materializable_review_cases(canonical_run, human_raised_cases);
+    let srt = derive_reviewed_srt_with_reuse(transcript, &materializable, ledger, reuse_targets)
+        .map_err(ApplicationServiceError::ReviewedOutput)?;
 
     Ok(ApplicationReviewedOutput {
         srt,
         progress,
-        decision_summary: derive_decision_summary(canonical_run, ledger, reuse_targets),
+        decision_summary: derive_decision_summary(
+            canonical_run,
+            human_raised_cases,
+            ledger,
+            reuse_targets,
+        ),
     })
 }
 
@@ -1766,6 +2020,158 @@ mod tests {
             test_authority(),
         )
         .expect("application session")
+    }
+
+    /// Cue text `Kafak and Postgres`: the detector raises `Kafak` at 0..5, leaving `Postgres` at
+    /// 10..18 unflagged and available for a human-raised span.
+    fn two_span_session() -> ApplicationReviewSession {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak and Postgres")
+            .expect("fixture transcript");
+        let session_terms = vec![SessionTermEntry::new(
+            "Kafka",
+            vec!["Kafak".to_string()],
+            Vec::new(),
+        )];
+
+        begin_application_review(
+            transcript,
+            session_terms,
+            ApplicationMaterialUseDeclaration::new(DeclaredApplicationMaterialUseBasis::SelfOwned),
+            test_authority(),
+        )
+        .expect("application session")
+    }
+
+    #[test]
+    fn human_raised_manual_replacement_materializes_and_replays() {
+        let mut session = two_span_session();
+        let detector_case = session.canonical_run.review_cases()[0].id();
+        session
+            .record_human_decision(
+                ApplicationReviewTarget::CanonicalTermCase {
+                    analysis_snapshot: session.canonical_run.analysis_run().snapshot(),
+                    case_id: detector_case,
+                },
+                CorrectionDecision::Reject,
+            )
+            .expect("detector decision");
+
+        let case_id = session
+            .raise_and_manual_replace(0, 10, 18, "PostgreSQL")
+            .expect("human-raised manual replacement");
+
+        assert!(case_id.is_human_raised());
+        assert_eq!(session.human_raised_cases().len(), 1);
+        assert!(matches!(
+            session.review_ledger().events()[1],
+            ReviewLedgerEvent::CaseRaised { .. }
+        ));
+        assert!(matches!(
+            session.review_ledger().events()[2],
+            ReviewLedgerEvent::DecisionRecorded {
+                decision: CorrectionDecision::ManualReplacement { .. },
+                ..
+            }
+        ));
+        assert_eq!(
+            session
+                .materialize_reviewed_output()
+                .expect("reviewed output")
+                .srt,
+            "1\n00:00:00,000 --> 00:00:01,000\nKafak and PostgreSQL\n"
+        );
+        assert_eq!(session.source().segments()[0].text, "Kafak and Postgres");
+        assert!(session.verify_in_memory_replay().is_ok());
+    }
+
+    #[test]
+    fn human_raised_span_is_refused_when_it_overlaps_an_undecided_detector_case() {
+        let mut session = two_span_session();
+
+        assert_eq!(
+            session.raise_and_manual_replace(0, 0, 5, "Kafka"),
+            Err(ApplicationServiceError::HumanRaisedOverlap)
+        );
+        assert!(session.review_ledger().events().is_empty());
+        assert!(session.human_raised_cases().is_empty());
+    }
+
+    #[test]
+    fn second_human_raised_span_overlapping_the_first_is_refused() {
+        let mut session = two_span_session();
+        session
+            .raise_and_manual_replace(0, 10, 18, "PostgreSQL")
+            .expect("first human-raised span");
+
+        assert_eq!(
+            session.raise_and_manual_replace(0, 14, 18, "SQL"),
+            Err(ApplicationServiceError::HumanRaisedOverlap)
+        );
+        assert_eq!(session.human_raised_cases().len(), 1);
+        assert_eq!(session.review_ledger().events().len(), 2);
+    }
+
+    #[test]
+    fn human_raised_span_refuses_invalid_and_non_materializing_payloads() {
+        let mut session = two_span_session();
+
+        assert!(matches!(
+            session.raise_and_manual_replace(0, 10, 10, "PostgreSQL"),
+            Err(ApplicationServiceError::HumanRaisedAnchorInvalid(_))
+        ));
+        assert_eq!(
+            session.raise_and_manual_replace(0, 10, 18, "Postgres"),
+            Err(ApplicationServiceError::ManualReplacement(
+                ManualReplacementTextError::IdenticalToSelectedSource
+            ))
+        );
+        assert!(session.review_ledger().events().is_empty());
+    }
+
+    #[test]
+    fn accept_alternative_on_a_human_raised_target_is_refused() {
+        let mut session = two_span_session();
+        let case_id = session
+            .raise_and_manual_replace(0, 10, 18, "PostgreSQL")
+            .expect("human-raised manual replacement");
+
+        assert_eq!(
+            session.record_human_decision(
+                ApplicationReviewTarget::HumanRaisedCase { case_id },
+                CorrectionDecision::AcceptAlternative {
+                    alternative_index: 0
+                },
+            ),
+            Err(ApplicationServiceError::Decision(
+                ReviewLedgerError::AcceptAlternativeOnHumanRaised { case_id }
+            ))
+        );
+        assert_eq!(session.review_ledger().events().len(), 2);
+    }
+
+    #[test]
+    fn human_raised_case_appears_as_a_review_item_bound_to_no_analysis_snapshot() {
+        let mut session = two_span_session();
+        let case_id = session
+            .raise_and_manual_replace(0, 10, 18, "PostgreSQL")
+            .expect("human-raised manual replacement");
+
+        let item = session
+            .review_items()
+            .into_iter()
+            .find(|item| item.target.case_id() == Some(case_id))
+            .expect("human-raised review item");
+
+        assert_eq!(item.kind, ApplicationReviewItemKind::HumanRaisedCase {});
+        assert_eq!(item.target.analysis_snapshot(), None);
+        assert_eq!(item.review_case.as_detector_span(), None);
+        assert_eq!(
+            item.review_case
+                .as_human_selection()
+                .expect("human selection")
+                .observed_text(),
+            "Postgres"
+        );
     }
 
     #[test]

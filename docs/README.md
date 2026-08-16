@@ -49,6 +49,7 @@ Active research is not accepted architecture. It must not be implemented or trea
 - [MD-019: SQLite Product-Session Persistence Mechanism Selection](governance/decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md)
 - [MD-020: Product SQLite Session Authority Schema and Lifecycle Boundary](governance/decisions/MD-020-product-sqlite-session-authority-schema-and-lifecycle-boundary.md)
 - [MD-021: Cross-Material Governed Project Memory And Reuse Decision Boundary](governance/decisions/MD-021-cross-material-governed-project-memory-and-reuse-decision-boundary.md)
+- [MD-022: Human-Raised Single-Span Manual Correction Boundary](governance/decisions/MD-022-human-raised-single-span-manual-correction-boundary.md)
 
 ## Document Lifecycle
 

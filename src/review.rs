@@ -1,38 +1,106 @@
-use crate::anchor::TranscriptRevisionId;
+use crate::anchor::{SourceAnchor, TranscriptRevisionId};
 use crate::candidate::CandidateSpan;
 use crate::reuse_proposal_target::ReuseProposalTargetIdentity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ReviewCaseFamily {
+    DetectorRaised,
+    HumanRaised,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ReviewCaseId {
+    family: ReviewCaseFamily,
     local_index: usize,
 }
 
 impl ReviewCaseId {
+    /// Detector-raised case identity. Kept as `local` for historical call sites.
     pub(crate) fn local(local_index: usize) -> Self {
-        Self { local_index }
+        Self {
+            family: ReviewCaseFamily::DetectorRaised,
+            local_index,
+        }
+    }
+
+    pub(crate) fn human(local_index: usize) -> Self {
+        Self {
+            family: ReviewCaseFamily::HumanRaised,
+            local_index,
+        }
+    }
+
+    pub fn family(self) -> ReviewCaseFamily {
+        self.family
     }
 
     pub fn local_index(self) -> usize {
         self.local_index
     }
+
+    pub fn is_human_raised(self) -> bool {
+        matches!(self.family, ReviewCaseFamily::HumanRaised)
+    }
+
+    pub fn is_detector_raised(self) -> bool {
+        matches!(self.family, ReviewCaseFamily::DetectorRaised)
+    }
 }
 
-/// The human-facing review unit, distinct from `CandidateSpan` (the
-/// detector-level finding). For v0.1 this relationship is exactly 1:1: one
-/// detector-raised `ReviewCase` wraps exactly one `CandidateSpan`. This type
-/// intentionally carries no status, decision, or history: review status is
-/// derived from append-only ledger events. Future aggregation of multiple
-/// `CandidateSpan` values into one `ReviewCase` is deferred and not
-/// implemented here.
+/// Contiguous human-selected span. Not Evidence and not detector output.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HumanSelectedSpan {
+    anchor: SourceAnchor,
+    observed_text: String,
+}
+
+impl HumanSelectedSpan {
+    pub(crate) fn new(anchor: SourceAnchor, observed_text: impl Into<String>) -> Self {
+        Self {
+            anchor,
+            observed_text: observed_text.into(),
+        }
+    }
+
+    pub fn anchor(&self) -> SourceAnchor {
+        self.anchor
+    }
+
+    pub fn observed_text(&self) -> &str {
+        &self.observed_text
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReviewCaseOrigin {
+    DetectorRaised { candidate: CandidateSpan },
+    HumanRaised { selection: HumanSelectedSpan },
+}
+
+/// The human-facing review unit. Detector-raised cases wrap one `CandidateSpan`.
+/// Human-raised cases wrap a `HumanSelectedSpan` and are never injected into
+/// analysis snapshots. Review status is derived from append-only ledger events.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewCase {
     id: ReviewCaseId,
-    candidate: CandidateSpan,
+    origin: ReviewCaseOrigin,
 }
 
 impl ReviewCase {
     pub(crate) fn detector_raised(id: ReviewCaseId, candidate: CandidateSpan) -> Self {
-        Self { id, candidate }
+        debug_assert!(id.is_detector_raised());
+        Self {
+            id,
+            origin: ReviewCaseOrigin::DetectorRaised { candidate },
+        }
+    }
+
+    pub(crate) fn human_raised(id: ReviewCaseId, selection: HumanSelectedSpan) -> Self {
+        debug_assert!(id.is_human_raised());
+        Self {
+            id,
+            origin: ReviewCaseOrigin::HumanRaised { selection },
+        }
     }
 
     pub(crate) fn from_detector_candidates(candidates: Vec<CandidateSpan>) -> Vec<Self> {
@@ -49,8 +117,39 @@ impl ReviewCase {
         self.id
     }
 
+    pub fn origin(&self) -> &ReviewCaseOrigin {
+        &self.origin
+    }
+
+    pub fn is_human_raised(&self) -> bool {
+        self.id.is_human_raised()
+    }
+
+    /// Detector-raised candidate span. Panics if called on a HumanRaised case.
     pub fn candidate_span(&self) -> &CandidateSpan {
-        &self.candidate
+        self.as_detector_span()
+            .expect("candidate_span requires a DetectorRaised ReviewCase")
+    }
+
+    pub fn as_detector_span(&self) -> Option<&CandidateSpan> {
+        match &self.origin {
+            ReviewCaseOrigin::DetectorRaised { candidate } => Some(candidate),
+            ReviewCaseOrigin::HumanRaised { .. } => None,
+        }
+    }
+
+    pub fn as_human_selection(&self) -> Option<&HumanSelectedSpan> {
+        match &self.origin {
+            ReviewCaseOrigin::HumanRaised { selection } => Some(selection),
+            ReviewCaseOrigin::DetectorRaised { .. } => None,
+        }
+    }
+
+    pub fn source_anchor(&self) -> SourceAnchor {
+        match &self.origin {
+            ReviewCaseOrigin::DetectorRaised { candidate } => *candidate.anchor(),
+            ReviewCaseOrigin::HumanRaised { selection } => selection.anchor(),
+        }
     }
 }
 
@@ -146,6 +245,14 @@ pub enum CorrectionDecision {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReviewLedgerEvent {
+    CaseRaised {
+        case_id: ReviewCaseId,
+        observed_revision: TranscriptRevisionId,
+        segment_position: usize,
+        start_byte: usize,
+        end_byte: usize,
+        observed_text: String,
+    },
     DecisionRecorded {
         case_id: ReviewCaseId,
         observed_revision: TranscriptRevisionId,
@@ -174,8 +281,14 @@ pub enum ReviewLedgerError {
         alternative_index: usize,
         alternative_count: usize,
     },
+    AcceptAlternativeOnHumanRaised {
+        case_id: ReviewCaseId,
+    },
     ReuseAlternativeIndexOutOfRange {
         alternative_index: usize,
+    },
+    CaseRaisedRequiresHumanRaised {
+        case_id: ReviewCaseId,
     },
 }
 
@@ -187,6 +300,28 @@ pub struct ReviewLedger {
 impl ReviewLedger {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn record_case_raised(
+        &mut self,
+        review_case: &ReviewCase,
+        observed_revision: TranscriptRevisionId,
+    ) -> Result<(), ReviewLedgerError> {
+        let Some(selection) = review_case.as_human_selection() else {
+            return Err(ReviewLedgerError::CaseRaisedRequiresHumanRaised {
+                case_id: review_case.id(),
+            });
+        };
+        let anchor = selection.anchor();
+        self.events.push(ReviewLedgerEvent::CaseRaised {
+            case_id: review_case.id(),
+            observed_revision,
+            segment_position: anchor.segment_position(),
+            start_byte: anchor.start_byte(),
+            end_byte: anchor.end_byte(),
+            observed_text: selection.observed_text().to_owned(),
+        });
+        Ok(())
     }
 
     pub fn record_decision(
@@ -337,6 +472,15 @@ fn validate_decision(
     review_case: &ReviewCase,
     decision: &CorrectionDecision,
 ) -> Result<(), ReviewLedgerError> {
+    if review_case.is_human_raised() {
+        if matches!(decision, CorrectionDecision::AcceptAlternative { .. }) {
+            return Err(ReviewLedgerError::AcceptAlternativeOnHumanRaised {
+                case_id: review_case.id(),
+            });
+        }
+        return Ok(());
+    }
+
     if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
         let alternative_count = review_case.candidate_span().alternatives().len();
         if *alternative_index >= alternative_count {

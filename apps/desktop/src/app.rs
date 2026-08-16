@@ -28,6 +28,10 @@ pub struct ReviewApp {
     search: String,
     selected_alternative: usize,
     manual_replacement_draft: String,
+    human_raise_cue_index: usize,
+    human_raise_start_char: usize,
+    human_raise_end_char: usize,
+    human_raise_replacement: String,
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
     resume_session_id_draft: String,
@@ -53,6 +57,10 @@ impl ReviewApp {
             search: String::new(),
             selected_alternative: 0,
             manual_replacement_draft: String::new(),
+            human_raise_cue_index: 0,
+            human_raise_start_char: 0,
+            human_raise_end_char: 0,
+            human_raise_replacement: String::new(),
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
             resume_session_id_draft: String::new(),
@@ -179,6 +187,45 @@ impl ReviewApp {
                 };
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
+            }
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
+        }
+    }
+
+    fn apply_human_raise(&mut self) {
+        let Ok(cues) = self.controller.cue_texts() else {
+            return;
+        };
+        let Some((_, cue_text)) = cues.get(self.human_raise_cue_index) else {
+            self.error = Some("Select a subtitle line first.".to_owned());
+            return;
+        };
+        let Some((start_byte, end_byte)) = char_range_to_utf8_bytes(
+            cue_text,
+            self.human_raise_start_char,
+            self.human_raise_end_char,
+        ) else {
+            self.error = Some("Select a contiguous span inside one subtitle line.".to_owned());
+            return;
+        };
+        let ui_session_epoch = self.controller.ui_session_epoch();
+        let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
+        match self.controller.raise_and_manual_replace(
+            ui_session_epoch,
+            self.human_raise_cue_index,
+            start_byte,
+            end_byte,
+            self.human_raise_replacement.clone(),
+        ) {
+            Ok(()) => {
+                self.error = None;
+                self.status = if invalidates_prior_export {
+                    "This review changed after export. Export again to refresh the saved files."
+                        .to_owned()
+                } else {
+                    "Unflagged correction saved.".to_owned()
+                };
+                self.human_raise_replacement.clear();
             }
             Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
@@ -769,6 +816,12 @@ impl ReviewApp {
                             item.status,
                             item.source_text
                         ),
+                        ReviewItemOrigin::HumanRaisedCorrection => format!(
+                            "Item {} · Your correction · {}\n{}",
+                            item.queue_index + 1,
+                            item.status,
+                            item.source_text
+                        ),
                         ReviewItemOrigin::TermSuggestion { .. } => format!(
                             "Item {} · {}\n{}",
                             item.queue_index + 1,
@@ -863,8 +916,9 @@ impl ReviewApp {
             ui.heading("No items to review");
             ui.label(
                 "Nothing needed your decision in this file. You can still preview and export the \
-                 unchanged subtitles.",
+                 unchanged subtitles, or correct unflagged text below.",
             );
+            self.human_raise_panel(ui);
             self.export_controls(ui, progress);
             return;
         };
@@ -889,6 +943,10 @@ impl ReviewApp {
                          Choose which text should appear.",
                     );
                 }
+            }
+            ReviewItemOrigin::HumanRaisedCorrection => {
+                ui.label(RichText::new("You raised this text yourself").strong());
+                ui.label("No term check or previous correction flagged this span.");
             }
             ReviewItemOrigin::TermSuggestion {
                 also_supported_by_previous_correction,
@@ -1004,6 +1062,7 @@ impl ReviewApp {
                 Err(error) => self.error = Some(user_errors::user_message(&error)),
             }
         }
+        self.human_raise_panel(ui);
         self.export_controls(ui, progress);
     }
 
@@ -1128,6 +1187,95 @@ impl ReviewApp {
         }
     }
 
+    fn human_raise_panel(&mut self, ui: &mut egui::Ui) {
+        if !self.controller.human_raised_available() {
+            return;
+        }
+        let Ok(cues) = self.controller.cue_texts() else {
+            return;
+        };
+        if cues.is_empty() {
+            return;
+        }
+        if self.human_raise_cue_index >= cues.len() {
+            self.human_raise_cue_index = 0;
+        }
+        let cue_text = cues[self.human_raise_cue_index].1.clone();
+        let char_count = cue_text.chars().count();
+        if self.human_raise_end_char == 0 && char_count > 0 {
+            self.human_raise_end_char = char_count;
+        }
+        if self.human_raise_end_char > char_count {
+            self.human_raise_end_char = char_count;
+        }
+        if self.human_raise_start_char > self.human_raise_end_char {
+            self.human_raise_start_char = self.human_raise_end_char;
+        }
+
+        ui.add_space(12.0);
+        ui.group(|ui| {
+            ui.label(RichText::new("Correct unflagged text").strong());
+            ui.label("Select a contiguous span in one subtitle line. This does not add a term.");
+            ui.horizontal(|ui| {
+                ui.label("Subtitle");
+                egui::ComboBox::from_id_salt("human-raise-cue")
+                    .selected_text(format!(
+                        "Cue {} · {}",
+                        cues[self.human_raise_cue_index].0 + 1,
+                        truncate_cue(&cue_text)
+                    ))
+                    .show_ui(ui, |ui| {
+                        for (index, (_, text)) in cues.iter().enumerate() {
+                            let label = format!("Cue {} · {}", index + 1, truncate_cue(text));
+                            if ui
+                                .selectable_label(index == self.human_raise_cue_index, label)
+                                .clicked()
+                            {
+                                self.human_raise_cue_index = index;
+                                self.human_raise_start_char = 0;
+                                self.human_raise_end_char = text.chars().count();
+                            }
+                        }
+                    });
+                if ui.button("Whole line").clicked() {
+                    self.human_raise_start_char = 0;
+                    self.human_raise_end_char = char_count;
+                }
+            });
+            ui.horizontal(|ui| {
+                ui.label("From character");
+                ui.add(
+                    egui::DragValue::new(&mut self.human_raise_start_char)
+                        .range(0..=char_count.saturating_sub(1).max(0)),
+                );
+                ui.label("to");
+                ui.add(egui::DragValue::new(&mut self.human_raise_end_char).range(0..=char_count));
+            });
+            let selected = selected_span_text(
+                &cue_text,
+                self.human_raise_start_char,
+                self.human_raise_end_char,
+            );
+            ui.label(RichText::new(format!("Selected: {selected}")).italics());
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.human_raise_replacement)
+                        .id(egui::Id::new("human-raise-replacement"))
+                        .desired_width(420.0)
+                        .hint_text("Replacement for the selected span"),
+                );
+                let enabled = self.controller.mutations_enabled();
+                if ui
+                    .add_enabled(enabled, egui::Button::new("Correct selected text"))
+                    .on_hover_text("Raise this span and save the replacement")
+                    .clicked()
+                {
+                    self.apply_human_raise();
+                }
+            });
+        });
+    }
+
     fn bottom_panel(
         &mut self,
         ui: &mut egui::Ui,
@@ -1196,4 +1344,37 @@ impl ReviewApp {
                 );
             });
     }
+}
+
+fn char_range_to_utf8_bytes(
+    text: &str,
+    start_char: usize,
+    end_char: usize,
+) -> Option<(usize, usize)> {
+    let mut starts: Vec<usize> = text.char_indices().map(|(index, _)| index).collect();
+    starts.push(text.len());
+    if start_char >= end_char || end_char >= starts.len() {
+        return None;
+    }
+    Some((starts[start_char], starts[end_char]))
+}
+
+fn selected_span_text(text: &str, start_char: usize, end_char: usize) -> String {
+    text.chars()
+        .skip(start_char)
+        .take(end_char.saturating_sub(start_char))
+        .collect()
+}
+
+fn truncate_cue(text: &str) -> String {
+    const LIMIT: usize = 32;
+    let mut truncated = String::new();
+    for (index, character) in text.chars().enumerate() {
+        if index >= LIMIT {
+            truncated.push('…');
+            break;
+        }
+        truncated.push(character);
+    }
+    truncated
 }

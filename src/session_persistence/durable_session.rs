@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use crate::application_reuse::{
+    build_promotion_accepted_event, validate_accept_reuse_candidate_for_governance_commit,
     PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
     PreparedProjectScopeInitialization, PreparedReusableInfluenceRevocation,
     PreparedReusableInfluenceSupersession, PreparedReuseCandidateAcceptance,
-    PreparedReuseCandidateRejection, build_promotion_accepted_event,
-    validate_accept_reuse_candidate_for_governance_commit,
+    PreparedReuseCandidateRejection,
 };
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession, DeclaredSessionAuthority,
@@ -17,13 +17,19 @@ use crate::project_memory::{
     ProjectMemorySnapshotIdentity,
 };
 use crate::reuse_primitives::ProjectScopeId;
-use crate::session_persistence::canonical::PRODUCT_SESSION_FORMAT_VERSION_V2;
+use crate::review::ReviewCaseId;
+use crate::session_persistence::canonical::{
+    session_format_supports_human_raised, PRODUCT_SESSION_FORMAT_VERSION_V2,
+    PRODUCT_SESSION_FORMAT_VERSION_V3,
+};
 use crate::session_persistence::error::SessionPersistenceError;
 use crate::session_persistence::hydrate::{
-    ProjectMemoryHydrateOverlay, hydrate_application_review_session,
+    hydrate_application_review_session, ProjectMemoryHydrateOverlay,
 };
 use crate::session_persistence::store::{OpenMode, OpenedStoreSession, ProductSessionStore};
-use crate::session_persistence::{load_bound_project_id, restore_project_scope};
+use crate::session_persistence::{
+    load_bound_project_id, load_optional_bound_project_id, restore_project_scope,
+};
 use crate::transcript::Transcript;
 
 pub struct DurableApplicationSession {
@@ -65,6 +71,50 @@ impl DurableApplicationSession {
         let display_name = project.display_name().as_str().to_owned();
         project.close().map_err(map_project_memory_error)?;
         let (session_id, opened) = store.create_session_bound(
+            transcript,
+            session_terms,
+            material_use,
+            session_authority,
+            project_id.as_str(),
+            &display_name,
+        )?;
+        assemble_opened(store.root(), session_id, opened)
+    }
+
+    /// Compatibility-test constructor using the historical unbound format-1 create path.
+    pub fn create_historical_unbound_format_v1_for_compatibility_test(
+        store: &ProductSessionStore,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+    ) -> Result<Self, SessionPersistenceError> {
+        let (session_id, opened) = store
+            .create_historical_unbound_format_v1_for_compatibility_test(
+                transcript,
+                session_terms,
+                material_use,
+                session_authority,
+            )?;
+        assemble_opened(store.root(), session_id, opened)
+    }
+
+    /// Compatibility-test constructor using the historical bound format-2 create path.
+    pub fn create_historical_bound_format_v2_for_compatibility_test(
+        store: &ProductSessionStore,
+        project_store: &ProductProjectMemoryStore,
+        project_id: &ProjectScopeId,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+    ) -> Result<Self, SessionPersistenceError> {
+        let project = project_store
+            .open(project_id, ProjectMemoryOpenMode::ReadOnly)
+            .map_err(map_project_memory_error)?;
+        let display_name = project.display_name().as_str().to_owned();
+        project.close().map_err(map_project_memory_error)?;
+        let (session_id, opened) = store.create_historical_bound_format_v2_for_compatibility_test(
             transcript,
             session_terms,
             material_use,
@@ -146,6 +196,62 @@ impl DurableApplicationSession {
         self.record_human_decision(prepared.prepared)
     }
 
+    pub fn raise_and_manual_replace(
+        &mut self,
+        segment_position: usize,
+        start_byte: usize,
+        end_byte: usize,
+        replacement: impl Into<String>,
+    ) -> Result<ReviewCaseId, SessionPersistenceError> {
+        self.ensure_writable()?;
+        if !session_format_supports_human_raised(self.opened.format_version) {
+            return Err(SessionPersistenceError::Replay(
+                crate::application_service::ApplicationServiceError::HumanRaisedRequiresFormatV3,
+            ));
+        }
+        let expected_head = self.session.review_ledger_head();
+        let case_id = match self.session.raise_and_manual_replace(
+            segment_position,
+            start_byte,
+            end_byte,
+            replacement,
+        ) {
+            Ok(case_id) => case_id,
+            Err(error) => return Err(map_decision_error(error)),
+        };
+        let review_case = self
+            .session
+            .human_raised_cases()
+            .last()
+            .cloned()
+            .ok_or_else(|| {
+                SessionPersistenceError::CanonicalMismatch(
+                    "human-raised case missing after raise".to_owned(),
+                )
+            })?;
+        let events = self.session.review_ledger().events();
+        if events.len() < 2 {
+            let _ = self.rehydrate();
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "human-raised raise did not append CaseRaised and DecisionRecorded".to_owned(),
+            ));
+        }
+        let case_raised = events[events.len() - 2].clone();
+        let decision = events[events.len() - 1].clone();
+        if let Err(error) = ProductSessionStore::append_human_raised_raise_and_decision(
+            &mut self.opened,
+            expected_head,
+            &review_case,
+            &case_raised,
+            &decision,
+        ) {
+            let _ = self.rehydrate();
+            return Err(error);
+        }
+        self.refresh_after_commit()?;
+        Ok(case_id)
+    }
+
     pub fn prepare_human_decision(
         &self,
         target: crate::application_service::ApplicationReviewTarget,
@@ -186,7 +292,7 @@ impl DurableApplicationSession {
         display_name: impl Into<String>,
     ) -> Result<PreparedProjectScopeInitialization, SessionPersistenceError> {
         self.ensure_readable()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 session is already bound to a project".to_owned(),
             ));
@@ -201,7 +307,7 @@ impl DurableApplicationSession {
         prepared: PreparedProjectScopeInitialization,
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 session is already bound to a project".to_owned(),
             ));
@@ -246,7 +352,7 @@ impl DurableApplicationSession {
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             self.append_v2_promotion_to_project(&prepared)?;
             return self.refresh_after_commit();
         }
@@ -265,7 +371,7 @@ impl DurableApplicationSession {
     ) -> Result<PreparedReuseCandidateRejection, SessionPersistenceError> {
         self.ensure_readable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -281,7 +387,7 @@ impl DurableApplicationSession {
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -301,7 +407,7 @@ impl DurableApplicationSession {
     ) -> Result<PreparedReusableInfluenceRevocation, SessionPersistenceError> {
         self.ensure_readable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -317,7 +423,7 @@ impl DurableApplicationSession {
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -338,7 +444,7 @@ impl DurableApplicationSession {
     ) -> Result<PreparedReusableInfluenceSupersession, SessionPersistenceError> {
         self.ensure_readable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -354,7 +460,7 @@ impl DurableApplicationSession {
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "v2 project memory P2 writes PromotionAccepted only".to_owned(),
             ));
@@ -389,7 +495,7 @@ impl DurableApplicationSession {
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
         self.ensure_writable_reuse()?;
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if self.bound_project_id.is_some() {
             ProductSessionStore::commit_v2_frozen_project_reuse(
                 &mut self.opened,
                 &prepared,
@@ -479,9 +585,7 @@ impl DurableApplicationSession {
     }
 
     fn ensure_writable_reuse(&self) -> Result<(), SessionPersistenceError> {
-        if self.opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
-            && !self.project_memory_available
-        {
+        if self.bound_project_id.is_some() && !self.project_memory_available {
             return Err(SessionPersistenceError::WritableReuseBlocked);
         }
         Ok(())
@@ -524,7 +628,17 @@ fn hydrate_from_opened(
     opened: &OpenedStoreSession,
     store_root: &Path,
 ) -> Result<HydratedSession, SessionPersistenceError> {
-    if opened.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2 {
+    let bound_project_id_raw = if opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        Some(load_bound_project_id(
+            &opened.connection,
+            &opened.session_id,
+        )?)
+    } else if opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+        load_optional_bound_project_id(&opened.connection, &opened.session_id)?
+    } else {
+        None
+    };
+    let Some(project_id_raw) = bound_project_id_raw else {
         let session = hydrate_application_review_session(opened, None)?;
         return Ok(HydratedSession {
             session,
@@ -532,8 +646,7 @@ fn hydrate_from_opened(
             project_memory_available: true,
             project_memory_snapshot: None,
         });
-    }
-    let project_id_raw = load_bound_project_id(&opened.connection, &opened.session_id)?;
+    };
     let project_id = ProjectScopeId::new(project_id_raw.clone())
         .map_err(|_| SessionPersistenceError::CanonicalMismatch("bound project id".to_owned()))?;
     let project_store = ProductProjectMemoryStore::new(store_root);

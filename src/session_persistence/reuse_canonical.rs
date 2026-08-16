@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::reusable_influence::ReuseCandidateKey;
-use crate::reuse_primitives::{
-    ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ReusableInfluenceRecordId,
-    ReusableInfluenceSnapshotIdentity, SourceDecisionLocator,
-};
 use crate::reusable_influence::{
     ExactReusableCorrection, GovernanceActorContext, ReusableGovernanceEvent,
+};
+use crate::reuse_primitives::{
+    ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ReusableInfluenceRecordId,
+    ReusableInfluenceSnapshotIdentity, SourceDecisionLocator, SourceDecisionLocatorOrigin,
 };
 use crate::session_persistence::canonical::{
     PersistedAnalysisSnapshotV1, encode_digest_hex, persist_analysis_snapshot,
@@ -26,10 +26,22 @@ pub(crate) struct PersistedGovernanceActorV1 {
     pub(crate) display_label: String,
 }
 
+pub(crate) const PERSISTED_LOCATOR_ORIGIN_KIND_DETECTOR: &str = "detector";
+pub(crate) const PERSISTED_LOCATOR_ORIGIN_KIND_HUMAN: &str = "human";
+
+/// Persisted locator shape.
+///
+/// `origin_kind` is additive: records written before MD-022 omit it and restore as
+/// `DetectorRaised`, which keeps their required `source_analysis_snapshot` present.
+/// Human-raised records write `origin_kind = "human"` and omit the snapshot rather
+/// than inventing one.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PersistedSourceDecisionLocatorV1 {
     pub(crate) source_revision: String,
-    pub(crate) source_analysis_snapshot: PersistedAnalysisSnapshotV1,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) origin_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) source_analysis_snapshot: Option<PersistedAnalysisSnapshotV1>,
     pub(crate) source_review_case_local_index: usize,
     pub(crate) review_ledger_position: usize,
     pub(crate) decision_digest_hex: String,
@@ -108,7 +120,9 @@ pub(crate) fn restore_project_scope(
     )))
 }
 
-pub(crate) fn persist_governance_actor(actor: &GovernanceActorContext) -> PersistedGovernanceActorV1 {
+pub(crate) fn persist_governance_actor(
+    actor: &GovernanceActorContext,
+) -> PersistedGovernanceActorV1 {
     PersistedGovernanceActorV1 {
         role_label: actor.role_label.clone(),
         display_label: actor.display_label.clone(),
@@ -127,10 +141,23 @@ pub(crate) fn restore_governance_actor(
 pub(crate) fn persist_source_locator(
     locator: &SourceDecisionLocator,
 ) -> PersistedSourceDecisionLocatorV1 {
+    let (origin_kind, source_analysis_snapshot) = match &locator.origin {
+        SourceDecisionLocatorOrigin::DetectorRaised {
+            source_analysis_snapshot,
+            ..
+        } => (
+            PERSISTED_LOCATOR_ORIGIN_KIND_DETECTOR,
+            Some(persist_analysis_snapshot(*source_analysis_snapshot)),
+        ),
+        SourceDecisionLocatorOrigin::HumanRaised { .. } => {
+            (PERSISTED_LOCATOR_ORIGIN_KIND_HUMAN, None)
+        }
+    };
     PersistedSourceDecisionLocatorV1 {
         source_revision: locator.source_revision.to_tagged_string(),
-        source_analysis_snapshot: persist_analysis_snapshot(locator.source_analysis_snapshot),
-        source_review_case_local_index: locator.source_review_case_id.local_index(),
+        origin_kind: Some(origin_kind.to_owned()),
+        source_analysis_snapshot,
+        source_review_case_local_index: locator.source_review_case_id().local_index(),
         review_ledger_position: locator.review_ledger_position,
         decision_digest_hex: encode_digest_hex(locator.decision_digest),
         effective_at_ledger_length: locator.effective_at_ledger_length,
@@ -140,14 +167,48 @@ pub(crate) fn persist_source_locator(
 pub(crate) fn restore_source_locator(
     persisted: &PersistedSourceDecisionLocatorV1,
 ) -> Result<SourceDecisionLocator, SessionPersistenceError> {
-    let source_analysis_snapshot =
-        restore_analysis_snapshot_from_persisted(&persisted.source_analysis_snapshot)?;
+    let local_index = persisted.source_review_case_local_index;
+    let (source_revision, origin) = match persisted.origin_kind.as_deref() {
+        None | Some(PERSISTED_LOCATOR_ORIGIN_KIND_DETECTOR) => {
+            let persisted_snapshot =
+                persisted.source_analysis_snapshot.as_ref().ok_or_else(|| {
+                    SessionPersistenceError::CanonicalMismatch(
+                        "detector-raised source locator requires source_analysis_snapshot".into(),
+                    )
+                })?;
+            let source_analysis_snapshot =
+                restore_analysis_snapshot_from_persisted(persisted_snapshot)?;
+            (
+                source_analysis_snapshot.source_revision(),
+                SourceDecisionLocatorOrigin::DetectorRaised {
+                    source_analysis_snapshot,
+                    source_review_case_id: crate::review::ReviewCaseId::local(local_index),
+                },
+            )
+        }
+        Some(PERSISTED_LOCATOR_ORIGIN_KIND_HUMAN) => {
+            if persisted.source_analysis_snapshot.is_some() {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "human-raised source locator must not carry source_analysis_snapshot".into(),
+                ));
+            }
+            let source_revision = parse_revision_tag(&persisted.source_revision)?;
+            (
+                source_revision,
+                SourceDecisionLocatorOrigin::HumanRaised {
+                    human_raised_case_id: crate::review::ReviewCaseId::human(local_index),
+                },
+            )
+        }
+        Some(_) => {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "unknown source locator origin_kind".into(),
+            ));
+        }
+    };
     Ok(SourceDecisionLocator {
-        source_revision: source_analysis_snapshot.source_revision(),
-        source_analysis_snapshot,
-        source_review_case_id: crate::review::ReviewCaseId::local(
-            persisted.source_review_case_local_index,
-        ),
+        source_revision,
+        origin,
         review_ledger_position: persisted.review_ledger_position,
         decision_digest: parse_digest_hex(&persisted.decision_digest_hex)?,
         effective_at_ledger_length: persisted.effective_at_ledger_length,
@@ -319,14 +380,29 @@ pub(crate) fn verify_persisted_analysis_matches_runtime(
     verify_analysis_snapshot(persisted, actual)
 }
 
+fn parse_revision_tag(
+    tag: &str,
+) -> Result<crate::anchor::TranscriptRevisionId, SessionPersistenceError> {
+    let hex = tag.strip_prefix("rev:sha256-v1:").ok_or_else(|| {
+        SessionPersistenceError::CanonicalMismatch("source locator source_revision".into())
+    })?;
+    Ok(crate::anchor::TranscriptRevisionId::from_sha256_digest(
+        parse_digest_hex(hex)?,
+    ))
+}
+
 fn parse_digest_hex(hex: &str) -> Result<[u8; 32], SessionPersistenceError> {
     if hex.len() != 64 {
-        return Err(SessionPersistenceError::CanonicalMismatch("decision digest".into()));
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "decision digest".into(),
+        ));
     }
     let mut digest = [0_u8; 32];
     for (index, chunk) in hex.as_bytes().chunks(2).enumerate() {
         if index >= 32 || chunk.len() != 2 {
-            return Err(SessionPersistenceError::CanonicalMismatch("decision digest".into()));
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "decision digest".into(),
+            ));
         }
         let hi = (chunk[0] as char)
             .to_digit(16)
