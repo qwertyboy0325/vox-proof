@@ -380,6 +380,33 @@ pub(crate) const fn reuse_enabled_session_term_analysis_identity() -> AnalysisCo
     REUSE_ENABLED_SESSION_TERM_ANALYSIS_IDENTITY
 }
 
+pub(crate) fn detector_config_identity_from_parts(
+    id: &str,
+    version: &str,
+) -> Option<DetectorConfigIdentity> {
+    for config in [
+        CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
+        REUSE_ENABLED_SESSION_TERM_DETECTOR_CONFIG,
+    ] {
+        if config.id() == id && config.version() == version {
+            return Some(config);
+        }
+    }
+    None
+}
+
+pub(crate) fn algorithm_identity_from_parts(id: &str, version: &str) -> Option<AlgorithmIdentity> {
+    for algorithm in [
+        CANONICAL_SESSION_TERM_ALGORITHM,
+        REUSE_ENABLED_SESSION_TERM_ALGORITHM,
+    ] {
+        if algorithm.id() == id && algorithm.version() == version {
+            return Some(algorithm);
+        }
+    }
+    None
+}
+
 fn validate_detection_inputs_with_configuration(
     run: &AnalysisRun,
     transcript: &Transcript,

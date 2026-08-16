@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::analysis::AnalysisSnapshot;
 use crate::anchor::TranscriptRevisionId;
 use crate::application_service::ApplicationReviewSession;
+use crate::analysis::AnalysisSnapshot;
 use crate::candidate::{
-    CandidateAlternative, CandidateSpan, DetectionKind, DetectorProvenance, Evidence,
-    GlossaryAliasEvidence, ObservedErrorFormEvidence, SessionTermEntry,
+    AsciiLatinPhoneticRepresentation, CandidateAlternative, CandidateSpan, DetectionKind,
+    DetectorProvenance, Evidence, GlossaryAliasEvidence, ObservedErrorFormEvidence,
+    PhoneticComparisonFacts, PhoneticSimilarityEvidence, PhoneticTargetKind, SessionTermEntry,
+    algorithm_identity_from_parts, detector_config_identity_from_parts,
 };
 use crate::pipeline::CanonicalTermReviewRun;
 use crate::review::{CorrectionDecision, ReviewCase, ReviewCaseId, ReviewLedgerEvent};
@@ -36,10 +38,46 @@ pub(crate) struct PersistedSessionTermV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedDetectorIdentityV1 {
+    pub(crate) id: String,
+    pub(crate) version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedDetectorConfigIdentityV1 {
+    pub(crate) id: String,
+    pub(crate) version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedAlgorithmIdentityV1 {
+    pub(crate) id: String,
+    pub(crate) version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PersistedAnalysisSnapshotV1 {
     pub(crate) source_revision: String,
     pub(crate) session_terms_identity: String,
-    pub(crate) configuration_profile: String,
+    pub(crate) detectors: Vec<PersistedDetectorIdentityV1>,
+    pub(crate) detector_config: PersistedDetectorConfigIdentityV1,
+    pub(crate) algorithm: PersistedAlgorithmIdentityV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedAsciiLatinPhoneticRepresentationV1 {
+    pub(crate) normalized_letters: String,
+    pub(crate) primary_key: String,
+    pub(crate) alternate_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedPhoneticComparisonFactsV1 {
+    pub(crate) edit_distance: usize,
+    pub(crate) ratio_numerator: usize,
+    pub(crate) ratio_denominator: usize,
+    pub(crate) ratio_permille: usize,
+    pub(crate) matched_key: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +94,19 @@ pub(crate) enum PersistedEvidenceV1 {
         aliases: Vec<String>,
         observed_error_forms: Vec<String>,
         matched_form: String,
+    },
+    PhoneticSimilarity {
+        observed_surface: String,
+        target_surface: String,
+        target_kind: String,
+        canonical_term: String,
+        source_representation: PersistedAsciiLatinPhoneticRepresentationV1,
+        target_representation: PersistedAsciiLatinPhoneticRepresentationV1,
+        comparison: PersistedPhoneticComparisonFactsV1,
+        detector_config_id: String,
+        detector_config_version: String,
+        algorithm_id: String,
+        algorithm_version: String,
     },
 }
 
@@ -146,10 +197,27 @@ pub(crate) fn restore_session_terms(
 }
 
 pub(crate) fn persist_analysis_snapshot(snapshot: AnalysisSnapshot) -> PersistedAnalysisSnapshotV1 {
+    let configuration = snapshot.configuration();
     PersistedAnalysisSnapshotV1 {
         source_revision: snapshot.source_revision().to_tagged_string(),
         session_terms_identity: snapshot.session_terms().to_tagged_string(),
-        configuration_profile: "canonical_session_terms_v1".to_owned(),
+        detectors: configuration
+            .detector_set()
+            .detectors()
+            .iter()
+            .map(|detector| PersistedDetectorIdentityV1 {
+                id: detector.id().to_owned(),
+                version: detector.version().to_owned(),
+            })
+            .collect(),
+        detector_config: PersistedDetectorConfigIdentityV1 {
+            id: configuration.detector_config().id().to_owned(),
+            version: configuration.detector_config().version().to_owned(),
+        },
+        algorithm: PersistedAlgorithmIdentityV1 {
+            id: configuration.algorithm().id().to_owned(),
+            version: configuration.algorithm().version().to_owned(),
+        },
     }
 }
 
@@ -159,10 +227,39 @@ pub(crate) fn verify_analysis_snapshot(
 ) -> Result<(), SessionPersistenceError> {
     if persisted.source_revision != actual.source_revision().to_tagged_string()
         || persisted.session_terms_identity != actual.session_terms().to_tagged_string()
-        || persisted.configuration_profile != "canonical_session_terms_v1"
     {
         return Err(SessionPersistenceError::CanonicalMismatch(
             "analysis snapshot identity mismatch".to_owned(),
+        ));
+    }
+    let configuration = actual.configuration();
+    let actual_detectors = configuration.detector_set().detectors();
+    if persisted.detectors.len() != actual_detectors.len() {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "analysis detector set length mismatch".to_owned(),
+        ));
+    }
+    for (persisted_detector, actual_detector) in persisted.detectors.iter().zip(actual_detectors) {
+        if persisted_detector.id != actual_detector.id()
+            || persisted_detector.version != actual_detector.version()
+        {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "analysis detector identity mismatch".to_owned(),
+            ));
+        }
+    }
+    if persisted.detector_config.id != configuration.detector_config().id()
+        || persisted.detector_config.version != configuration.detector_config().version()
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "analysis detector config identity mismatch".to_owned(),
+        ));
+    }
+    if persisted.algorithm.id != configuration.algorithm().id()
+        || persisted.algorithm.version != configuration.algorithm().version()
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "analysis algorithm identity mismatch".to_owned(),
         ));
     }
     Ok(())
@@ -184,7 +281,20 @@ pub(crate) fn persist_review_case(review_case: &ReviewCase) -> Result<PersistedR
             observed_error_forms: value.entry.observed_error_forms.clone(),
             matched_form: value.matched_form.clone(),
         },
-        _ => {
+        Evidence::PhoneticSimilarity(value) => PersistedEvidenceV1::PhoneticSimilarity {
+            observed_surface: value.observed_surface.clone(),
+            target_surface: value.target_surface.clone(),
+            target_kind: persist_phonetic_target_kind(value.target_kind),
+            canonical_term: value.canonical_term.clone(),
+            source_representation: persist_phonetic_representation(&value.source_representation),
+            target_representation: persist_phonetic_representation(&value.target_representation),
+            comparison: persist_phonetic_comparison(&value.comparison),
+            detector_config_id: value.detector_config.id().to_owned(),
+            detector_config_version: value.detector_config.version().to_owned(),
+            algorithm_id: value.algorithm.id().to_owned(),
+            algorithm_version: value.algorithm.version().to_owned(),
+        },
+        Evidence::ReusableExactObservedForm(_) => {
             return Err(SessionPersistenceError::CanonicalMismatch(
                 "unsupported review case evidence variant for product persistence v1".to_owned(),
             ));
@@ -245,6 +355,46 @@ pub(crate) fn restore_review_case(
             ),
             matched_form: matched_form.clone(),
         }),
+        PersistedEvidenceV1::PhoneticSimilarity {
+            observed_surface,
+            target_surface,
+            target_kind,
+            canonical_term,
+            source_representation,
+            target_representation,
+            comparison,
+            detector_config_id,
+            detector_config_version,
+            algorithm_id,
+            algorithm_version,
+        } => {
+            let detector_config = detector_config_identity_from_parts(
+                detector_config_id,
+                detector_config_version,
+            )
+            .ok_or_else(|| {
+                SessionPersistenceError::CanonicalMismatch(
+                    "phonetic detector config identity".to_owned(),
+                )
+            })?;
+            let algorithm = algorithm_identity_from_parts(algorithm_id, algorithm_version)
+                .ok_or_else(|| {
+                    SessionPersistenceError::CanonicalMismatch(
+                        "phonetic algorithm identity".to_owned(),
+                    )
+                })?;
+            Evidence::PhoneticSimilarity(PhoneticSimilarityEvidence {
+                observed_surface: observed_surface.clone(),
+                target_surface: target_surface.clone(),
+                target_kind: restore_phonetic_target_kind(target_kind)?,
+                canonical_term: canonical_term.clone(),
+                source_representation: restore_phonetic_representation(source_representation)?,
+                target_representation: restore_phonetic_representation(target_representation)?,
+                comparison: restore_phonetic_comparison(comparison)?,
+                detector_config,
+                algorithm,
+            })
+        }
     };
     let alternatives = persisted
         .alternatives
@@ -353,10 +503,23 @@ pub(crate) fn verify_review_cases(
 }
 
 pub(crate) fn snapshot_identity(snapshot: AnalysisSnapshot) -> String {
+    let configuration = snapshot.configuration();
+    let detector_part = configuration
+        .detector_set()
+        .detectors()
+        .iter()
+        .map(|detector| format!("{}@{}", detector.id(), detector.version()))
+        .collect::<Vec<_>>()
+        .join(",");
     format!(
-        "{}|{}|canonical_session_terms_v1",
+        "{}|{}|{}|{}@{}|{}@{}",
         snapshot.source_revision().to_tagged_string(),
-        snapshot.session_terms().to_tagged_string()
+        snapshot.session_terms().to_tagged_string(),
+        detector_part,
+        configuration.detector_config().id(),
+        configuration.detector_config().version(),
+        configuration.algorithm().id(),
+        configuration.algorithm().version(),
     )
 }
 
@@ -414,4 +577,65 @@ pub(crate) struct SessionCanonicalCapture {
     pub authority_display_label: String,
     pub review_ledger_head: usize,
     pub ledger_events: Vec<PersistedReviewLedgerEventV1>,
+}
+
+fn persist_phonetic_target_kind(kind: PhoneticTargetKind) -> String {
+    match kind {
+        PhoneticTargetKind::CanonicalTerm => "canonical_term".to_owned(),
+        PhoneticTargetKind::Alias => "alias".to_owned(),
+    }
+}
+
+fn restore_phonetic_target_kind(kind: &str) -> Result<PhoneticTargetKind, SessionPersistenceError> {
+    match kind {
+        "canonical_term" => Ok(PhoneticTargetKind::CanonicalTerm),
+        "alias" => Ok(PhoneticTargetKind::Alias),
+        _ => Err(SessionPersistenceError::CanonicalMismatch(
+            "phonetic target kind".to_owned(),
+        )),
+    }
+}
+
+fn persist_phonetic_representation(
+    representation: &AsciiLatinPhoneticRepresentation,
+) -> PersistedAsciiLatinPhoneticRepresentationV1 {
+    PersistedAsciiLatinPhoneticRepresentationV1 {
+        normalized_letters: representation.normalized_letters.clone(),
+        primary_key: representation.primary_key.clone(),
+        alternate_key: representation.alternate_key.clone(),
+    }
+}
+
+fn restore_phonetic_representation(
+    persisted: &PersistedAsciiLatinPhoneticRepresentationV1,
+) -> Result<AsciiLatinPhoneticRepresentation, SessionPersistenceError> {
+    Ok(AsciiLatinPhoneticRepresentation {
+        normalized_letters: persisted.normalized_letters.clone(),
+        primary_key: persisted.primary_key.clone(),
+        alternate_key: persisted.alternate_key.clone(),
+    })
+}
+
+fn persist_phonetic_comparison(
+    comparison: &PhoneticComparisonFacts,
+) -> PersistedPhoneticComparisonFactsV1 {
+    PersistedPhoneticComparisonFactsV1 {
+        edit_distance: comparison.edit_distance,
+        ratio_numerator: comparison.ratio_numerator,
+        ratio_denominator: comparison.ratio_denominator,
+        ratio_permille: comparison.ratio_permille,
+        matched_key: comparison.matched_key.clone(),
+    }
+}
+
+fn restore_phonetic_comparison(
+    persisted: &PersistedPhoneticComparisonFactsV1,
+) -> Result<PhoneticComparisonFacts, SessionPersistenceError> {
+    Ok(PhoneticComparisonFacts {
+        edit_distance: persisted.edit_distance,
+        ratio_numerator: persisted.ratio_numerator,
+        ratio_denominator: persisted.ratio_denominator,
+        ratio_permille: persisted.ratio_permille,
+        matched_key: persisted.matched_key.clone(),
+    })
 }

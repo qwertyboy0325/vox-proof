@@ -1,11 +1,13 @@
 use std::fs;
+use std::sync::{Arc, Barrier};
+use std::thread;
 
 use tempfile::TempDir;
 use vox_proof::application_service::{
     ApplicationMaterialUseDeclaration, DeclaredApplicationMaterialUseBasis,
     DeclaredSessionAuthority, DeclaredSessionOperatorRole,
 };
-use vox_proof::candidate::SessionTermEntry;
+use vox_proof::candidate::{DetectionKind, Evidence, SessionTermEntry};
 use vox_proof::review::{CorrectionDecision, ReviewLedgerEvent};
 use vox_proof::session_persistence::{
     AuthorityScope, DurableApplicationSession, OpenMode, ProductSessionStore,
@@ -35,6 +37,25 @@ fn fixture_transcript() -> vox_proof::transcript::Transcript {
 
 fn fixture_terms() -> Vec<SessionTermEntry> {
     vec![alias_entry("Kafka", "Kafak")]
+}
+
+fn phonetic_transcript() -> vox_proof::transcript::Transcript {
+    parse_srt("1\n00:00:00,000 --> 00:00:01,000\nASIS").expect("transcript")
+}
+
+fn phonetic_terms() -> Vec<SessionTermEntry> {
+    vec![SessionTermEntry::new("ASUS", vec![], vec![])]
+}
+
+fn phonetic_review_case(
+    session: &vox_proof::application_service::ApplicationReviewSession,
+) -> vox_proof::review::ReviewCase {
+    session
+        .review_items()
+        .into_iter()
+        .find(|item| item.review_case.candidate_span().kind() == DetectionKind::PhoneticSimilarity)
+        .expect("phonetic review case")
+        .review_case
 }
 
 #[test]
@@ -614,4 +635,208 @@ fn read_only_open_does_not_acquire_writer_or_mutate_ledger() {
     let readonly_again =
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly).expect("reopen");
     assert_eq!(readonly_again.session().review_ledger().events().len(), 0);
+}
+
+#[test]
+fn detector_version_tamper_fails_closed_on_reopen() {
+    tampered_analysis_snapshot_reopen_fails(
+        "UPDATE analysis_snapshots SET snapshot_json = json_set(snapshot_json, '$.detectors[0].version', 'tampered') WHERE session_id = ?1",
+    );
+}
+
+#[test]
+fn detector_config_identity_tamper_fails_closed_on_reopen() {
+    tampered_analysis_snapshot_reopen_fails(
+        "UPDATE analysis_snapshots SET snapshot_json = json_set(snapshot_json, '$.detector_config.version', 'tampered') WHERE session_id = ?1",
+    );
+}
+
+#[test]
+fn algorithm_identity_tamper_fails_closed_on_reopen() {
+    tampered_analysis_snapshot_reopen_fails(
+        "UPDATE analysis_snapshots SET snapshot_json = json_set(snapshot_json, '$.algorithm.version', 'tampered') WHERE session_id = ?1",
+    );
+}
+
+fn tampered_analysis_snapshot_reopen_fails(sql: &str) {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let durable = DurableApplicationSession::create(
+        &store,
+        fixture_transcript(),
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let session_id = durable.session_id().to_owned();
+    let db_path = temp.path().join(&session_id).join("session.db");
+    durable.close().expect("close");
+    let connection = rusqlite::Connection::open(&db_path).expect("open db");
+    connection
+        .execute(sql, [&session_id])
+        .expect("tamper analysis snapshot");
+    drop(connection);
+    assert!(matches!(
+        DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly),
+        Err(SessionPersistenceError::CanonicalMismatch(_))
+    ));
+}
+
+#[test]
+fn phonetic_review_case_round_trips_as_authoritative_authority() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let durable = DurableApplicationSession::create(
+        &store,
+        phonetic_transcript(),
+        phonetic_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let original_case = phonetic_review_case(durable.session());
+    assert!(matches!(
+        original_case.candidate_span().evidence(),
+        Evidence::PhoneticSimilarity(_)
+    ));
+    let session_id = durable.session_id().to_owned();
+    durable.close().expect("close");
+    let reopened =
+        DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly).expect("reopen");
+    let reopened_case = phonetic_review_case(reopened.session());
+    assert_eq!(reopened_case, original_case);
+}
+
+#[test]
+fn phonetic_review_case_decision_survives_reopen() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = DurableApplicationSession::create(
+        &store,
+        phonetic_transcript(),
+        phonetic_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let target = durable.session().review_items()[0].target;
+    let prepared = durable
+        .prepare_human_decision(
+            target,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .expect("prepare");
+    durable
+        .record_human_decision(prepared)
+        .expect("durable decision");
+    let session_id = durable.session_id().to_owned();
+    durable.close().expect("close");
+    let reopened =
+        DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly).expect("reopen");
+    let projection = reopened
+        .session()
+        .derive_current_projection()
+        .expect("projection");
+    assert!(projection.srt.contains("ASUS"));
+}
+
+#[test]
+fn concurrent_writable_acquisition_allows_exactly_one_owner() {
+    let temp = TempDir::new().expect("tempdir");
+    let store_path = temp.path().to_path_buf();
+    let store = ProductSessionStore::new(&store_path);
+    let durable = DurableApplicationSession::create(
+        &store,
+        fixture_transcript(),
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let session_id = durable.session_id().to_owned();
+    durable.close().expect("close");
+
+    let barrier = Arc::new(Barrier::new(2));
+    let session_id_a = session_id.clone();
+    let session_id_b = session_id.clone();
+    let path_a = store_path.clone();
+    let path_b = store_path;
+    let barrier_a = Arc::clone(&barrier);
+    let barrier_b = Arc::clone(&barrier);
+    let handle_a = thread::spawn(move || {
+        barrier_a.wait();
+        let store = ProductSessionStore::new(&path_a);
+        DurableApplicationSession::open(&store, &session_id_a, OpenMode::Writable).is_ok()
+    });
+    let handle_b = thread::spawn(move || {
+        barrier_b.wait();
+        let store = ProductSessionStore::new(&path_b);
+        DurableApplicationSession::open(&store, &session_id_b, OpenMode::Writable).is_ok()
+    });
+    let ok_a = handle_a.join().expect("join a");
+    let ok_b = handle_b.join().expect("join b");
+    assert_ne!(ok_a, ok_b);
+    assert!(ok_a || ok_b);
+}
+
+#[test]
+fn authoritative_transaction_rejects_mismatched_writer_token_without_mutation() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = DurableApplicationSession::create(
+        &store,
+        fixture_transcript(),
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let session_id = durable.session_id().to_owned();
+    let db_path = temp.path().join(&session_id).join("session.db");
+    let connection = rusqlite::Connection::open(&db_path).expect("open db");
+    connection
+        .execute(
+            "UPDATE writer_ownership SET writer_token = 'foreign-token' WHERE session_id = ?1",
+            [&session_id],
+        )
+        .expect("tamper writer token");
+    drop(connection);
+    let target = durable.session().review_items()[0].target;
+    let prepared = durable
+        .prepare_human_decision(
+            target,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .expect("prepare");
+    assert!(matches!(
+        durable.record_human_decision(prepared),
+        Err(SessionPersistenceError::WriterOwnershipHeld)
+    ));
+    assert_eq!(durable.session().review_ledger().events().len(), 0);
+    durable.close().expect_err("stale handle cannot release foreign token");
+}
+
+#[test]
+fn release_only_clears_own_writer_token() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let durable = DurableApplicationSession::create(
+        &store,
+        fixture_transcript(),
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let session_id = durable.session_id().to_owned();
+    durable.close().expect("close");
+    let first =
+        DurableApplicationSession::open(&store, &session_id, OpenMode::Writable).expect("first");
+    first.close().expect("release first");
+    DurableApplicationSession::open(&store, &session_id, OpenMode::Writable).expect("second acquire");
 }

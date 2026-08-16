@@ -135,7 +135,7 @@ impl ProductSessionStore {
             OpenMode::Writable => OpenFlags::SQLITE_OPEN_READ_WRITE,
             OpenMode::ReadOnly => OpenFlags::SQLITE_OPEN_READ_ONLY,
         };
-        let connection = Connection::open_with_flags(&db_path, flags)
+        let mut connection = Connection::open_with_flags(&db_path, flags)
             .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
         configure_connection(&connection)?;
         let format_version = load_format_version(&connection, session_id)?;
@@ -146,23 +146,21 @@ impl ProductSessionStore {
             });
         }
         let writer_token = if mode == OpenMode::Writable {
-            let existing: Option<String> = connection
-                .query_row(
-                    "SELECT writer_token FROM writer_ownership WHERE session_id = ?1",
-                    [session_id],
-                    |row| row.get(0),
-                )
-                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
-            if existing.is_some() {
-                return Err(SessionPersistenceError::WriterOwnershipHeld);
-            }
             let token = Uuid::new_v4().to_string();
             let pid = std::process::id() as i64;
-            connection
+            let tx = connection
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            let updated = tx
                 .execute(
-                    "UPDATE writer_ownership SET writer_token = ?1, holder_pid = ?2, lease_expires_at_unix_ms = 0 WHERE session_id = ?3",
+                    "UPDATE writer_ownership SET writer_token = ?1, holder_pid = ?2, lease_expires_at_unix_ms = 0 WHERE session_id = ?3 AND writer_token IS NULL",
                     params![token, pid, session_id],
                 )
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            if updated != 1 {
+                return Err(SessionPersistenceError::WriterOwnershipHeld);
+            }
+            tx.commit()
                 .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
             Some(token)
         } else {
@@ -187,10 +185,16 @@ impl ProductSessionStore {
         if opened.writer_token.is_none() {
             return Err(SessionPersistenceError::WriterOwnershipHeld);
         }
+        let writer_token = opened
+            .writer_token
+            .as_ref()
+            .expect("writer token checked above")
+            .clone();
         let tx = opened
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        verify_writer_token_in_transaction(&tx, &opened.session_id, &writer_token)?;
         let current_head: usize = tx
             .query_row(
                 "SELECT review_ledger_head FROM command_tokens WHERE session_id = ?1",
@@ -259,11 +263,19 @@ impl ProductSessionStore {
         if opened.mode != OpenMode::Writable {
             return Ok(());
         }
-        opened.connection.execute(
-            "UPDATE writer_ownership SET writer_token = NULL, holder_pid = NULL, lease_expires_at_unix_ms = 0 WHERE session_id = ?1",
-            [&opened.session_id],
-        )
-        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let writer_token = opened.writer_token.as_ref().ok_or_else(|| {
+            SessionPersistenceError::WriterOwnershipHeld
+        })?;
+        let updated = opened
+            .connection
+            .execute(
+                "UPDATE writer_ownership SET writer_token = NULL, holder_pid = NULL, lease_expires_at_unix_ms = 0 WHERE session_id = ?1 AND writer_token = ?2",
+                params![opened.session_id, writer_token],
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        if updated != 1 {
+            return Err(SessionPersistenceError::WriterOwnershipHeld);
+        }
         opened.writer_token = None;
         Ok(())
     }
@@ -580,6 +592,24 @@ fn validate_session_id(session_id: &str) -> Result<(), SessionPersistenceError> 
         return Err(SessionPersistenceError::InvalidSessionId);
     }
     Ok(())
+}
+
+fn verify_writer_token_in_transaction(
+    tx: &rusqlite::Transaction<'_>,
+    session_id: &str,
+    expected_token: &str,
+) -> Result<(), SessionPersistenceError> {
+    let db_token: Option<String> = tx
+        .query_row(
+            "SELECT writer_token FROM writer_ownership WHERE session_id = ?1",
+            [session_id],
+            |row| row.get(0),
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    match db_token.as_deref() {
+        Some(token) if token == expected_token => Ok(()),
+        _ => Err(SessionPersistenceError::WriterOwnershipHeld),
+    }
 }
 
 fn parse_revision_tag(tag: &str) -> Result<crate::anchor::TranscriptRevisionId, SessionPersistenceError> {
