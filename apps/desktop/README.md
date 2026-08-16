@@ -68,7 +68,8 @@ stores display metadata such as the source file name. The sidecar is optional,
 fail-soft, and never participates in authority reconstruction.
 
 Writable resume refuses when another process already holds writer ownership.
-Read-only resume is offered automatically when writable open is unavailable.
+Explicit read-only open is offered only after a writable open reports that
+condition; other writable failures do not change access mode automatically.
 
 ## Limitations and non-goals
 
