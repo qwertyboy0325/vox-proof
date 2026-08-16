@@ -27,6 +27,7 @@ pub struct ReviewApp {
     manual_replacement_draft: String,
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
+    resume_session_id_draft: String,
     error: Option<String>,
     status: String,
     cjk_font_loaded: bool,
@@ -48,6 +49,7 @@ impl ReviewApp {
             manual_replacement_draft: String::new(),
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
+            resume_session_id_draft: String::new(),
             error: None,
             status: "Choose an SRT and session-terms file to begin.".to_owned(),
             cjk_font_loaded,
@@ -93,6 +95,9 @@ impl ReviewApp {
             self.selected_alternative = 0;
             self.manual_replacement_draft.clear();
         }
+        if !self.controller.mutations_enabled() {
+            return;
+        }
         for (index, key) in [
             (0, egui::Key::Num1),
             (1, egui::Key::Num2),
@@ -130,9 +135,9 @@ impl ReviewApp {
     }
 
     fn apply_decision(&mut self, decision: CorrectionDecision) {
-        let generation = self.controller.generation();
+        let ui_session_epoch = self.controller.ui_session_epoch();
         let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
-        match self.controller.record_decision(generation, decision) {
+        match self.controller.record_decision(ui_session_epoch, decision) {
             Ok(()) => {
                 self.error = None;
                 self.status = if invalidates_prior_export {
@@ -140,7 +145,7 @@ impl ReviewApp {
                      represent the current session; export again to produce current outputs."
                         .to_owned()
                 } else {
-                    "Human decision recorded in the in-memory session.".to_owned()
+                    "Decision durably committed.".to_owned()
                 };
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
@@ -150,11 +155,11 @@ impl ReviewApp {
     }
 
     fn apply_manual_replacement(&mut self) {
-        let generation = self.controller.generation();
+        let ui_session_epoch = self.controller.ui_session_epoch();
         let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
         match self
             .controller
-            .record_manual_replacement(generation, self.manual_replacement_draft.clone())
+            .record_manual_replacement(ui_session_epoch, self.manual_replacement_draft.clone())
         {
             Ok(()) => {
                 self.error = None;
@@ -163,7 +168,7 @@ impl ReviewApp {
                      represent the current session; export again to produce current outputs."
                         .to_owned()
                 } else {
-                    "Manual Replacement recorded in the in-memory session.".to_owned()
+                    "Manual Replacement durably committed.".to_owned()
                 };
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
@@ -173,19 +178,23 @@ impl ReviewApp {
     }
 
     fn reset(&mut self) {
-        self.controller.reset();
-        self.transcript_path.clear();
-        self.terms_path.clear();
-        self.operator_label.clear();
-        self.material_use = DeclaredApplicationMaterialUseBasis::SelfOwned;
-        self.role = DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator;
-        self.search.clear();
-        self.selected_alternative = 0;
-        self.manual_replacement_draft.clear();
-        self.bottom_tab = BottomTab::CurrentPreview;
-        self.confirm_unresolved_source_retained = false;
-        self.error = None;
-        self.status = "Session reset. Choose inputs to begin again.".to_owned();
+        match self.controller.reset() {
+            Ok(()) => {
+                self.transcript_path.clear();
+                self.terms_path.clear();
+                self.operator_label.clear();
+                self.material_use = DeclaredApplicationMaterialUseBasis::SelfOwned;
+                self.role = DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator;
+                self.search.clear();
+                self.selected_alternative = 0;
+                self.manual_replacement_draft.clear();
+                self.bottom_tab = BottomTab::CurrentPreview;
+                self.confirm_unresolved_source_retained = false;
+                self.error = None;
+                self.status = "Session closed. Choose inputs to begin again.".to_owned();
+            }
+            Err(error) => self.error = Some(error.to_string()),
+        }
     }
 }
 
@@ -206,6 +215,9 @@ impl eframe::App for ReviewApp {
             DesktopPhase::Setup => {
                 egui::CentralPanel::default().show(ui, |ui| self.setup(ui));
             }
+            DesktopPhase::RecoveryRequired => {
+                egui::CentralPanel::default().show(ui, |ui| self.recovery(ui));
+            }
             DesktopPhase::ActiveReview | DesktopPhase::ExportCompleted => self.review(ui),
         }
     }
@@ -216,7 +228,7 @@ impl ReviewApp {
         ui.horizontal(|ui| {
             ui.heading("VoxProof v0.2 Native Review");
             ui.separator();
-            ui.label("egui 0.35.0 · in-memory · local-first");
+            ui.label("egui 0.35.0 · local durable session");
             ui.separator();
             ui.label("繁體中文 / 简体中文 / 日本語");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -225,7 +237,7 @@ impl ReviewApp {
                 {
                     self.reset();
                 }
-                ui.small(format!("generation {}", self.controller.generation()));
+                ui.small(format!("ui_session_epoch {}", self.controller.ui_session_epoch()));
             });
         });
     }
@@ -330,13 +342,85 @@ impl ReviewApp {
                 });
             });
 
+            ui.add_space(16.0);
+            ui.separator();
+            ui.heading("Resume local session");
+            ui.label(
+                "Open an existing durable session from the local session store. Writable open \
+                 refuses when another writer holds ownership.",
+            );
+            if ui.button("Refresh local sessions").clicked() {
+                match self.controller.refresh_available_sessions() {
+                    Ok(()) => self.error = None,
+                    Err(error) => self.error = Some(error.to_string()),
+                }
+            }
+            let available = self.controller.available_session_ids().to_vec();
+            if available.is_empty() {
+                ui.label("No local sessions found.");
+            } else {
+                egui::ComboBox::from_id_salt("resume-session-select")
+                    .selected_text(if self.resume_session_id_draft.is_empty() {
+                        "Select session ID".to_owned()
+                    } else {
+                        self.resume_session_id_draft.clone()
+                    })
+                    .show_ui(ui, |ui| {
+                        for session_id in &available {
+                            ui.selectable_value(
+                                &mut self.resume_session_id_draft,
+                                session_id.clone(),
+                                session_id,
+                            );
+                        }
+                    });
+                ui.horizontal(|ui| {
+                    let selected = !self.resume_session_id_draft.is_empty();
+                    if ui
+                        .add_enabled(selected, egui::Button::new("Open writable"))
+                        .clicked()
+                    {
+                        self.controller
+                            .select_resume_session_id(self.resume_session_id_draft.clone());
+                        match self.controller.open_selected_session_writable() {
+                            Ok(()) => {
+                                self.error = None;
+                                if let Some(session_id) = self.controller.session_id() {
+                                    self.status =
+                                        format!("Writable session opened ({session_id}).");
+                                }
+                            }
+                            Err(error) => self.error = Some(error.to_string()),
+                        }
+                    }
+                    if ui
+                        .add_enabled(selected, egui::Button::new("Open read-only"))
+                        .clicked()
+                    {
+                        self.controller
+                            .select_resume_session_id(self.resume_session_id_draft.clone());
+                        match self.controller.open_selected_session_read_only() {
+                            Ok(()) => {
+                                self.error = None;
+                                if let Some(session_id) = self.controller.session_id() {
+                                    self.status = format!(
+                                        "Read-only session opened ({session_id})."
+                                    );
+                                }
+                            }
+                            Err(error) => self.error = Some(error.to_string()),
+                        }
+                    }
+                });
+            }
+
             ui.add_space(12.0);
             let can_start = !self.transcript_path.trim().is_empty()
                 && !self.terms_path.trim().is_empty()
                 && !self.operator_label.trim().is_empty();
             if ui
                 .add_enabled(can_start, egui::Button::new("Begin review"))
-                .on_hover_text("Create a new in-memory ApplicationReviewSession")
+                .on_hover_text("Create a new local review session")
                 .clicked()
             {
                 let transcript = PathBuf::from(self.transcript_path.trim());
@@ -350,7 +434,12 @@ impl ReviewApp {
                 ) {
                     Ok(()) => {
                         self.error = None;
-                        self.status = "Review session started.".to_owned();
+                        if let Some(session_id) = self.controller.session_id() {
+                            self.status =
+                                format!("Review session created ({session_id}).");
+                        } else {
+                            self.status = "Review session created.".to_owned();
+                        }
                     }
                     Err(error) => self.error = Some(error.to_string()),
                 }
@@ -360,6 +449,34 @@ impl ReviewApp {
             } else {
                 "No preferred system CJK font was found; egui default fonts are active."
             });
+        });
+    }
+
+    fn recovery(&mut self, ui: &mut egui::Ui) {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.set_max_width(860.0);
+            ui.add_space(20.0);
+            ui.heading("Recovery required");
+            ui.label(
+                "The last command was durably committed, but the application could not \
+                 reconstruct current authority.",
+            );
+            if let Some(session_id) = self.controller.session_id() {
+                ui.label(format!("Session ID: {session_id}"));
+            }
+            ui.add_space(12.0);
+            if ui.button("Retry recovery").clicked() {
+                match self.controller.retry_recovery() {
+                    Ok(()) => {
+                        self.error = None;
+                        self.status = "Session recovered from durable authority.".to_owned();
+                    }
+                    Err(error) => self.error = Some(error.to_string()),
+                }
+            }
+            if ui.button("Close session").clicked() {
+                self.reset();
+            }
         });
     }
 
@@ -446,6 +563,10 @@ impl ReviewApp {
             }
         };
         ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(format!("Session ID: {}", header.session_id)).strong());
+            ui.separator();
+            ui.label(RichText::new(format!("Access: {}", header.access_mode)).strong());
+            ui.separator();
             ui.label(RichText::new(format!("Source: {}", header.source_path)).strong());
             ui.separator();
             ui.label(format!(
@@ -453,6 +574,12 @@ impl ReviewApp {
                 header.declared_operator, header.declared_role
             ));
         });
+        if let Some(note) = &header.source_path_note {
+            ui.small(note);
+        }
+        if self.controller.is_read_only() {
+            ui.colored_label(Color32::YELLOW, "Read-only session");
+        }
         ui.small(format!("Source revision: {}", header.source_revision));
         ui.horizontal(|ui| {
             ui.label(RichText::new(coverage_label(progress, items.len())).strong());
@@ -524,6 +651,7 @@ impl ReviewApp {
             );
         }
         ui.add_space(8.0);
+        let mutations_enabled = self.controller.mutations_enabled();
         ui.group(|ui| {
             ui.label(RichText::new("Governed Manual Replacement").strong());
             ui.label(
@@ -538,7 +666,13 @@ impl ReviewApp {
                         .desired_width(420.0)
                         .hint_text("Enter exact replacement text"),
                 );
-                if ui.button("Record Manual Replacement").clicked() {
+                if ui
+                    .add_enabled(
+                        mutations_enabled,
+                        egui::Button::new("Record Manual Replacement"),
+                    )
+                    .clicked()
+                {
                     self.apply_manual_replacement();
                 }
             });
@@ -547,7 +681,7 @@ impl ReviewApp {
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(
-                    accept_enabled(item.alternatives.len(), self.selected_alternative),
+                    mutations_enabled && accept_enabled(item.alternatives.len(), self.selected_alternative),
                     egui::Button::new("Accept alternative (A)"),
                 )
                 .clicked()
@@ -556,14 +690,23 @@ impl ReviewApp {
                     alternative_index: self.selected_alternative,
                 });
             }
-            if ui.button("Reject (R)").clicked() {
+            if ui
+                .add_enabled(mutations_enabled, egui::Button::new("Reject (R)"))
+                .clicked()
+            {
                 self.apply_decision(CorrectionDecision::Reject);
             }
-            if ui.button("Defer (D)").clicked() {
+            if ui
+                .add_enabled(mutations_enabled, egui::Button::new("Defer (D)"))
+                .clicked()
+            {
                 self.apply_decision(CorrectionDecision::Defer);
             }
             if ui
-                .button("Needs manual correction (M)")
+                .add_enabled(
+                    mutations_enabled,
+                    egui::Button::new("Needs manual correction (M)"),
+                )
                 .on_hover_text(
                     "Records only an unresolved signal; use the governed field above to record text",
                 )
@@ -598,18 +741,32 @@ impl ReviewApp {
                     .hint_text("presentation label"),
             );
         });
-        let generation = self.controller.generation();
+        let ui_session_epoch = self.controller.ui_session_epoch();
+        let mutations_enabled = self.controller.mutations_enabled();
         ui.horizontal(|ui| {
-            if ui.button("Initialize project scope").clicked() {
-                match self.controller.initialize_project_scope(generation) {
+            if ui
+                .add_enabled(
+                    mutations_enabled,
+                    egui::Button::new("Initialize project scope"),
+                )
+                .clicked()
+            {
+                match self.controller.initialize_project_scope(ui_session_epoch) {
                     Ok(()) => self.status = "Project scope initialized.".to_owned(),
                     Err(error) => self.error = Some(error.to_string()),
                 }
             }
-            if self.controller.has_project_scope() && ui.button("Update display label").clicked() {
+            if self.controller.has_project_scope()
+                && ui
+                    .add_enabled(
+                        mutations_enabled,
+                        egui::Button::new("Update display label"),
+                    )
+                    .clicked()
+            {
                 match self
                     .controller
-                    .update_project_scope_display_name(generation)
+                    .update_project_scope_display_name(ui_session_epoch)
                 {
                     Ok(()) => self.status = "Display label updated.".to_owned(),
                     Err(error) => self.error = Some(error.to_string()),
@@ -645,14 +802,26 @@ impl ReviewApp {
                         ));
                         let key = candidate.key.clone();
                         ui.horizontal(|ui| {
-                            if ui.button("Accept for reuse").clicked() {
-                                match self.controller.accept_reuse_candidate(generation, &key) {
+                            if ui
+                                .add_enabled(
+                                    mutations_enabled,
+                                    egui::Button::new("Accept for reuse"),
+                                )
+                                .clicked()
+                            {
+                                match self.controller.accept_reuse_candidate(ui_session_epoch, &key) {
                                     Ok(()) => self.status = "Promotion accepted.".to_owned(),
                                     Err(error) => self.error = Some(error.to_string()),
                                 }
                             }
-                            if ui.button("Reject promotion candidate").clicked() {
-                                match self.controller.reject_reuse_candidate(generation, &key) {
+                            if ui
+                                .add_enabled(
+                                    mutations_enabled,
+                                    egui::Button::new("Reject promotion candidate"),
+                                )
+                                .clicked()
+                            {
+                                match self.controller.reject_reuse_candidate(ui_session_epoch, &key) {
                                     Ok(()) => {
                                         self.status = "Promotion candidate rejected.".to_owned()
                                     }
@@ -689,9 +858,12 @@ impl ReviewApp {
                             );
                         }
                         ui.horizontal(|ui| {
-                            if ui.button("Revoke").clicked() {
+                            if ui
+                                .add_enabled(mutations_enabled, egui::Button::new("Revoke"))
+                                .clicked()
+                            {
                                 match self.controller.revoke_reusable_influence(
-                                    generation,
+                                    ui_session_epoch,
                                     record.record_id,
                                 ) {
                                     Ok(()) => self.status = "Record revoked.".to_owned(),
@@ -722,9 +894,12 @@ impl ReviewApp {
                                         .unwrap_or([0; 4]),
                                 )
                             );
-                            if ui.button(label).clicked() {
+                            if ui
+                                .add_enabled(mutations_enabled, egui::Button::new(label))
+                                .clicked()
+                            {
                                 match self.controller.supersede_reusable_influence(
-                                    generation,
+                                    ui_session_epoch,
                                     record.record_id,
                                     &key,
                                 ) {
@@ -739,8 +914,14 @@ impl ReviewApp {
             }
             (Err(error), _) | (_, Err(error)) => self.error = Some(error.to_string()),
         }
-        if ui.button("Run reuse-enabled exact analysis").clicked() {
-            match self.controller.run_reuse_enabled_analysis(generation) {
+        if ui
+            .add_enabled(
+                mutations_enabled,
+                egui::Button::new("Run reuse-enabled exact analysis"),
+            )
+            .clicked()
+        {
+            match self.controller.run_reuse_enabled_analysis(ui_session_epoch) {
                 Ok(count) => {
                     self.status =
                         format!("Reuse-enabled analysis raised {count} non-binding case(s).");
@@ -775,9 +956,9 @@ impl ReviewApp {
             .clicked()
             && let Some(destination) = rfd::FileDialog::new().pick_folder()
         {
-            let generation = self.controller.generation();
+            let ui_session_epoch = self.controller.ui_session_epoch();
             match self.controller.export(
-                generation,
+                ui_session_epoch,
                 &destination,
                 self.confirm_unresolved_source_retained,
             ) {

@@ -65,6 +65,32 @@ impl ProductSessionStore {
         &self.root
     }
 
+    pub fn list_session_ids(&self) -> Result<Vec<String>, SessionPersistenceError> {
+        if !self.root.exists() {
+            return Ok(Vec::new());
+        }
+        let mut session_ids = Vec::new();
+        for entry in fs::read_dir(&self.root)
+            .map_err(|error| SessionPersistenceError::Io(error.to_string()))?
+        {
+            let entry =
+                entry.map_err(|error| SessionPersistenceError::Io(error.to_string()))?;
+            if !entry
+                .file_type()
+                .map_err(|error| SessionPersistenceError::Io(error.to_string()))?
+                .is_dir()
+            {
+                continue;
+            }
+            let session_id = entry.file_name().to_string_lossy().into_owned();
+            if validate_session_id(&session_id).is_ok() && self.database_path(&session_id).exists() {
+                session_ids.push(session_id);
+            }
+        }
+        session_ids.sort();
+        Ok(session_ids)
+    }
+
     pub fn create_session(
         &self,
         transcript: Transcript,

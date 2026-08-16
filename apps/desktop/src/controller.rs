@@ -11,12 +11,15 @@ use vox_proof::application_export_v3::{
 use vox_proof::application_reuse::ApplicationReuseError;
 use vox_proof::application_service::{
     ApplicationCurrentProjection, ApplicationDecisionCoverage, ApplicationMaterialUseDeclaration,
-    ApplicationResolutionStatus, ApplicationReviewProgress, ApplicationReviewSession,
-    ApplicationServiceError, DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority,
-    DeclaredSessionAuthorityError, DeclaredSessionOperatorRole, begin_application_review,
+    ApplicationResolutionStatus, ApplicationReviewProgress, ApplicationServiceError,
+    DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority,
+    DeclaredSessionAuthorityError, DeclaredSessionOperatorRole,
 };
 use vox_proof::candidate::{Evidence, SessionTermEntry};
 use vox_proof::review::{CorrectionDecision, ReviewCaseStatus};
+use vox_proof::session_persistence::{
+    DurableApplicationSession, OpenMode, ProductSessionStore, SessionPersistenceError,
+};
 use vox_proof::session_terms::{SessionTermsError, parse_session_terms};
 use vox_proof::srt::{ParseError, parse_srt};
 
@@ -29,6 +32,7 @@ pub enum DesktopPhase {
     Setup,
     ActiveReview,
     ExportCompleted,
+    RecoveryRequired,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,7 +50,10 @@ pub struct ReviewItemView {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionHeaderView {
+    pub session_id: String,
+    pub access_mode: String,
     pub source_path: String,
+    pub source_path_note: Option<String>,
     pub source_revision: String,
     pub declared_operator: String,
     pub declared_role: String,
@@ -69,12 +76,16 @@ pub enum ControllerError {
     Service(ApplicationServiceError),
     Export(ExportError),
     Reuse(ApplicationReuseError),
+    Persistence(SessionPersistenceError),
     NoActiveSession,
-    StaleGeneration { expected: u64, actual: u64 },
+    StaleUiSessionEpoch { expected: u64, actual: u64 },
     NoSelectedCase,
     AlternativeOutOfRange { index: usize, count: usize },
     ReviewIncomplete { undecided: usize },
     UnresolvedConfirmationRequired,
+    RecoveryRequired,
+    SessionNotWritable,
+    WriterOwnershipHeld,
 }
 
 impl fmt::Display for ControllerError {
@@ -89,10 +100,11 @@ impl fmt::Display for ControllerError {
             Self::Service(error) => write!(formatter, "review operation failed: {error}"),
             Self::Export(error) => write!(formatter, "export failed: {error}"),
             Self::Reuse(error) => write!(formatter, "reuse governance failed: {error}"),
+            Self::Persistence(error) => write!(formatter, "session persistence failed: {error}"),
             Self::NoActiveSession => write!(formatter, "no active review session"),
-            Self::StaleGeneration { expected, actual } => write!(
+            Self::StaleUiSessionEpoch { expected, actual } => write!(
                 formatter,
-                "stale UI intent refused (generation {expected}, active {actual})"
+                "stale UI intent refused (ui_session_epoch {expected}, active {actual})"
             ),
             Self::NoSelectedCase => write!(formatter, "no review case is selected"),
             Self::AlternativeOutOfRange { index, count } => write!(
@@ -100,15 +112,22 @@ impl fmt::Display for ControllerError {
                 "alternative {} is unavailable; current case has {count}",
                 index + 1
             ),
-            Self::ReviewIncomplete { undecided } => {
-                write!(
-                    formatter,
-                    "review is incomplete: {undecided} undecided case(s)"
-                )
-            }
+            Self::ReviewIncomplete { undecided } => write!(
+                formatter,
+                "review is incomplete: {undecided} undecided case(s)"
+            ),
             Self::UnresolvedConfirmationRequired => write!(
                 formatter,
                 "complete unresolved review requires confirmation that source text is retained"
+            ),
+            Self::RecoveryRequired => write!(
+                formatter,
+                "recovery required: committed authority could not be reconstructed"
+            ),
+            Self::SessionNotWritable => write!(formatter, "session is read-only"),
+            Self::WriterOwnershipHeld => write!(
+                formatter,
+                "writable access refused because another writer holds this session"
             ),
         }
     }
@@ -134,49 +153,76 @@ impl From<ApplicationServiceError> for ControllerError {
     }
 }
 
-pub struct DesktopController {
-    generation: u64,
-    session: Option<ApplicationReviewSession>,
-    source_path: Option<PathBuf>,
-    declared_operator: Option<String>,
-    declared_role: Option<DeclaredSessionOperatorRole>,
-    selected_index: usize,
-    exported_paths: Option<ExportPaths>,
-    project_scope_id_draft: String,
-    project_scope_display_draft: String,
-    reuse_enabled_case_count: Option<usize>,
-}
-
-impl Default for DesktopController {
-    fn default() -> Self {
-        Self {
-            generation: 1,
-            session: None,
-            source_path: None,
-            declared_operator: None,
-            declared_role: None,
-            selected_index: 0,
-            exported_paths: None,
-            project_scope_id_draft: String::new(),
-            project_scope_display_draft: String::new(),
-            reuse_enabled_case_count: None,
+impl From<SessionPersistenceError> for ControllerError {
+    fn from(value: SessionPersistenceError) -> Self {
+        match value {
+            SessionPersistenceError::RecoveryRequired => Self::RecoveryRequired,
+            SessionPersistenceError::SessionNotWritable => Self::SessionNotWritable,
+            SessionPersistenceError::WriterOwnershipHeld => Self::WriterOwnershipHeld,
+            SessionPersistenceError::Replay(error) => Self::Service(error),
+            other => Self::Persistence(other),
         }
     }
 }
 
+pub struct DesktopController {
+    store: ProductSessionStore,
+    durable: Option<DurableApplicationSession>,
+    ui_session_epoch: u64,
+    source_display_path: Option<PathBuf>,
+    selected_index: usize,
+    exported_paths: Option<ExportPaths>,
+    project_scope_id_draft: String,
+    project_scope_display_draft: String,
+    available_session_ids: Vec<String>,
+    selected_resume_session_id: Option<String>,
+}
+
+impl Default for DesktopController {
+    fn default() -> Self {
+        Self::with_store(ProductSessionStore::new(crate::session_root::resolve_session_root()))
+    }
+}
+
 impl DesktopController {
+    pub fn with_store(store: ProductSessionStore) -> Self {
+        let available_session_ids = store.list_session_ids().unwrap_or_default();
+        Self {
+            store,
+            durable: None,
+            ui_session_epoch: 1,
+            source_display_path: None,
+            selected_index: 0,
+            exported_paths: None,
+            project_scope_id_draft: String::new(),
+            project_scope_display_draft: String::new(),
+            available_session_ids,
+            selected_resume_session_id: None,
+        }
+    }
+
+    pub fn store(&self) -> &ProductSessionStore {
+        &self.store
+    }
+
     pub fn phase(&self) -> DesktopPhase {
-        if self.exported_paths.is_some() {
+        if self
+            .durable
+            .as_ref()
+            .is_some_and(|durable| durable.is_recovery_required())
+        {
+            DesktopPhase::RecoveryRequired
+        } else if self.exported_paths.is_some() {
             DesktopPhase::ExportCompleted
-        } else if self.session.is_some() {
+        } else if self.durable.is_some() {
             DesktopPhase::ActiveReview
         } else {
             DesktopPhase::Setup
         }
     }
 
-    pub fn generation(&self) -> u64 {
-        self.generation
+    pub fn ui_session_epoch(&self) -> u64 {
+        self.ui_session_epoch
     }
 
     pub fn selected_index(&self) -> usize {
@@ -185,6 +231,45 @@ impl DesktopController {
 
     pub fn exported_paths(&self) -> Option<&ExportPaths> {
         self.exported_paths.as_ref()
+    }
+
+    pub fn available_session_ids(&self) -> &[String] {
+        &self.available_session_ids
+    }
+
+    pub fn selected_resume_session_id(&self) -> Option<&str> {
+        self.selected_resume_session_id.as_deref()
+    }
+
+    pub fn select_resume_session_id(&mut self, session_id: impl Into<String>) {
+        self.selected_resume_session_id = Some(session_id.into());
+    }
+
+    pub fn refresh_available_sessions(&mut self) -> Result<(), ControllerError> {
+        self.available_session_ids = self.store.list_session_ids()?;
+        Ok(())
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_some_and(|durable| durable.open_mode() == OpenMode::ReadOnly)
+    }
+
+    pub fn is_recovery_required(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_some_and(|durable| durable.is_recovery_required())
+    }
+
+    pub fn mutations_enabled(&self) -> bool {
+        self.durable.as_ref().is_some_and(|durable| {
+            !durable.is_recovery_required() && durable.open_mode() == OpenMode::Writable
+        })
+    }
+
+    pub fn session_id(&self) -> Option<&str> {
+        self.durable.as_ref().map(|durable| durable.session_id())
     }
 
     pub fn start_from_paths(
@@ -200,7 +285,7 @@ impl DesktopController {
         self.start_from_text(
             &transcript_text,
             &terms_text,
-            transcript_path.to_path_buf(),
+            Some(transcript_path.to_path_buf()),
             material_use,
             role,
             operator_label,
@@ -211,7 +296,7 @@ impl DesktopController {
         &mut self,
         transcript_text: &str,
         terms_text: &str,
-        source_path: PathBuf,
+        source_display_path: Option<PathBuf>,
         material_use: DeclaredApplicationMaterialUseBasis,
         role: DeclaredSessionOperatorRole,
         operator_label: &str,
@@ -221,44 +306,67 @@ impl DesktopController {
             parse_session_terms(terms_text).map_err(ControllerError::SessionTerms)?;
         let authority = DeclaredSessionAuthority::new(role, operator_label)
             .map_err(ControllerError::Authority)?;
-        let session = begin_application_review(
+        let durable = DurableApplicationSession::create(
+            &self.store,
             transcript,
             terms,
             ApplicationMaterialUseDeclaration::new(material_use),
             authority,
         )?;
-
-        self.generation = self.generation.wrapping_add(1);
-        self.session = Some(session);
-        self.source_path = Some(source_path);
-        self.declared_operator = Some(operator_label.trim().to_owned());
-        self.declared_role = Some(role);
-        self.selected_index = 0;
-        self.exported_paths = None;
-        self.project_scope_id_draft.clear();
-        self.project_scope_display_draft.clear();
-        self.reuse_enabled_case_count = None;
+        self.install_durable_session(durable, source_display_path);
+        self.refresh_available_sessions()?;
         Ok(())
     }
 
-    pub fn reset(&mut self) {
-        self.generation = self.generation.wrapping_add(1);
-        self.session = None;
-        self.source_path = None;
-        self.declared_operator = None;
-        self.declared_role = None;
-        self.selected_index = 0;
-        self.exported_paths = None;
-        self.project_scope_id_draft.clear();
-        self.project_scope_display_draft.clear();
-        self.reuse_enabled_case_count = None;
+    pub fn open_selected_session_writable(&mut self) -> Result<(), ControllerError> {
+        let session_id = self
+            .selected_resume_session_id
+            .clone()
+            .ok_or(ControllerError::NoActiveSession)?;
+        self.open_session(&session_id, OpenMode::Writable)
+    }
+
+    pub fn open_selected_session_read_only(&mut self) -> Result<(), ControllerError> {
+        let session_id = self
+            .selected_resume_session_id
+            .clone()
+            .ok_or(ControllerError::NoActiveSession)?;
+        self.open_session(&session_id, OpenMode::ReadOnly)
+    }
+
+    pub fn open_session(
+        &mut self,
+        session_id: &str,
+        mode: OpenMode,
+    ) -> Result<(), ControllerError> {
+        let durable = DurableApplicationSession::open(&self.store, session_id, mode)?;
+        self.install_durable_session(durable, None);
+        Ok(())
+    }
+
+    pub fn retry_recovery(&mut self) -> Result<(), ControllerError> {
+        let durable = self
+            .durable
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
+        durable.rehydrate()?;
+        Ok(())
+    }
+
+    pub fn reset(&mut self) -> Result<(), ControllerError> {
+        if let Some(durable) = self.durable.as_mut() {
+            durable.release_writer()?;
+        }
+        self.clear_session_state();
+        self.ui_session_epoch = self.ui_session_epoch.wrapping_add(1);
+        self.refresh_available_sessions()?;
+        Ok(())
     }
 
     pub fn has_project_scope(&self) -> bool {
-        self.session
-            .as_ref()
-            .map(|session| session.has_project_scope())
-            .unwrap_or(false)
+        self.presentable_session()
+            .ok()
+            .is_some_and(|session| session.has_project_scope())
     }
 
     pub fn project_scope_id_draft(&self) -> &str {
@@ -278,45 +386,36 @@ impl DesktopController {
     }
 
     pub fn reuse_enabled_case_count(&self) -> Option<usize> {
-        self.reuse_enabled_case_count
+        self.presentable_session().ok().and_then(|session| {
+            session
+                .reuse_enabled_run()
+                .map(|run| run.review_cases().len())
+        })
     }
 
     pub fn initialize_project_scope(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
         let stable_id = self.project_scope_id_draft.clone();
         let display_name = self.project_scope_display_draft.clone();
-        session.initialize_project_scope(stable_id, display_name)?;
+        let durable = self.writable_durable_mut()?;
+        let prepared = durable.prepare_initialize_project_scope(stable_id, display_name)?;
+        durable.record_initialize_project_scope(prepared)?;
         self.exported_paths = None;
         Ok(())
     }
 
     pub fn update_project_scope_display_name(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        session.update_project_scope_display_name(self.project_scope_display_draft.clone())?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let display_name = self.project_scope_display_draft.clone();
+        let durable = self.writable_durable_mut()?;
+        let prepared = durable.prepare_update_project_scope_display_name(display_name)?;
+        durable.record_update_project_scope_display_name(prepared)?;
         if self.exported_paths.is_some() {
             self.exported_paths = None;
         }
@@ -326,128 +425,89 @@ impl DesktopController {
     pub fn reuse_candidates(
         &self,
     ) -> Result<Vec<vox_proof::reusable_influence::ReuseCandidate>, ControllerError> {
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
-        Ok(session.reuse_candidates()?)
+        Ok(self.presentable_session()?.reuse_candidates()?)
     }
 
     pub fn active_reusable_records(
         &self,
     ) -> Result<Vec<vox_proof::reusable_influence::EffectiveReusableInfluenceRecord>, ControllerError>
     {
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
-        Ok(session.active_reusable_records()?)
+        Ok(self.presentable_session()?.active_reusable_records()?)
     }
 
     pub fn accept_reuse_candidate(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        session.accept_reuse_candidate(candidate_key)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let durable = self.writable_durable_mut()?;
+        let prepared = durable.prepare_accept_reuse_candidate(candidate_key)?;
+        durable.record_accept_reuse_candidate(prepared)?;
         self.exported_paths = None;
         Ok(())
     }
 
     pub fn reject_reuse_candidate(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        session.reject_reuse_candidate(candidate_key)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let durable = self.writable_durable_mut()?;
+        let prepared = durable.prepare_reject_reuse_candidate(candidate_key)?;
+        durable.record_reject_reuse_candidate(prepared)?;
         self.exported_paths = None;
         Ok(())
     }
 
     pub fn revoke_reusable_influence(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         record_id: vox_proof::reuse_primitives::ReusableInfluenceRecordId,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        session.revoke_reusable_influence(record_id)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let durable = self.writable_durable_mut()?;
+        let prepared = durable.prepare_revoke_reusable_influence(record_id)?;
+        durable.record_revoke_reusable_influence(prepared)?;
         self.exported_paths = None;
         Ok(())
     }
 
     pub fn supersede_reusable_influence(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         predecessor_id: vox_proof::reuse_primitives::ReusableInfluenceRecordId,
         successor_candidate_key: &vox_proof::reusable_influence::ReuseCandidateKey,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        session.supersede_reusable_influence(predecessor_id, successor_candidate_key)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let durable = self.writable_durable_mut()?;
+        let prepared =
+            durable.prepare_supersede_reusable_influence(predecessor_id, successor_candidate_key)?;
+        durable.record_supersede_reusable_influence(prepared)?;
         self.exported_paths = None;
         Ok(())
     }
 
     pub fn run_reuse_enabled_analysis(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
     ) -> Result<usize, ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-        let run = session.run_reuse_enabled_review()?;
-        let count = run.review_cases().len();
-        self.reuse_enabled_case_count = Some(count);
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let durable = self.writable_durable_mut()?;
+        let (prepared, precondition) = durable.prepare_run_reuse_enabled_review()?;
+        durable.record_run_reuse_enabled_review(prepared, precondition)?;
+        let count = durable
+            .session()
+            .reuse_enabled_run()
+            .map(|run| run.review_cases().len())
+            .unwrap_or(0);
         self.exported_paths = None;
         Ok(count)
     }
 
     pub fn select(&mut self, index: usize) {
-        if let Some(session) = &self.session {
+        if let Ok(session) = self.presentable_session() {
             let count = session.review_items().len();
             if count > 0 {
                 self.selected_index = index.min(count - 1);
@@ -456,7 +516,7 @@ impl DesktopController {
     }
 
     pub fn select_relative(&mut self, delta: isize) {
-        let Some(session) = &self.session else {
+        let Ok(session) = self.presentable_session() else {
             return;
         };
         let count = session.review_items().len();
@@ -469,10 +529,7 @@ impl DesktopController {
     }
 
     pub fn items(&self) -> Result<Vec<ReviewItemView>, ControllerError> {
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
+        let session = self.presentable_session()?;
         let segments = session.source().segments();
         Ok(session
             .review_items()
@@ -514,31 +571,38 @@ impl DesktopController {
     }
 
     pub fn header(&self) -> Result<SessionHeaderView, ControllerError> {
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
+        let durable = self.durable.as_ref().ok_or(ControllerError::NoActiveSession)?;
+        if durable.is_recovery_required() {
+            return Err(ControllerError::RecoveryRequired);
+        }
+        let session = durable.session();
         let summary = session.decision_summary();
-        let role = match self.declared_role {
-            Some(DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator) => {
+        let authority = session.session_authority();
+        let role = match authority.role() {
+            DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator => {
                 "Declared local owner/operator"
             }
-            Some(DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer) => {
+            DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer => {
                 "Declared authorized human reviewer"
             }
-            None => "Unavailable",
+        };
+        let (source_path, source_path_note) = match &self.source_display_path {
+            Some(path) => (path.display().to_string(), None),
+            None => (
+                "Embedded canonical transcript".to_owned(),
+                Some("Original import path not retained".to_owned()),
+            ),
         };
         Ok(SessionHeaderView {
-            source_path: self
-                .source_path
-                .as_deref()
-                .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "Unavailable".to_owned()),
+            session_id: durable.session_id().to_owned(),
+            access_mode: match durable.open_mode() {
+                OpenMode::Writable => "Writable".to_owned(),
+                OpenMode::ReadOnly => "Read-only".to_owned(),
+            },
+            source_path,
+            source_path_note,
             source_revision: session.source().revision_id().to_tagged_string(),
-            declared_operator: self
-                .declared_operator
-                .clone()
-                .unwrap_or_else(|| "Unavailable".to_owned()),
+            declared_operator: authority.display_label().to_owned(),
             declared_role: role.to_owned(),
             total_review_cases: summary.total_review_cases,
             total_recorded_events: summary.total_recorded_events,
@@ -552,56 +616,45 @@ impl DesktopController {
     }
 
     pub fn projection(&self) -> Result<ApplicationCurrentProjection, ControllerError> {
-        self.session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?
+        self.presentable_session()?
             .derive_current_projection()
             .map_err(ControllerError::Service)
     }
 
     pub fn progress(&self) -> Result<ApplicationReviewProgress, ControllerError> {
-        Ok(self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?
-            .progress())
+        Ok(self.presentable_session()?.progress())
     }
 
     pub fn record_decision(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         decision: CorrectionDecision,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-
-        // Targets are intentionally obtained from a fresh application-service
-        // projection at the moment of the decision and never retained in GUI state.
-        let items = session.review_items();
-        let item = items
-            .get(self.selected_index)
-            .ok_or(ControllerError::NoSelectedCase)?;
-        if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
-            let count = item.review_case.candidate_span().alternatives().len();
-            if alternative_index >= count {
-                return Err(ControllerError::AlternativeOutOfRange {
-                    index: alternative_index,
-                    count,
-                });
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let selected_index = self.selected_index;
+        {
+            let durable = self.writable_durable_mut()?;
+            let items = durable.session().review_items();
+            let item = items
+                .get(selected_index)
+                .ok_or(ControllerError::NoSelectedCase)?;
+            if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
+                let count = item.review_case.candidate_span().alternatives().len();
+                if alternative_index >= count {
+                    return Err(ControllerError::AlternativeOutOfRange {
+                        index: alternative_index,
+                        count,
+                    });
+                }
             }
+            let prepared = durable.prepare_human_decision(item.target, decision)?;
+            durable.record_human_decision(prepared)?;
         }
-        session.record_human_decision(item.target, decision)?;
         self.exported_paths = None;
 
-        let refreshed = session.review_items();
+        let refreshed = self
+            .presentable_session()?
+            .review_items();
         if let Some(next) = refreshed
             .iter()
             .position(|item| matches!(item.status, ReviewCaseStatus::Undecided))
@@ -613,28 +666,25 @@ impl DesktopController {
 
     pub fn record_manual_replacement(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         replacement: impl Into<String>,
     ) -> Result<(), ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let selected_index = self.selected_index;
+        {
+            let durable = self.writable_durable_mut()?;
+            let items = durable.session().review_items();
+            let item = items
+                .get(selected_index)
+                .ok_or(ControllerError::NoSelectedCase)?;
+            let prepared = durable.prepare_manual_replacement(item.target, replacement)?;
+            durable.record_manual_replacement(prepared)?;
         }
-        let session = self
-            .session
-            .as_mut()
-            .ok_or(ControllerError::NoActiveSession)?;
-
-        let items = session.review_items();
-        let item = items
-            .get(self.selected_index)
-            .ok_or(ControllerError::NoSelectedCase)?;
-        session.record_manual_replacement(item.target, replacement)?;
         self.exported_paths = None;
 
-        let refreshed = session.review_items();
+        let refreshed = self
+            .presentable_session()?
+            .review_items();
         if let Some(next) = refreshed
             .iter()
             .position(|item| matches!(item.status, ReviewCaseStatus::Undecided))
@@ -646,20 +696,12 @@ impl DesktopController {
 
     pub fn export(
         &mut self,
-        expected_generation: u64,
+        expected_ui_session_epoch: u64,
         destination: &Path,
         confirm_unresolved_source_retained: bool,
     ) -> Result<ExportPaths, ControllerError> {
-        if expected_generation != self.generation {
-            return Err(ControllerError::StaleGeneration {
-                expected: expected_generation,
-                actual: self.generation,
-            });
-        }
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
+        self.ensure_ui_epoch(expected_ui_session_epoch)?;
+        let session = self.presentable_session()?;
         match session.progress().decision_coverage {
             ApplicationDecisionCoverage::Complete => {}
             ApplicationDecisionCoverage::Incomplete { undecided } => {
@@ -683,11 +725,11 @@ impl DesktopController {
                 &bundle,
                 &bundle_v3,
                 destination,
-                self.source_path.as_deref(),
+                self.source_display_path.as_deref(),
             )
             .map_err(ControllerError::Export)?
         } else {
-            export_bundle_exclusively(&bundle, destination, self.source_path.as_deref())
+            export_bundle_exclusively(&bundle, destination, self.source_display_path.as_deref())
                 .map_err(ControllerError::Export)?
         };
         self.exported_paths = Some(paths.clone());
@@ -698,10 +740,7 @@ impl DesktopController {
         &self,
         confirm_unresolved_source_retained: bool,
     ) -> Result<(String, String), ControllerError> {
-        let session = self
-            .session
-            .as_ref()
-            .ok_or(ControllerError::NoActiveSession)?;
+        let session = self.presentable_session()?;
         match session.progress().decision_coverage {
             ApplicationDecisionCoverage::Complete => {}
             ApplicationDecisionCoverage::Incomplete { undecided } => {
@@ -729,6 +768,72 @@ impl DesktopController {
                 render_application_decision_log(&bundle),
                 render_application_session_summary(&bundle),
             ))
+        }
+    }
+
+    fn install_durable_session(
+        &mut self,
+        durable: DurableApplicationSession,
+        source_display_path: Option<PathBuf>,
+    ) {
+        if let Some(mut existing) = self.durable.take() {
+            let _ = existing.release_writer();
+        }
+        self.ui_session_epoch = self.ui_session_epoch.wrapping_add(1);
+        self.durable = Some(durable);
+        self.source_display_path = source_display_path;
+        self.selected_index = 0;
+        self.exported_paths = None;
+        self.project_scope_id_draft.clear();
+        self.project_scope_display_draft.clear();
+    }
+
+    fn clear_session_state(&mut self) {
+        self.durable = None;
+        self.source_display_path = None;
+        self.selected_index = 0;
+        self.exported_paths = None;
+        self.project_scope_id_draft.clear();
+        self.project_scope_display_draft.clear();
+        self.selected_resume_session_id = None;
+    }
+
+    fn ensure_ui_epoch(&self, expected: u64) -> Result<(), ControllerError> {
+        if expected != self.ui_session_epoch {
+            return Err(ControllerError::StaleUiSessionEpoch {
+                expected,
+                actual: self.ui_session_epoch,
+            });
+        }
+        Ok(())
+    }
+
+    fn presentable_session(
+        &self,
+    ) -> Result<&vox_proof::application_service::ApplicationReviewSession, ControllerError> {
+        let durable = self.durable.as_ref().ok_or(ControllerError::NoActiveSession)?;
+        if durable.is_recovery_required() {
+            return Err(ControllerError::RecoveryRequired);
+        }
+        Ok(durable.session())
+    }
+
+    fn writable_durable_mut(&mut self) -> Result<&mut DurableApplicationSession, ControllerError> {
+        let durable = self.durable.as_mut().ok_or(ControllerError::NoActiveSession)?;
+        if durable.is_recovery_required() {
+            return Err(ControllerError::RecoveryRequired);
+        }
+        if durable.open_mode() == OpenMode::ReadOnly {
+            return Err(ControllerError::SessionNotWritable);
+        }
+        Ok(durable)
+    }
+}
+
+impl Drop for DesktopController {
+    fn drop(&mut self) {
+        if let Some(mut durable) = self.durable.take() {
+            let _ = durable.release_writer();
         }
     }
 }

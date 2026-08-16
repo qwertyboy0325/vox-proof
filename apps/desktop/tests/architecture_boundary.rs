@@ -23,7 +23,6 @@ fn desktop_uses_only_the_public_application_authority_boundaries() {
         "serde::",
         "Serialize",
         "autosave",
-        "hydrate",
     ] {
         assert!(!controller.contains(forbidden));
         assert!(!export.contains(forbidden));
@@ -31,9 +30,11 @@ fn desktop_uses_only_the_public_application_authority_boundaries() {
 
     for required in [
         "review_items()",
+        "prepare_human_decision",
         "record_human_decision",
         "derive_current_projection",
         "materialize_review_export_bundle",
+        "DurableApplicationSession",
     ] {
         assert!(controller.contains(required));
     }

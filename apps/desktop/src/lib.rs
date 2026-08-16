@@ -3,6 +3,7 @@ pub mod controller;
 pub mod export;
 mod fonts;
 pub mod presentation;
+mod session_root;
 
 pub fn run() -> eframe::Result<()> {
     let options = eframe::NativeOptions {

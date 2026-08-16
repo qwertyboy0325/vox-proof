@@ -13,33 +13,37 @@ use vox_proof::application_service::{
 use vox_proof::review::CorrectionDecision;
 use vox_proof::session_terms::parse_session_terms;
 use vox_proof::srt::parse_srt;
+use vox_proof::session_persistence::ProductSessionStore;
 use voxproof_desktop::controller::{ControllerError, DesktopController};
 use voxproof_desktop::export::ExportError;
 
 const SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\n這是華說的新產品\n";
 const TERMS: &str = "華碩 | alias:華說\n";
 
-fn controller(source: PathBuf) -> DesktopController {
-    let mut controller = DesktopController::default();
+fn controller(source: PathBuf) -> (DesktopController, tempfile::TempDir) {
+    let temp = tempdir().unwrap();
+    let store = ProductSessionStore::new(temp.path());
+    let mut controller = DesktopController::with_store(store);
     controller
         .start_from_text(
             SRT,
             TERMS,
-            source,
+            Some(source),
             DeclaredApplicationMaterialUseBasis::SelfOwned,
             DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
             "Filesystem reviewer",
         )
         .unwrap();
+    let epoch = controller.ui_session_epoch();
     controller
         .record_decision(
-            controller.generation(),
+            epoch,
             CorrectionDecision::AcceptAlternative {
                 alternative_index: 0,
             },
         )
         .unwrap();
-    controller
+    (controller, temp)
 }
 
 fn expected_bundle() -> ApplicationReviewExportBundle {
@@ -82,10 +86,10 @@ fn names(directory: &Path) -> Vec<String> {
 fn successful_export_uses_expected_names_and_exact_core_renderer_bytes() {
     let directory = tempdir().unwrap();
     let bundle = expected_bundle();
-    let mut controller = controller(PathBuf::from("episode.srt"));
+    let (mut controller, _temp) = controller(PathBuf::from("episode.srt"));
 
     let paths = controller
-        .export(controller.generation(), directory.path(), false)
+        .export(controller.ui_session_epoch(), directory.path(), false)
         .unwrap();
 
     assert_eq!(
@@ -113,10 +117,10 @@ fn successful_export_uses_expected_names_and_exact_core_renderer_bytes() {
 #[test]
 fn missing_source_stem_falls_back_to_transcript() {
     let directory = tempdir().unwrap();
-    let mut controller = controller(PathBuf::new());
+    let (mut controller, _temp) = controller(PathBuf::new());
 
     controller
-        .export(controller.generation(), directory.path(), false)
+        .export(controller.ui_session_epoch(), directory.path(), false)
         .unwrap();
 
     assert_eq!(
@@ -138,10 +142,10 @@ fn multiple_collisions_are_all_reported_and_nothing_else_is_written() {
         .join("episode.voxproof-session-summary.txt");
     fs::write(&decision, "decision sentinel").unwrap();
     fs::write(&summary, "summary sentinel").unwrap();
-    let mut controller = controller(PathBuf::from("episode.srt"));
+    let (mut controller, _temp) = controller(PathBuf::from("episode.srt"));
 
     let error = controller
-        .export(controller.generation(), directory.path(), false)
+        .export(controller.ui_session_epoch(), directory.path(), false)
         .unwrap_err();
 
     assert!(matches!(
@@ -163,9 +167,9 @@ fn multiple_collisions_are_all_reported_and_nothing_else_is_written() {
 fn exported_renderer_bytes_inject_no_paths_timestamps_or_gui_metadata() {
     let directory = tempdir().unwrap();
     let source = PathBuf::from("/private/source/customer-interview.srt");
-    let mut controller = controller(source.clone());
+    let (mut controller, _temp) = controller(source.clone());
     let paths = controller
-        .export(controller.generation(), directory.path(), false)
+        .export(controller.ui_session_epoch(), directory.path(), false)
         .unwrap();
 
     for path in [

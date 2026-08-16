@@ -71,6 +71,14 @@ impl DurableApplicationSession {
         self.recovery_required
     }
 
+    pub fn open_mode(&self) -> OpenMode {
+        self.opened.mode
+    }
+
+    pub fn release_writer(&mut self) -> Result<(), SessionPersistenceError> {
+        ProductSessionStore::release_writer(&mut self.opened)
+    }
+
     pub fn rehydrate(&mut self) -> Result<(), SessionPersistenceError> {
         self.session = hydrate_application_review_session(&self.opened)?;
         self.recovery_required = false;
