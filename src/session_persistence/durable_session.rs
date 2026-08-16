@@ -1,3 +1,9 @@
+use crate::application_reuse::{
+    PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
+    PreparedProjectScopeInitialization, PreparedReusableInfluenceRevocation,
+    PreparedReusableInfluenceSupersession, PreparedReuseCandidateAcceptance,
+    PreparedReuseCandidateRejection,
+};
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession, DeclaredSessionAuthority,
     PreparedHumanDecision, PreparedManualReplacement,
@@ -109,6 +115,169 @@ impl DurableApplicationSession {
             .map_err(SessionPersistenceError::Replay)
     }
 
+    pub fn prepare_initialize_project_scope(
+        &self,
+        stable_id: impl Into<String>,
+        display_name: impl Into<String>,
+    ) -> Result<PreparedProjectScopeInitialization, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_initialize_project_scope(stable_id, display_name)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_initialize_project_scope(
+        &mut self,
+        prepared: PreparedProjectScopeInitialization,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        ProductSessionStore::initialize_project_scope(&mut self.opened, &prepared)?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_update_project_scope_display_name(
+        &self,
+        display_name: impl Into<String>,
+    ) -> Result<PreparedProjectScopeDisplayNameUpdate, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_update_project_scope_display_name(display_name)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_update_project_scope_display_name(
+        &mut self,
+        prepared: PreparedProjectScopeDisplayNameUpdate,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        ProductSessionStore::update_project_scope_display_name(&mut self.opened, &prepared)?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_accept_reuse_candidate(
+        &self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<PreparedReuseCandidateAcceptance, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_accept_reuse_candidate(candidate_key)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_accept_reuse_candidate(
+        &mut self,
+        prepared: PreparedReuseCandidateAcceptance,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        let authority = self.session.session_authority().clone();
+        ProductSessionStore::append_reuse_governance_accept(
+            &mut self.opened,
+            &prepared,
+            &authority,
+        )?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_reject_reuse_candidate(
+        &self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<PreparedReuseCandidateRejection, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_reject_reuse_candidate(candidate_key)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_reject_reuse_candidate(
+        &mut self,
+        prepared: PreparedReuseCandidateRejection,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        let authority = self.session.session_authority().clone();
+        ProductSessionStore::append_reuse_governance_reject(
+            &mut self.opened,
+            &prepared,
+            &authority,
+        )?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_revoke_reusable_influence(
+        &self,
+        record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+    ) -> Result<PreparedReusableInfluenceRevocation, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_revoke_reusable_influence(record_id)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_revoke_reusable_influence(
+        &mut self,
+        prepared: PreparedReusableInfluenceRevocation,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        let authority = self.session.session_authority().clone();
+        ProductSessionStore::append_reuse_governance_revoke(
+            &mut self.opened,
+            &prepared,
+            &authority,
+        )?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_supersede_reusable_influence(
+        &self,
+        predecessor_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+        successor_candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<PreparedReusableInfluenceSupersession, SessionPersistenceError> {
+        self.ensure_readable()?;
+        self.session
+            .prepare_supersede_reusable_influence(predecessor_id, successor_candidate_key)
+            .map_err(map_reuse_error)
+    }
+
+    pub fn record_supersede_reusable_influence(
+        &mut self,
+        prepared: PreparedReusableInfluenceSupersession,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        let authority = self.session.session_authority().clone();
+        ProductSessionStore::append_reuse_governance_supersede(
+            &mut self.opened,
+            &prepared,
+            &authority,
+        )?;
+        self.refresh_after_commit()
+    }
+
+    pub fn prepare_run_reuse_enabled_review(
+        &self,
+    ) -> Result<(PreparedActiveAnalysis, String), SessionPersistenceError> {
+        self.ensure_readable()?;
+        let capture = ProductSessionStore::load_canonical_capture(&self.opened)?;
+        let precondition = capture.active_analysis_selection_identity;
+        let prepared = self
+            .session
+            .prepare_run_reuse_enabled_review()
+            .map_err(map_reuse_error)?;
+        Ok((prepared, precondition))
+    }
+
+    pub fn record_run_reuse_enabled_review(
+        &mut self,
+        prepared: PreparedActiveAnalysis,
+        precondition_selection_token: String,
+    ) -> Result<(), SessionPersistenceError> {
+        self.ensure_writable()?;
+        ProductSessionStore::commit_active_analysis(
+            &mut self.opened,
+            &prepared,
+            &precondition_selection_token,
+        )?;
+        self.refresh_after_commit()
+    }
+
     pub fn close(mut self) -> Result<(), SessionPersistenceError> {
         ProductSessionStore::release_writer(&mut self.opened)
     }
@@ -143,4 +312,8 @@ impl DurableApplicationSession {
         }
         Ok(())
     }
+}
+
+fn map_reuse_error(error: crate::application_reuse::ApplicationReuseError) -> SessionPersistenceError {
+    SessionPersistenceError::CanonicalMismatch(format!("{error:?}"))
 }

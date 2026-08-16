@@ -370,6 +370,8 @@ pub(crate) fn assemble_application_review_session(
     ledger: ReviewLedger,
     material_use: ApplicationMaterialUseDeclaration,
     session_authority: DeclaredSessionAuthority,
+    reuse_state: ApplicationReuseState,
+    reuse_enabled_run: Option<ReuseEnabledTermReviewRun>,
 ) -> Result<ApplicationReviewSession, ApplicationServiceError> {
     let source_revision = transcript.revision_id();
     let analysis_snapshot = canonical_run.analysis_run().snapshot();
@@ -388,8 +390,8 @@ pub(crate) fn assemble_application_review_session(
             source_revision,
             analysis_snapshot,
         },
-        reuse_state: ApplicationReuseState::default(),
-        reuse_enabled_run: None,
+        reuse_state,
+        reuse_enabled_run,
     })
 }
 
@@ -545,6 +547,81 @@ impl ApplicationReviewSession {
         let run = run_reuse_enabled_review_for_parts(self.reuse_parts(), &self.reuse_state)?;
         self.reuse_enabled_run = Some(run);
         Ok(self.reuse_enabled_run.as_ref().expect("just stored"))
+    }
+
+    pub fn prepare_initialize_project_scope(
+        &self,
+        stable_id: impl Into<String>,
+        display_name: impl Into<String>,
+    ) -> Result<crate::application_reuse::PreparedProjectScopeInitialization, ApplicationReuseError> {
+        crate::application_reuse::prepare_initialize_project_scope(
+            &self.reuse_state,
+            stable_id,
+            display_name,
+        )
+    }
+
+    pub fn prepare_update_project_scope_display_name(
+        &self,
+        display_name: impl Into<String>,
+    ) -> Result<crate::application_reuse::PreparedProjectScopeDisplayNameUpdate, ApplicationReuseError> {
+        crate::application_reuse::prepare_update_project_scope_display_name(
+            &self.reuse_state,
+            display_name,
+        )
+    }
+
+    pub fn prepare_accept_reuse_candidate(
+        &self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<crate::application_reuse::PreparedReuseCandidateAcceptance, ApplicationReuseError> {
+        crate::application_reuse::prepare_accept_reuse_candidate(
+            self.reuse_parts(),
+            &self.reuse_state,
+            candidate_key,
+        )
+    }
+
+    pub fn prepare_reject_reuse_candidate(
+        &self,
+        candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<crate::application_reuse::PreparedReuseCandidateRejection, ApplicationReuseError> {
+        crate::application_reuse::prepare_reject_reuse_candidate(
+            self.reuse_parts(),
+            &self.reuse_state,
+            candidate_key,
+        )
+    }
+
+    pub fn prepare_revoke_reusable_influence(
+        &self,
+        record_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+    ) -> Result<crate::application_reuse::PreparedReusableInfluenceRevocation, ApplicationReuseError> {
+        crate::application_reuse::prepare_revoke_reusable_influence(
+            &self.reuse_state,
+            &self.ledger,
+            &self.canonical_run,
+            record_id,
+        )
+    }
+
+    pub fn prepare_supersede_reusable_influence(
+        &self,
+        predecessor_id: crate::reuse_primitives::ReusableInfluenceRecordId,
+        successor_candidate_key: &crate::reusable_influence::ReuseCandidateKey,
+    ) -> Result<crate::application_reuse::PreparedReusableInfluenceSupersession, ApplicationReuseError> {
+        crate::application_reuse::prepare_supersede_reusable_influence(
+            self.reuse_parts(),
+            &self.reuse_state,
+            predecessor_id,
+            successor_candidate_key,
+        )
+    }
+
+    pub fn prepare_run_reuse_enabled_review(
+        &self,
+    ) -> Result<crate::application_reuse::PreparedActiveAnalysis, ApplicationReuseError> {
+        crate::application_reuse::prepare_reuse_enabled_review(self.reuse_parts(), &self.reuse_state)
     }
 
     pub fn active_reusable_records(

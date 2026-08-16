@@ -17,10 +17,7 @@ use crate::reuse_primitives::PromotionCandidateRejectionIdentity;
 pub fn verify_gate3_independent_replay(
     session: &ApplicationReviewSession,
 ) -> Result<(), ApplicationReplayError> {
-    if session.reuse_state().project_scope().is_none()
-        && session.reuse_state().governance_events().is_empty()
-        && session.reuse_enabled_run().is_none()
-    {
+    if session.reuse_state().governance_events().is_empty() && session.reuse_enabled_run().is_none() {
         return Ok(());
     }
 
@@ -109,16 +106,21 @@ pub fn verify_gate3_independent_replay(
         None
     };
 
-    let current_v3 = materialize_v3_for_reuse_state(
-        session,
-        session.reuse_state(),
-        session.reuse_enabled_run(),
-    )?;
-    let replay_v3 = materialize_v3_for_reuse_state(session, &replay_state, replay_run.as_ref())?;
-    if current_v3 != replay_v3 {
-        return Err(ApplicationReplayError::Mismatch {
-            field: ApplicationReplayField::ExportBundleV3,
-        });
+    if matches!(
+        session.progress().decision_coverage,
+        crate::application_service::ApplicationDecisionCoverage::Complete
+    ) {
+        let current_v3 = materialize_v3_for_reuse_state(
+            session,
+            session.reuse_state(),
+            session.reuse_enabled_run(),
+        )?;
+        let replay_v3 = materialize_v3_for_reuse_state(session, &replay_state, replay_run.as_ref())?;
+        if current_v3 != replay_v3 {
+            return Err(ApplicationReplayError::Mismatch {
+                field: ApplicationReplayField::ExportBundleV3,
+            });
+        }
     }
 
     Ok(())
@@ -150,6 +152,21 @@ fn materialize_v3_for_reuse_state(
     .map_err(|_| ApplicationReplayError::Mismatch {
         field: ApplicationReplayField::ExportBundleV3,
     })
+}
+
+pub(crate) fn replay_reuse_governance_for_hydrate(
+    parts: ReuseSessionParts<'_>,
+    project_scope: &crate::reuse_primitives::ProjectScope,
+    events: &[ReusableGovernanceEvent],
+    session_authority: &DeclaredSessionAuthority,
+) -> Result<ReusableInfluenceLedger, ApplicationReplayError> {
+    let expected_actor = governance_actor_from_authority(session_authority);
+    let mut replay = ReusableInfluenceLedger::new();
+    for event in events {
+        validate_governance_event(parts, project_scope, &replay, event, &expected_actor)?;
+        replay.append(event.clone());
+    }
+    Ok(replay)
 }
 
 /// Test-only helper for integration tests validating replay rejection of tampered events.

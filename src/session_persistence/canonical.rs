@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::analysis::{AnalysisConfigurationIdentity, AnalysisSnapshot, SessionTermsIdentity};
 use crate::anchor::TranscriptRevisionId;
 use crate::application_service::ApplicationReviewSession;
-use crate::analysis::AnalysisSnapshot;
 use crate::candidate::{
     AsciiLatinPhoneticRepresentation, CandidateAlternative, CandidateSpan, DetectionKind,
     DetectorProvenance, Evidence, GlossaryAliasEvidence, ObservedErrorFormEvidence,
@@ -12,6 +12,12 @@ use crate::candidate::{
 use crate::pipeline::CanonicalTermReviewRun;
 use crate::review::{CorrectionDecision, ReviewCase, ReviewCaseId, ReviewLedgerEvent};
 use crate::session_persistence::error::SessionPersistenceError;
+use crate::session_persistence::reuse_canonical::{
+    persist_governance_event, persist_project_scope, persist_reuse_enabled_binding,
+    PersistedProjectScopeV1, PersistedReuseEnabledBindingV1, PersistedReuseGovernanceEventV1,
+    active_analysis_selection_identity_for_reuse_enabled,
+};
+use crate::application_reuse::reusable_influence_snapshot_for_parts;
 use crate::transcript::{Segment, Transcript};
 
 pub(crate) const PRODUCT_SESSION_FORMAT_VERSION: u32 = 1;
@@ -503,35 +509,60 @@ pub(crate) fn verify_review_cases(
 }
 
 pub(crate) fn snapshot_identity(snapshot: AnalysisSnapshot) -> String {
-    let configuration = snapshot.configuration();
-    let detector_part = configuration
-        .detector_set()
-        .detectors()
-        .iter()
-        .map(|detector| format!("{}@{}", detector.id(), detector.version()))
-        .collect::<Vec<_>>()
-        .join(",");
-    format!(
-        "{}|{}|{}|{}@{}|{}@{}",
-        snapshot.source_revision().to_tagged_string(),
-        snapshot.session_terms().to_tagged_string(),
-        detector_part,
-        configuration.detector_config().id(),
-        configuration.detector_config().version(),
-        configuration.algorithm().id(),
-        configuration.algorithm().version(),
-    )
+    crate::analysis::analysis_snapshot_identity_tag(snapshot)
 }
 
 pub(crate) fn capture_from_session(
     session: &ApplicationReviewSession,
 ) -> Result<SessionCanonicalCapture, SessionPersistenceError> {
-    let snapshot = session.canonical_run().analysis_run().snapshot();
+    let canonical_snapshot = session.canonical_run().analysis_run().snapshot();
+    let project_scope = session
+        .reuse_state()
+        .project_scope()
+        .map(persist_project_scope)
+        .unwrap_or(PersistedProjectScopeV1 {
+            stable_id: String::new(),
+            display_name: String::new(),
+        });
+    let reuse_governance_events = session
+        .reuse_state()
+        .governance_events()
+        .iter()
+        .map(persist_governance_event)
+        .collect();
+    let reuse_governance_head = session.reuse_state().governance_events().len();
+    let reuse_enabled_bindings = if let Some(run) = session.reuse_enabled_run() {
+        let parts = session.reuse_parts();
+        let snapshot = reusable_influence_snapshot_for_parts(parts, session.reuse_state())
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
+        vec![
+            persist_reuse_enabled_binding(
+                1,
+                run.analysis_run().snapshot(),
+                snapshot.identity(),
+                session.reuse_state().governance_events().len(),
+            ),
+        ]
+    } else {
+        Vec::new()
+    };
+    let active_analysis_selection_identity = if let Some(run) = session.reuse_enabled_run() {
+        let parts = session.reuse_parts();
+        let snapshot = reusable_influence_snapshot_for_parts(parts, session.reuse_state())
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
+        active_analysis_selection_identity_for_reuse_enabled(
+            run.analysis_run().snapshot(),
+            snapshot.identity(),
+            session.reuse_state().governance_events().len(),
+        )
+    } else {
+        snapshot_identity(canonical_snapshot)
+    };
     Ok(SessionCanonicalCapture {
         transcript: persist_transcript(session.source()),
         session_terms: persist_session_terms(session.session_terms()),
-        analysis_snapshot: persist_analysis_snapshot(snapshot),
-        active_analysis_snapshot_identity: snapshot_identity(snapshot),
+        analysis_snapshot: persist_analysis_snapshot(canonical_snapshot),
+        active_analysis_selection_identity,
         review_cases: session
             .canonical_run()
             .review_cases()
@@ -562,6 +593,10 @@ pub(crate) fn capture_from_session(
             .iter()
             .map(persist_ledger_event)
             .collect(),
+        project_scope,
+        reuse_governance_events,
+        reuse_governance_head,
+        reuse_enabled_bindings,
     })
 }
 
@@ -570,13 +605,17 @@ pub(crate) struct SessionCanonicalCapture {
     pub transcript: PersistedTranscriptV1,
     pub session_terms: Vec<PersistedSessionTermV1>,
     pub analysis_snapshot: PersistedAnalysisSnapshotV1,
-    pub active_analysis_snapshot_identity: String,
+    pub active_analysis_selection_identity: String,
     pub review_cases: Vec<PersistedReviewCaseV1>,
     pub material_use_basis: String,
     pub authority_role: String,
     pub authority_display_label: String,
     pub review_ledger_head: usize,
     pub ledger_events: Vec<PersistedReviewLedgerEventV1>,
+    pub project_scope: PersistedProjectScopeV1,
+    pub reuse_governance_events: Vec<PersistedReuseGovernanceEventV1>,
+    pub reuse_governance_head: usize,
+    pub reuse_enabled_bindings: Vec<PersistedReuseEnabledBindingV1>,
 }
 
 fn persist_phonetic_target_kind(kind: PhoneticTargetKind) -> String {
@@ -638,4 +677,96 @@ fn restore_phonetic_comparison(
         ratio_permille: persisted.ratio_permille,
         matched_key: persisted.matched_key.clone(),
     })
+}
+
+pub(crate) fn restore_analysis_snapshot_from_persisted(
+    persisted: &PersistedAnalysisSnapshotV1,
+) -> Result<AnalysisSnapshot, SessionPersistenceError> {
+    let source_revision = parse_revision_tag_for_canonical(&persisted.source_revision)?;
+    let session_terms = SessionTermsIdentity::from_tagged_string(&persisted.session_terms_identity)
+        .ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch("session terms identity".to_owned())
+        })?;
+    let configuration = restore_configuration_from_persisted(persisted)?;
+    Ok(AnalysisSnapshot::from_components(
+        source_revision,
+        session_terms,
+        configuration,
+    ))
+}
+
+fn restore_configuration_from_persisted(
+    persisted: &PersistedAnalysisSnapshotV1,
+) -> Result<AnalysisConfigurationIdentity, SessionPersistenceError> {
+    use crate::candidate::{
+        canonical_session_term_analysis_identity, reuse_enabled_session_term_analysis_identity,
+    };
+    for configuration in [
+        canonical_session_term_analysis_identity(),
+        reuse_enabled_session_term_analysis_identity(),
+    ] {
+        if persisted_matches_configuration(persisted, configuration) {
+            return Ok(configuration);
+        }
+    }
+    Err(SessionPersistenceError::CanonicalMismatch(
+        "analysis configuration identity".to_owned(),
+    ))
+}
+
+fn persisted_matches_configuration(
+    persisted: &PersistedAnalysisSnapshotV1,
+    configuration: AnalysisConfigurationIdentity,
+) -> bool {
+    let actual_detectors = configuration.detector_set().detectors();
+    if persisted.detectors.len() != actual_detectors.len() {
+        return false;
+    }
+    for (persisted_detector, actual_detector) in persisted.detectors.iter().zip(actual_detectors) {
+        if persisted_detector.id != actual_detector.id()
+            || persisted_detector.version != actual_detector.version()
+        {
+            return false;
+        }
+    }
+    persisted.detector_config.id == configuration.detector_config().id()
+        && persisted.detector_config.version == configuration.detector_config().version()
+        && persisted.algorithm.id == configuration.algorithm().id()
+        && persisted.algorithm.version == configuration.algorithm().version()
+}
+
+fn parse_revision_tag_for_canonical(
+    tag: &str,
+) -> Result<TranscriptRevisionId, SessionPersistenceError> {
+    let hex = tag
+        .strip_prefix("rev:sha256-v1:")
+        .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision tag".to_owned()))?;
+    let mut digest = [0_u8; 32];
+    for (index, chunk) in hex.as_bytes().chunks(2).enumerate() {
+        if index >= 32 || chunk.len() != 2 {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "revision digest".to_owned(),
+            ));
+        }
+        let hi = (chunk[0] as char)
+            .to_digit(16)
+            .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision digest".to_owned()))?
+            as u8;
+        let lo = (chunk[1] as char)
+            .to_digit(16)
+            .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision digest".to_owned()))?
+            as u8;
+        digest[index] = (hi << 4) | lo;
+    }
+    Ok(TranscriptRevisionId::from_sha256_digest(digest))
+}
+
+pub(crate) fn encode_digest_hex(digest: [u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(64);
+    for byte in digest {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
 }

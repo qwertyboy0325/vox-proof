@@ -2,6 +2,8 @@ mod canonical;
 mod durable_session;
 mod error;
 mod hydrate;
+mod reuse_canonical;
+mod reuse_store;
 mod store;
 
 pub use durable_session::DurableApplicationSession;

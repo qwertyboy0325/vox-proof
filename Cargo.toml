@@ -92,3 +92,7 @@ required-features = ["persistence-spike"]
 [[test]]
 name = "session_persistence_p1"
 path = "tests/session_persistence_p1.rs"
+
+[[test]]
+name = "session_persistence_p2"
+path = "tests/session_persistence_p2.rs"

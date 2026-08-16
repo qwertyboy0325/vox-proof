@@ -334,7 +334,7 @@ pub(crate) fn load_canonical_capture_from_connection(
     let analysis_snapshot: crate::session_persistence::canonical::PersistedAnalysisSnapshotV1 =
         serde_json::from_str(&analysis_json)
             .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
-    let active_analysis_snapshot_identity: String = connection
+    let active_analysis_selection_identity: String = connection
         .query_row(
             "SELECT active_analysis_snapshot_identity FROM command_tokens WHERE session_id = ?1",
             [session_id],
@@ -388,17 +388,81 @@ pub(crate) fn load_canonical_capture_from_connection(
                 .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?,
         );
     }
+    let project_scope: crate::session_persistence::reuse_canonical::PersistedProjectScopeV1 =
+        connection
+            .query_row(
+                "SELECT stable_id, display_name FROM project_scope WHERE session_id = ?1",
+                [session_id],
+                |row| {
+                    Ok(crate::session_persistence::reuse_canonical::PersistedProjectScopeV1 {
+                        stable_id: row.get(0)?,
+                        display_name: row.get(1)?,
+                    })
+                },
+            )
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    let reuse_governance_head: usize = connection
+        .query_row(
+            "SELECT reuse_governance_head FROM command_tokens WHERE session_id = ?1",
+            [session_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))? as usize;
+    let mut reuse_governance_events = Vec::new();
+    let mut governance_stmt = connection
+        .prepare(
+            "SELECT event_json FROM reuse_governance_events WHERE session_id = ?1 ORDER BY event_index ASC",
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    let governance_rows = governance_stmt
+        .query_map([session_id], |row| row.get::<_, String>(0))
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    for row in governance_rows {
+        let event_json = row.map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        reuse_governance_events.push(
+            serde_json::from_str(&event_json)
+                .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?,
+        );
+    }
+    let mut reuse_enabled_bindings = Vec::new();
+    let mut binding_stmt = connection
+        .prepare(
+            "SELECT binding_id, binding_json FROM reuse_enabled_bindings WHERE session_id = ?1 ORDER BY binding_id ASC",
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    let binding_rows = binding_stmt
+        .query_map([session_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    for row in binding_rows {
+        let (binding_id, binding_json) =
+            row.map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+        let binding: crate::session_persistence::reuse_canonical::PersistedReuseEnabledBindingV1 =
+            serde_json::from_str(&binding_json)
+                .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        if binding.binding_id != binding_id as usize {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "reuse binding id mismatch".to_owned(),
+            ));
+        }
+        reuse_enabled_bindings.push(binding);
+    }
     Ok(SessionCanonicalCapture {
         transcript: crate::session_persistence::canonical::persist_transcript(&transcript),
         session_terms: crate::session_persistence::canonical::persist_session_terms(&session_terms),
         analysis_snapshot,
-        active_analysis_snapshot_identity,
+        active_analysis_selection_identity,
         review_cases,
         material_use_basis,
         authority_role,
         authority_display_label,
         review_ledger_head,
         ledger_events,
+        project_scope,
+        reuse_governance_events,
+        reuse_governance_head,
+        reuse_enabled_bindings,
     })
 }
 
@@ -450,7 +514,7 @@ fn insert_initial_canonical(
         "INSERT INTO analysis_snapshots (session_id, snapshot_identity, snapshot_json) VALUES (?1, ?2, ?3)",
         params![
             session_id,
-            capture.active_analysis_snapshot_identity,
+            capture.active_analysis_selection_identity,
             snapshot_json
         ],
     )
@@ -465,13 +529,39 @@ fn insert_initial_canonical(
         .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
     }
     tx.execute(
-        "INSERT INTO project_scope (session_id, stable_id, display_name) VALUES (?1, '', '')",
-        [session_id],
+        "INSERT INTO project_scope (session_id, stable_id, display_name) VALUES (?1, ?2, ?3)",
+        params![
+            session_id,
+            capture.project_scope.stable_id,
+            capture.project_scope.display_name
+        ],
     )
     .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    for (event_index, event) in capture.reuse_governance_events.iter().enumerate() {
+        let event_json = serde_json::to_string(event)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO reuse_governance_events (session_id, event_index, event_json) VALUES (?1, ?2, ?3)",
+            params![session_id, event_index as i64, event_json],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    }
+    for binding in &capture.reuse_enabled_bindings {
+        let binding_json = serde_json::to_string(binding)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(error.to_string()))?;
+        tx.execute(
+            "INSERT INTO reuse_enabled_bindings (session_id, binding_id, binding_json) VALUES (?1, ?2, ?3)",
+            params![session_id, binding.binding_id as i64, binding_json],
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    }
     tx.execute(
-        "INSERT INTO command_tokens (session_id, review_ledger_head, reuse_governance_head, active_analysis_snapshot_identity) VALUES (?1, 0, 0, ?2)",
-        params![session_id, capture.active_analysis_snapshot_identity],
+        "INSERT INTO command_tokens (session_id, review_ledger_head, reuse_governance_head, active_analysis_snapshot_identity) VALUES (?1, 0, ?2, ?3)",
+        params![
+            session_id,
+            capture.reuse_governance_head as i64,
+            capture.active_analysis_selection_identity
+        ],
     )
     .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
     Ok(())
@@ -594,7 +684,7 @@ fn validate_session_id(session_id: &str) -> Result<(), SessionPersistenceError> 
     Ok(())
 }
 
-fn verify_writer_token_in_transaction(
+pub(crate) fn verify_writer_token_in_transaction(
     tx: &rusqlite::Transaction<'_>,
     session_id: &str,
     expected_token: &str,
@@ -612,7 +702,7 @@ fn verify_writer_token_in_transaction(
     }
 }
 
-fn parse_revision_tag(tag: &str) -> Result<crate::anchor::TranscriptRevisionId, SessionPersistenceError> {
+pub(crate) fn parse_revision_tag(tag: &str) -> Result<crate::anchor::TranscriptRevisionId, SessionPersistenceError> {
     let hex = tag
         .strip_prefix("rev:sha256-v1:")
         .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision tag".to_owned()))?;

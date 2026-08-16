@@ -26,6 +26,30 @@ impl SessionTermsIdentity {
         encoded
     }
 
+    pub(crate) fn from_tagged_string(tag: &str) -> Option<Self> {
+        let hex = tag.strip_prefix("session-terms:sha256-v1:")?;
+        parse_32_byte_hex(hex).map(Self)
+    }
+
+    pub(crate) fn digest_bytes(self) -> [u8; 32] {
+        self.0
+    }
+}
+
+fn parse_32_byte_hex(hex: &str) -> Option<[u8; 32]> {
+    if hex.len() != 64 {
+        return None;
+    }
+    let mut digest = [0_u8; 32];
+    for (index, chunk) in hex.as_bytes().chunks(2).enumerate() {
+        let hi = (chunk[0] as char).to_digit(16)? as u8;
+        let lo = (chunk[1] as char).to_digit(16)? as u8;
+        digest[index] = (hi << 4) | lo;
+    }
+    Some(digest)
+}
+
+impl SessionTermsIdentity {
     pub fn from_entries(entries: &[SessionTermEntry]) -> Self {
         const DOMAIN_SEPARATOR: &[u8] = b"voxproof-session-terms-identity-v1";
 
@@ -180,6 +204,18 @@ impl AnalysisSnapshot {
         self.source_revision
     }
 
+    pub(crate) fn from_components(
+        source_revision: TranscriptRevisionId,
+        session_terms: SessionTermsIdentity,
+        configuration: AnalysisConfigurationIdentity,
+    ) -> Self {
+        Self {
+            source_revision,
+            session_terms,
+            configuration,
+        }
+    }
+
     pub fn session_terms(&self) -> SessionTermsIdentity {
         self.session_terms
     }
@@ -187,6 +223,40 @@ impl AnalysisSnapshot {
     pub fn configuration(&self) -> AnalysisConfigurationIdentity {
         self.configuration
     }
+}
+
+pub(crate) fn analysis_snapshot_identity_tag(snapshot: AnalysisSnapshot) -> String {
+    let configuration = snapshot.configuration();
+    let detector_part = configuration
+        .detector_set()
+        .detectors()
+        .iter()
+        .map(|detector| format!("{}@{}", detector.id(), detector.version()))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{}|{}|{}|{}@{}|{}@{}",
+        snapshot.source_revision().to_tagged_string(),
+        snapshot.session_terms().to_tagged_string(),
+        detector_part,
+        configuration.detector_config().id(),
+        configuration.detector_config().version(),
+        configuration.algorithm().id(),
+        configuration.algorithm().version(),
+    )
+}
+
+pub(crate) fn reuse_enabled_active_analysis_selection_identity(
+    analysis_snapshot: AnalysisSnapshot,
+    reusable_snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
+    governance_event_boundary: usize,
+) -> String {
+    format!(
+        "reuse-analysis:{}|{}|{}",
+        analysis_snapshot_identity_tag(analysis_snapshot),
+        reusable_snapshot_identity.to_tagged_string(),
+        governance_event_boundary
+    )
 }
 
 /// One bounded analysis execution over one transcript revision under one
