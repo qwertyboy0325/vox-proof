@@ -2,9 +2,17 @@
   "record_id": "VP-GATE4-FCR03-R2-02-PHASE-RECORD",
   "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
   "phase": "R2_02_GENUINE_STALE_SCENARIOS",
-  "status": "COMPLETE_PENDING_REVIEW",
+  "status": "SPECIALIST_REVIEW_COMPLETE_METHODOLOGY_PENDING",
   "started_on": "2026-08-15",
   "completed_scopes": ["review", "reuse", "active_analysis"],
+  "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff",
+  "implementation_sha_note": "Owner referenced c1e9f82; ee509e3 is c1e9f82 amended with readiness tracker (pushed to origin). Not final evidence SHA.",
+  "specialist_review": {
+    "artifact": "storage-systems-review-r2-02.json",
+    "verdict": "PASS_WITH_CAVEATS",
+    "blocking_before_methodology": false,
+    "reviewed_on": "2026-08-16"
+  },
   "analysis_fixture": {
     "helper": "genuine_stale_analysis_prepare_authority",
     "owner_authorization": "r2-02-owner-authorization-analysis-fixture.json",

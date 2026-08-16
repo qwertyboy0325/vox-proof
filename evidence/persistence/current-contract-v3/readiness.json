@@ -176,7 +176,7 @@
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
     "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
-    "current_step": "R2_02_specialist_and_methodology_review",
+    "current_step": "R2_02_methodology_review",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
     "open_conflicts": [
       "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
@@ -187,7 +187,9 @@
     "closed_in_r2_02": ["FCR-R2-02-SYNTHETIC-STALE-COMMANDS"],
     "r2_01_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json",
     "r2_02_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-phase-record.json",
-    "r2_02_analysis_fixture_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-owner-authorization-analysis-fixture.json"
+    "r2_02_analysis_fixture_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-owner-authorization-analysis-fixture.json",
+    "r2_02_specialist_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02.json",
+    "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff"
   },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
