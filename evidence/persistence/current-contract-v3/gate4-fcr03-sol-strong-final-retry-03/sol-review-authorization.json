@@ -1,0 +1,16 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-03-AUTHORIZATION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "retry_number": 3,
+  "model": "gpt-5.6-sol-high",
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-16",
+  "owner_authorization": "AUTHORIZE_SOL_STRONG_FINAL_RETRY_03",
+  "execution_status": "EXECUTED",
+  "execution_result": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-03/sol-strong-final-conflict-review-result.json",
+  "verdict": "PASS",
+  "canonical_review_endpoint": "74e13aeb4547c75f21efd94538c12b29cdd945f4",
+  "commit_range_reviewed": "b9b9a7a..74e13ae",
+  "final_frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add"
+}

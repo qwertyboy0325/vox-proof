@@ -19,7 +19,7 @@
     "meaning": "Owner has not authorized mechanism selection or READY_FOR_OWNER_GATE"
   },
   "selection_status": "none",
-  "tracker_status": "R2_03_PRE_FINAL_PASS_SOL_RETRY_03_AUTHORIZED",
+  "tracker_status": "SOL_STRONG_FINAL_RETRY_03_PASS_GATE4_REMEDIATION_COMPLETE",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -181,7 +181,7 @@
   },
   "sol_r2_bounded_correction": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-  "status": "R2_03_PRE_FINAL_PASS",
+  "status": "SOL_STRONG_FINAL_RETRY_03_PASS",
   "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
     "decision_path": "A",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
@@ -240,6 +240,12 @@
     "r2_03_bounded_correction": "r2-03-bounded-pre-final-correction-01-record.json",
     "r2_03_governance_clarification": "r2-03-governance-clarification.json",
     "sol_retry_03_authorization_conditional": "sol-review-authorization-retry-03.json",
+    "sol_retry_03_result": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-03/sol-strong-final-conflict-review-result.json",
+    "sol_retry_03_verdict": "PASS",
+    "sol_retry_03_reviewer_model": "gpt-5.6-sol-high",
+    "owner_readiness_interpretation_ratification": "owner-readiness-interpretation-ratification.json",
+    "gate4_stop_loss_policy": "evidence/persistence/current-contract-v3/gate4-stop-loss-policy.json",
+    "gate_4_comprehensive_remediation_complete": true,
     "implementation_sha_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
     "implementation_sha_note": "R2-02 review target only; not final evidence SHA"
   },
@@ -263,9 +269,9 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_03_PRE_FINAL_PASS",
-    "phase": "SOL_STRONG_FINAL_RETRY_03_AUTHORIZED",
-    "phase_note": "Successor Opus PRE_FINAL PASS at 91c9f5c; FCR-R2-03 closed; Sol retry 03 authorized (gpt-5.6-sol-high) pending owner launch.",
+    "status": "GATE4_COMPREHENSIVE_REMEDIATION_COMPLETE",
+    "phase": "SOL_RETRY_03_PASS_AWAITING_FINAL_GATE",
+    "phase_note": "Sol STRONG_FINAL retry 03 PASS at 74e13ae; Class-A 0; Class-B 5 non-material. FINAL_GATE not executed.",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -315,9 +321,11 @@
       "dual_platform_validation_and_readiness_rebuild",
       "pre_final_corrections_required_895314e",
       "r2_03_bounded_pre_final_correction_91c9f5c",
-      "successor_pre_final_PASS_opus_5_91c9f5c"
+      "successor_pre_final_PASS_opus_5_91c9f5c",
+      "gate4_stop_loss_policy_5dec3aa",
+      "Sol_STRONG_FINAL_RETRY_03_PASS_gpt_5_6_sol_high_74e13ae"
     ],
-    "current": "SOL_STRONG_FINAL_RETRY_03_PENDING_OWNER_LAUNCH",
+    "current": "FINAL_GATE_GOVERNANCE_CHECK_PENDING_OWNER",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -325,8 +333,8 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "Sol STRONG_FINAL retry 03 (gpt-5.6-sol-high)",
-      "FINAL_GATE_GOVERNANCE_CHECK after Sol PASS"
+      "FINAL_GATE_GOVERNANCE_CHECK",
+      "owner mechanism-selection boundary"
     ]
   },
   "still_closed": [
@@ -338,5 +346,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "R2-03 successor PRE_FINAL PASS at 91c9f5c. FCR-R2-03 closed. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Sol retry 03 authorized; not executed. Gate 4 stop-loss policy active: evidence/persistence/current-contract-v3/gate4-stop-loss-policy.json"
+  "note": "Sol STRONG_FINAL retry 03 PASS (gpt-5.6-sol-high). Gate 4 comprehensive remediation complete. Class-B caveats only. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Mechanism selection not authorized."
 }
