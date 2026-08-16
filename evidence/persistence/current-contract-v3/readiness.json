@@ -13,13 +13,16 @@
   "governance_authority_layer": {
     "mechanism_selection_status": "none",
     "owner_selection_authorized": false,
-    "ready_for_owner_gate": false,
+    "ready_for_owner_gate": true,
     "comparison_blocker_lift_authorized": false,
     "frozen_comparison_baseline": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
-    "meaning": "Owner has not authorized mechanism selection or READY_FOR_OWNER_GATE"
+    "final_gate_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/final-governance-audit-result.json",
+    "final_gate_verdict": "PASS",
+    "final_gate_auditor_model": "claude-opus-5-thinking-high",
+    "meaning": "FINAL_GATE_GOVERNANCE_CHECK PASS at b7ed0de; owner may proceed to mechanism-selection boundary. Mechanism not selected."
   },
   "selection_status": "none",
-  "tracker_status": "SOL_STRONG_FINAL_RETRY_03_PASS_GATE4_REMEDIATION_COMPLETE",
+  "tracker_status": "GATE4_READY_FOR_OWNER_MECHANISM_SELECTION",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -244,6 +247,8 @@
     "sol_retry_03_verdict": "PASS",
     "sol_retry_03_reviewer_model": "gpt-5.6-sol-high",
     "owner_readiness_interpretation_ratification": "owner-readiness-interpretation-ratification.json",
+    "final_gate_audit": "final-governance-audit-result.json",
+    "final_gate_verdict": "PASS",
     "gate4_stop_loss_policy": "evidence/persistence/current-contract-v3/gate4-stop-loss-policy.json",
     "gate_4_comprehensive_remediation_complete": true,
     "implementation_sha_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
@@ -269,10 +274,11 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "GATE4_COMPREHENSIVE_REMEDIATION_COMPLETE",
-    "phase": "SOL_RETRY_03_PASS_AWAITING_FINAL_GATE",
-    "phase_note": "Sol STRONG_FINAL retry 03 PASS at 74e13ae; Class-A 0; Class-B 5 non-material. FINAL_GATE not executed.",
-    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
+    "status": "GATE4_READY_FOR_OWNER_MECHANISM_SELECTION",
+    "phase": "FINAL_GATE_PASS",
+    "phase_note": "FINAL_GATE_GOVERNANCE_CHECK PASS (Opus 5) at b7ed0de after Sol retry 03 PASS. Class-A 0; Class-B 6 non-material caveats. Gate 4 verification complete.",
+    "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
+    "final_gate_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/final-governance-audit-result.json"
   },
   "gate_sequence": {
     "completed": [
@@ -323,28 +329,25 @@
       "r2_03_bounded_pre_final_correction_91c9f5c",
       "successor_pre_final_PASS_opus_5_91c9f5c",
       "gate4_stop_loss_policy_5dec3aa",
-      "Sol_STRONG_FINAL_RETRY_03_PASS_gpt_5_6_sol_high_74e13ae"
+      "Sol_STRONG_FINAL_RETRY_03_PASS_gpt_5_6_sol_high_74e13ae",
+      "FINAL_GATE_GOVERNANCE_CHECK_PASS_opus_5_b7ed0de"
     ],
-    "current": "FINAL_GATE_GOVERNANCE_CHECK_PENDING_OWNER",
+    "current": "owner_mechanism_selection_boundary",
     "blocked": [
-      "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
-      "READY_FOR_OWNER_GATE",
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "FINAL_GATE_GOVERNANCE_CHECK",
       "owner mechanism-selection boundary"
     ]
   },
   "still_closed": [
     "mechanism_selection",
     "Material_Decision",
-    "product_integration",
-    "READY_FOR_OWNER_GATE"
+    "product_integration"
   ],
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "Sol STRONG_FINAL retry 03 PASS (gpt-5.6-sol-high). Gate 4 comprehensive remediation complete. Class-B caveats only. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Mechanism selection not authorized."
+  "note": "FINAL_GATE_GOVERNANCE_CHECK PASS (claude-opus-5-thinking-high) at b7ed0de. Sol retry 03 PASS (gpt-5.6-sol-high). Gate 4 verification complete. ready_for_owner_gate=true. Mechanism selection still requires explicit owner decision."
 }
