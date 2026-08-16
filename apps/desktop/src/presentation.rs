@@ -8,6 +8,7 @@ pub enum BottomTab {
     CurrentPreview,
     DecisionLog,
     SessionSummary,
+    ProjectMemory,
 }
 
 pub fn coverage_label(progress: ApplicationReviewProgress, total: usize) -> String {
@@ -32,10 +33,31 @@ pub fn resolution_label(progress: ApplicationReviewProgress) -> String {
         ApplicationResolutionStatus::Unresolved {
             deferred,
             needs_manual_correction,
-        } => format!(
-            "{deferred} deferred, {needs_manual_correction} still need manual correction"
-        ),
+        } => format!("{deferred} deferred, {needs_manual_correction} still need manual correction"),
     }
+}
+
+pub fn composed_coverage_label(
+    progress: ApplicationReviewProgress,
+    canonical_total: usize,
+    previous_corrections_waiting: usize,
+) -> String {
+    match progress.decision_coverage {
+        ApplicationDecisionCoverage::Complete if previous_corrections_waiting == 0 => {
+            coverage_label(progress, canonical_total)
+        }
+        ApplicationDecisionCoverage::Complete => format!(
+            "Term checks complete · {previous_corrections_waiting} previous correction(s) still need a decision"
+        ),
+        ApplicationDecisionCoverage::Incomplete { .. } => coverage_label(progress, canonical_total),
+    }
+}
+
+pub fn show_review_complete_panel(
+    progress: ApplicationReviewProgress,
+    previous_corrections_waiting: usize,
+) -> bool {
+    review_is_complete(progress) && previous_corrections_waiting == 0
 }
 
 pub fn review_is_complete(progress: ApplicationReviewProgress) -> bool {
@@ -175,5 +197,35 @@ mod tests {
         assert!(!search_matches(source, evidence, "unrelated"));
         assert_eq!(source, "華說 product");
         assert_eq!(evidence, "Glossary alias");
+    }
+
+    #[test]
+    fn waiting_previous_corrections_do_not_claim_composed_queue_complete() {
+        let progress = ApplicationReviewProgress {
+            decision_coverage: ApplicationDecisionCoverage::Complete,
+            resolution_status: ApplicationResolutionStatus::Resolved,
+        };
+        assert_eq!(
+            composed_coverage_label(progress, 0, 1),
+            "Term checks complete · 1 previous correction(s) still need a decision"
+        );
+        assert!(!show_review_complete_panel(progress, 1));
+        assert!(export_enabled(progress));
+        assert_eq!(composed_coverage_label(progress, 0, 0), "Review complete");
+        assert!(show_review_complete_panel(progress, 0));
+    }
+
+    #[test]
+    fn incomplete_canonical_coverage_uses_canonical_total() {
+        let progress = ApplicationReviewProgress {
+            decision_coverage: ApplicationDecisionCoverage::Incomplete { undecided: 1 },
+            resolution_status: ApplicationResolutionStatus::Resolved,
+        };
+        assert_eq!(
+            composed_coverage_label(progress, 1, 1),
+            "Progress: 0 of 1 reviewed"
+        );
+        assert!(!export_enabled(progress));
+        assert!(!show_review_complete_panel(progress, 1));
     }
 }

@@ -514,6 +514,20 @@ impl ApplicationReviewSession {
         self.reuse_state.project_scope().is_some()
     }
 
+    pub fn project_memory_available(&self) -> bool {
+        self.project_reuse.project_memory_available
+    }
+
+    pub fn project_memory_records(&self) -> &[crate::project_memory::ProjectMemoryRecord] {
+        &self.project_reuse.project_memory_records
+    }
+
+    pub fn project_display_name(&self) -> Option<&str> {
+        self.reuse_state
+            .project_scope()
+            .map(|scope| scope.display_name.as_str())
+    }
+
     pub fn reuse_parts(&self) -> ReuseSessionParts<'_> {
         ReuseSessionParts {
             transcript: &self.transcript,

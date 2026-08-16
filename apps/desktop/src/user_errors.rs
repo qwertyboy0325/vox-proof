@@ -1,4 +1,5 @@
 use vox_proof::application_service::ApplicationServiceError;
+use vox_proof::project_memory::ProjectMemoryError;
 use vox_proof::review::ManualReplacementTextError;
 use vox_proof::session_terms::SessionTermsError;
 
@@ -51,6 +52,13 @@ pub fn user_message(error: &ControllerError) -> String {
         ControllerError::WriterOwnershipHeld => {
             "This review is currently open for editing elsewhere.".to_owned()
         }
+        ControllerError::WritableReuseBlocked | ControllerError::ProjectMemoryUnavailable => {
+            "Project Memory isn't available for this review. You can still inspect saved decisions, but new reuse suggestions can't be applied until the project files are available again.".to_owned()
+        }
+        ControllerError::ProjectMemory(error) => project_memory_message(error),
+        ControllerError::NoPromotionCandidate => {
+            "This correction isn't ready to reuse in related reviews yet.".to_owned()
+        }
     }
 }
 
@@ -81,9 +89,9 @@ fn session_terms_message(error: &SessionTermsError) -> String {
             observed_error_form,
             ..
         } => format!("The misrecognition '{observed_error_form}' appears more than once."),
-        SessionTermsError::ConflictingSourceFormKinds { source_form, .. } => format!(
-            "'{source_form}' is listed as both an alias and a misrecognition."
-        ),
+        SessionTermsError::ConflictingSourceFormKinds { source_form, .. } => {
+            format!("'{source_form}' is listed as both an alias and a misrecognition.")
+        }
         SessionTermsError::DuplicateCanonicalTerm { canonical_term, .. } => {
             format!("The term '{canonical_term}' appears more than once.")
         }
@@ -96,7 +104,24 @@ fn service_message(error: &ApplicationServiceError) -> String {
         ApplicationServiceError::DecisionCoverageIncomplete { undecided } => {
             format!("Review {undecided} remaining item(s) before exporting.")
         }
+        ApplicationServiceError::StaleReuseAnalysis => {
+            "This suggestion is out of date because Project Memory changed. Close and reopen the review to see current suggestions.".to_owned()
+        }
+        ApplicationServiceError::ProjectEvidenceUnverifiable | ApplicationServiceError::UnknownReuseProposal => {
+            "This previous-correction suggestion can't be applied right now.".to_owned()
+        }
         other => format!("Review action failed: {other:?}"),
+    }
+}
+
+fn project_memory_message(error: &ProjectMemoryError) -> String {
+    match error {
+        ProjectMemoryError::InvalidDisplayName => "Enter a project name.".to_owned(),
+        ProjectMemoryError::ProjectNotFound => "That project could not be found.".to_owned(),
+        ProjectMemoryError::WriterOwnershipHeld => {
+            "This project is currently open elsewhere.".to_owned()
+        }
+        _ => "The project could not be opened.".to_owned(),
     }
 }
 
@@ -111,8 +136,8 @@ fn manual_replacement_message(error: &ManualReplacementTextError) -> String {
         ManualReplacementTextError::IdenticalToSelectedSource => {
             "Correction must be different from the current subtitle text.".to_owned()
         }
-        ManualReplacementTextError::TooLong { maximum_utf8_bytes, .. } => format!(
-            "Correction is too long. Keep it under {maximum_utf8_bytes} characters."
-        ),
+        ManualReplacementTextError::TooLong {
+            maximum_utf8_bytes, ..
+        } => format!("Correction is too long. Keep it under {maximum_utf8_bytes} characters."),
     }
 }

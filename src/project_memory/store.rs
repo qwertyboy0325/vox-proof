@@ -197,6 +197,80 @@ impl ProductProjectMemoryStore {
             records,
         })
     }
+
+    pub fn list_projects(&self) -> Result<Vec<ProjectListSummary>, ProjectMemoryError> {
+        let projects_root = self.root.join("projects");
+        if !projects_root.exists() {
+            return Ok(Vec::new());
+        }
+        let mut summaries = Vec::new();
+        let entries = fs::read_dir(&projects_root)
+            .map_err(|error| ProjectMemoryError::Io(error.to_string()))?;
+        for entry in entries {
+            let entry = entry.map_err(|error| ProjectMemoryError::Io(error.to_string()))?;
+            let project_id_raw = entry.file_name().to_string_lossy().into_owned();
+            if validate_project_id(&project_id_raw).is_err() {
+                continue;
+            }
+            let db_path = self.database_path(&project_id_raw);
+            if !db_path.is_file() {
+                continue;
+            }
+            let connection =
+                Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                    .map_err(|error| ProjectMemoryError::Sqlite(error.to_string()))?;
+            configure_connection(&connection)?;
+            let format_version: u32 = match connection.query_row(
+                "SELECT format_version FROM project_metadata WHERE project_id = ?1",
+                [&project_id_raw],
+                |row| row.get(0),
+            ) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            if format_version != PROJECT_MEMORY_FORMAT_VERSION {
+                continue;
+            }
+            let display_name: String = match connection.query_row(
+                "SELECT display_name FROM project_metadata WHERE project_id = ?1",
+                [&project_id_raw],
+                |row| row.get(0),
+            ) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let created_at_unix_ms: i64 = match connection.query_row(
+                "SELECT created_at_unix_ms FROM project_metadata WHERE project_id = ?1",
+                [&project_id_raw],
+                |row| row.get(0),
+            ) {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let Ok(project_id) = ProjectScopeId::new(project_id_raw) else {
+                continue;
+            };
+            summaries.push(ProjectListSummary {
+                project_id,
+                display_name,
+                created_at_unix_ms,
+            });
+        }
+        summaries.sort_by(|left, right| {
+            left.display_name
+                .cmp(&right.display_name)
+                .then_with(|| left.created_at_unix_ms.cmp(&right.created_at_unix_ms))
+                .then_with(|| left.project_id.as_str().cmp(right.project_id.as_str()))
+        });
+        Ok(summaries)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectListSummary {
+    pub project_id: ProjectScopeId,
+    pub display_name: String,
+    pub created_at_unix_ms: i64,
 }
 
 impl DurableProjectMemory {

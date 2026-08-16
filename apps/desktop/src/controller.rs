@@ -11,11 +11,16 @@ use vox_proof::application_export_v3::{
 use vox_proof::application_reuse::ApplicationReuseError;
 use vox_proof::application_service::{
     ApplicationCurrentProjection, ApplicationDecisionCoverage, ApplicationMaterialUseDeclaration,
-    ApplicationResolutionStatus, ApplicationReviewProgress, ApplicationServiceError,
-    DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority,
-    DeclaredSessionAuthorityError, DeclaredSessionOperatorRole,
+    ApplicationResolutionStatus, ApplicationReviewItemKind, ApplicationReviewProgress,
+    ApplicationReviewTarget, ApplicationServiceError, DeclaredApplicationMaterialUseBasis,
+    DeclaredSessionAuthority, DeclaredSessionAuthorityError, DeclaredSessionOperatorRole,
 };
 use vox_proof::candidate::{Evidence, SessionTermEntry};
+use vox_proof::project_memory::{
+    ProductProjectMemoryStore, ProjectListSummary, ProjectMemoryError,
+};
+use vox_proof::reusable_influence::{ReusableGovernanceEvent, ReuseCandidate};
+use vox_proof::reuse_primitives::ProjectScopeId;
 use vox_proof::review::{CorrectionDecision, ReviewCaseStatus};
 use vox_proof::session_persistence::{
     DurableApplicationSession, OpenMode, ProductSessionStore, SessionListSummary,
@@ -37,8 +42,20 @@ pub enum DesktopPhase {
     RecoveryRequired,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReviewItemOrigin {
+    TermSuggestion {
+        also_supported_by_previous_correction: bool,
+        disagrees_with_previous_correction: bool,
+    },
+    PreviousCorrection {
+        conflict_with_canonical: bool,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewItemView {
+    pub queue_index: usize,
     pub local_index: usize,
     pub cue_index: u32,
     pub source_text: String,
@@ -48,6 +65,9 @@ pub struct ReviewItemView {
     pub evidence: String,
     pub detector: String,
     pub status: String,
+    pub origin: ReviewItemOrigin,
+    pub uses_reuse_proposal_target: bool,
+    pub reuse_decision_blocked: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,6 +87,9 @@ pub struct SessionHeaderView {
     pub deferred: usize,
     pub needs_manual_correction: usize,
     pub undecided: usize,
+    pub project_name: Option<String>,
+    pub bound_to_project: bool,
+    pub project_memory_available: bool,
 }
 
 #[derive(Debug)]
@@ -88,6 +111,10 @@ pub enum ControllerError {
     RecoveryRequired,
     SessionNotWritable,
     WriterOwnershipHeld,
+    WritableReuseBlocked,
+    ProjectMemoryUnavailable,
+    ProjectMemory(ProjectMemoryError),
+    NoPromotionCandidate,
 }
 
 impl fmt::Display for ControllerError {
@@ -131,6 +158,20 @@ impl fmt::Display for ControllerError {
                 formatter,
                 "writable access refused because another writer holds this session"
             ),
+            Self::WritableReuseBlocked => write!(
+                formatter,
+                "project memory is unavailable; new reuse actions are blocked"
+            ),
+            Self::ProjectMemoryUnavailable => {
+                write!(formatter, "project memory is unavailable")
+            }
+            Self::ProjectMemory(error) => write!(formatter, "project memory failed: {error}"),
+            Self::NoPromotionCandidate => {
+                write!(
+                    formatter,
+                    "no reusable correction is available for this item"
+                )
+            }
         }
     }
 }
@@ -161,9 +202,17 @@ impl From<SessionPersistenceError> for ControllerError {
             SessionPersistenceError::RecoveryRequired => Self::RecoveryRequired,
             SessionPersistenceError::SessionNotWritable => Self::SessionNotWritable,
             SessionPersistenceError::WriterOwnershipHeld => Self::WriterOwnershipHeld,
+            SessionPersistenceError::WritableReuseBlocked => Self::WritableReuseBlocked,
+            SessionPersistenceError::ProjectMemoryUnavailable => Self::ProjectMemoryUnavailable,
             SessionPersistenceError::Replay(error) => Self::Service(error),
             other => Self::Persistence(other),
         }
+    }
+}
+
+impl From<ProjectMemoryError> for ControllerError {
+    fn from(value: ProjectMemoryError) -> Self {
+        Self::ProjectMemory(value)
     }
 }
 
@@ -175,6 +224,22 @@ pub struct SessionResumeView {
     pub review_case_count: usize,
     pub review_ledger_head: usize,
     pub source_display_name: String,
+    pub project_display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectChoiceView {
+    pub project_id: ProjectScopeId,
+    pub display_name: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectMemoryEntryView {
+    pub observed_text: String,
+    pub confirmed_replacement: String,
+    pub source_review_label: Option<String>,
+    pub provenance_available: bool,
 }
 
 pub struct DesktopController {
@@ -189,11 +254,15 @@ pub struct DesktopController {
     project_scope_display_draft: String,
     available_sessions: Vec<SessionResumeView>,
     selected_resume_session_id: Option<String>,
+    available_projects: Vec<ProjectChoiceView>,
+    selected_project_id: Option<ProjectScopeId>,
 }
 
 impl Default for DesktopController {
     fn default() -> Self {
-        Self::with_store(ProductSessionStore::new(crate::session_root::resolve_session_root()))
+        Self::with_store(ProductSessionStore::new(
+            crate::session_root::resolve_session_root(),
+        ))
     }
 }
 
@@ -211,8 +280,11 @@ impl DesktopController {
             project_scope_display_draft: String::new(),
             available_sessions: Vec::new(),
             selected_resume_session_id: None,
+            available_projects: Vec::new(),
+            selected_project_id: None,
         };
         let _ = controller.refresh_available_sessions_internal();
+        let _ = controller.refresh_available_projects_internal();
         controller
     }
 
@@ -226,11 +298,9 @@ impl DesktopController {
     }
 
     fn resume_view_from_summary(&self, summary: SessionListSummary) -> SessionResumeView {
-        let source_display_name = DesktopPresentation::read_source_display_name(
-            self.store.root(),
-            &summary.session_id,
-        )
-        .unwrap_or_else(|| short_session_label(&summary.session_id));
+        let source_display_name =
+            DesktopPresentation::read_source_display_name(self.store.root(), &summary.session_id)
+                .unwrap_or_else(|| short_session_label(&summary.session_id));
         SessionResumeView {
             session_id: summary.session_id,
             created_at_unix_ms: summary.created_at_unix_ms,
@@ -238,6 +308,7 @@ impl DesktopController {
             review_case_count: summary.review_case_count,
             review_ledger_head: summary.review_ledger_head,
             source_display_name,
+            project_display_name: summary.project_display_name,
         }
     }
 
@@ -252,10 +323,8 @@ impl DesktopController {
     }
 
     fn load_presentation_for_session(&mut self, session_id: &str) {
-        self.source_display_name = DesktopPresentation::read_source_display_name(
-            self.store.root(),
-            session_id,
-        );
+        self.source_display_name =
+            DesktopPresentation::read_source_display_name(self.store.root(), session_id);
         self.source_display_path = None;
     }
 
@@ -305,6 +374,68 @@ impl DesktopController {
 
     pub fn refresh_available_sessions(&mut self) -> Result<(), ControllerError> {
         self.refresh_available_sessions_internal()
+    }
+
+    fn project_store(&self) -> ProductProjectMemoryStore {
+        ProductProjectMemoryStore::new(self.store.root())
+    }
+
+    fn refresh_available_projects_internal(&mut self) -> Result<(), ControllerError> {
+        self.available_projects = self
+            .project_store()
+            .list_projects()?
+            .into_iter()
+            .map(|summary: ProjectListSummary| ProjectChoiceView {
+                project_id: summary.project_id,
+                display_name: summary.display_name,
+                created_at_unix_ms: summary.created_at_unix_ms,
+            })
+            .collect();
+        Ok(())
+    }
+
+    pub fn refresh_available_projects(&mut self) -> Result<(), ControllerError> {
+        self.refresh_available_projects_internal()
+    }
+
+    pub fn available_projects(&self) -> &[ProjectChoiceView] {
+        &self.available_projects
+    }
+
+    pub fn selected_project_id(&self) -> Option<&ProjectScopeId> {
+        self.selected_project_id.as_ref()
+    }
+
+    pub fn select_project(&mut self, project_id: ProjectScopeId) {
+        self.selected_project_id = Some(project_id);
+    }
+
+    pub fn clear_selected_project(&mut self) {
+        self.selected_project_id = None;
+    }
+
+    pub fn create_project(
+        &mut self,
+        display_name: impl Into<String>,
+    ) -> Result<ProjectScopeId, ControllerError> {
+        let project = self.project_store().create(display_name)?;
+        let project_id = project.project_id().clone();
+        project.close()?;
+        self.refresh_available_projects_internal()?;
+        self.selected_project_id = Some(project_id.clone());
+        Ok(project_id)
+    }
+
+    pub fn is_bound_to_project(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_some_and(|durable| durable.bound_project_id().is_some())
+    }
+
+    pub fn project_memory_available(&self) -> bool {
+        self.durable
+            .as_ref()
+            .is_some_and(|durable| durable.project_memory_available())
     }
 
     pub fn is_read_only(&self) -> bool {
@@ -373,11 +504,72 @@ impl DesktopController {
             .file_name()
             .map(|name| name.to_string_lossy().into_owned());
         self.install_durable_session(durable, Some(transcript_path.to_path_buf()), display_name);
+        self.maybe_freeze_bound_reuse()?;
         if let Some(session_id) = self.session_id() {
             self.persist_presentation_sidecar(session_id);
         }
         self.refresh_available_sessions_internal()?;
         Ok(())
+    }
+
+    pub fn start_from_transcript_and_terms_in_project(
+        &mut self,
+        transcript_path: &Path,
+        transcript_text: &str,
+        terms: Vec<SessionTermEntry>,
+        material_use: DeclaredApplicationMaterialUseBasis,
+        role: DeclaredSessionOperatorRole,
+        operator_label: &str,
+        project_id: &ProjectScopeId,
+    ) -> Result<(), ControllerError> {
+        let transcript = parse_srt(transcript_text).map_err(ControllerError::Transcript)?;
+        let authority = DeclaredSessionAuthority::new(role, operator_label)
+            .map_err(ControllerError::Authority)?;
+        let project_store = self.project_store();
+        let durable = DurableApplicationSession::create_bound_to_project(
+            &self.store,
+            &project_store,
+            project_id,
+            transcript,
+            terms,
+            ApplicationMaterialUseDeclaration::new(material_use),
+            authority,
+        )?;
+        let display_name = transcript_path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned());
+        self.install_durable_session(durable, Some(transcript_path.to_path_buf()), display_name);
+        self.maybe_freeze_bound_reuse()?;
+        if let Some(session_id) = self.session_id() {
+            self.persist_presentation_sidecar(session_id);
+        }
+        self.refresh_available_sessions_internal()?;
+        Ok(())
+    }
+
+    pub fn start_from_text_in_project(
+        &mut self,
+        transcript_text: &str,
+        terms_text: &str,
+        source_display_path: Option<PathBuf>,
+        material_use: DeclaredApplicationMaterialUseBasis,
+        role: DeclaredSessionOperatorRole,
+        operator_label: &str,
+        project_id: &ProjectScopeId,
+    ) -> Result<(), ControllerError> {
+        let terms = parse_session_terms(terms_text).map_err(ControllerError::SessionTerms)?;
+        let transcript_path = source_display_path
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("transcript.srt"));
+        self.start_from_transcript_and_terms_in_project(
+            &transcript_path,
+            transcript_text,
+            terms,
+            material_use,
+            role,
+            operator_label,
+            project_id,
+        )
     }
 
     pub fn start_from_text(
@@ -427,6 +619,7 @@ impl DesktopController {
         let durable = DurableApplicationSession::open(&self.store, session_id, mode)?;
         self.install_durable_session(durable, None, None);
         self.load_presentation_for_session(session_id);
+        self.maybe_freeze_bound_reuse()?;
         Ok(())
     }
 
@@ -446,6 +639,7 @@ impl DesktopController {
         self.clear_session_state();
         self.ui_session_epoch = self.ui_session_epoch.wrapping_add(1);
         self.refresh_available_sessions()?;
+        self.refresh_available_projects_internal()?;
         Ok(())
     }
 
@@ -534,6 +728,75 @@ impl DesktopController {
         Ok(())
     }
 
+    pub fn use_selected_correction_in_related_reviews(
+        &mut self,
+        expected_ui_session_epoch: u64,
+    ) -> Result<(), ControllerError> {
+        let candidate = self
+            .promotion_candidate_for_selected()?
+            .ok_or(ControllerError::NoPromotionCandidate)?;
+        self.accept_reuse_candidate(expected_ui_session_epoch, &candidate.key)
+    }
+
+    pub fn promotion_candidate_for_selected(
+        &self,
+    ) -> Result<Option<ReuseCandidate>, ControllerError> {
+        let session = self.presentable_session()?;
+        let items = session.review_items();
+        let item = items
+            .get(self.selected_index)
+            .ok_or(ControllerError::NoSelectedCase)?;
+        if !matches!(
+            item.target,
+            ApplicationReviewTarget::CanonicalTermCase { .. }
+        ) {
+            return Ok(None);
+        }
+        if !matches!(
+            item.status,
+            ReviewCaseStatus::Decided {
+                decision: CorrectionDecision::ManualReplacement { .. },
+                ..
+            }
+        ) {
+            return Ok(None);
+        }
+        let case_id = item.review_case.id();
+        Ok(session
+            .reuse_candidates()?
+            .into_iter()
+            .find(|candidate| candidate.key.source_locator.source_review_case_id == case_id))
+    }
+
+    pub fn project_memory_entries(&self) -> Result<Vec<ProjectMemoryEntryView>, ControllerError> {
+        let durable = self
+            .durable
+            .as_ref()
+            .ok_or(ControllerError::NoActiveSession)?;
+        if durable.is_recovery_required() {
+            return Err(ControllerError::RecoveryRequired);
+        }
+        let available = durable.project_memory_available();
+        let session = durable.session();
+        let mut entries = Vec::new();
+        for record in session.project_memory_records() {
+            let ReusableGovernanceEvent::PromotionAccepted { payload, .. } = &record.event else {
+                continue;
+            };
+            let source_review_label = DesktopPresentation::read_source_display_name(
+                self.store.root(),
+                &record.source_session_id,
+            );
+            entries.push(ProjectMemoryEntryView {
+                observed_text: payload.observed_text.clone(),
+                confirmed_replacement: payload.confirmed_replacement.clone(),
+                source_review_label,
+                provenance_available: available,
+            });
+        }
+        Ok(entries)
+    }
+
     pub fn reject_reuse_candidate(
         &mut self,
         expected_ui_session_epoch: u64,
@@ -568,8 +831,8 @@ impl DesktopController {
     ) -> Result<(), ControllerError> {
         self.ensure_ui_epoch(expected_ui_session_epoch)?;
         let durable = self.writable_durable_mut()?;
-        let prepared =
-            durable.prepare_supersede_reusable_influence(predecessor_id, successor_candidate_key)?;
+        let prepared = durable
+            .prepare_supersede_reusable_influence(predecessor_id, successor_candidate_key)?;
         durable.record_supersede_reusable_influence(prepared)?;
         self.exported_paths = None;
         Ok(())
@@ -617,14 +880,53 @@ impl DesktopController {
     pub fn items(&self) -> Result<Vec<ReviewItemView>, ControllerError> {
         let session = self.presentable_session()?;
         let segments = session.source().segments();
+        let derived = session.derived_reuse_proposal_targets();
+        let project_available = session.project_memory_available();
         Ok(session
             .review_items()
             .into_iter()
-            .map(|item| {
+            .enumerate()
+            .map(|(queue_index, item)| {
                 let candidate = item.review_case.candidate_span();
                 let position = candidate.anchor().segment_position();
                 let segment = &segments[position];
+                let occurrence = (
+                    candidate.anchor().segment_position(),
+                    candidate.anchor().start_byte(),
+                    candidate.anchor().end_byte(),
+                );
+                let canonical_replacement = candidate
+                    .alternatives()
+                    .first()
+                    .map(|alternative| alternative.replacement_text());
+                let origin = match item.kind {
+                    ApplicationReviewItemKind::CanonicalTermCase { .. } => {
+                        let also_supported = derived.iter().any(|target| {
+                            target.occurrence_key() == occurrence
+                                && Some(target.proposed_replacement()) == canonical_replacement
+                        });
+                        let disagrees = derived.iter().any(|target| {
+                            target.occurrence_key() == occurrence
+                                && Some(target.proposed_replacement()) != canonical_replacement
+                        });
+                        ReviewItemOrigin::TermSuggestion {
+                            also_supported_by_previous_correction: also_supported,
+                            disagrees_with_previous_correction: disagrees,
+                        }
+                    }
+                    ApplicationReviewItemKind::ProjectReuseProposal {
+                        conflict_with_canonical,
+                        ..
+                    } => ReviewItemOrigin::PreviousCorrection {
+                        conflict_with_canonical,
+                    },
+                };
+                let uses_reuse_proposal_target = matches!(
+                    item.target,
+                    ApplicationReviewTarget::ProjectReuseProposal { .. }
+                );
                 ReviewItemView {
+                    queue_index,
                     local_index: item.review_case.id().local_index(),
                     cue_index: segment.index(),
                     source_text: session
@@ -646,14 +948,22 @@ impl DesktopController {
                         .collect(),
                     evidence: evidence_label(candidate.evidence()),
                     detector: friendly_detector_label(candidate.provenance().detector_id()),
-                    status: status_label(item.status),
+                    status: status_label(item.status.clone()),
+                    origin,
+                    uses_reuse_proposal_target,
+                    reuse_decision_blocked: uses_reuse_proposal_target
+                        && matches!(item.status, ReviewCaseStatus::Undecided)
+                        && !project_available,
                 }
             })
             .collect())
     }
 
     pub fn header(&self) -> Result<SessionHeaderView, ControllerError> {
-        let durable = self.durable.as_ref().ok_or(ControllerError::NoActiveSession)?;
+        let durable = self
+            .durable
+            .as_ref()
+            .ok_or(ControllerError::NoActiveSession)?;
         if durable.is_recovery_required() {
             return Err(ControllerError::RecoveryRequired);
         }
@@ -664,9 +974,7 @@ impl DesktopController {
             DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator => {
                 "I own or manage this material"
             }
-            DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer => {
-                "Authorized reviewer"
-            }
+            DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer => "Authorized reviewer",
         };
         let (source_path, source_path_note) = if let Some(name) = &self.source_display_name {
             (name.clone(), None)
@@ -698,6 +1006,9 @@ impl DesktopController {
             deferred: summary.deferred,
             needs_manual_correction: summary.needs_manual_correction,
             undecided: summary.undecided,
+            project_name: session.project_display_name().map(str::to_owned),
+            bound_to_project: durable.bound_project_id().is_some(),
+            project_memory_available: durable.project_memory_available(),
         })
     }
 
@@ -738,9 +1049,7 @@ impl DesktopController {
         }
         self.exported_paths = None;
 
-        let refreshed = self
-            .presentable_session()?
-            .review_items();
+        let refreshed = self.presentable_session()?.review_items();
         if let Some(next) = refreshed
             .iter()
             .position(|item| matches!(item.status, ReviewCaseStatus::Undecided))
@@ -768,9 +1077,7 @@ impl DesktopController {
         }
         self.exported_paths = None;
 
-        let refreshed = self
-            .presentable_session()?
-            .review_items();
+        let refreshed = self.presentable_session()?.review_items();
         if let Some(next) = refreshed
             .iter()
             .position(|item| matches!(item.status, ReviewCaseStatus::Undecided))
@@ -905,7 +1212,10 @@ impl DesktopController {
     fn presentable_session(
         &self,
     ) -> Result<&vox_proof::application_service::ApplicationReviewSession, ControllerError> {
-        let durable = self.durable.as_ref().ok_or(ControllerError::NoActiveSession)?;
+        let durable = self
+            .durable
+            .as_ref()
+            .ok_or(ControllerError::NoActiveSession)?;
         if durable.is_recovery_required() {
             return Err(ControllerError::RecoveryRequired);
         }
@@ -913,7 +1223,10 @@ impl DesktopController {
     }
 
     fn writable_durable_mut(&mut self) -> Result<&mut DurableApplicationSession, ControllerError> {
-        let durable = self.durable.as_mut().ok_or(ControllerError::NoActiveSession)?;
+        let durable = self
+            .durable
+            .as_mut()
+            .ok_or(ControllerError::NoActiveSession)?;
         if durable.is_recovery_required() {
             return Err(ControllerError::RecoveryRequired);
         }
@@ -921,6 +1234,28 @@ impl DesktopController {
             return Err(ControllerError::SessionNotWritable);
         }
         Ok(durable)
+    }
+
+    fn maybe_freeze_bound_reuse(&mut self) -> Result<(), ControllerError> {
+        let should_freeze = {
+            let Some(durable) = self.durable.as_ref() else {
+                return Ok(());
+            };
+            if durable.is_recovery_required() || durable.open_mode() != OpenMode::Writable {
+                return Ok(());
+            }
+            durable.bound_project_id().is_some()
+                && durable.project_memory_available()
+                && !durable.session().compose_project_reuse_proposals()
+        };
+        if !should_freeze {
+            return Ok(());
+        }
+        let durable = self.writable_durable_mut()?;
+        let (prepared, precondition) = durable.prepare_run_reuse_enabled_review()?;
+        durable.record_run_reuse_enabled_review(prepared, precondition)?;
+        self.exported_paths = None;
+        Ok(())
     }
 }
 

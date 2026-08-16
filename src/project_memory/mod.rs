@@ -8,4 +8,4 @@ pub use identity::{
     PROJECT_MEMORY_SNAPSHOT_IDENTITY_TAG_PREFIX, ProjectMemoryRecord,
     ProjectMemorySnapshotIdentity, compute_project_memory_snapshot_identity,
 };
-pub use store::{DurableProjectMemory, ProductProjectMemoryStore};
+pub use store::{DurableProjectMemory, ProductProjectMemoryStore, ProjectListSummary};

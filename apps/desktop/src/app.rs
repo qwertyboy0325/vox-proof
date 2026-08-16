@@ -7,11 +7,11 @@ use vox_proof::application_service::{
 };
 use vox_proof::review::CorrectionDecision;
 
-use crate::controller::{DesktopController, DesktopPhase};
+use crate::controller::{DesktopController, DesktopPhase, ReviewItemOrigin};
 use crate::presentation::{
-    BottomTab, accept_enabled, coverage_label, decision_shortcut, export_enabled,
-    resolution_label, review_is_complete, review_shortcuts_suppressed, search_matches,
-    unresolved_confirmation_needed,
+    BottomTab, accept_enabled, composed_coverage_label, coverage_label, decision_shortcut,
+    export_enabled, resolution_label, review_is_complete, review_shortcuts_suppressed,
+    search_matches, show_review_complete_panel, unresolved_confirmation_needed,
 };
 use crate::terms_editor::TermsEditor;
 use crate::user_errors;
@@ -32,7 +32,8 @@ pub struct ReviewApp {
     confirm_unresolved_source_retained: bool,
     resume_session_id_draft: String,
     resume_writer_held_session_id: Option<String>,
-    show_advanced: bool,
+    new_project_name: String,
+    review_without_project: bool,
     error: Option<String>,
     status: String,
     cjk_font_loaded: bool,
@@ -56,7 +57,8 @@ impl ReviewApp {
             confirm_unresolved_source_retained: false,
             resume_session_id_draft: String::new(),
             resume_writer_held_session_id: None,
-            show_advanced: false,
+            new_project_name: String::new(),
+            review_without_project: false,
             error: None,
             status: "Start a new review or continue a recent one.".to_owned(),
             cjk_font_loaded,
@@ -195,11 +197,12 @@ impl ReviewApp {
                 self.manual_replacement_draft.clear();
                 self.bottom_tab = BottomTab::CurrentPreview;
                 self.confirm_unresolved_source_retained = false;
-                self.show_advanced = false;
+                self.new_project_name.clear();
+                self.review_without_project = false;
                 self.resume_writer_held_session_id = None;
                 self.error = None;
-                self.status = "Review closed. Start a new review or continue a recent one."
-                    .to_owned();
+                self.status =
+                    "Review closed. Start a new review or continue a recent one.".to_owned();
             }
             Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
@@ -355,7 +358,69 @@ impl ReviewApp {
 
             ui.add_space(10.0);
             ui.group(|ui| {
-                ui.label(RichText::new("3. Confirm use").strong());
+                ui.label(RichText::new("3. Project").strong());
+                ui.label(
+                    "VoxProof can reuse corrections you previously approved, but every new change \
+                     still requires your decision.",
+                );
+                ui.checkbox(
+                    &mut self.review_without_project,
+                    "Review without a project (won't reuse corrections)",
+                );
+                ui.add_enabled_ui(!self.review_without_project, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("New project");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.new_project_name)
+                                .id(egui::Id::new("setup-new-project"))
+                                .desired_width(280.0)
+                                .hint_text("Lecture series"),
+                        );
+                        if ui.button("Create project").clicked() {
+                            match self
+                                .controller
+                                .create_project(self.new_project_name.clone())
+                            {
+                                Ok(_) => {
+                                    self.new_project_name.clear();
+                                    self.error = None;
+                                    self.status = "Project created.".to_owned();
+                                }
+                                Err(error) => {
+                                    self.error = Some(user_errors::user_message(&error));
+                                }
+                            }
+                        }
+                    });
+                    ui.label(RichText::new("Existing projects").strong());
+                    if ui.button("Refresh projects").clicked() {
+                        match self.controller.refresh_available_projects() {
+                            Ok(()) => self.error = None,
+                            Err(error) => self.error = Some(user_errors::user_message(&error)),
+                        }
+                    }
+                    let projects = self.controller.available_projects().to_vec();
+                    if projects.is_empty() {
+                        ui.label("No projects yet. Create one above.");
+                    }
+                    for project in &projects {
+                        let selected =
+                            self.controller.selected_project_id() == Some(&project.project_id);
+                        let label = format!(
+                            "{} · {}",
+                            project.display_name,
+                            Self::format_session_date(project.created_at_unix_ms)
+                        );
+                        if ui.selectable_label(selected, label).clicked() {
+                            self.controller.select_project(project.project_id.clone());
+                        }
+                    }
+                });
+            });
+
+            ui.add_space(10.0);
+            ui.group(|ui| {
+                ui.label(RichText::new("4. Confirm use").strong());
                 ui.label(RichText::new("Permission").strong());
                 ui.horizontal(|ui| {
                     ui.radio_value(
@@ -410,54 +475,67 @@ impl ReviewApp {
             if available.is_empty() {
                 ui.label("No saved reviews yet.");
             } else {
-                for session in &available {
-                    ui.group(|ui| {
-                        ui.label(RichText::new(&session.source_display_name).strong());
-                        ui.small(format!(
-                            "{} · {}",
-                            Self::format_session_date(session.created_at_unix_ms),
-                            session.authority_display_label
-                        ));
-                        if self.resume_writer_held_session_id.as_deref()
-                            == Some(session.session_id.as_str())
-                        {
-                            ui.label(
-                                "This review is currently open for editing elsewhere.",
-                            );
-                            ui.horizontal(|ui| {
-                                if ui.button("Open read-only").clicked() {
-                                    self.resume_session_id_draft = session.session_id.clone();
-                                    self.controller
-                                        .select_resume_session_id(session.session_id.clone());
-                                    match self.controller.open_selected_session_read_only() {
-                                        Ok(()) => {
-                                            self.resume_writer_held_session_id = None;
-                                            self.error = None;
-                                            self.status = format!(
-                                                "Opened {} read-only.",
-                                                session.source_display_name
-                                            );
-                                        }
-                                        Err(error) => {
-                                            self.error =
-                                                Some(user_errors::user_message(&error));
+                let mut groups: Vec<(String, Vec<crate::controller::SessionResumeView>)> =
+                    Vec::new();
+                for session in available {
+                    let key = session
+                        .project_display_name
+                        .clone()
+                        .unwrap_or_else(|| "Not in a project".to_owned());
+                    if let Some((_, sessions)) = groups.iter_mut().find(|(name, _)| *name == key) {
+                        sessions.push(session);
+                    } else {
+                        groups.push((key, vec![session]));
+                    }
+                }
+                for (project_name, sessions) in groups {
+                    ui.add_space(6.0);
+                    ui.label(RichText::new(project_name).strong());
+                    for session in &sessions {
+                        ui.group(|ui| {
+                            ui.label(RichText::new(&session.source_display_name).strong());
+                            ui.small(format!(
+                                "{} · {}",
+                                Self::format_session_date(session.created_at_unix_ms),
+                                session.authority_display_label
+                            ));
+                            if self.resume_writer_held_session_id.as_deref()
+                                == Some(session.session_id.as_str())
+                            {
+                                ui.label("This review is currently open for editing elsewhere.");
+                                ui.horizontal(|ui| {
+                                    if ui.button("Open read-only").clicked() {
+                                        self.resume_session_id_draft = session.session_id.clone();
+                                        self.controller
+                                            .select_resume_session_id(session.session_id.clone());
+                                        match self.controller.open_selected_session_read_only() {
+                                            Ok(()) => {
+                                                self.resume_writer_held_session_id = None;
+                                                self.error = None;
+                                                self.status = format!(
+                                                    "Opened {} read-only.",
+                                                    session.source_display_name
+                                                );
+                                            }
+                                            Err(error) => {
+                                                self.error =
+                                                    Some(user_errors::user_message(&error));
+                                            }
                                         }
                                     }
-                                }
-                                if ui.button("Cancel").clicked() {
-                                    self.resume_writer_held_session_id = None;
-                                    self.error = None;
-                                }
-                            });
-                        } else {
-                            ui.horizontal(|ui| {
-                                if ui.button("Continue").clicked() {
-                                    self.resume_session_id_draft = session.session_id.clone();
-                                    self.resume_writer_held_session_id = None;
-                                    self.controller.select_resume_session_id(
-                                        session.session_id.clone(),
-                                    );
-                                    match self.controller.open_selected_session_writable() {
+                                    if ui.button("Cancel").clicked() {
+                                        self.resume_writer_held_session_id = None;
+                                        self.error = None;
+                                    }
+                                });
+                            } else {
+                                ui.horizontal(|ui| {
+                                    if ui.button("Continue").clicked() {
+                                        self.resume_session_id_draft = session.session_id.clone();
+                                        self.resume_writer_held_session_id = None;
+                                        self.controller
+                                            .select_resume_session_id(session.session_id.clone());
+                                        match self.controller.open_selected_session_writable() {
                                         Ok(()) => {
                                             self.error = None;
                                             self.status = format!(
@@ -477,16 +555,21 @@ impl ReviewApp {
                                                 Some(user_errors::user_message(&error));
                                         }
                                     }
-                                }
-                            });
-                        }
-                    });
+                                    }
+                                });
+                            }
+                        });
+                    }
                 }
             }
 
             ui.add_space(12.0);
+            let project_ready = self.review_without_project
+                || self.controller.selected_project_id().is_some()
+                || !self.new_project_name.trim().is_empty();
             let can_start = !self.transcript_path.trim().is_empty()
-                && !self.operator_label.trim().is_empty();
+                && !self.operator_label.trim().is_empty()
+                && project_ready;
             if ui
                 .add_enabled(can_start, egui::Button::new("Start review"))
                 .on_hover_text("Create a new local review session")
@@ -511,14 +594,37 @@ impl ReviewApp {
                         return;
                     }
                 };
-                match self.controller.start_from_transcript_and_terms(
-                    &transcript,
-                    &transcript_text,
-                    terms,
-                    self.material_use,
-                    self.role,
-                    &self.operator_label,
-                ) {
+                let start_result = if self.review_without_project {
+                    self.controller.start_from_transcript_and_terms(
+                        &transcript,
+                        &transcript_text,
+                        terms,
+                        self.material_use,
+                        self.role,
+                        &self.operator_label,
+                    )
+                } else {
+                    let project_id = if let Some(id) = self.controller.selected_project_id() {
+                        Ok(id.clone())
+                    } else {
+                        self.controller.create_project(self.new_project_name.trim())
+                    };
+                    match project_id {
+                        Ok(project_id) => {
+                            self.controller.start_from_transcript_and_terms_in_project(
+                                &transcript,
+                                &transcript_text,
+                                terms,
+                                self.material_use,
+                                self.role,
+                                &self.operator_label,
+                                &project_id,
+                            )
+                        }
+                        Err(error) => Err(error),
+                    }
+                };
+                match start_result {
                     Ok(()) => {
                         self.error = None;
                         self.status = "Review started.".to_owned();
@@ -617,10 +723,18 @@ impl ReviewApp {
             }
         };
 
+        let canonical_total = self
+            .controller
+            .header()
+            .map(|header| header.total_review_cases)
+            .unwrap_or(0);
+        if self.bottom_tab == BottomTab::ProjectMemory && !self.controller.is_bound_to_project() {
+            self.bottom_tab = BottomTab::CurrentPreview;
+        }
         egui::Panel::bottom("review-bottom")
             .default_size(235.0)
             .resizable(true)
-            .show(ui, |ui| self.bottom_panel(ui, progress, items.len()));
+            .show(ui, |ui| self.bottom_panel(ui, progress, canonical_total));
         egui::Panel::left("review-queue")
             .default_size(300.0)
             .size_range(220.0..=480.0)
@@ -648,15 +762,23 @@ impl ReviewApp {
                         continue;
                     }
                     let selected = index == self.controller.selected_index();
-                    let label = format!(
-                        "Item {} · {}\n{}",
-                        item.local_index + 1,
-                        item.status,
-                        item.source_text
-                    );
+                    let label = match item.origin {
+                        ReviewItemOrigin::PreviousCorrection { .. } => format!(
+                            "Item {} · Previous correction · {}\n{}",
+                            item.queue_index + 1,
+                            item.status,
+                            item.source_text
+                        ),
+                        ReviewItemOrigin::TermSuggestion { .. } => format!(
+                            "Item {} · {}\n{}",
+                            item.queue_index + 1,
+                            item.status,
+                            item.source_text
+                        ),
+                    };
                     if ui
                         .selectable_label(selected, label)
-                        .on_hover_text(format!("Select review case {}", item.local_index + 1))
+                        .on_hover_text(format!("Select review item {}", item.queue_index + 1))
                         .clicked()
                     {
                         self.controller.select(index);
@@ -684,15 +806,39 @@ impl ReviewApp {
             ui.label(RichText::new(&header.source_path).strong());
             ui.separator();
             ui.label(format!("Reviewer: {}", header.declared_operator));
+            if let Some(project_name) = &header.project_name {
+                ui.separator();
+                ui.label(format!("Project: {project_name}"));
+            }
         });
         if let Some(note) = &header.source_path_note {
             ui.small(note);
         }
+        if header.bound_to_project && !header.project_memory_available {
+            ui.colored_label(
+                Color32::YELLOW,
+                "Project Memory isn't available. You can still inspect this saved review, but new reuse suggestions can't be applied.",
+            );
+        }
         if self.controller.is_read_only() {
             ui.colored_label(Color32::YELLOW, "This review is open read-only.");
         }
+        let previous_waiting = items
+            .iter()
+            .filter(|item| {
+                item.status == "Needs review"
+                    && matches!(item.origin, ReviewItemOrigin::PreviousCorrection { .. })
+            })
+            .count();
         ui.horizontal(|ui| {
-            ui.label(RichText::new(coverage_label(progress, items.len())).strong());
+            ui.label(
+                RichText::new(composed_coverage_label(
+                    progress,
+                    header.total_review_cases,
+                    previous_waiting,
+                ))
+                .strong(),
+            );
             if review_is_complete(progress) {
                 ui.separator();
                 ui.label(resolution_label(progress));
@@ -707,7 +853,7 @@ impl ReviewApp {
             }
         });
 
-        if review_is_complete(progress) {
+        if show_review_complete_panel(progress, previous_waiting) {
             self.completion_panel(ui, &header, progress);
         }
 
@@ -723,11 +869,43 @@ impl ReviewApp {
             return;
         };
 
-        if !review_is_complete(progress) {
-            ui.heading(format!("Item {}", item.local_index + 1));
+        if !show_review_complete_panel(progress, previous_waiting) {
+            ui.heading(format!("Item {}", item.queue_index + 1));
         }
         ui.label(format!("Status: {}", item.status));
-        ui.label(format!("Found by: {}", item.detector));
+        match item.origin {
+            ReviewItemOrigin::PreviousCorrection {
+                conflict_with_canonical,
+            } => {
+                ui.label(RichText::new("Previously confirmed in this project").strong());
+                ui.label(
+                    "Based on a correction approved in an earlier review. This is a suggestion, \
+                     not an automatic change.",
+                );
+                if conflict_with_canonical {
+                    ui.colored_label(
+                        Color32::YELLOW,
+                        "A term check on this same text suggests a different replacement. \
+                         Choose which text should appear.",
+                    );
+                }
+            }
+            ReviewItemOrigin::TermSuggestion {
+                also_supported_by_previous_correction,
+                disagrees_with_previous_correction,
+            } => {
+                ui.label(format!("Found by: {}", item.detector));
+                if also_supported_by_previous_correction {
+                    ui.label("Also supported by a previous project correction.");
+                }
+                if disagrees_with_previous_correction {
+                    ui.colored_label(
+                        Color32::YELLOW,
+                        "A previous project correction suggests a different replacement for this text.",
+                    );
+                }
+            }
+        }
         ui.label(RichText::new(format!("Why flagged: {}", item.evidence)).strong());
         ui.add_space(8.0);
         if let Some(before) = &item.context_before {
@@ -753,7 +931,13 @@ impl ReviewApp {
             );
         }
         ui.add_space(8.0);
-        let mutations_enabled = self.controller.mutations_enabled();
+        let mutations_enabled = self.controller.mutations_enabled() && !item.reuse_decision_blocked;
+        if item.reuse_decision_blocked {
+            ui.colored_label(
+                Color32::YELLOW,
+                "Project Memory isn't available, so this previous-correction suggestion can't be decided yet.",
+            );
+        }
         ui.group(|ui| {
             ui.label(RichText::new("Correct text").strong());
             ui.horizontal(|ui| {
@@ -764,10 +948,8 @@ impl ReviewApp {
                         .hint_text("Type the corrected line"),
                 );
                 if ui
-                    .add_enabled(
-                        mutations_enabled,
-                        egui::Button::new("Use this correction"),
-                    )
+                    .add_enabled(mutations_enabled, egui::Button::new("Edit"))
+                    .on_hover_text("Save your own replacement for this item")
                     .clicked()
                 {
                     self.apply_manual_replacement();
@@ -778,8 +960,9 @@ impl ReviewApp {
         ui.horizontal_wrapped(|ui| {
             if ui
                 .add_enabled(
-                    mutations_enabled && accept_enabled(item.alternatives.len(), self.selected_alternative),
-                    egui::Button::new("Accept suggestion (A)"),
+                    mutations_enabled
+                        && accept_enabled(item.alternatives.len(), self.selected_alternative),
+                    egui::Button::new("Accept"),
                 )
                 .clicked()
             {
@@ -788,36 +971,38 @@ impl ReviewApp {
                 });
             }
             if ui
-                .add_enabled(mutations_enabled, egui::Button::new("Reject (R)"))
+                .add_enabled(mutations_enabled, egui::Button::new("Reject"))
                 .clicked()
             {
                 self.apply_decision(CorrectionDecision::Reject);
             }
             if ui
-                .add_enabled(mutations_enabled, egui::Button::new("Defer (D)"))
+                .add_enabled(mutations_enabled, egui::Button::new("Defer"))
                 .clicked()
             {
                 self.apply_decision(CorrectionDecision::Defer);
             }
-            if ui
-                .add_enabled(
-                    mutations_enabled,
-                    egui::Button::new("Fix manually (M)"),
-                )
-                .on_hover_text("Mark this item as needing a manual correction above")
-                .clicked()
-            {
-                self.apply_decision(CorrectionDecision::NeedsManualCorrection);
-            }
         });
-        if ui
-            .button("Advanced — project memory")
-            .clicked()
+        if let Ok(Some(_)) = self.controller.promotion_candidate_for_selected()
+            && ui
+                .add_enabled(
+                    self.controller.mutations_enabled()
+                        && self.controller.project_memory_available(),
+                    egui::Button::new("Use this correction in related reviews"),
+                )
+                .on_hover_text("Save this approved correction to Project Memory")
+                .clicked()
         {
-            self.show_advanced = !self.show_advanced;
-        }
-        if self.show_advanced {
-            self.reuse_governance_panel(ui);
+            match self
+                .controller
+                .use_selected_correction_in_related_reviews(self.controller.ui_session_epoch())
+            {
+                Ok(()) => {
+                    self.error = None;
+                    self.status = "Saved to Project Memory for related reviews.".to_owned();
+                }
+                Err(error) => self.error = Some(user_errors::user_message(&error)),
+            }
         }
         self.export_controls(ui, progress);
     }
@@ -848,217 +1033,45 @@ impl ReviewApp {
         ui.add_space(8.0);
     }
 
-    fn reuse_governance_panel(&mut self, ui: &mut egui::Ui) {
+    fn project_memory_panel(&mut self, ui: &mut egui::Ui) {
         ui.add_space(12.0);
         ui.separator();
-        ui.heading("Project memory");
-        ui.label("Optional settings for saving corrections across related reviews.");
-        ui.horizontal(|ui| {
-            ui.label("Stable project ID:");
-            ui.add(
-                egui::TextEdit::singleline(self.controller.project_scope_id_draft_mut())
-                    .desired_width(180.0)
-                    .hint_text("opaque project id"),
-            );
-            ui.label("Display label:");
-            ui.add(
-                egui::TextEdit::singleline(self.controller.project_scope_display_draft_mut())
-                    .desired_width(180.0)
-                    .hint_text("presentation label"),
-            );
-        });
-        let ui_session_epoch = self.controller.ui_session_epoch();
-        let mutations_enabled = self.controller.mutations_enabled();
-        ui.horizontal(|ui| {
-            if ui
-                .add_enabled(
-                    mutations_enabled,
-                    egui::Button::new("Initialize project scope"),
-                )
-                .clicked()
-            {
-                match self.controller.initialize_project_scope(ui_session_epoch) {
-                    Ok(()) => self.status = "Project scope initialized.".to_owned(),
-                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                }
-            }
-            if self.controller.has_project_scope()
-                && ui
-                    .add_enabled(
-                        mutations_enabled,
-                        egui::Button::new("Update display label"),
-                    )
-                    .clicked()
-            {
-                match self
-                    .controller
-                    .update_project_scope_display_name(ui_session_epoch)
-                {
-                    Ok(()) => self.status = "Display label updated.".to_owned(),
-                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                }
-            }
-        });
-        if !self.controller.has_project_scope() {
-            ui.label("Gate 2 review remains available without a project scope.");
+        ui.heading("Project Memory");
+        if !self.controller.is_bound_to_project() {
+            ui.label("Open a project review to see corrections saved for reuse.");
             return;
         }
-        match self.controller.reuse_candidates() {
-            Ok(candidates) => {
-                ui.label(RichText::new("Promotion candidates").strong());
-                if candidates.is_empty() {
-                    ui.label("No unpromoted Manual Replacement candidates.");
+        ui.label("These are corrections you explicitly allowed VoxProof to reuse.");
+        if self.controller.is_bound_to_project() && !self.controller.project_memory_available() {
+            ui.colored_label(
+                Color32::YELLOW,
+                "Project Memory isn't available. Saved review decisions are still here.",
+            );
+            return;
+        }
+        match self.controller.project_memory_entries() {
+            Ok(entries) => {
+                if entries.is_empty() {
+                    ui.label("No reused corrections in this project yet.");
                 }
-                for candidate in candidates {
+                for entry in entries {
                     ui.group(|ui| {
                         ui.label(format!(
-                            "observed: {} → replacement: {}",
-                            candidate.exact_payload.observed_text,
-                            candidate.exact_payload.confirmed_replacement
+                            "{} → {}",
+                            entry.observed_text, entry.confirmed_replacement
                         ));
-                        ui.label(format!(
-                            "source case local:{} · still effective: {}",
-                            candidate
-                                .key
-                                .source_locator
-                                .source_review_case_id
-                                .local_index()
-                                + 1,
-                            candidate.source_decision_still_effective
-                        ));
-                        let key = candidate.key.clone();
-                        ui.horizontal(|ui| {
-                            if ui
-                                .add_enabled(
-                                    mutations_enabled,
-                                    egui::Button::new("Accept for reuse"),
-                                )
-                                .clicked()
-                            {
-                                match self.controller.accept_reuse_candidate(ui_session_epoch, &key) {
-                                    Ok(()) => self.status = "Promotion accepted.".to_owned(),
-                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                                }
-                            }
-                            if ui
-                                .add_enabled(
-                                    mutations_enabled,
-                                    egui::Button::new("Reject promotion candidate"),
-                                )
-                                .clicked()
-                            {
-                                match self.controller.reject_reuse_candidate(ui_session_epoch, &key) {
-                                    Ok(()) => {
-                                        self.status = "Promotion candidate rejected.".to_owned()
-                                    }
-                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                                }
-                            }
-                        });
+                        if let Some(source) = &entry.source_review_label {
+                            ui.small(format!("From {source}"));
+                        }
+                        if !entry.provenance_available {
+                            ui.small("Provenance currently unverified.");
+                        }
                     });
                 }
             }
-            Err(error) => self.error = Some(user_errors::user_message(&error)),
-        }
-        match (
-            self.controller.active_reusable_records(),
-            self.controller.reuse_candidates(),
-        ) {
-            (Ok(records), Ok(candidates)) => {
-                ui.label(RichText::new("Active reusable records").strong());
-                if records.is_empty() {
-                    ui.label("No active reusable records.");
-                }
-                for record in records {
-                    ui.group(|ui| {
-                        ui.label(format!(
-                            "record promotion_event:{} · {} → {}",
-                            record.record_id.promotion_event_index(),
-                            record.payload.observed_text,
-                            record.payload.confirmed_replacement
-                        ));
-                        if !record.source_decision_still_effective {
-                            ui.colored_label(
-                                Color32::YELLOW,
-                                "Source decision no longer effective; revoke or supersede explicitly.",
-                            );
-                        }
-                        ui.horizontal(|ui| {
-                            if ui
-                                .add_enabled(mutations_enabled, egui::Button::new("Revoke"))
-                                .clicked()
-                            {
-                                match self.controller.revoke_reusable_influence(
-                                    ui_session_epoch,
-                                    record.record_id,
-                                ) {
-                                    Ok(()) => self.status = "Record revoked.".to_owned(),
-                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                                }
-                            }
-                        let eligible: Vec<_> = candidates
-                            .iter()
-                            .filter(|candidate| {
-                                candidate.key.source_locator != record.source_locator
-                            })
-                            .collect();
-                        for candidate in eligible {
-                            let key = candidate.key.clone();
-                            let label = format!(
-                                "Supersede with: {} → {} (case local:{}, digest:{:08x}…)",
-                                candidate.exact_payload.observed_text,
-                                candidate.exact_payload.confirmed_replacement,
-                                candidate
-                                    .key
-                                    .source_locator
-                                    .source_review_case_id
-                                    .local_index()
-                                    + 1,
-                                u32::from_be_bytes(
-                                    candidate.key.source_locator.decision_digest[..4]
-                                        .try_into()
-                                        .unwrap_or([0; 4]),
-                                )
-                            );
-                            if ui
-                                .add_enabled(mutations_enabled, egui::Button::new(label))
-                                .clicked()
-                            {
-                                match self.controller.supersede_reusable_influence(
-                                    ui_session_epoch,
-                                    record.record_id,
-                                    &key,
-                                ) {
-                                    Ok(()) => self.status = "Record superseded.".to_owned(),
-                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
-                                }
-                            }
-                        }
-                        });
-                    });
-                }
+            Err(error) => {
+                ui.colored_label(Color32::LIGHT_RED, user_errors::user_message(&error));
             }
-            (Err(error), _) | (_, Err(error)) => {
-                self.error = Some(user_errors::user_message(&error));
-            }
-        }
-        if ui
-            .add_enabled(
-                mutations_enabled,
-                egui::Button::new("Run reuse-enabled exact analysis"),
-            )
-            .clicked()
-        {
-            match self.controller.run_reuse_enabled_analysis(ui_session_epoch) {
-                Ok(count) => {
-                    self.status =
-                        format!("Reuse-enabled analysis raised {count} non-binding case(s).");
-                }
-                Err(error) => self.error = Some(user_errors::user_message(&error)),
-            }
-        }
-        if let Some(count) = self.controller.reuse_enabled_case_count() {
-            ui.small(format!("Last reuse-enabled analysis case count: {count}"));
         }
     }
 
@@ -1105,7 +1118,10 @@ impl ReviewApp {
         if self.controller.phase() == DesktopPhase::ExportCompleted {
             ui.colored_label(Color32::LIGHT_GREEN, "Export complete");
             if let Some(paths) = self.controller.exported_paths() {
-                ui.label(format!("Reviewed subtitles: {}", paths.reviewed_srt.display()));
+                ui.label(format!(
+                    "Reviewed subtitles: {}",
+                    paths.reviewed_srt.display()
+                ));
                 ui.small(format!("Also saved: {}", paths.decision_log.display()));
                 ui.small(format!("Also saved: {}", paths.session_summary.display()));
             }
@@ -1130,8 +1146,19 @@ impl ReviewApp {
                 BottomTab::SessionSummary,
                 "Session summary",
             );
+            if self.controller.is_bound_to_project() {
+                ui.selectable_value(
+                    &mut self.bottom_tab,
+                    BottomTab::ProjectMemory,
+                    "Project Memory",
+                );
+            }
         });
         ui.separator();
+        if self.bottom_tab == BottomTab::ProjectMemory {
+            self.project_memory_panel(ui);
+            return;
+        }
         let text = match self.bottom_tab {
             BottomTab::CurrentPreview => self
                 .controller
@@ -1155,6 +1182,7 @@ impl ReviewApp {
                         error
                     )
                 }),
+            BottomTab::ProjectMemory => unreachable!("handled above"),
         };
         egui::ScrollArea::both()
             .id_salt("read-only-bottom-projection")

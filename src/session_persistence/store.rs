@@ -75,6 +75,7 @@ pub struct SessionListSummary {
     pub authority_display_label: String,
     pub review_case_count: usize,
     pub review_ledger_head: usize,
+    pub project_display_name: Option<String>,
 }
 
 impl ProductSessionStore {
@@ -155,12 +156,14 @@ impl ProductSessionStore {
                     |row| row.get(0),
                 )
                 .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            let project_display_name = load_list_project_display_name(&connection, &session_id)?;
             summaries.push(SessionListSummary {
                 session_id,
                 created_at_unix_ms,
                 authority_display_label,
                 review_case_count: review_case_count as usize,
                 review_ledger_head: review_ledger_head as usize,
+                project_display_name,
             });
         }
         summaries.sort_by(|left, right| {
@@ -1056,6 +1059,24 @@ fn ensure_v2_p3_schema(connection: &Connection) -> Result<(), SessionPersistence
 fn supported_session_format(format_version: u32) -> bool {
     format_version == PRODUCT_SESSION_FORMAT_VERSION
         || format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+}
+
+pub(crate) fn load_list_project_display_name(
+    connection: &Connection,
+    session_id: &str,
+) -> Result<Option<String>, SessionPersistenceError> {
+    let (stable_id, display_name): (String, String) = connection
+        .query_row(
+            "SELECT stable_id, display_name FROM project_scope WHERE session_id = ?1",
+            [session_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+    if stable_id.is_empty() || display_name.trim().is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(display_name))
+    }
 }
 
 pub(crate) fn load_bound_project_id(
