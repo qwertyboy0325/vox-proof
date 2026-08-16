@@ -1,0 +1,121 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-02-EVIDENCE-METHODOLOGY-REVIEW-NONFAST-2026-08-16",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "artifact_role": "evidence-methodology-review-r2-02-genuine-stale-observation-nonfast",
+  "supersedes": "evidence-methodology-review-r2-02.json",
+  "supersedes_invalid_closure_commit": "fc9099e",
+  "supersession_record": "r2-02-fast-review-supersession-record.json",
+  "valid_for_closure": true,
+  "commit_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
+  "commit_reviewed_note": "Implementation SHA for R2-02 methodology review. Not the final evidence SHA.",
+  "specialist_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02-nonfast.json",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "requested_model": "cursor-grok-4.6-xhigh",
+  "reviewer_model": "Cursor Grok 4.6 Extra High",
+  "review_tier_requested": "extra_high",
+  "models_used": ["cursor-grok-4.6-xhigh"],
+  "review_tier_actual": "extra_high",
+  "fast_tier_invalid": false,
+  "model_requirement_satisfied": true,
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-16",
+  "review_mode": "independent_code_path_observation_sufficiency",
+  "did_not_readjudicate_storage_semantics": true,
+  "verdict": "PASS_WITH_CAVEATS",
+  "agent_verdict_line": "EVIDENCE REVIEW: PASS",
+  "blocking_before_r2_05": false,
+  "may_close_r2_02_methodology": true,
+  "methodology_questions": {
+    "genuine_stale_causality_not_synthetic_classification": {
+      "answer": "YES",
+      "rationale": "run_genuine_stale_precondition: competing apply at S0 then S0-bound command via from_transition_pair. Reject is live scoped CAS mismatch, not scenario_id-forced classification or synthetic stale_preconditions path."
+    },
+    "prepared_precondition_captured_before_competing": {
+      "answer": "PARTIAL",
+      "rationale": "Executed stale command uses S0 tokens via from_transition_pair. Recorded prepared_precondition is reconstructed after rejection from S0 fixture label, not a live pre-compete handle snapshot."
+    },
+    "authority_changed_in_relevant_scope_directly_observed": {
+      "answer": "YES",
+      "rationale": "Harness reads live normalized_state after competing apply and compares scoped token to fixture.prepare_authority. Incomplete observation fails the run."
+    },
+    "stale_rejection_distinguished_from_duplicate_oracle_validation": {
+      "answer": "YES",
+      "rationale": "Harness requires exact scoped codes; distinct from semantic-duplicate-transition, failed_oracle_compare, stale-full-state-unrelated-rewind. validate_scoped_preconditions returns before persist."
+    },
+    "post_rejection_non_mutation_observed": {
+      "answer": "YES",
+      "rationale": "Harness snapshots in-handle state before/after reject; requires structural == and post_rejection_oracle_compare. Reuse/analysis unit tests omit record_genuine but assert in-handle equality."
+    },
+    "reopen_evidence_independent_of_semantic_oracle": {
+      "answer": "YES",
+      "rationale": "Harness close/reopen records persist_reopen_authority_unchanged as structural == of independently reopened state vs post-competing handle. Not compare(actual, actual) or adapter-return-only."
+    },
+    "abc_identities_recorded_not_inferred_from_labels": {
+      "answer": "YES",
+      "rationale": "Analysis fields are concrete strings from GenuineStaleAnalysisDetails fixture projection, not scenario_id text. record_genuine copies fixture details."
+    },
+    "pairwise_distinct_identities_deterministic": {
+      "answer": "YES",
+      "rationale": "At Small, A/B/C deterministic; identities_pairwise_distinct gated in harness and unit test. Medium scale-fragile and not harness scale."
+    },
+    "append_sqlite_observations_equivalent_for_comparison": {
+      "answer": "YES",
+      "rationale": "Same fixtures, harness, schema, codes, close/reopen gates. Latent Append replace vs SQLite merge is off reject path."
+    },
+    "claims_bounded_to_logical_scoped_validity_persist_reopen": {
+      "answer": "YES",
+      "rationale": "Contracts declare InterfaceBehavior + LogicalReturnedError + reopen_required. Demonstrated: logical scoped-validity plus logical persist-reopen, not FilesystemDurability."
+    },
+    "accidental_filesystem_durability_or_production_integration_claim": {
+      "answer": "NO",
+      "rationale": "No FilesystemDurability, CrossPlatform, or production-integration credit in reviewed files. Analysis S0 is evidence-composed."
+    }
+  },
+  "blockers": [],
+  "caveats": [
+    "prepared_precondition reconstructed from S0 fixture label after rejection",
+    "Analysis A/B/C identities fixture-projected into record; harness does not live-read into those fields",
+    "Reuse/analysis unit tests omit close/reopen and Fcr03StaleRejectionObservation population",
+    "close_reopen_performed and competing_transition_applied constructor-assigned in record_genuine; harness still gates on computed compares",
+    "validate_fcr03_observations readiness aggregator does not re-check all WP observation fields",
+    "Pairwise-distinct analysis identities demonstrated at Small only",
+    "Analysis C is evidence-composed cross-scale second command",
+    "Append vs SQLite analysis_snapshots replace-versus-merge latent off reject path",
+    "Implementation SHA ee509e3 only; no frozen evidence run"
+  ],
+  "claim_boundary": {
+    "may_claim": [
+      "01B-3 and 01C-3 genuine stale harness scenarios establish competing same-scope apply then S0-bound command rejection with required scoped failure codes",
+      "authority_changed_in_relevant_scope observed from live post-competing handle tokens versus S0",
+      "Post-rejection non-mutation observed in-handle; harness persist-reopen on new read-only handle via structural equality plus oracle compare",
+      "Analysis A/B/C identity strings recorded as fixture-projected values; pairwise distinct at Small",
+      "Append and SQLite rejection observations share schema, codes, and harness gates for logical scoped-validity / persist-reopen comparison",
+      "Demonstrated claim class is logical scoped-validity and persist-reopen of logical authority"
+    ],
+    "may_not_claim": [
+      "prepared_precondition was live-captured from handle before competing command",
+      "A/B/C identities live-observed from handle in harness record path",
+      "Pairwise-distinct identities prove two production same-transcript analysis commands at one S0",
+      "Reuse/analysis unit tests independently prove persist-reopen",
+      "FilesystemDurability, HardwarePowerLoss, process-crash recovery, or cross-platform from these scenarios",
+      "Production-integration support for multi-root source_revisions / cross-scale analysis C",
+      "Append/SQLite apply-path snapshot-set equivalence",
+      "Evidence execution, final SHA freeze, Sol STRONG_FINAL, Opus PRE_FINAL, mechanism selection, or FINAL_GATE",
+      "R2-05 package provenance correction authorized by this review"
+    ]
+  },
+  "bottom_line": "R2-02 genuine stale observation methodology sufficient under non-Fast review: competing-then-S0-bound causality, exact scoped codes, live token change, post-reject non-mutation, harness persist-reopen independent of oracle via structural ==. Close R2-02 methodology gate. R2-05 requires separate owner authorization.",
+  "authorized_next_step": "await_owner_r2_05_authorization",
+  "not_authorized": [
+    "R2_05_package_provenance_correction",
+    "freeze_evidence_sha",
+    "evidence_execution",
+    "windows_run",
+    "opus_pre_final",
+    "sol_strong_final",
+    "mechanism_selection",
+    "final_gate"
+  ]
+}

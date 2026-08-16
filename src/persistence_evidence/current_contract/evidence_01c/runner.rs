@@ -13,7 +13,7 @@ use super::candidate::CurrentContractCandidate;
 use super::comparison::{build_comparison_report, comparison_markdown, package_from_runs};
 use super::environment::{capture_environment, timestamp_iso};
 use super::measurements::run_comparative_measurements;
-use super::methodology::{methodology_record, EVIDENCE_01C_HARNESS_VERSION};
+use super::methodology::EVIDENCE_01C_HARNESS_VERSION;
 use super::readiness::{assess_readiness, compute_eligibility};
 use super::scenarios::run_required_scenarios;
 use super::types::{
@@ -34,7 +34,11 @@ pub const CORRECTION_04_V4_HARNESS_SHA: &str = "21f2eb2a7254ca0bcc1ce5f9e93e7f44
 pub const WORK_PACKAGE_ID: &str = "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05";
 pub const APPEND_01B3_EVIDENCE_WORK_PACKAGE_ID: &str =
     "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01";
-pub const DUAL_SCOPED_EVIDENCE_WORK_PACKAGE_ID: &str =
+/// Active bounded-correction work package for dual-scoped 01B-3 + 01C-SQLITE-3 evidence.
+pub const R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID: &str =
+    "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01";
+/// Historical dual-scoped package ID before R2-05 provenance correction.
+pub const DUAL_SCOPED_EVIDENCE_WORK_PACKAGE_ID_LEGACY: &str =
     "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,10 +64,10 @@ impl AppendEvidenceVariant {
         }
     }
 
-    fn work_package_id(self, sqlite_variant: SqliteEvidenceVariant) -> &'static str {
+    pub fn work_package_id(self, sqlite_variant: SqliteEvidenceVariant) -> &'static str {
         match (self, sqlite_variant) {
             (Self::Scoped01B3, SqliteEvidenceVariant::Scoped01CSqlite3) => {
-                DUAL_SCOPED_EVIDENCE_WORK_PACKAGE_ID
+                R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID
             }
             (Self::Scoped01B3, _) => APPEND_01B3_EVIDENCE_WORK_PACKAGE_ID,
             _ => WORK_PACKAGE_ID,
@@ -196,7 +200,8 @@ fn run_01c_evidence_with_variants(
         }
         .to_owned(),
     );
-    let methodology = methodology_record();
+    let work_package_id = append_variant.work_package_id(sqlite_variant);
+    let methodology = super::methodology::methodology_record_for_work_package(work_package_id);
     fs::write(
         output_root.join("methodology.json"),
         serde_json::to_string_pretty(&methodology).expect("methodology json"),
@@ -311,7 +316,7 @@ fn run_01c_evidence_with_variants(
     environment.end_timestamp = Some(timestamp_iso());
     let invalid_chain = invalid_evidence_chain();
     let package = package_from_runs(
-        append_variant.work_package_id(sqlite_variant),
+        work_package_id,
         &repository_commit,
         environment.clone(),
         methodology,

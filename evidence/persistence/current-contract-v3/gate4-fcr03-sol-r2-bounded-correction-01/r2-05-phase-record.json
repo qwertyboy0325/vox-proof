@@ -1,0 +1,46 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-05-PHASE-RECORD",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
+  "status": "COMPLETE",
+  "owner_authorization": "AUTHORIZE_R2_05_PACKAGE_PROVENANCE_CORRECTION",
+  "authorized_on": "2026-08-16",
+  "closed_on": "2026-08-16",
+  "closes_conflict": "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT",
+  "objective": "Fix provenance/package-ID generation at source for dual-scoped Gate 4 evidence under VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "source_fix": {
+    "runner_constant": "R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID",
+    "expected_work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+    "manifest_generation": "package.work_package_id and methodology.work_package_id from same runner resolution",
+    "windows_provenance_generation": "reads manifest.json work_package_id after dual-scoped run",
+    "post_generation_overlay_required": false,
+    "historical_frozen_artifacts_modified": false
+  },
+  "files_changed": [
+    "src/persistence_evidence/current_contract/evidence_01c/runner.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/methodology.rs",
+    "src/persistence_evidence/current_contract/evidence_01c/mod.rs",
+    ".github/workflows/persistence-sqlite-windows.yml",
+    "tests/persistence_01c_evidence.rs"
+  ],
+  "tests": {
+    "dual_scoped_evidence_work_package_id_is_r2_bounded_correction": "pass",
+    "dual_scoped_methodology_work_package_id_matches_package_resolution": "pass",
+    "append_01b3_only_evidence_work_package_id_remains_historical": "pass"
+  },
+  "not_executed": [
+    "fresh_macos_evidence",
+    "fresh_windows_evidence",
+    "freeze_evidence_sha"
+  ],
+  "authorized_next_step": "await_owner_freeze_evidence_sha_authorization",
+  "not_authorized": [
+    "freeze_evidence_sha",
+    "fresh_macos_evidence",
+    "fresh_windows_evidence",
+    "opus_pre_final",
+    "sol_strong_final",
+    "mechanism_selection",
+    "final_gate"
+  ]
+}

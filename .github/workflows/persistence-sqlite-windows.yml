@@ -207,6 +207,11 @@ jobs:
           import json, os, pathlib
           root = pathlib.Path("evidence/persistence/current-contract-v3/01c") / os.environ["VOXPROOF_01C_RUN_ID"]
           dual_scoped = os.environ.get("DUAL_SCOPED_FCR03") == "true"
+          manifest_path = root / "manifest.json"
+          if dual_scoped:
+              if not manifest_path.is_file():
+                  raise SystemExit(f"missing manifest for dual-scoped run at {manifest_path}")
+              manifest_work_package_id = json.loads(manifest_path.read_text())["work_package_id"]
           provenance = {
               "workflow_control_plane_sha": os.environ["WORKFLOW_CONTROL_PLANE_SHA"],
               "evidence_checkout_sha": os.environ["EVIDENCE_CHECKOUT_SHA"],
@@ -215,7 +220,7 @@ jobs:
               "01c_run_id": os.environ["VOXPROOF_01C_RUN_ID"],
               "platform_label": "windows-github-actions",
               "work_package_id": (
-                  "VP-GATE4-FCR03-WINDOWS-DUAL-SCOPED-EVIDENCE-01"
+                  manifest_work_package_id
                   if dual_scoped
                   else "VP-GATE4-01C-WINDOWS-CONTROL-PLANE-CORRECTION-06"
               ),
@@ -280,6 +285,16 @@ jobs:
           ], comparison_blockers
 
           if dual_scoped:
+              provenance = json.loads((root / "windows-provenance.json").read_text())
+              assert manifest["work_package_id"] == provenance["work_package_id"], (
+                  manifest["work_package_id"],
+                  provenance["work_package_id"],
+              )
+              assert manifest["work_package_id"] == manifest["methodology"]["work_package_id"], (
+                  manifest["work_package_id"],
+                  manifest["methodology"]["work_package_id"],
+              )
+              assert manifest["work_package_id"] == "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01", manifest["work_package_id"]
               expected_selection_blockers = [
                   "cross_platform: awaiting peer platform evidence aggregation"
               ]

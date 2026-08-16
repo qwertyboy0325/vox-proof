@@ -1,0 +1,49 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-02-FAST-REVIEW-SUPERSESSION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "status": "FAST_TIER_REVIEWS_INVALID_FOR_CLOSURE",
+  "recorded_on": "2026-08-16",
+  "owner_directive": "Specialist and methodology reviews must not use Fast-tier routing. requested model ≠ actual routed model; actual route governs validity.",
+  "invalid_closure_commit": "fc9099e",
+  "invalid_closure_note": "fc9099e preserved as negative provenance. Do not amend or rewrite.",
+  "superseded_artifacts": [
+    {
+      "artifact": "storage-systems-review-r2-02.json",
+      "review_id": "VP-GATE4-FCR03-R2-02-STORAGE-SEMANTIC-REVIEW-2026-08-16",
+      "reviewer_model_claimed": "Cursor Grok 4.6 Extra High",
+      "models_used_actual": ["cursor-grok-4.6-high-fast"],
+      "review_tier_actual": "fast",
+      "valid_for_closure": false,
+      "supersession_reason": "Fast-tier routing contrary to owner requirement"
+    },
+    {
+      "artifact": "evidence-methodology-review-r2-02.json",
+      "review_id": "VP-GATE4-FCR03-R2-02-EVIDENCE-METHODOLOGY-REVIEW-2026-08-16",
+      "reviewer_model_claimed": "Cursor Grok 4.6",
+      "models_used_actual": ["cursor-grok-4.6-high-fast"],
+      "review_tier_actual": "fast",
+      "valid_for_closure": false,
+      "supersession_reason": "Fast-tier routing contrary to owner requirement"
+    }
+  ],
+  "implementation_sha_unchanged": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
+  "implementation_note": "No implementation rollback required. Only review tier invalid.",
+  "authorized_next_step": "R2_02_nonfast_sequential_rereview",
+  "successor_artifact_targets": [
+    "storage-systems-review-r2-02-nonfast.json",
+    "evidence-methodology-review-r2-02-nonfast.json"
+  ],
+  "successor_artifacts_completed_on": "2026-08-16",
+  "successor_closure_status": "R2_02_CLOSED_NONFAST_REREVIEW_COMPLETE",
+  "forbidden_until_valid_nonfast_reviews": [
+    "R2_05_package_provenance_correction",
+    "freeze_evidence_sha",
+    "evidence_execution",
+    "windows_run",
+    "opus_pre_final",
+    "sol_strong_final",
+    "mechanism_selection",
+    "final_gate"
+  ]
+}

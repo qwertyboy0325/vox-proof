@@ -50,6 +50,50 @@ fn measurement_contract_v2_medium_is_materialized() {
 }
 
 #[test]
+fn dual_scoped_evidence_work_package_id_is_r2_bounded_correction() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::{
+        AppendEvidenceVariant, R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID, SqliteEvidenceVariant,
+    };
+
+    assert_eq!(
+        AppendEvidenceVariant::Scoped01B3.work_package_id(SqliteEvidenceVariant::Scoped01CSqlite3),
+        R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID,
+    );
+    assert_eq!(
+        R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID,
+        "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+    );
+}
+
+#[test]
+fn dual_scoped_methodology_work_package_id_matches_package_resolution() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::{
+        AppendEvidenceVariant, methodology_record_for_work_package, SqliteEvidenceVariant,
+    };
+
+    let work_package_id =
+        AppendEvidenceVariant::Scoped01B3.work_package_id(SqliteEvidenceVariant::Scoped01CSqlite3);
+    let methodology = methodology_record_for_work_package(work_package_id);
+    assert_eq!(methodology.work_package_id, work_package_id);
+}
+
+#[test]
+fn append_01b3_only_evidence_work_package_id_remains_historical() {
+    use vox_proof::persistence_evidence::current_contract::evidence_01c::{
+        AppendEvidenceVariant, SqliteEvidenceVariant, WORK_PACKAGE_ID,
+    };
+
+    assert_eq!(
+        AppendEvidenceVariant::Scoped01B3.work_package_id(SqliteEvidenceVariant::Historical01CSqlite2),
+        "VP-GATE4-APPEND-01B-3-EVIDENCE-EXECUTION-01",
+    );
+    assert_eq!(
+        AppendEvidenceVariant::Historical01B2.work_package_id(SqliteEvidenceVariant::Historical01CSqlite2),
+        WORK_PACKAGE_ID,
+    );
+}
+
+#[test]
 fn evidence_01c_methodology_is_frozen() {
     let record = methodology_record();
     assert_eq!(record.harness_version, EVIDENCE_01C_HARNESS_VERSION);

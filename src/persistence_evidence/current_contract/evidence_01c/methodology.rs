@@ -43,10 +43,14 @@ pub struct MethodologyRecord {
 }
 
 pub fn methodology_record() -> MethodologyRecord {
+    methodology_record_for_work_package("VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05")
+}
+
+pub fn methodology_record_for_work_package(work_package_id: &str) -> MethodologyRecord {
     MethodologyRecord {
         freeze_id: CORRECTION_METHODOLOGY_FREEZE_ID.to_owned(),
         harness_version: EVIDENCE_01C_HARNESS_VERSION.to_owned(),
-        work_package_id: "VP-GATE4-01C-READINESS-SEPARATION-CORRECTION-05".to_owned(),
+        work_package_id: work_package_id.to_owned(),
         candidates_order: vec![
             "current-contract-append-authoritative-candidate".to_owned(),
             "current-contract-sqlite-authoritative-candidate".to_owned(),

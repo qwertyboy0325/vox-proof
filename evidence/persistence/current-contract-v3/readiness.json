@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "R2_02_COMPLETE_R2_05_PENDING",
+  "tracker_status": "R2_CONSOLIDATED_FROZEN_SHA_PENDING_REMOTE_VERIFY",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -169,28 +169,36 @@
   },
   "sol_r2_bounded_correction": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_COMPLETE_R2_05_PENDING",
-    "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
+  "status": "R2_05_COMPLETE_FROZEN_SHA_PENDING_REMOTE_VERIFY",
+  "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
     "decision_path": "A",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
     "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
-    "current_step": "R2_05_package_provenance_correction",
+    "current_step": "frozen_sha_pending_remote_verify",
+    "final_harness_freeze_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-harness-freeze.json",
+    "final_frozen_evidence_sha_resolution": "git_commit_preserving_evidence-harness-freeze.json",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
     "open_conflicts": [
-      "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
-      "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"
+      "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE"
     ],
     "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"],
     "closed_in_r2_01": ["FCR-R2-01-POST-REVERIFICATION-U1-FIX"],
     "closed_in_r2_02": ["FCR-R2-02-SYNTHETIC-STALE-COMMANDS"],
+    "closed_in_r2_05": ["FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"],
+    "r2_05_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-05-phase-record.json",
     "r2_01_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json",
     "r2_02_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-phase-record.json",
     "r2_02_analysis_fixture_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-owner-authorization-analysis-fixture.json",
-    "r2_02_specialist_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02.json",
-    "r2_02_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-methodology-review-r2-02.json",
-    "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff",
+    "r2_02_fast_review_supersession": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-fast-review-supersession-record.json",
+    "r2_02_specialist_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02-nonfast.json",
+    "r2_02_specialist_review_superseded_fast": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02.json",
+    "r2_02_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-methodology-review-r2-02-nonfast.json",
+    "r2_02_methodology_review_superseded_fast": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-methodology-review-r2-02.json",
+    "r2_02_nonfast_review_model": "cursor-grok-4.6-xhigh",
+    "r2_02_nonfast_review_tier": "extra_high",
+    "implementation_sha_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
     "implementation_sha_note": "R2-02 review target only; not final evidence SHA"
   },
   "governance_chain_retry": {
@@ -213,8 +221,9 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_COMPLETE_R2_05_PENDING",
-    "phase": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
+    "status": "R2_CONSOLIDATED_FROZEN_SHA_PENDING_REMOTE_VERIFY",
+    "phase": "FREEZE_ONE_SHA",
+    "phase_note": "Final consolidation committed; FINAL_FROZEN_EVIDENCE_SHA equals preserving commit on v0.2-real-transcript-authoritative-loop.",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -254,9 +263,13 @@
       "owner_AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE_path_A",
       "R2_04_work_package_authority_complete",
       "R2_01_storage_reverification_PASS_WITH_CAVEATS",
-      "R2_02_genuine_stale_scenarios_PASS_WITH_CAVEATS_ee509e3"
+      "R2_02_genuine_stale_scenarios_PASS_WITH_CAVEATS_ee509e3",
+      "R2_02_fast_review_invalid_for_closure_fc9099e",
+      "R2_02_nonfast_specialist_and_methodology_PASS_WITH_CAVEATS_ee509e3",
+      "R2_05_package_provenance_generator_fix",
+      "R2_final_consolidation_and_freeze_one_sha"
     ],
-    "current": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
+    "current": "FREEZE_ONE_SHA_REMOTE_VERIFY",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -264,8 +277,9 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "R2-05 provenance fix then fresh dual-platform evidence",
-      "freeze ONE final SHA",
+      "owner authorize freeze ONE final SHA",
+      "fresh dual-platform evidence at frozen SHA",
+      "readiness rebuild",
       "R2-03 PRE_FINAL then Sol retry 03"
     ]
   },

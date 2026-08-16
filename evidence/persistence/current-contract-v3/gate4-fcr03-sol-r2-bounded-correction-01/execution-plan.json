@@ -2,8 +2,8 @@
   "artifact_id": "VP-GATE4-FCR03-SOL-R2-EXECUTION-PLAN",
   "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
   "owner_authorization_ref": "owner-authorization.json",
-  "status": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
-  "current_step": "R2_05_package_provenance_correction",
+  "status": "FROZEN_SHA_PENDING_REMOTE_VERIFY",
+  "current_step": "freeze_evidence_sha",
   "required_order": [
     {
       "step": 1,
@@ -43,14 +43,14 @@
     {
       "step": 5,
       "id": "R2_05_package_provenance_correction",
-      "status": "pending",
+      "status": "complete",
       "closes": "FCR-R2-05",
-      "implementation": ["runner.rs work_package_id", "workflow provenance if needed"]
+      "implementation": ["runner.rs work_package_id", "workflow provenance from manifest"]
     },
     {
       "step": 6,
       "id": "freeze_evidence_sha",
-      "status": "pending",
+      "status": "complete",
       "output": "evidence-harness-freeze.json"
     },
     {

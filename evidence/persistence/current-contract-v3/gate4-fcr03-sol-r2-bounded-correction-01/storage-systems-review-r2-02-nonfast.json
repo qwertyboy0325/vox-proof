@@ -1,0 +1,133 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-02-STORAGE-SEMANTIC-REVIEW-NONFAST-2026-08-16",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "artifact_role": "storage-systems-review-r2-02-genuine-stale-semantics-nonfast",
+  "supersedes": "storage-systems-review-r2-02.json",
+  "supersedes_invalid_closure_commit": "fc9099e",
+  "supersession_record": "r2-02-fast-review-supersession-record.json",
+  "valid_for_closure": true,
+  "commit_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
+  "commit_reviewed_note": "R2-02 implementation SHA only. Not final evidence SHA.",
+  "prior_implementation_commits": ["c0f289f", "139daea", "c1e9f82"],
+  "adjudication_scope": [
+    "R2-02 genuine stale review case",
+    "R2-02 genuine stale reuse case",
+    "R2-02 genuine stale active-analysis case",
+    "genuine_stale_analysis_prepare_authority / genuine_stale_analysis_fixture",
+    "run_genuine_stale_precondition harness",
+    "Append 01B-3 vs SQLite 01C-3 scoped ActiveAnalysis apply",
+    "Fcr03StaleRejectionRecord analysis identity observation fields"
+  ],
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "requested_model": "cursor-grok-4.6-xhigh",
+  "reviewer_model": "Cursor Grok 4.6 Extra High",
+  "review_tier_requested": "extra_high",
+  "models_used": ["cursor-grok-4.6-xhigh"],
+  "review_tier_actual": "extra_high",
+  "fast_tier_invalid": false,
+  "model_requirement_satisfied": true,
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-16",
+  "review_mode": "code_path_plus_post_review_test_attempt",
+  "post_review_test_execution": {
+    "attempted": true,
+    "executed": false,
+    "reason": "cargo test --features persistence-spike blocked in sandbox (libsqlite3-sys bindgen PermissionDenied). Prior Fast packet recorded c1_stale green at ee509e3."
+  },
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: PASS",
+  "blocking_before_methodology": false,
+  "may_close_r2_02_semantic": true,
+  "closes_conflict": "FCR-R2-02-SYNTHETIC-STALE-COMMANDS",
+  "required_questions": {
+    "abc_genuine_oracle_valid": {
+      "answer": "YES",
+      "rationale": "A/B/C projected from real promotion/review transitions; analysis helper asserts oracle on S0; unit test genuine_stale_fixtures_cover_three_scopes_with_distinct_analysis_targets at Small."
+    },
+    "bc_preparable_from_same_s0": {
+      "answer": "YES",
+      "rationale": "Both commands use from_transition_pair(S0, target). B applied from S0 on candidate path. C oracle-valid from same S0; C-first apply not executed (caveat)."
+    },
+    "b_mutates_active_analysis_via_candidate_path": {
+      "answer": "YES",
+      "rationale": "Competing apply goes through apply_scoped_command(ActiveAnalysis); patch sets active_analysis_snapshot_identity from B; unit tests assert live identity == competing_identity_after."
+    },
+    "c_fails_because_frozen_a_stale": {
+      "answer": "YES",
+      "rationale": "C retains S0 identity in scoped preconditions; after B, current identity != S0 identity -> stale-analysis-selection-precondition before patch."
+    },
+    "failure_code_semantically_correct": {
+      "answer": "YES",
+      "rationale": "Scoped CAS mismatch codes: stale-analysis-selection-precondition, stale-review-ledger-precondition, stale-reuse-governance-precondition."
+    },
+    "post_rejection_authority_unchanged_at_b": {
+      "answer": "YES",
+      "rationale": "Reject returns before persist; unit tests and harness assert authority_after_competing == authority_after_rejection."
+    },
+    "close_reopen_preserves_b": {
+      "answer": "YES",
+      "rationale": "Harness close/reopen with persist_reopen_oracle_compare and persist_reopen_authority_unchanged vs B. Reuse/analysis unit tests omit close/reopen (caveat)."
+    },
+    "source_revisions_merge_legitimate": {
+      "answer": "YES",
+      "rationale": "Additive clone of real small-promotion EvidenceSourceRevision rows for oracle-valid C snapshot binding; evidence-only composition, not product lifecycle."
+    },
+    "identity_or_token_forged": {
+      "answer": "NO",
+      "rationale": "Identities projected from analysis snapshots; genuine path does not use analysis:stale synthetic injector."
+    },
+    "scenario_id_forces_stale": {
+      "answer": "NO",
+      "rationale": "scenario_id selects fixture only; reject is live precondition mismatch after competing apply."
+    },
+    "candidate_persistence_semantics_changed": {
+      "answer": "NO",
+      "rationale": "No edits to append_authoritative_01b3.rs / sqlite_authoritative_01c3.rs in R2-02 commits."
+    },
+    "append_sqlite_equivalent_three_cases": {
+      "answer": "YES",
+      "rationale": "Same fixtures, codes, no-persist-on-reject at Small. Analysis C rejected before patch; Append replace vs SQLite merge not on reject path."
+    }
+  },
+  "blockers": [],
+  "caveats": [
+    "Analysis C is evidence-composed cross-scale second command, not same-transcript production rival",
+    "S0 is two-root source_revisions session; oracle-valid but not current projection lifecycle",
+    "No test applies C first at S0",
+    "Reuse/analysis c1_stale unit tests omit close/reopen; harness covers persist+reopen",
+    "Analysis fixture scale-fragile at Medium (B and C would collide); harness uses Small",
+    "Append replaces analysis_snapshots; SQLite merges — latent divergence not on reject path",
+    "identities_pairwise_distinct is fixture-derived; live competing identity checked in analysis unit tests only",
+    "Post-review cargo test not re-executed in this review session (sandbox blocked)"
+  ],
+  "claim_boundary": {
+    "may_claim": [
+      "01B-3 and 01C-3 reject scoped commands whose frozen S0 token no longer matches after competing same-scope apply",
+      "Analysis stale code is stale-analysis-selection-precondition; post-reject authority remains B; harness close/reopen preserves B",
+      "A/B/C oracle-valid at Small; identities projected not forged; scenario_id does not force reject",
+      "source_revisions merge is evidence-only composition of real revision bytes for second snapshot binding"
+    ],
+    "may_not_claim": [
+      "Production single-transcript session can prepare two distinct ActiveAnalysis commands at one S0",
+      "C is same-session same-transcript competing analysis selection",
+      "Multi-root source_revisions is product lifecycle",
+      "Pairwise-distinct identities prove two production analysis commands",
+      "FilesystemDurability or cross-platform from unit tests alone",
+      "Append ActiveAnalysis apply equivalent to SQLite in general",
+      "Evidence execution, Sol, Opus, or final SHA freeze"
+    ]
+  },
+  "bottom_line": "R2-02 genuine stale semantics sound at ee509e3: real scoped CAS causality, correct failure codes, authority preserved at B, Append/SQLite agree on reject path. Non-Fast specialist review valid for closure. Proceed to non-Fast methodology only.",
+  "not_authorized": [
+    "evidence execution",
+    "final SHA freeze",
+    "Sol STRONG_FINAL",
+    "Opus PRE_FINAL",
+    "mechanism selection",
+    "FINAL_GATE",
+    "R2_05"
+  ],
+  "authorized_next_step": "nonfast_methodology_review"
+}

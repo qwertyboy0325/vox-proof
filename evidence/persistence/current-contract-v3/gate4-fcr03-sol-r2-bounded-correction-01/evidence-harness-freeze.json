@@ -1,0 +1,36 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-EVIDENCE-HARNESS-FREEZE",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "FREEZE_ONE_SHA",
+  "frozen_on": "2026-08-16",
+  "owner_authorization": "AUTHORIZE_FINAL_CONSOLIDATION_AND_FREEZE_ONE_SHA",
+  "final_frozen_evidence_sha_resolution": "git_commit_preserving_this_directory",
+  "final_frozen_evidence_sha_note": "FINAL_FROZEN_EVIDENCE_SHA equals the full git commit hash preserving this file on v0.2-real-transcript-authoritative-loop. macOS and Windows fresh evidence must execute at exactly this SHA, not a later commit.",
+  "branch": "v0.2-real-transcript-authoritative-loop",
+  "harness_semantic_sha_equals_repository_commit": true,
+  "consolidation_includes": [
+    "R2-02 non-Fast successor review artifacts",
+    "R2-02 fast-review supersession provenance (fc9099e preserved)",
+    "R2-05 runner/methodology/workflow generator provenance fix",
+    "R2-05 phase/conflict/readiness governance records"
+  ],
+  "implementation_sha_r2_02": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
+  "invalid_fast_closure_commit_preserved": "fc9099e",
+  "r2_05_work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "dual_scoped_runner_constant": "R2_BOUNDED_CORRECTION_WORK_PACKAGE_ID",
+  "windows_provenance_source": "manifest.json work_package_id after dual-scoped run",
+  "historical_evidence_unmodified": [
+    "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "evidence/persistence/current-contract-v3/01c/gate4-01c-d267f0d-dual-scoped-fcr03/windows-provenance.json at 9ec3b07 lineage"
+  ],
+  "fresh_evidence_executed": false,
+  "authorized_next_step": "await_owner_macos_evidence_at_frozen_sha",
+  "not_authorized": [
+    "evidence_execution_before_owner_authorization",
+    "windows_evidence_before_macos_complete",
+    "opus_pre_final",
+    "sol_strong_final_retry_03",
+    "mechanism_selection",
+    "final_gate"
+  ]
+}
