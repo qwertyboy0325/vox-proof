@@ -12,27 +12,37 @@ pub enum BottomTab {
 
 pub fn coverage_label(progress: ApplicationReviewProgress, total: usize) -> String {
     match progress.decision_coverage {
-        ApplicationDecisionCoverage::Complete => format!("Coverage: complete ({total}/{total})"),
+        ApplicationDecisionCoverage::Complete => {
+            if total == 0 {
+                "Review complete".to_owned()
+            } else {
+                format!("Review complete ({total} items)")
+            }
+        }
         ApplicationDecisionCoverage::Incomplete { undecided } => {
-            format!(
-                "Coverage: incomplete ({}/{total}; {undecided} undecided)",
-                total.saturating_sub(undecided)
-            )
+            let reviewed = total.saturating_sub(undecided);
+            format!("Progress: {reviewed} of {total} reviewed")
         }
     }
 }
 
 pub fn resolution_label(progress: ApplicationReviewProgress) -> String {
     match progress.resolution_status {
-        ApplicationResolutionStatus::Resolved => "Resolution: resolved".to_owned(),
+        ApplicationResolutionStatus::Resolved => "All items resolved".to_owned(),
         ApplicationResolutionStatus::Unresolved {
             deferred,
             needs_manual_correction,
         } => format!(
-            "Resolution: unresolved ({deferred} deferred; \
-             {needs_manual_correction} needs manual correction)"
+            "{deferred} deferred, {needs_manual_correction} still need manual correction"
         ),
     }
+}
+
+pub fn review_is_complete(progress: ApplicationReviewProgress) -> bool {
+    matches!(
+        progress.decision_coverage,
+        ApplicationDecisionCoverage::Complete
+    )
 }
 
 pub fn export_enabled(progress: ApplicationReviewProgress) -> bool {
@@ -102,8 +112,8 @@ mod tests {
                 needs_manual_correction: 2,
             },
         };
-        assert_eq!(coverage_label(progress, 3), "Coverage: complete (3/3)");
-        assert!(resolution_label(progress).starts_with("Resolution: unresolved"));
+        assert_eq!(coverage_label(progress, 3), "Review complete (3 items)");
+        assert!(resolution_label(progress).contains("deferred"));
         assert!(export_enabled(progress));
         assert!(unresolved_confirmation_needed(progress));
     }
@@ -114,8 +124,8 @@ mod tests {
             decision_coverage: ApplicationDecisionCoverage::Incomplete { undecided: 2 },
             resolution_status: ApplicationResolutionStatus::Resolved,
         };
-        assert!(coverage_label(progress, 3).starts_with("Coverage: incomplete"));
-        assert_eq!(resolution_label(progress), "Resolution: resolved");
+        assert!(coverage_label(progress, 3).starts_with("Progress:"));
+        assert_eq!(resolution_label(progress), "All items resolved");
         assert!(!export_enabled(progress));
     }
 
@@ -125,8 +135,8 @@ mod tests {
             decision_coverage: ApplicationDecisionCoverage::Complete,
             resolution_status: ApplicationResolutionStatus::Resolved,
         };
-        assert_eq!(coverage_label(progress, 0), "Coverage: complete (0/0)");
-        assert_eq!(resolution_label(progress), "Resolution: resolved");
+        assert_eq!(coverage_label(progress, 0), "Review complete");
+        assert_eq!(resolution_label(progress), "All items resolved");
         assert!(export_enabled(progress));
         assert!(!unresolved_confirmation_needed(progress));
     }

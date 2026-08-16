@@ -3779,6 +3779,8 @@ dependencies = [
  "egui",
  "font-kit",
  "rfd",
+ "serde",
+ "serde_json",
  "tempfile",
  "vox-proof",
 ]

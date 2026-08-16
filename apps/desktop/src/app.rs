@@ -9,16 +9,19 @@ use vox_proof::review::CorrectionDecision;
 
 use crate::controller::{DesktopController, DesktopPhase};
 use crate::presentation::{
-    BottomTab, accept_enabled, coverage_label, decision_shortcut, export_enabled, resolution_label,
-    review_shortcuts_suppressed, search_matches, unresolved_confirmation_needed,
+    BottomTab, accept_enabled, coverage_label, decision_shortcut, export_enabled,
+    resolution_label, review_is_complete, review_shortcuts_suppressed, search_matches,
+    unresolved_confirmation_needed,
 };
+use crate::terms_editor::TermsEditor;
+use crate::user_errors;
 
 const SEARCH_ID: &str = "review-search-field";
 
 pub struct ReviewApp {
     controller: DesktopController,
     transcript_path: String,
-    terms_path: String,
+    terms_editor: TermsEditor,
     material_use: DeclaredApplicationMaterialUseBasis,
     role: DeclaredSessionOperatorRole,
     operator_label: String,
@@ -28,6 +31,7 @@ pub struct ReviewApp {
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
     resume_session_id_draft: String,
+    show_advanced: bool,
     error: Option<String>,
     status: String,
     cjk_font_loaded: bool,
@@ -40,7 +44,7 @@ impl ReviewApp {
         Self {
             controller: DesktopController::default(),
             transcript_path: String::new(),
-            terms_path: String::new(),
+            terms_editor: TermsEditor::default(),
             material_use: DeclaredApplicationMaterialUseBasis::SelfOwned,
             role: DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
             operator_label: String::new(),
@@ -50,8 +54,9 @@ impl ReviewApp {
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
             resume_session_id_draft: String::new(),
+            show_advanced: false,
             error: None,
-            status: "Choose an SRT and session-terms file to begin.".to_owned(),
+            status: "Start a new review or continue a recent one.".to_owned(),
             cjk_font_loaded,
         }
     }
@@ -141,16 +146,15 @@ impl ReviewApp {
             Ok(()) => {
                 self.error = None;
                 self.status = if invalidates_prior_export {
-                    "Session changed after export. The prior files remain on disk but do not \
-                     represent the current session; export again to produce current outputs."
+                    "This review changed after export. Export again to refresh the saved files."
                         .to_owned()
                 } else {
-                    "Decision durably committed.".to_owned()
+                    "Decision saved.".to_owned()
                 };
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
     }
 
@@ -164,16 +168,15 @@ impl ReviewApp {
             Ok(()) => {
                 self.error = None;
                 self.status = if invalidates_prior_export {
-                    "Session changed after export. The prior files remain on disk but do not \
-                     represent the current session; export again to produce current outputs."
+                    "This review changed after export. Export again to refresh the saved files."
                         .to_owned()
                 } else {
-                    "Manual Replacement durably committed.".to_owned()
+                    "Correction saved.".to_owned()
                 };
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
     }
 
@@ -181,7 +184,7 @@ impl ReviewApp {
         match self.controller.reset() {
             Ok(()) => {
                 self.transcript_path.clear();
-                self.terms_path.clear();
+                self.terms_editor = TermsEditor::default();
                 self.operator_label.clear();
                 self.material_use = DeclaredApplicationMaterialUseBasis::SelfOwned;
                 self.role = DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator;
@@ -190,10 +193,12 @@ impl ReviewApp {
                 self.manual_replacement_draft.clear();
                 self.bottom_tab = BottomTab::CurrentPreview;
                 self.confirm_unresolved_source_retained = false;
+                self.show_advanced = false;
                 self.error = None;
-                self.status = "Session closed. Choose inputs to begin again.".to_owned();
+                self.status = "Review closed. Start a new review or continue a recent one."
+                    .to_owned();
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
     }
 }
@@ -226,18 +231,13 @@ impl eframe::App for ReviewApp {
 impl ReviewApp {
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            ui.heading("VoxProof v0.2 Native Review");
-            ui.separator();
-            ui.label("egui 0.35.0 · local durable session");
-            ui.separator();
-            ui.label("繁體中文 / 简体中文 / 日本語");
+            ui.heading("VoxProof");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if self.controller.phase() != DesktopPhase::Setup
-                    && ui.button("Reset session").clicked()
+                    && ui.button("Close review").clicked()
                 {
                     self.reset();
                 }
-                ui.small(format!("ui_session_epoch {}", self.controller.ui_session_epoch()));
             });
         });
     }
@@ -259,17 +259,17 @@ impl ReviewApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.set_max_width(860.0);
             ui.add_space(20.0);
-            ui.heading("Start governed transcript review");
+            ui.heading("New review");
             ui.label(
-                "Select an existing SRT transcript and session-terms file. VoxProof will raise \
-                 review cases but will never silently rewrite transcript text.",
+                "Choose a subtitle file, add terms you care about, and review each suggested \
+                 change yourself. VoxProof never silently rewrites subtitle text.",
             );
             ui.add_space(12.0);
 
             ui.group(|ui| {
-                ui.label(RichText::new("Input files").strong());
+                ui.label(RichText::new("1. Choose transcript").strong());
                 ui.horizontal(|ui| {
-                    ui.label("SRT transcript");
+                    ui.label("Transcript");
                     ui.add(
                         egui::TextEdit::singleline(&mut self.transcript_path)
                             .id(egui::Id::new("setup-srt-path"))
@@ -283,195 +283,282 @@ impl ReviewApp {
                         self.transcript_path = path.display().to_string();
                     }
                 });
+            });
+
+            ui.add_space(10.0);
+            ui.group(|ui| {
+                ui.label(RichText::new("2. Terms to watch").strong());
+                ui.label("Add names or phrases that often get misrecognized in this material.");
+                let mut remove_index = None;
+                for index in 0..self.terms_editor.terms.len() {
+                    let term = &mut self.terms_editor.terms[index];
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.label(format!("Term {}", index + 1));
+                        if ui.button("Remove").clicked() {
+                            remove_index = Some(index);
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Name");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut term.canonical)
+                                .id(egui::Id::new(("term-canonical", index)))
+                                .desired_width(420.0)
+                                .hint_text("PostgreSQL"),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Aliases");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut term.aliases)
+                                .id(egui::Id::new(("term-aliases", index)))
+                                .desired_width(420.0)
+                                .hint_text("Postgres"),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Known misrecognitions");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut term.observed_error_forms)
+                                .id(egui::Id::new(("term-errors", index)))
+                                .desired_width(420.0)
+                                .hint_text("post gray SQL"),
+                        );
+                    });
+                }
+                if let Some(index) = remove_index {
+                    self.terms_editor.remove_term(index);
+                }
                 ui.horizontal(|ui| {
-                    ui.label("Session terms");
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.terms_path)
-                            .id(egui::Id::new("setup-terms-path"))
-                            .desired_width(560.0),
-                    );
-                    if ui.button("Choose terms…").clicked()
+                    if ui.button("+ Add term").clicked() {
+                        self.terms_editor.push_empty_term();
+                    }
+                    if ui.button("Import terms file…").clicked()
                         && let Some(path) = rfd::FileDialog::new().pick_file()
+                        && let Ok(text) = std::fs::read_to_string(path)
                     {
-                        self.terms_path = path.display().to_string();
+                        match self.terms_editor.import_from_text(&text) {
+                            Ok(()) => self.error = None,
+                            Err(error) => {
+                                self.error = Some(user_errors::user_message(
+                                    &crate::controller::ControllerError::SessionTerms(error),
+                                ));
+                            }
+                        }
                     }
                 });
             });
 
             ui.add_space(10.0);
             ui.group(|ui| {
-                ui.label(RichText::new("Required caller declarations").strong());
-                ui.label(
-                    "These are caller-supplied declarations only. VoxProof does not authenticate \
-                     identity, verify permission, or provide legal authorization.",
-                );
+                ui.label(RichText::new("3. Confirm use").strong());
+                ui.label(RichText::new("Permission").strong());
                 ui.horizontal(|ui| {
-                    ui.label("Material use");
                     ui.radio_value(
                         &mut self.material_use,
                         DeclaredApplicationMaterialUseBasis::SelfOwned,
-                        "Self-owned",
+                        "This is my material",
                     );
                     ui.radio_value(
                         &mut self.material_use,
                         DeclaredApplicationMaterialUseBasis::ExplicitPermission,
-                        "Explicit permission",
+                        "I have permission to review it",
                     );
                 });
+                ui.label(RichText::new("Your role").strong());
                 ui.horizontal(|ui| {
-                    ui.label("Operator role");
                     ui.radio_value(
                         &mut self.role,
                         DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator,
-                        "Declared local owner/operator",
+                        "I own or manage this material",
                     );
                     ui.radio_value(
                         &mut self.role,
                         DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer,
-                        "Declared authorized human reviewer",
+                        "I am an authorized reviewer",
                     );
                 });
                 ui.horizontal(|ui| {
-                    ui.label("Operator label");
+                    ui.label("Reviewer name");
                     ui.add(
                         egui::TextEdit::singleline(&mut self.operator_label)
                             .id(egui::Id::new("setup-operator-label"))
-                            .hint_text("Required display label")
+                            .hint_text("Your name")
                             .desired_width(400.0),
                     );
                 });
+                ui.small(
+                    "These choices are your declaration only. VoxProof does not verify identity \
+                     or legal permission.",
+                );
             });
 
             ui.add_space(16.0);
             ui.separator();
-            ui.heading("Resume local session");
-            ui.label(
-                "Open an existing durable session from the local session store. Writable open \
-                 refuses when another writer holds ownership.",
-            );
-            if ui.button("Refresh local sessions").clicked() {
+            ui.heading("Recent reviews");
+            if ui.button("Refresh").clicked() {
                 match self.controller.refresh_available_sessions() {
                     Ok(()) => self.error = None,
-                    Err(error) => self.error = Some(error.to_string()),
+                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                 }
             }
-            let available = self.controller.available_session_ids().to_vec();
+            let available = self.controller.available_sessions().to_vec();
             if available.is_empty() {
-                ui.label("No local sessions found.");
+                ui.label("No saved reviews yet.");
             } else {
-                egui::ComboBox::from_id_salt("resume-session-select")
-                    .selected_text(if self.resume_session_id_draft.is_empty() {
-                        "Select session ID".to_owned()
-                    } else {
-                        self.resume_session_id_draft.clone()
-                    })
-                    .show_ui(ui, |ui| {
-                        for session_id in &available {
-                            ui.selectable_value(
-                                &mut self.resume_session_id_draft,
-                                session_id.clone(),
-                                session_id,
-                            );
-                        }
+                for session in &available {
+                    ui.group(|ui| {
+                        ui.label(RichText::new(&session.source_display_name).strong());
+                        ui.small(format!(
+                            "{} · {}",
+                            Self::format_session_date(session.created_at_unix_ms),
+                            session.authority_display_label
+                        ));
+                        ui.horizontal(|ui| {
+                            if ui.button("Continue").clicked() {
+                                self.resume_session_id_draft = session.session_id.clone();
+                                self.controller
+                                    .select_resume_session_id(session.session_id.clone());
+                                match self.controller.open_selected_session_writable() {
+                                    Ok(()) => {
+                                        self.error = None;
+                                        self.status = format!(
+                                            "Opened {}.",
+                                            session.source_display_name
+                                        );
+                                    }
+                                    Err(_) => {
+                                        self.controller
+                                            .select_resume_session_id(session.session_id.clone());
+                                        match self.controller.open_selected_session_read_only() {
+                                            Ok(()) => {
+                                                self.error = None;
+                                                self.status = format!(
+                                                    "Opened {} read-only.",
+                                                    session.source_display_name
+                                                );
+                                            }
+                                            Err(error) => {
+                                                self.error =
+                                                    Some(user_errors::user_message(&error));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     });
-                ui.horizontal(|ui| {
-                    let selected = !self.resume_session_id_draft.is_empty();
-                    if ui
-                        .add_enabled(selected, egui::Button::new("Open writable"))
-                        .clicked()
-                    {
-                        self.controller
-                            .select_resume_session_id(self.resume_session_id_draft.clone());
-                        match self.controller.open_selected_session_writable() {
-                            Ok(()) => {
-                                self.error = None;
-                                if let Some(session_id) = self.controller.session_id() {
-                                    self.status =
-                                        format!("Writable session opened ({session_id}).");
-                                }
-                            }
-                            Err(error) => self.error = Some(error.to_string()),
-                        }
-                    }
-                    if ui
-                        .add_enabled(selected, egui::Button::new("Open read-only"))
-                        .clicked()
-                    {
-                        self.controller
-                            .select_resume_session_id(self.resume_session_id_draft.clone());
-                        match self.controller.open_selected_session_read_only() {
-                            Ok(()) => {
-                                self.error = None;
-                                if let Some(session_id) = self.controller.session_id() {
-                                    self.status = format!(
-                                        "Read-only session opened ({session_id})."
-                                    );
-                                }
-                            }
-                            Err(error) => self.error = Some(error.to_string()),
-                        }
-                    }
-                });
+                }
             }
 
             ui.add_space(12.0);
             let can_start = !self.transcript_path.trim().is_empty()
-                && !self.terms_path.trim().is_empty()
                 && !self.operator_label.trim().is_empty();
             if ui
-                .add_enabled(can_start, egui::Button::new("Begin review"))
+                .add_enabled(can_start, egui::Button::new("Start review"))
                 .on_hover_text("Create a new local review session")
                 .clicked()
             {
                 let transcript = PathBuf::from(self.transcript_path.trim());
-                let terms = PathBuf::from(self.terms_path.trim());
-                match self.controller.start_from_paths(
+                let transcript_text = match std::fs::read_to_string(&transcript) {
+                    Ok(text) => text,
+                    Err(error) => {
+                        self.error = Some(user_errors::user_message(
+                            &crate::controller::ControllerError::Io(error),
+                        ));
+                        return;
+                    }
+                };
+                let terms = match self.terms_editor.to_session_entries() {
+                    Ok(entries) => entries,
+                    Err(error) => {
+                        self.error = Some(user_errors::user_message(
+                            &crate::controller::ControllerError::SessionTerms(error),
+                        ));
+                        return;
+                    }
+                };
+                match self.controller.start_from_transcript_and_terms(
                     &transcript,
-                    &terms,
+                    &transcript_text,
+                    terms,
                     self.material_use,
                     self.role,
                     &self.operator_label,
                 ) {
                     Ok(()) => {
                         self.error = None;
-                        if let Some(session_id) = self.controller.session_id() {
-                            self.status =
-                                format!("Review session created ({session_id}).");
-                        } else {
-                            self.status = "Review session created.".to_owned();
-                        }
+                        self.status = "Review started.".to_owned();
                     }
-                    Err(error) => self.error = Some(error.to_string()),
+                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                 }
             }
-            ui.small(if self.cjk_font_loaded {
-                "System CJK font loaded. No font file is bundled."
-            } else {
-                "No preferred system CJK font was found; egui default fonts are active."
-            });
         });
     }
 
+    fn format_session_date(unix_ms: i64) -> String {
+        let millis = unix_ms.max(0) as u64;
+        let secs = millis / 1000;
+        let mut days = (secs / 86_400) as i32;
+        let mut year = 1970i32;
+        while days >= days_in_year(year) {
+            days -= days_in_year(year);
+            year += 1;
+        }
+        let leap = is_leap_year(year);
+        let month_lengths = [
+            31,
+            if leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
+        let months = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let mut month = 0usize;
+        while month < 12 && days >= month_lengths[month] {
+            days -= month_lengths[month];
+            month += 1;
+        }
+        format!("{} {}", months[month], days + 1)
+    }
+}
+
+fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+fn days_in_year(year: i32) -> i32 {
+    if is_leap_year(year) { 366 } else { 365 }
+}
+
+impl ReviewApp {
     fn recovery(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.set_max_width(860.0);
             ui.add_space(20.0);
-            ui.heading("Recovery required");
+            ui.heading("Recovery needed");
             ui.label(
-                "The last command was durably committed, but the application could not \
-                 reconstruct current authority.",
+                "Your last change was saved, but this review could not be reopened cleanly. \
+                 Try again or close the review.",
             );
-            if let Some(session_id) = self.controller.session_id() {
-                ui.label(format!("Session ID: {session_id}"));
-            }
             ui.add_space(12.0);
             if ui.button("Retry recovery").clicked() {
                 match self.controller.retry_recovery() {
                     Ok(()) => {
                         self.error = None;
-                        self.status = "Session recovered from durable authority.".to_owned();
+                        self.status = "Review reopened.".to_owned();
                     }
-                    Err(error) => self.error = Some(error.to_string()),
+                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                 }
             }
             if ui.button("Close session").clicked() {
@@ -485,7 +572,7 @@ impl ReviewApp {
             Ok(items) => items,
             Err(error) => {
                 egui::CentralPanel::default().show(ui, |ui| {
-                    ui.colored_label(Color32::LIGHT_RED, error.to_string());
+                    ui.colored_label(Color32::LIGHT_RED, user_errors::user_message(&error));
                 });
                 return;
             }
@@ -493,7 +580,7 @@ impl ReviewApp {
         let progress = match self.controller.progress() {
             Ok(progress) => progress,
             Err(error) => {
-                self.error = Some(error.to_string());
+                self.error = Some(user_errors::user_message(&error));
                 return;
             }
         };
@@ -515,7 +602,7 @@ impl ReviewApp {
         ui.add(
             egui::TextEdit::singleline(&mut self.search)
                 .id(egui::Id::new(SEARCH_ID))
-                .hint_text("Search cases (⌘/Ctrl+L)"),
+                .hint_text("Search items"),
         );
         ui.separator();
         egui::ScrollArea::vertical()
@@ -530,9 +617,8 @@ impl ReviewApp {
                     }
                     let selected = index == self.controller.selected_index();
                     let label = format!(
-                        "Case {} · cue {}\n{} · {}",
+                        "Item {} · {}\n{}",
                         item.local_index + 1,
-                        item.cue_index,
                         item.status,
                         item.source_text
                     );
@@ -558,90 +644,74 @@ impl ReviewApp {
         let header = match self.controller.header() {
             Ok(header) => header,
             Err(error) => {
-                self.error = Some(error.to_string());
+                self.error = Some(user_errors::user_message(&error));
                 return;
             }
         };
         ui.horizontal_wrapped(|ui| {
-            ui.label(RichText::new(format!("Session ID: {}", header.session_id)).strong());
+            ui.label(RichText::new(&header.source_path).strong());
             ui.separator();
-            ui.label(RichText::new(format!("Access: {}", header.access_mode)).strong());
-            ui.separator();
-            ui.label(RichText::new(format!("Source: {}", header.source_path)).strong());
-            ui.separator();
-            ui.label(format!(
-                "Declared operator: {} ({})",
-                header.declared_operator, header.declared_role
-            ));
+            ui.label(format!("Reviewer: {}", header.declared_operator));
         });
         if let Some(note) = &header.source_path_note {
             ui.small(note);
         }
         if self.controller.is_read_only() {
-            ui.colored_label(Color32::YELLOW, "Read-only session");
+            ui.colored_label(Color32::YELLOW, "This review is open read-only.");
         }
-        ui.small(format!("Source revision: {}", header.source_revision));
         ui.horizontal(|ui| {
             ui.label(RichText::new(coverage_label(progress, items.len())).strong());
-            ui.separator();
-            let resolution = resolution_label(progress);
-            if unresolved_confirmation_needed(progress) {
-                ui.colored_label(Color32::YELLOW, resolution);
+            if review_is_complete(progress) {
+                ui.separator();
+                ui.label(resolution_label(progress));
             } else {
-                ui.label(resolution);
+                ui.separator();
+                let resolution = resolution_label(progress);
+                if unresolved_confirmation_needed(progress) {
+                    ui.colored_label(Color32::YELLOW, resolution);
+                } else {
+                    ui.label(resolution);
+                }
             }
         });
-        ui.horizontal_wrapped(|ui| {
-            ui.label(format!("Cases: {}", header.total_review_cases));
-            ui.label(format!("Events: {}", header.total_recorded_events));
-            ui.label(format!("Accepted: {}", header.accepted));
-            ui.label(format!(
-                "Manual replacements: {}",
-                header.manual_replacements
-            ));
-            ui.label(format!("Rejected: {}", header.rejected));
-            ui.label(format!("Deferred: {}", header.deferred));
-            ui.label(format!(
-                "Needs manual correction: {}",
-                header.needs_manual_correction
-            ));
-            ui.label(format!("Undecided: {}", header.undecided));
-        });
+
+        if review_is_complete(progress) {
+            self.completion_panel(ui, &header, progress);
+        }
+
         ui.separator();
 
         let Some(item) = items.get(self.controller.selected_index()) else {
-            ui.heading("No cases raised");
+            ui.heading("No items to review");
             ui.label(
-                "The session is honestly complete and resolved at 0/0. You may export the \
-                 unchanged transcript and empty decision evidence.",
+                "Nothing needed your decision in this file. You can still preview and export the \
+                 unchanged subtitles.",
             );
             self.export_controls(ui, progress);
             return;
         };
 
-        ui.heading(format!(
-            "Case {} · cue {}",
-            item.local_index + 1,
-            item.cue_index
-        ));
+        if !review_is_complete(progress) {
+            ui.heading(format!("Item {}", item.local_index + 1));
+        }
         ui.label(format!("Status: {}", item.status));
-        ui.label(format!("Detector: {}", item.detector));
-        ui.label(RichText::new(format!("Proposal evidence: {}", item.evidence)).strong());
+        ui.label(format!("Found by: {}", item.detector));
+        ui.label(RichText::new(format!("Why flagged: {}", item.evidence)).strong());
         ui.add_space(8.0);
         if let Some(before) = &item.context_before {
             ui.label(RichText::new(format!("Previous: {before}")).weak());
         }
         ui.group(|ui| {
-            ui.label(RichText::new("Source text (immutable)").strong());
+            ui.label(RichText::new("Current subtitle text").strong());
             ui.label(&item.source_text);
         });
         if let Some(after) = &item.context_after {
             ui.label(RichText::new(format!("Next: {after}")).weak());
         }
         ui.add_space(8.0);
-        ui.label(RichText::new("Non-binding alternatives").strong());
+        ui.label(RichText::new("Suggested corrections").strong());
         if item.alternatives.is_empty() {
-            ui.label("No replacement alternative is available.");
+            ui.label("No suggested correction is available.");
         }
         for (index, alternative) in item.alternatives.iter().enumerate() {
             ui.radio_value(
@@ -653,23 +723,18 @@ impl ReviewApp {
         ui.add_space(8.0);
         let mutations_enabled = self.controller.mutations_enabled();
         ui.group(|ui| {
-            ui.label(RichText::new("Governed Manual Replacement").strong());
-            ui.label(
-                "Single-line, exact UTF-8 payload for this existing ReviewCase anchor. \
-                 Empty, whitespace-only, control-character, identical, and over-4096-byte \
-                 values are refused.",
-            );
+            ui.label(RichText::new("Correct text").strong());
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.manual_replacement_draft)
                         .id(egui::Id::new("manual-replacement-field"))
                         .desired_width(420.0)
-                        .hint_text("Enter exact replacement text"),
+                        .hint_text("Type the corrected line"),
                 );
                 if ui
                     .add_enabled(
                         mutations_enabled,
-                        egui::Button::new("Record Manual Replacement"),
+                        egui::Button::new("Use this correction"),
                     )
                     .clicked()
                 {
@@ -682,7 +747,7 @@ impl ReviewApp {
             if ui
                 .add_enabled(
                     mutations_enabled && accept_enabled(item.alternatives.len(), self.selected_alternative),
-                    egui::Button::new("Accept alternative (A)"),
+                    egui::Button::new("Accept suggestion (A)"),
                 )
                 .clicked()
             {
@@ -705,28 +770,57 @@ impl ReviewApp {
             if ui
                 .add_enabled(
                     mutations_enabled,
-                    egui::Button::new("Needs manual correction (M)"),
+                    egui::Button::new("Fix manually (M)"),
                 )
-                .on_hover_text(
-                    "Records only an unresolved signal; use the governed field above to record text",
-                )
+                .on_hover_text("Mark this item as needing a manual correction above")
                 .clicked()
             {
                 self.apply_decision(CorrectionDecision::NeedsManualCorrection);
             }
         });
-        self.reuse_governance_panel(ui);
+        if ui
+            .button("Advanced — project memory")
+            .clicked()
+        {
+            self.show_advanced = !self.show_advanced;
+        }
+        if self.show_advanced {
+            self.reuse_governance_panel(ui);
+        }
         self.export_controls(ui, progress);
+    }
+
+    fn completion_panel(
+        &mut self,
+        ui: &mut egui::Ui,
+        header: &crate::controller::SessionHeaderView,
+        progress: vox_proof::application_service::ApplicationReviewProgress,
+    ) {
+        ui.group(|ui| {
+            ui.heading("Review complete");
+            ui.label(format!("{} items reviewed", header.total_review_cases));
+            ui.label(format!("{} accepted", header.accepted));
+            ui.label(format!("{} rejected", header.rejected));
+            if header.manual_replacements > 0 {
+                ui.label(format!("{} manually corrected", header.manual_replacements));
+            }
+            if header.deferred > 0 || header.needs_manual_correction > 0 {
+                ui.label(resolution_label(progress));
+            }
+            ui.horizontal(|ui| {
+                if ui.button("Preview reviewed subtitles").clicked() {
+                    self.bottom_tab = BottomTab::CurrentPreview;
+                }
+            });
+        });
+        ui.add_space(8.0);
     }
 
     fn reuse_governance_panel(&mut self, ui: &mut egui::Ui) {
         ui.add_space(12.0);
         ui.separator();
-        ui.heading("Reusable influence governance (Gate 3)");
-        ui.label(
-            "Draft fields below have no authority until explicitly committed. Promotion requires \
-             a project scope.",
-        );
+        ui.heading("Project memory");
+        ui.label("Optional settings for saving corrections across related reviews.");
         ui.horizontal(|ui| {
             ui.label("Stable project ID:");
             ui.add(
@@ -753,7 +847,7 @@ impl ReviewApp {
             {
                 match self.controller.initialize_project_scope(ui_session_epoch) {
                     Ok(()) => self.status = "Project scope initialized.".to_owned(),
-                    Err(error) => self.error = Some(error.to_string()),
+                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                 }
             }
             if self.controller.has_project_scope()
@@ -769,7 +863,7 @@ impl ReviewApp {
                     .update_project_scope_display_name(ui_session_epoch)
                 {
                     Ok(()) => self.status = "Display label updated.".to_owned(),
-                    Err(error) => self.error = Some(error.to_string()),
+                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                 }
             }
         });
@@ -811,7 +905,7 @@ impl ReviewApp {
                             {
                                 match self.controller.accept_reuse_candidate(ui_session_epoch, &key) {
                                     Ok(()) => self.status = "Promotion accepted.".to_owned(),
-                                    Err(error) => self.error = Some(error.to_string()),
+                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                                 }
                             }
                             if ui
@@ -825,14 +919,14 @@ impl ReviewApp {
                                     Ok(()) => {
                                         self.status = "Promotion candidate rejected.".to_owned()
                                     }
-                                    Err(error) => self.error = Some(error.to_string()),
+                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                                 }
                             }
                         });
                     });
                 }
             }
-            Err(error) => self.error = Some(error.to_string()),
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
         }
         match (
             self.controller.active_reusable_records(),
@@ -867,7 +961,7 @@ impl ReviewApp {
                                     record.record_id,
                                 ) {
                                     Ok(()) => self.status = "Record revoked.".to_owned(),
-                                    Err(error) => self.error = Some(error.to_string()),
+                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                                 }
                             }
                         let eligible: Vec<_> = candidates
@@ -904,7 +998,7 @@ impl ReviewApp {
                                     &key,
                                 ) {
                                     Ok(()) => self.status = "Record superseded.".to_owned(),
-                                    Err(error) => self.error = Some(error.to_string()),
+                                    Err(error) => self.error = Some(user_errors::user_message(&error)),
                                 }
                             }
                         }
@@ -912,7 +1006,9 @@ impl ReviewApp {
                     });
                 }
             }
-            (Err(error), _) | (_, Err(error)) => self.error = Some(error.to_string()),
+            (Err(error), _) | (_, Err(error)) => {
+                self.error = Some(user_errors::user_message(&error));
+            }
         }
         if ui
             .add_enabled(
@@ -926,7 +1022,7 @@ impl ReviewApp {
                     self.status =
                         format!("Reuse-enabled analysis raised {count} non-binding case(s).");
                 }
-                Err(error) => self.error = Some(error.to_string()),
+                Err(error) => self.error = Some(user_errors::user_message(&error)),
             }
         }
         if let Some(count) = self.controller.reuse_enabled_case_count() {
@@ -944,15 +1040,14 @@ impl ReviewApp {
         if unresolved_confirmation_needed(progress) {
             ui.checkbox(
                 &mut self.confirm_unresolved_source_retained,
-                "I confirm unresolved cases retain their source text in the reviewed SRT.",
+                "Keep the original subtitle text for unresolved items in the export.",
             );
         }
         let enabled = export_enabled(progress)
             && (!unresolved_confirmation_needed(progress)
                 || self.confirm_unresolved_source_retained);
         if ui
-            .add_enabled(enabled, egui::Button::new("Export three-file bundle…"))
-            .on_hover_text("Refuses all existing destination filenames before writing")
+            .add_enabled(enabled, egui::Button::new("Export reviewed subtitles…"))
             .clicked()
             && let Some(destination) = rfd::FileDialog::new().pick_folder()
         {
@@ -962,19 +1057,25 @@ impl ReviewApp {
                 &destination,
                 self.confirm_unresolved_source_retained,
             ) {
-                Ok(_) => {
-                    self.status = "Export completed with exclusive file creation.".to_owned();
+                Ok(paths) => {
+                    self.status = format!(
+                        "Export saved to {}.",
+                        paths.reviewed_srt.parent().map_or_else(
+                            || paths.reviewed_srt.display().to_string(),
+                            |parent| parent.display().to_string()
+                        )
+                    );
                     self.error = None;
                 }
-                Err(error) => self.error = Some(error.to_string()),
+                Err(error) => self.error = Some(user_errors::user_message(&error)),
             }
         }
         if self.controller.phase() == DesktopPhase::ExportCompleted {
-            ui.colored_label(Color32::LIGHT_GREEN, "Export completed");
+            ui.colored_label(Color32::LIGHT_GREEN, "Export complete");
             if let Some(paths) = self.controller.exported_paths() {
-                ui.small(paths.reviewed_srt.display().to_string());
-                ui.small(paths.decision_log.display().to_string());
-                ui.small(paths.session_summary.display().to_string());
+                ui.label(format!("Reviewed subtitles: {}", paths.reviewed_srt.display()));
+                ui.small(format!("Also saved: {}", paths.decision_log.display()));
+                ui.small(format!("Also saved: {}", paths.session_summary.display()));
             }
         }
     }
@@ -989,7 +1090,7 @@ impl ReviewApp {
             ui.selectable_value(
                 &mut self.bottom_tab,
                 BottomTab::CurrentPreview,
-                "Preview — not final export",
+                "Preview reviewed subtitles",
             );
             ui.selectable_value(&mut self.bottom_tab, BottomTab::DecisionLog, "Decision log");
             ui.selectable_value(

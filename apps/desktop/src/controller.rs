@@ -18,11 +18,13 @@ use vox_proof::application_service::{
 use vox_proof::candidate::{Evidence, SessionTermEntry};
 use vox_proof::review::{CorrectionDecision, ReviewCaseStatus};
 use vox_proof::session_persistence::{
-    DurableApplicationSession, OpenMode, ProductSessionStore, SessionPersistenceError,
+    DurableApplicationSession, OpenMode, ProductSessionStore, SessionListSummary,
+    SessionPersistenceError,
 };
 use vox_proof::session_terms::{SessionTermsError, parse_session_terms};
 use vox_proof::srt::{ParseError, parse_srt};
 
+use crate::desktop_presentation::DesktopPresentation;
 use crate::export::{
     ExportError, ExportPaths, export_bundle_exclusively, export_bundle_v3_exclusively,
 };
@@ -165,16 +167,27 @@ impl From<SessionPersistenceError> for ControllerError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionResumeView {
+    pub session_id: String,
+    pub created_at_unix_ms: i64,
+    pub authority_display_label: String,
+    pub review_case_count: usize,
+    pub review_ledger_head: usize,
+    pub source_display_name: String,
+}
+
 pub struct DesktopController {
     store: ProductSessionStore,
     durable: Option<DurableApplicationSession>,
     ui_session_epoch: u64,
     source_display_path: Option<PathBuf>,
+    source_display_name: Option<String>,
     selected_index: usize,
     exported_paths: Option<ExportPaths>,
     project_scope_id_draft: String,
     project_scope_display_draft: String,
-    available_session_ids: Vec<String>,
+    available_sessions: Vec<SessionResumeView>,
     selected_resume_session_id: Option<String>,
 }
 
@@ -186,19 +199,64 @@ impl Default for DesktopController {
 
 impl DesktopController {
     pub fn with_store(store: ProductSessionStore) -> Self {
-        let available_session_ids = store.list_session_ids().unwrap_or_default();
-        Self {
+        let mut controller = Self {
             store,
             durable: None,
             ui_session_epoch: 1,
             source_display_path: None,
+            source_display_name: None,
             selected_index: 0,
             exported_paths: None,
             project_scope_id_draft: String::new(),
             project_scope_display_draft: String::new(),
-            available_session_ids,
+            available_sessions: Vec::new(),
             selected_resume_session_id: None,
+        };
+        let _ = controller.refresh_available_sessions_internal();
+        controller
+    }
+
+    fn refresh_available_sessions_internal(&mut self) -> Result<(), ControllerError> {
+        let summaries = self.store.list_session_summaries()?;
+        self.available_sessions = summaries
+            .into_iter()
+            .map(|summary| self.resume_view_from_summary(summary))
+            .collect();
+        Ok(())
+    }
+
+    fn resume_view_from_summary(&self, summary: SessionListSummary) -> SessionResumeView {
+        let source_display_name = DesktopPresentation::read_source_display_name(
+            self.store.root(),
+            &summary.session_id,
+        )
+        .unwrap_or_else(|| short_session_label(&summary.session_id));
+        SessionResumeView {
+            session_id: summary.session_id,
+            created_at_unix_ms: summary.created_at_unix_ms,
+            authority_display_label: summary.authority_display_label,
+            review_case_count: summary.review_case_count,
+            review_ledger_head: summary.review_ledger_head,
+            source_display_name,
         }
+    }
+
+    fn persist_presentation_sidecar(&self, session_id: &str) {
+        if let Some(name) = self
+            .source_display_name
+            .as_deref()
+            .filter(|value| !value.is_empty())
+        {
+            DesktopPresentation::write_best_effort(self.store.root(), session_id, name);
+        }
+    }
+
+    fn load_presentation_for_session(&mut self, session_id: &str) {
+        self.source_display_name = DesktopPresentation::read_source_display_name(
+            self.store.root(),
+            session_id,
+        );
+        self.source_display_path = None;
     }
 
     pub fn store(&self) -> &ProductSessionStore {
@@ -233,8 +291,8 @@ impl DesktopController {
         self.exported_paths.as_ref()
     }
 
-    pub fn available_session_ids(&self) -> &[String] {
-        &self.available_session_ids
+    pub fn available_sessions(&self) -> &[SessionResumeView] {
+        &self.available_sessions
     }
 
     pub fn selected_resume_session_id(&self) -> Option<&str> {
@@ -246,8 +304,7 @@ impl DesktopController {
     }
 
     pub fn refresh_available_sessions(&mut self) -> Result<(), ControllerError> {
-        self.available_session_ids = self.store.list_session_ids()?;
-        Ok(())
+        self.refresh_available_sessions_internal()
     }
 
     pub fn is_read_only(&self) -> bool {
@@ -282,14 +339,45 @@ impl DesktopController {
     ) -> Result<(), ControllerError> {
         let transcript_text = fs::read_to_string(transcript_path)?;
         let terms_text = fs::read_to_string(terms_path)?;
-        self.start_from_text(
+        let terms = parse_session_terms(&terms_text).map_err(ControllerError::SessionTerms)?;
+        self.start_from_transcript_and_terms(
+            transcript_path,
             &transcript_text,
-            &terms_text,
-            Some(transcript_path.to_path_buf()),
+            terms,
             material_use,
             role,
             operator_label,
         )
+    }
+
+    pub fn start_from_transcript_and_terms(
+        &mut self,
+        transcript_path: &Path,
+        transcript_text: &str,
+        terms: Vec<SessionTermEntry>,
+        material_use: DeclaredApplicationMaterialUseBasis,
+        role: DeclaredSessionOperatorRole,
+        operator_label: &str,
+    ) -> Result<(), ControllerError> {
+        let transcript = parse_srt(transcript_text).map_err(ControllerError::Transcript)?;
+        let authority = DeclaredSessionAuthority::new(role, operator_label)
+            .map_err(ControllerError::Authority)?;
+        let durable = DurableApplicationSession::create(
+            &self.store,
+            transcript,
+            terms,
+            ApplicationMaterialUseDeclaration::new(material_use),
+            authority,
+        )?;
+        let display_name = transcript_path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned());
+        self.install_durable_session(durable, Some(transcript_path.to_path_buf()), display_name);
+        if let Some(session_id) = self.session_id() {
+            self.persist_presentation_sidecar(session_id);
+        }
+        self.refresh_available_sessions_internal()?;
+        Ok(())
     }
 
     pub fn start_from_text(
@@ -301,21 +389,18 @@ impl DesktopController {
         role: DeclaredSessionOperatorRole,
         operator_label: &str,
     ) -> Result<(), ControllerError> {
-        let transcript = parse_srt(transcript_text).map_err(ControllerError::Transcript)?;
-        let terms: Vec<SessionTermEntry> =
-            parse_session_terms(terms_text).map_err(ControllerError::SessionTerms)?;
-        let authority = DeclaredSessionAuthority::new(role, operator_label)
-            .map_err(ControllerError::Authority)?;
-        let durable = DurableApplicationSession::create(
-            &self.store,
-            transcript,
+        let terms = parse_session_terms(terms_text).map_err(ControllerError::SessionTerms)?;
+        let transcript_path = source_display_path
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("transcript.srt"));
+        self.start_from_transcript_and_terms(
+            &transcript_path,
+            transcript_text,
             terms,
-            ApplicationMaterialUseDeclaration::new(material_use),
-            authority,
-        )?;
-        self.install_durable_session(durable, source_display_path);
-        self.refresh_available_sessions()?;
-        Ok(())
+            material_use,
+            role,
+            operator_label,
+        )
     }
 
     pub fn open_selected_session_writable(&mut self) -> Result<(), ControllerError> {
@@ -340,7 +425,8 @@ impl DesktopController {
         mode: OpenMode,
     ) -> Result<(), ControllerError> {
         let durable = DurableApplicationSession::open(&self.store, session_id, mode)?;
-        self.install_durable_session(durable, None);
+        self.install_durable_session(durable, None, None);
+        self.load_presentation_for_session(session_id);
         Ok(())
     }
 
@@ -559,11 +645,7 @@ impl DesktopController {
                         .map(|alternative| alternative.replacement_text().to_owned())
                         .collect(),
                     evidence: evidence_label(candidate.evidence()),
-                    detector: format!(
-                        "{} @ {}",
-                        candidate.provenance().detector_id(),
-                        candidate.provenance().detector_version()
-                    ),
+                    detector: friendly_detector_label(candidate.provenance().detector_id()),
                     status: status_label(item.status),
                 }
             })
@@ -580,23 +662,27 @@ impl DesktopController {
         let authority = session.session_authority();
         let role = match authority.role() {
             DeclaredSessionOperatorRole::DeclaredLocalOwnerOperator => {
-                "Declared local owner/operator"
+                "I own or manage this material"
             }
             DeclaredSessionOperatorRole::DeclaredAuthorizedHumanReviewer => {
-                "Declared authorized human reviewer"
+                "Authorized reviewer"
             }
         };
-        let (source_path, source_path_note) = match &self.source_display_path {
-            Some(path) => (path.display().to_string(), None),
-            None => (
-                "Embedded canonical transcript".to_owned(),
-                Some("Original import path not retained".to_owned()),
-            ),
+        let (source_path, source_path_note) = if let Some(name) = &self.source_display_name {
+            (name.clone(), None)
+        } else {
+            match &self.source_display_path {
+                Some(path) => (path.display().to_string(), None),
+                None => (
+                    "Saved review".to_owned(),
+                    Some("Original file name is unavailable for this session.".to_owned()),
+                ),
+            }
         };
         Ok(SessionHeaderView {
             session_id: durable.session_id().to_owned(),
             access_mode: match durable.open_mode() {
-                OpenMode::Writable => "Writable".to_owned(),
+                OpenMode::Writable => "Editable".to_owned(),
                 OpenMode::ReadOnly => "Read-only".to_owned(),
             },
             source_path,
@@ -775,6 +861,7 @@ impl DesktopController {
         &mut self,
         durable: DurableApplicationSession,
         source_display_path: Option<PathBuf>,
+        source_display_name: Option<String>,
     ) {
         if let Some(mut existing) = self.durable.take() {
             let _ = existing.release_writer();
@@ -782,6 +869,12 @@ impl DesktopController {
         self.ui_session_epoch = self.ui_session_epoch.wrapping_add(1);
         self.durable = Some(durable);
         self.source_display_path = source_display_path;
+        self.source_display_name = source_display_name.or_else(|| {
+            self.source_display_path
+                .as_ref()
+                .and_then(|path| path.file_name())
+                .map(|name| name.to_string_lossy().into_owned())
+        });
         self.selected_index = 0;
         self.exported_paths = None;
         self.project_scope_id_draft.clear();
@@ -791,6 +884,7 @@ impl DesktopController {
     fn clear_session_state(&mut self) {
         self.durable = None;
         self.source_display_path = None;
+        self.source_display_name = None;
         self.selected_index = 0;
         self.exported_paths = None;
         self.project_scope_id_draft.clear();
@@ -852,17 +946,17 @@ fn gate3_error(error: vox_proof::application_service::ApplicationGate3Error) -> 
 fn evidence_label(evidence: &Evidence) -> String {
     match evidence {
         Evidence::GlossaryAlias(item) => {
-            format!("Glossary alias match: {}", item.matched_form)
+            format!("Matches alias: {}", item.matched_form)
         }
         Evidence::ObservedErrorForm(item) => {
-            format!("Observed error form: {}", item.matched_form)
+            format!("Known misrecognition: {}", item.matched_form)
         }
         Evidence::PhoneticSimilarity(item) => format!(
-            "Phonetic similarity: {} → {} (distance {})",
-            item.observed_surface, item.target_surface, item.comparison.edit_distance
+            "Sounds like {} (near {})",
+            item.observed_surface, item.target_surface
         ),
         Evidence::ReusableExactObservedForm(item) => format!(
-            "Reusable exact observed form: {} → {}",
+            "Previously confirmed: {} → {}",
             item.observed_text, item.confirmed_replacement
         ),
     }
@@ -870,17 +964,33 @@ fn evidence_label(evidence: &Evidence) -> String {
 
 fn status_label(status: ReviewCaseStatus) -> String {
     match status {
-        ReviewCaseStatus::Undecided => "Undecided".to_owned(),
+        ReviewCaseStatus::Undecided => "Needs review".to_owned(),
         ReviewCaseStatus::Decided { decision, .. } => match decision {
             CorrectionDecision::Reject => "Rejected".to_owned(),
             CorrectionDecision::Defer => "Deferred".to_owned(),
             CorrectionDecision::AcceptAlternative { alternative_index } => {
-                format!("Accepted alternative {}", alternative_index + 1)
+                format!("Accepted suggestion {}", alternative_index + 1)
             }
             CorrectionDecision::NeedsManualCorrection => "Needs manual correction".to_owned(),
-            CorrectionDecision::ManualReplacement { .. } => {
-                "Manual replacement recorded".to_owned()
-            }
+            CorrectionDecision::ManualReplacement { .. } => "Manually corrected".to_owned(),
         },
+    }
+}
+
+fn friendly_detector_label(detector_id: &str) -> String {
+    match detector_id {
+        "exact-alias" => "Term alias check".to_owned(),
+        "observed-error-form" => "Known misrecognition check".to_owned(),
+        "ascii-latin-phonetic-similarity-v0" => "Similar spelling check".to_owned(),
+        "reusable-exact-observed-form" => "Saved correction check".to_owned(),
+        other => other.to_owned(),
+    }
+}
+
+fn short_session_label(session_id: &str) -> String {
+    if session_id.len() <= 8 {
+        session_id.to_owned()
+    } else {
+        format!("{}…", &session_id[..8])
     }
 }

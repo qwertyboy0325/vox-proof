@@ -56,6 +56,15 @@ pub struct DurableAck {
     pub committed_generation: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionListSummary {
+    pub session_id: String,
+    pub created_at_unix_ms: i64,
+    pub authority_display_label: String,
+    pub review_case_count: usize,
+    pub review_ledger_head: usize,
+}
+
 impl ProductSessionStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into() }
@@ -89,6 +98,63 @@ impl ProductSessionStore {
         }
         session_ids.sort();
         Ok(session_ids)
+    }
+
+    pub fn list_session_summaries(&self) -> Result<Vec<SessionListSummary>, SessionPersistenceError> {
+        let session_ids = self.list_session_ids()?;
+        let mut summaries = Vec::with_capacity(session_ids.len());
+        for session_id in session_ids {
+            let db_path = self.database_path(&session_id);
+            let connection = Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            configure_connection(&connection)?;
+            let format_version = load_format_version(&connection, &session_id)?;
+            if format_version != PRODUCT_SESSION_FORMAT_VERSION {
+                continue;
+            }
+            let created_at_unix_ms: i64 = connection
+                .query_row(
+                    "SELECT created_at_unix_ms FROM session_metadata WHERE session_id = ?1",
+                    [&session_id],
+                    |row| row.get(0),
+                )
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            let authority_display_label: String = connection
+                .query_row(
+                    "SELECT authority_display_label FROM declarations WHERE session_id = ?1",
+                    [&session_id],
+                    |row| row.get(0),
+                )
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            let review_case_count: i64 = connection
+                .query_row(
+                    "SELECT COUNT(*) FROM review_cases WHERE session_id = ?1",
+                    [&session_id],
+                    |row| row.get(0),
+                )
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            let review_ledger_head: i64 = connection
+                .query_row(
+                    "SELECT review_ledger_head FROM command_tokens WHERE session_id = ?1",
+                    [&session_id],
+                    |row| row.get(0),
+                )
+                .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
+            summaries.push(SessionListSummary {
+                session_id,
+                created_at_unix_ms,
+                authority_display_label,
+                review_case_count: review_case_count as usize,
+                review_ledger_head: review_ledger_head as usize,
+            });
+        }
+        summaries.sort_by(|left, right| {
+            right
+                .created_at_unix_ms
+                .cmp(&left.created_at_unix_ms)
+                .then_with(|| left.session_id.cmp(&right.session_id))
+        });
+        Ok(summaries)
     }
 
     pub fn create_session(

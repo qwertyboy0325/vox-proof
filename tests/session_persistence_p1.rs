@@ -84,6 +84,28 @@ fn create_and_reopen_read_only_preserves_canonical_authority() {
 }
 
 #[test]
+fn list_session_summaries_returns_created_session_metadata() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let durable = DurableApplicationSession::create(
+        &store,
+        fixture_transcript(),
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let session_id = durable.session_id().to_owned();
+    durable.close().expect("close");
+
+    let summaries = store.list_session_summaries().expect("summaries");
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].session_id, session_id);
+    assert_eq!(summaries[0].authority_display_label, "operator");
+    assert_eq!(summaries[0].review_case_count, 1);
+}
+
+#[test]
 fn durable_human_decision_survives_close_and_reopen() {
     let temp = TempDir::new().expect("tempdir");
     let store = ProductSessionStore::new(temp.path());

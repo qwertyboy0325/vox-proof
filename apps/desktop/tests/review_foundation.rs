@@ -204,7 +204,7 @@ fn decision_revision_appends_an_event_and_changes_effective_status() {
     let item = controller.items().unwrap().remove(0);
     assert_eq!(item.status, "Rejected");
     assert_eq!(item.alternatives, vec!["華碩"]);
-    assert!(item.evidence.contains("Glossary alias"));
+    assert!(item.evidence.contains("Matches alias"));
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn old_selection_and_ui_session_epoch_cannot_mutate_a_replacement_session() {
 
     assert!(matches!(error, ControllerError::StaleUiSessionEpoch { .. }));
     assert_eq!(controller.header().unwrap().total_recorded_events, 0);
-    assert_eq!(controller.items().unwrap()[0].status, "Undecided");
+    assert_eq!(controller.items().unwrap()[0].status, "Needs review");
 }
 
 #[test]

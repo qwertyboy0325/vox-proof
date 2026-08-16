@@ -11,5 +11,5 @@ pub use error::{AuthorityScope, SessionPersistenceError, StaleAuthorityPrecondit
 pub use hydrate::{arm_force_hydrate_failure_for_test, disarm_force_hydrate_failure_for_test};
 pub use store::{
     arm_fail_before_commit_for_test, disarm_fail_before_commit_for_test, DurableAck, OpenMode,
-    ProductSessionStore,
+    ProductSessionStore, SessionListSummary,
 };

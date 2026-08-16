@@ -115,19 +115,30 @@ fn reopened_session_shows_embedded_transcript_when_import_path_not_retained() {
     controller.select_resume_session_id(session_id);
     controller.open_selected_session_read_only().unwrap();
     let header = controller.header().unwrap();
-    assert_eq!(header.source_path, "Embedded canonical transcript");
-    assert_eq!(
-        header.source_path_note.as_deref(),
-        Some("Original import path not retained")
-    );
+    assert_eq!(header.source_path, "sample.srt");
+    assert!(header.source_path_note.is_none());
 }
 
 #[test]
-fn list_session_ids_discovers_created_sessions() {
+fn presentation_sidecar_persists_source_display_name() {
+    let (mut controller, temp) = controller_with_store();
+    start(&mut controller);
+    let session_id = controller.session_id().unwrap().to_owned();
+    let sidecar = temp
+        .path()
+        .join(&session_id)
+        .join("desktop-presentation.json");
+    assert!(sidecar.is_file());
+}
+
+#[test]
+fn list_session_summaries_discovers_created_sessions() {
     let (mut controller, _temp) = controller_with_store();
     start(&mut controller);
     controller.refresh_available_sessions().unwrap();
-    assert_eq!(controller.available_session_ids().len(), 1);
+    let sessions = controller.available_sessions();
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(sessions[0].source_display_name, "sample.srt");
 }
 
 #[test]
