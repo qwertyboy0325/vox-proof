@@ -17,7 +17,9 @@
     "FCR-R2-01-POST-REVERIFICATION-U1-FIX": {
       "status": "CLOSED",
       "phase": "R2_01",
-      "closure_artifact": "storage-systems-review-r2-01.json",
+      "closure_artifact": "storage-systems-review-r2-01-nonfast.json",
+      "closure_artifact_supersedes": "storage-systems-review-r2-01.json",
+      "fast_supersession_record": "r2-01-fast-review-supersession-record.json",
       "verdict": "PASS_WITH_CAVEATS"
     },
     "FCR-R2-02-SYNTHETIC-STALE-COMMANDS": {

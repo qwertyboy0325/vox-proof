@@ -1,13 +1,25 @@
 {
-  "package": "VP-GATE4-FCR03-OBSERVATION-WIRING-DUAL-SCOPED-EVIDENCE-01",
-  "harness_semantic_sha": "abe8f9adf5330470a24d83842db6c43f1fe89a1a",
-  "harness_semantic_sha_note": "FCR-03 wiring committed; dual-scoped macOS evidence executed at pre-commit base d267f0d (see dual_scoped_fcr03_evidence.evidence_execution_harness_sha)",
+  "package": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "harness_semantic_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "harness_semantic_sha_note": "FINAL_FROZEN_EVIDENCE_SHA for R2 dual-platform record gate4-01c-86f5b8f-dual-scoped-fcr03",
   "mechanism_comparison_readiness_frozen_91e258c": "accepted_with_documented_caveats",
-  "mechanism_comparison_readiness_dual_scoped_fcr03": "ready_for_owner_decision",
-  "mechanism_selection_readiness": "not_ready",
-  "evidence_layer_selection_readiness": "pending_owner_gate_review",
+  "evidence_programmatic_layer": {
+    "dual_platform_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-86f5b8f-dual-scoped-fcr03",
+    "mechanism_comparison_readiness": "ready_for_owner_decision",
+    "mechanism_selection_readiness": "ready_for_owner_decision",
+    "selection_validity": "pending_owner_gate_review",
+    "meaning": "Evidence package complete; no scenario/measurement blockers after cross-platform aggregation"
+  },
+  "governance_authority_layer": {
+    "mechanism_selection_status": "none",
+    "owner_selection_authorized": false,
+    "ready_for_owner_gate": false,
+    "comparison_blocker_lift_authorized": false,
+    "frozen_comparison_baseline": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+    "meaning": "Owner has not authorized mechanism selection or READY_FOR_OWNER_GATE"
+  },
   "selection_status": "none",
-  "tracker_status": "R2_03_PRE_FINAL_CORRECTIONS_REQUIRED",
+  "tracker_status": "R2_03_BOUNDED_PRE_FINAL_CORRECTION_COMPLETE_PENDING_SUCCESSOR_PRE_FINAL",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -204,6 +216,9 @@
     ],
     "closed_in_r2_04": ["FCR-R2-04-CORRECTION-PACKAGE-AUTHORITY-INCOMPLETE"],
     "closed_in_r2_01": ["FCR-R2-01-POST-REVERIFICATION-U1-FIX"],
+    "r2_01_closure_artifact": "storage-systems-review-r2-01-nonfast.json",
+    "r2_01_fast_supersession": "r2-01-fast-review-supersession-record.json",
+    "r2_01_predecessor_fast_review": "storage-systems-review-r2-01.json",
     "closed_in_r2_02": ["FCR-R2-02-SYNTHETIC-STALE-COMMANDS"],
     "closed_in_r2_05": ["FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT"],
     "r2_05_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-05-phase-record.json",
@@ -220,7 +235,9 @@
     "r2_03_pre_final_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/pre-final-governance-audit-result.json",
     "r2_03_pre_final_verdict": "CORRECTIONS_REQUIRED",
     "r2_03_pre_final_auditor_model": "claude-opus-5-thinking-high",
-    "r2_03_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-03-phase-record.json",
+    "r2_03_bounded_correction": "r2-03-bounded-pre-final-correction-01-record.json",
+    "r2_03_governance_clarification": "r2-03-governance-clarification.json",
+    "sol_retry_03_authorization_conditional": "sol-review-authorization-retry-03.json",
     "implementation_sha_reviewed": "ee509e3549d279d85fcb41ff19385723b5fea0e5",
     "implementation_sha_note": "R2-02 review target only; not final evidence SHA"
   },
@@ -244,9 +261,9 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_03_PRE_FINAL_CORRECTIONS_REQUIRED",
-    "phase": "R2_03_PRE_FINAL_GOVERNANCE_AUDIT",
-    "phase_note": "Opus 5 PRE_FINAL at d66caad returned CORRECTIONS REQUIRED. FCR-R2-03 remains PENDING. Sol retry 03 not authorized.",
+    "status": "R2_03_BOUNDED_CORRECTION_COMPLETE",
+    "phase": "SUCCESSOR_PRE_FINAL_PENDING",
+    "phase_note": "GOV-R2-03-01..05 corrections applied; successor Opus 5 PRE_FINAL required before Sol retry 03.",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -295,7 +312,7 @@
       "windows_recovery_run_31923049784",
       "dual_platform_validation_and_readiness_rebuild"
     ],
-    "current": "R2_03_PRE_FINAL_CORRECTIONS_REQUIRED",
+    "current": "SUCCESSOR_OPUS_PRE_FINAL",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",

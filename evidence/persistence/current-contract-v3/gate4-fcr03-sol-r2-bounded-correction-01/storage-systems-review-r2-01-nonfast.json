@@ -1,0 +1,125 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-01-STORAGE-REVERIFICATION-NONFAST-2026-08-16",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_01_STORAGE_REVERIFICATION",
+  "artifact_role": "storage-systems-review-r2-01-u1-observation-semantics-nonfast",
+  "supersedes": "storage-systems-review-r2-01.json",
+  "supersedes_invalid_closure_commit": "c0f289f",
+  "predecessor_artifact": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-01.json",
+  "predecessor_invalid_for_closure": true,
+  "predecessor_invalid_reason": "models_used cursor-grok-4.6-high-fast; Fast-tier routing invalid for R2-01 closure under owner Decision (b)",
+  "supersession_record": "r2-01-fast-review-supersession-record.json",
+  "owner_authorization": "AUTHORIZE_R2_03_BOUNDED_PRE_FINAL_CORRECTION_01",
+  "owner_decision": "REQUIRE_NONFAST_R2_01_REREVIEW",
+  "owner_decision_clause": "b",
+  "valid_for_closure": true,
+  "reviewed_range": "29d76bd..1510e3d",
+  "commit_reviewed": "1510e3d544839d094f51e94a40a2c4f6e1ccada9",
+  "commit_reviewed_short": "1510e3d",
+  "prior_commit": "29d76bd",
+  "range_commits": ["f24098a", "1510e3d"],
+  "prior_m1_l1_review": "evidence/persistence/current-contract-v3/gate4-fcr03-bounded-remediation-01/storage-systems-review-m1-l1-reverification.json",
+  "adjudication_scope": [
+    "Fcr03UnrelatedSuccessObservation.persist_reopen_authority_unchanged semantics only",
+    "close/reopen durability invariant for U1 unrelated-success path",
+    "oracle independence of persist_reopen_oracle_compare",
+    "Append 01B-3 vs SQLite 01C-SQLITE-3 observation equivalence"
+  ],
+  "reviewer_role": "voxproof-storage-systems-reviewer",
+  "requested_model": "cursor-grok-4.6-xhigh",
+  "reviewer_model": "Cursor Grok 4.6 Extra High",
+  "review_tier_requested": "extra_high",
+  "models_used": ["cursor-grok-4.6-xhigh"],
+  "review_tier_actual": "extra_high",
+  "fast_tier_invalid": false,
+  "model_requirement_satisfied": true,
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-16",
+  "review_mode": "code_path",
+  "post_review_test_execution": {
+    "attempted": false,
+    "executed": false,
+    "reason": "Owner forbidden evidence rerun; read-only code-path re-review of 1510e3d observation semantics."
+  },
+  "verdict": "PASS_WITH_CAVEATS",
+  "storage_review_line": "STORAGE REVIEW: PASS",
+  "blocking_before_r2_02": false,
+  "may_close_r2_01": true,
+  "predecessor_semantic_agreement": true,
+  "closes_conflict": "FCR-R2-01-POST-REVERIFICATION-U1-FIX",
+  "satisfies_governance_finding": "GOV-R2-03-01",
+  "semantic_delta": {
+    "file": "src/persistence_evidence/current_contract/evidence_01c/scenario_observation.rs",
+    "field": "Fcr03UnrelatedSuccessObservation.persist_reopen_authority_unchanged",
+    "old": "expected == actual_after_reopen",
+    "new": "actual_in_handle == actual_after_reopen",
+    "src_diff_at_1510e3d": "1 line in scenario_observation.rs; no candidate files"
+  },
+  "required_questions": {
+    "actual_in_handle_equals_reopened_establishes_durability": {
+      "answer": "YES",
+      "rationale": "U1 persist at successful scoped apply/commit, not at close. Reopen independently reconstructs; persist_reopen_authority_unchanged compares in-handle vs reopened snapshot."
+    },
+    "oracle_independence_persist_reopen_oracle_compare": {
+      "answer": "YES",
+      "rationale": "Three independent predicates: post_apply_oracle_compare, persist_reopen_oracle_compare, persist_reopen_authority_unchanged."
+    },
+    "semantically_different_states_false_pass": {
+      "answer": "NO_FALSE_PASS_RISK",
+      "rationale": "PartialEq over full struct; opposite risk is oracle pass with PartialEq fail on non-canonical rebuild fields."
+    },
+    "append_sqlite_observation_equivalence": {
+      "answer": "YES_AT_CONTRACT_LEVEL",
+      "rationale": "Same record() formula and harness control flow on both 01B-3 and 01C-SQLITE-3."
+    },
+    "candidate_authority_semantics_changed": {
+      "answer": false,
+      "rationale": "1510e3d is one-line evidence observation rebinding only."
+    },
+    "storage_recovery_behavior_changed": {
+      "answer": false,
+      "rationale": "No candidate persist/replay/reconstruct path changes at 1510e3d."
+    },
+    "claim_ceiling_logical_state_transition_only": {
+      "answer": "YES_LOGICAL_STATE_TRANSITION_ONLY",
+      "rationale": "U1 observation is LogicalStateTransition close/reopen, not FilesystemDurability."
+    }
+  },
+  "r2_01_summary": {
+    "actual_in_handle_equals_reopened_semantics": "CORRECT_DURABILITY_INVARIANT",
+    "oracle_independence": "PRESERVED",
+    "append_sqlite_equivalence_of_observation": "EQUIVALENT",
+    "candidate_semantics_changed": false,
+    "claim_ceiling": "LogicalStateTransition"
+  },
+  "blockers": [],
+  "caveats": [
+    "persist_reopen_authority_unchanged is full-struct PartialEq, not oracle semantic proof by itself",
+    "SQLite reconstruct may blank project_scope.display_name; oracle covers semantic equivalence",
+    "close is not a persist barrier; apply/commit is",
+    "claim strength remains LogicalStateTransition, not FilesystemDurability",
+    "This review did not re-execute cargo tests or evidence"
+  ],
+  "claim_boundary": {
+    "may_claim": [
+      "U1 close/reopen preserved committed in-handle authority on Append 01B-3 and SQLite 01C-SQLITE-3 at LogicalStateTransition",
+      "1510e3d correctly rebinds persist_reopen_authority_unchanged to in-handle vs reopened state",
+      "persist_reopen_oracle_compare remains independent"
+    ],
+    "may_not_claim": [
+      "FilesystemDurability",
+      "oracle-semantic proof via persist_reopen_authority_unchanged alone",
+      "candidate implementation change at 1510e3d",
+      "crash-recovery or power-loss durability from U1 observation"
+    ]
+  },
+  "bottom_line": "Non-Fast re-review agrees with predecessor on substance. Predecessor Fast packet invalid for closure; this Extra High review is valid for R2-01 closure basis.",
+  "not_authorized": [
+    "candidate implementation change",
+    "evidence execution",
+    "Sol retry",
+    "FilesystemDurability upgrade",
+    "mechanism selection"
+  ]
+}

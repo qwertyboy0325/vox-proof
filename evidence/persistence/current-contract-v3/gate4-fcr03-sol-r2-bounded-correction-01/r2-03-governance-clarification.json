@@ -1,0 +1,40 @@
+{
+  "clarification_id": "VP-GATE4-FCR03-R2-03-GOVERNANCE-CLARIFICATION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "recorded_on": "2026-08-16",
+  "owner_authorization": "AUTHORIZE_R2_03_BOUNDED_PRE_FINAL_CORRECTION_01",
+  "addresses_findings": ["GOV-R2-03-02", "GOV-R2-03-03", "GOV-R2-03-04"],
+  "pre_final_audit_ref": "pre-final-governance-audit-result.json",
+  "work_package_retained": "work-package.json",
+  "work_package_rewrite_forbidden": true,
+  "file_scope_clarification": {
+    "authoritative_containment": "R2-04 phase record directory-level coverage (src/persistence_evidence/current_contract/evidence_01c/, evidence/persistence/current-contract-v3/01c/) is the authoritative containment boundary",
+    "generated_paths": "gate4-01c-86f5b8f-dual-scoped-fcr03 and sibling records fall under authorized 01c directory scope",
+    "no_unauthorized_semantic_expansion": true,
+    "glob_note": "Enumerated file_scope list is non-exhaustive; directory containment in R2-04 satisfies FCR-R2-04 closure criterion"
+  },
+  "readiness_layer_semantics": {
+    "two_layers": true,
+    "evidence_programmatic_layer": {
+      "source": "assess_readiness() on scenario/measurement artifacts with optional VOXPROOF_01C_CROSS_PLATFORM_COMPLETE",
+      "mechanism_comparison_readiness": "ready_for_owner_decision",
+      "mechanism_selection_readiness": "ready_for_owner_decision",
+      "meaning": "No evidence-layer blockers remain for owner review of this package",
+      "not_meaning": "Mechanism selected; owner gate passed; comparison baseline replaced"
+    },
+    "governance_authority_layer": {
+      "mechanism_selection_status": "none",
+      "owner_selection_authorized": false,
+      "ready_for_owner_gate": false,
+      "frozen_comparison_baseline": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c unchanged",
+      "comparison_blocker_lift_forbidden": true,
+      "meaning": "Owner has not authorized mechanism selection or READY_FOR_OWNER_GATE"
+    },
+    "required_checks_interpretation": "work-package required_checks 'readiness remain not_ready' means agents must not self-authorize mechanism selection or owner gate — not that deterministic assess_readiness must forever output not_ready when evidence is complete"
+  },
+  "forbidden_actions_interpretation": {
+    "lift_mechanism_comparison_readiness": "Forbidden for agents to manually overwrite readiness artifacts to ready without deterministic rebuild; not forbidden for assess_readiness to output ready_for_owner_decision when blockers are empty",
+    "mechanism_selection": "Still forbidden at governance layer regardless of programmatic readiness"
+  },
+  "tracker_encoding_rule": "Do not use top-level mechanism_selection_readiness to mean owner authorization; use governance_authority_layer fields"
+}

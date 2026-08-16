@@ -1,0 +1,27 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-01-FAST-REVIEW-SUPERSESSION",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_01_STORAGE_REVERIFICATION",
+  "status": "FAST_TIER_REVIEW_INVALID_FOR_CLOSURE",
+  "recorded_on": "2026-08-16",
+  "trigger": "GOV-R2-03-01 from PRE_FINAL_GOVERNANCE_AUDIT CORRECTIONS REQUIRED at d66caad",
+  "owner_directive": "Decision (b): REQUIRE_NONFAST_R2_01_REREVIEW — no non-retroactive Fast exception",
+  "owner_authorization": "AUTHORIZE_R2_03_BOUNDED_PRE_FINAL_CORRECTION_01",
+  "superseded_artifacts": [
+    {
+      "artifact": "storage-systems-review-r2-01.json",
+      "review_id": "VP-GATE4-FCR03-R2-01-STORAGE-REVERIFICATION-2026-08-15",
+      "reviewer_model_claimed": "Cursor Grok 4.6",
+      "models_used_actual": ["cursor-grok-4.6-high-fast"],
+      "review_tier_actual": "fast",
+      "valid_for_closure": false,
+      "supersession_reason": "Fast-tier routing; PRE_FINAL detected closure weakness; owner required non-Fast successor"
+    }
+  ],
+  "successor_artifact": "storage-systems-review-r2-01-nonfast.json",
+  "successor_completed_on": "2026-08-16",
+  "successor_closure_status": "R2_01_NONFAST_REREVIEW_COMPLETE",
+  "predecessor_preserved": true,
+  "predecessor_amend_forbidden": true,
+  "note": "Original Fast review preserved. Successor supersedes closure basis only."
+}

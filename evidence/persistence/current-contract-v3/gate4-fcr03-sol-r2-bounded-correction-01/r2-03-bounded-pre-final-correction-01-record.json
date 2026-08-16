@@ -1,0 +1,42 @@
+{
+  "record_id": "VP-GATE4-FCR03-R2-03-BOUNDED-PRE-FINAL-CORRECTION-01",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "owner_authorization": "AUTHORIZE_R2_03_BOUNDED_PRE_FINAL_CORRECTION_01",
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-16",
+  "trigger_audit": "pre-final-governance-audit-result.json",
+  "trigger_verdict": "CORRECTIONS_REQUIRED",
+  "corrections_applied": {
+    "GOV-R2-03-01": {
+      "decision": "REQUIRE_NONFAST_R2_01_REREVIEW",
+      "artifacts": [
+        "storage-systems-review-r2-01-nonfast.json",
+        "r2-01-fast-review-supersession-record.json"
+      ]
+    },
+    "GOV-R2-03-02": {
+      "action": "governance_layer_encoding_in_tracker_and_clarification",
+      "artifact": "r2-03-governance-clarification.json"
+    },
+    "GOV-R2-03-03": {
+      "action": "tracker_staleness_refresh",
+      "artifact": "evidence/persistence/current-contract-v3/readiness.json"
+    },
+    "GOV-R2-03-04": {
+      "action": "clarification_record_not_wp_rewrite",
+      "artifact": "r2-03-governance-clarification.json"
+    },
+    "GOV-R2-03-05": {
+      "action": "conditional_sol_authorization",
+      "artifact": "sol-review-authorization-retry-03.json"
+    }
+  },
+  "forbidden": [
+    "evidence rerun",
+    "harness or source changes",
+    "work-package.json retroactive rewrite",
+    "assess_readiness rule tuning",
+    "sol_execution_before_successor_pre_final"
+  ],
+  "next_step": "successor Opus 5 PRE_FINAL then STOP"
+}

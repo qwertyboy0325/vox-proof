@@ -1,0 +1,35 @@
+{
+  "authorization_id": "VP-GATE4-FCR03-SOL-STRONG-FINAL-RETRY-03-AUTHORIZATION-CONDITIONAL",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "model": "gpt-5.6-sol-high",
+  "required_model": "gpt-5.6-sol-high",
+  "retry_number": 3,
+  "owner_authorized": true,
+  "authorized_by": "Ezra",
+  "authorized_on": "2026-08-16",
+  "authorization_type": "CONDITIONAL",
+  "owner_authorization": "AUTHORIZE_SOL_STRONG_FINAL_RETRY_03_CONDITIONAL",
+  "execution_condition": "successor_pre_final_pass",
+  "execution_condition_detail": "Sol retry 03 may execute ONLY IF successor Opus PRE_FINAL returns PASS or PASS_WITH_CAVEATS with zero blocking governance conflicts",
+  "current_execution_status": "NOT_YET_AUTHORIZED_TO_RUN",
+  "scope": "STRONG_FINAL_CONFLICT_REVIEW retry 03 after R2 bounded correction chain through dual-platform evidence at 86f5b8f and successor PRE_FINAL",
+  "canonical_review_endpoint_at_authorization": "pending_successor_pre_final",
+  "evidence_execution_sha": "86f5b8f2856155bff9a5216593c1659fef707add",
+  "prior_sol_blocking_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-strong-final-retry-02/sol-strong-final-conflict-review-result.json",
+  "prior_sol_verdict": "BLOCKING_CONTRADICTION",
+  "preconditions_for_execution": [
+    "successor PRE_FINAL_GOVERNANCE_AUDIT PASS or PASS_WITH_CAVEATS without material blocker",
+    "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE closed",
+    "GOV-R2-03-01 satisfied via storage-systems-review-r2-01-nonfast.json"
+  ],
+  "standing_api_window_note": "Repository standing API authorization lapsed 2026-08-11; this artifact provides per-package owner_authorization_reference for retry 03 upon execution_condition satisfaction",
+  "forbidden": [
+    "execution before successor PRE_FINAL PASS",
+    "mechanism_selection",
+    "READY_FOR_OWNER_GATE",
+    "FINAL_GATE_GOVERNANCE_CHECK before Sol PASS",
+    "frozen_91e258c rewrite",
+    "evidence rerun",
+    "model substitution or Fast fallback for STRONG_FINAL"
+  ]
+}

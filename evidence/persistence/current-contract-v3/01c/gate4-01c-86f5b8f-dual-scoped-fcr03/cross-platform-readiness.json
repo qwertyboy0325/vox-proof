@@ -54,6 +54,13 @@
     "rebuild_method": "assess_readiness with VOXPROOF_01C_CROSS_PLATFORM_COMPLETE=1 on macos-native artifacts after dual-platform validation",
     "clippy_exception_not_persistence_caveat": true
   },
+  "governance_authority_layer": {
+    "mechanism_selection_status": "none",
+    "owner_selection_authorized": false,
+    "ready_for_owner_gate": false,
+    "frozen_comparison_baseline_unchanged": true,
+    "clarification_ref": "../../gate4-fcr03-sol-r2-bounded-correction-01/r2-03-governance-clarification.json"
+  },
   "frozen_comparison_evidence": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "unchanged": true,
