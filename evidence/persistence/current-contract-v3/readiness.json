@@ -7,7 +7,7 @@
   "mechanism_selection_readiness": "not_ready",
   "evidence_layer_selection_readiness": "not_ready",
   "selection_status": "none",
-  "tracker_status": "R2_02_COMPLETE_PENDING_REVIEW",
+  "tracker_status": "R2_02_COMPLETE_R2_05_PENDING",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -169,14 +169,14 @@
   },
   "sol_r2_bounded_correction": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_COMPLETE_PENDING_REVIEW",
+    "status": "R2_02_COMPLETE_R2_05_PENDING",
     "owner_decision": "AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE",
     "decision_path": "A",
     "owner_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/owner-authorization.json",
     "work_package": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/work-package.json",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
     "r2_conflict_register": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-conflict-register.json",
-    "current_step": "R2_02_methodology_review",
+    "current_step": "R2_05_package_provenance_correction",
     "synthetic_stale_boundary": "REQUIRE_GENUINE_STALE_COMMAND_SCENARIOS",
     "open_conflicts": [
       "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE",
@@ -189,7 +189,9 @@
     "r2_02_phase_record": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-phase-record.json",
     "r2_02_analysis_fixture_authorization": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/r2-02-owner-authorization-analysis-fixture.json",
     "r2_02_specialist_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02.json",
-    "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff"
+    "r2_02_methodology_review": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/evidence-methodology-review-r2-02.json",
+    "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff",
+    "implementation_sha_note": "R2-02 review target only; not final evidence SHA"
   },
   "governance_chain_retry": {
     "work_package_id": "VP-GATE4-FCR03-GOVERNANCE-CHAIN-RETRY-01",
@@ -211,8 +213,8 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "R2_02_COMPLETE_PENDING_REVIEW",
-    "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+    "status": "R2_02_COMPLETE_R2_05_PENDING",
+    "phase": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json"
   },
   "gate_sequence": {
@@ -250,9 +252,11 @@
       "dual_platform_readiness_rebuilt_1510e3d",
       "Sol_STRONG_FINAL_RETRY_02_BLOCKING_gpt_5_6_sol_high_b9b9a7a",
       "owner_AUTHORIZE_R2_BOUNDED_CORRECTION_PACKAGE_path_A",
-      "R2_04_work_package_authority_complete"
+      "R2_04_work_package_authority_complete",
+      "R2_01_storage_reverification_PASS_WITH_CAVEATS",
+      "R2_02_genuine_stale_scenarios_PASS_WITH_CAVEATS_ee509e3"
     ],
-    "current": "R2_01_STORAGE_REVERIFICATION",
+    "current": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
     "blocked": [
       "FINAL_GATE_GOVERNANCE_CHECK",
       "mechanism_selection",
@@ -260,9 +264,8 @@
       "comparison_blocker_lift"
     ],
     "downstream": [
-      "R2-01 storage re-verification 29d76bd..1510e3d",
-      "R2-02 genuine stale scenarios",
       "R2-05 provenance fix then fresh dual-platform evidence",
+      "freeze ONE final SHA",
       "R2-03 PRE_FINAL then Sol retry 03"
     ]
   },
@@ -275,5 +278,5 @@
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "R2-01 closed PASS_WITH_CAVEATS. R2-02 in progress: review+reuse genuine stale wired; analysis fixture blocked pending owner oracle-valid competing transition."
+  "note": "R2-02 closed PASS_WITH_CAVEATS (specialist + methodology). ee509e3 is implementation review target only, not final evidence SHA. Next: R2-05 provenance fix."
 }

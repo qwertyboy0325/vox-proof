@@ -1,0 +1,102 @@
+{
+  "review_id": "VP-GATE4-FCR03-R2-02-EVIDENCE-METHODOLOGY-REVIEW-2026-08-16",
+  "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
+  "phase": "R2_02_GENUINE_STALE_SCENARIOS",
+  "artifact_role": "evidence-methodology-review-r2-02-genuine-stale-observation",
+  "commit_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff",
+  "commit_reviewed_note": "Implementation SHA for R2-02 methodology review. Not the final evidence SHA. Storage-systems review already PASS_WITH_CAVEATS at this SHA; this review does not re-adjudicate storage semantics.",
+  "specialist_review_ref": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/storage-systems-review-r2-02.json",
+  "reviewer_role": "voxproof-evidence-methodology-reviewer",
+  "reviewer_model": "Cursor Grok 4.6",
+  "models_used": ["cursor-grok-4.6-high-fast"],
+  "api_quota_used": false,
+  "api_escalation_reason": null,
+  "reviewed_on": "2026-08-16",
+  "review_mode": "independent_code_path_observation_sufficiency",
+  "did_not_readjudicate_storage_semantics": true,
+  "verdict": "PASS_WITH_CAVEATS",
+  "agent_verdict_line": "EVIDENCE REVIEW: PASS",
+  "blocking_before_r2_05": false,
+  "may_close_r2_02_methodology": true,
+  "methodology_questions": {
+    "genuine_stale_causality_not_synthetic_classification": {
+      "answer": "YES",
+      "rationale": "run_genuine_stale_precondition creates S0 from genuine_stale_scenario_fixture, applies a competing same-scope command at S0 prepare_authority, then applies the prepared command still bound to S0 via from_transition_pair(prepare_authority, prepared_target). Rejection is the live scoped CAS mismatch after the competing apply, not scenario_id-forced classification and not the synthetic stale_preconditions path (analysis:stale / head+1 / generation-1). That synthetic path remains only for non-01B3/01C3 candidates. Review/reuse use the same target twice after the first apply advances the scoped token; analysis uses two oracle-valid distinct targets from one S0. scenario_id selects the fixture only."
+    },
+    "prepared_precondition_captured_before_competing": {
+      "answer": "PARTIAL",
+      "rationale": "The stale command is constructed with S0 tokens via from_transition_pair(prepare_authority, …), so the executed precondition is the S0 token. The recorded prepared_precondition field is not a live handle snapshot taken before the competing apply. It is reconstructed after rejection by prepared_precondition_label(scope, &fixture.prepare_authority) from the S0 fixture label (review_ledger_head=… / reuse_governance_head=… / active_analysis_snapshot_identity=…). Content matches the S0 token that was used; capture timing is post-hoc fixture reconstruction, not a pre-compete live snapshot."
+    },
+    "authority_changed_in_relevant_scope_directly_observed": {
+      "answer": "YES",
+      "rationale": "Harness reads live normalized_state after the competing apply and compares the scoped token against fixture.prepare_authority via authority_changed_in_relevant_scope (review_ledger_head, reuse_governance_head, or active_analysis_snapshot_identity). The boolean passed into record_genuine is that live comparison, not a scenario-label inference. Incomplete observation fails the run (genuine-stale-observation-incomplete)."
+    },
+    "stale_rejection_distinguished_from_duplicate_oracle_validation": {
+      "answer": "YES",
+      "rationale": "Harness and c1_stale tests require the exact scoped code (stale-review-ledger-precondition / stale-reuse-governance-precondition / stale-analysis-selection-precondition). Any other Err(code) fails the scenario; Ok(()) fails as expected {code}. Those codes are distinct from semantic-duplicate-transition, failed_oracle_compare, stale-full-state-unrelated-rewind, and oracle/validate_state failures. validate_scoped_preconditions returns before apply_onto/persist, so a stale reject is not an oracle-forced or duplicate-transition reject."
+    },
+    "post_rejection_non_mutation_observed": {
+      "answer": "YES",
+      "rationale": "Harness snapshots authority_after_competing and authority_after_rejection from the open handle and requires both post_rejection_authority_unchanged (structural ==) and post_rejection_oracle_compare. Review unit tests do the same in-handle. Reuse and analysis unit tests assert in-handle equality and the expected failure code but do not call record_genuine. That unit-test gap does not remove the harness observation."
+    },
+    "reopen_evidence_independent_of_semantic_oracle": {
+      "answer": "YES",
+      "rationale": "Harness closes the writer and opens a new read-only handle, then records persist_reopen_authority_unchanged as structural == of independently reopened state versus post-competing handle state. That check does not go through CurrentContractOracle. persist_reopen_oracle_compare is an additional oracle check, not the only reopen evidence. Not compare(actual, actual) and not adapter-return-only. Reuse/analysis unit tests omit close/reopen; review unit tests and the shared harness cover persist+reopen."
+    },
+    "abc_identities_recorded_not_inferred_from_labels": {
+      "answer": "YES",
+      "rationale": "Analysis observations persist analysis_identity_before, competing_identity_after, and stale_command_target_identity as concrete strings from GenuineStaleAnalysisDetails, not from scenario_id text. Those strings are fixture-projected from prepare_authority / competing_target / prepared_target durable tokens at fixture construction. record_genuine copies the fixture details; it does not re-read live handle identities. Unit tests check that live competing identity equals competing_identity_after. Review/reuse records omit A/B/C fields (analysis_details is None), which is correct for those scopes."
+    },
+    "pairwise_distinct_identities_deterministic": {
+      "answer": "YES",
+      "rationale": "At the executed Small scale, A/B/C are deterministic projections of the measurement fixtures and identities_pairwise_distinct is A!=B && A!=C && B!=C, gated in the harness and in genuine_stale_fixtures_cover_three_scopes_with_distinct_analysis_targets. Same scale yields the same strings. Medium is scale-fragile (B and C can collide) and is not the harness scale."
+    },
+    "append_sqlite_observations_equivalent_for_comparison": {
+      "answer": "YES",
+      "rationale": "Both candidates use the same fixtures, same run_genuine_stale_precondition, same Fcr03StaleRejectionRecord schema, same expected codes, and the same close/reopen observation gates. That is enough for logical scoped-validity / persist-reopen comparison. Latent Append replace versus SQLite merge of analysis_snapshots is an apply-path difference not on the reject path and must not be treated as demonstrated apply-equivalence. Reuse/analysis unit tests omit reopen on both sides; harness equalizes them."
+    },
+    "claims_bounded_to_logical_scoped_validity_persist_reopen": {
+      "answer": "YES",
+      "rationale": "Stale scenario contracts declare fault_layer LogicalReturnedError, fault_point none, allowed_evidence_strength InterfaceBehavior, and reopen_required true. Demonstrated strength is logical scoped-validity plus persist-reopen of logical authority after close/open. persist-reopen is not FilesystemDurability. Contracts under-claim relative to persist-reopen (InterfaceBehavior rather than LogicalStateTransition); that is conservative, not an overclaim."
+    },
+    "accidental_filesystem_durability_or_production_integration_claim": {
+      "answer": "NO",
+      "rationale": "Reviewed scenario, observation, fixture, and c1_stale test files do not credit FilesystemDurability, HardwarePowerLoss, CrossPlatform, or production-integration. close/reopen is logical persist-reopen. Analysis S0 is evidence-composed (two-root source_revisions / cross-scale second command), not a production single-transcript lifecycle. Stale contracts have empty prohibited_claims, but allowed_evidence_strength InterfaceBehavior still bars durability credit."
+    }
+  },
+  "blockers": [],
+  "caveats": [
+    "prepared_precondition is reconstructed from the S0 fixture label after rejection, not captured as a live handle snapshot before the competing command.",
+    "Analysis A/B/C identities are fixture-projected and copied into the record; harness does not live-read handle tokens into those three fields.",
+    "Reuse and analysis unit tests omit close/reopen and do not populate Fcr03StaleRejectionObservation; review unit tests and run_genuine_stale_precondition cover persist+reopen.",
+    "close_reopen_performed, competing_transition_applied, stale_command_applied, and transition_applied are constructor-assigned in record_genuine; the harness still performs close/reopen and gates on the computed compare/unchanged fields.",
+    "Pairwise-distinct analysis identities are demonstrated at Small only; Medium is scale-fragile and must not be treated as shown.",
+    "Analysis C is an evidence-composed cross-scale second command, not a same-transcript production rival. Pairwise-distinct fixture identities do not prove two production analysis commands at one S0.",
+    "Append versus SQLite analysis_snapshots replace-versus-merge is latent apply-path divergence and is not comparison evidence on the reject path.",
+    "Stale scenario contracts leave prohibited_claims empty; durability must still not be credited. persist-reopen remains logical close/open, not FilesystemDurability.",
+    "This review is of implementation SHA ee509e3, not a frozen evidence run. No 01C scenario-results.json at a final evidence SHA was in scope."
+  ],
+  "claim_boundary": {
+    "may_claim": [
+      "01B-3 and 01C-3 genuine stale harness scenarios establish competing same-scope apply then S0-bound command rejection with the required scoped failure codes.",
+      "authority_changed_in_relevant_scope is observed from live post-competing handle tokens versus S0.",
+      "Post-rejection non-mutation is observed in-handle; harness persist-reopen observes the competing authority on a new read-only handle via structural equality plus oracle compare.",
+      "Analysis A/B/C identity strings are recorded as fixture-projected values and are pairwise distinct at Small.",
+      "Append and SQLite rejection observations share schema, codes, and harness gates enough for logical scoped-validity / persist-reopen comparison.",
+      "Demonstrated claim class is logical scoped-validity and persist-reopen of logical authority (InterfaceBehavior contract; persist-reopen is not FilesystemDurability)."
+    ],
+    "may_not_claim": [
+      "prepared_precondition was live-captured from the handle before the competing command",
+      "A/B/C identities were live-observed from the handle in the harness record path",
+      "Pairwise-distinct identities prove two production same-transcript analysis commands at one S0",
+      "Reuse/analysis unit tests independently prove persist-reopen",
+      "FilesystemDurability, HardwarePowerLoss, process-crash recovery, or cross-platform from these scenarios",
+      "Production-integration or current projection-lifecycle support for multi-root source_revisions / cross-scale analysis C",
+      "Append/SQLite apply-path snapshot-set equivalence",
+      "Evidence execution, final SHA freeze, Sol STRONG_FINAL, Opus PRE_FINAL, mechanism selection, or FINAL_GATE",
+      "Conflict-register 'durable authority unchanged after reopen' as FilesystemDurability"
+    ]
+  },
+  "bottom_line": "R2-02 genuine stale observation methodology is sufficient to close the methodology gate: competing-then-S0-bound causality, exact scoped failure codes, live scoped-token change, post-reject non-mutation, and harness persist-reopen independent of the oracle via structural ==. Remaining caveats are capture provenance (reconstructed S0 label; fixture-projected identities) and unit-test reopen omission for reuse/analysis. No durability or production-integration claim is supported. Close R2-02 methodology; proceed to R2-05 package provenance correction.",
+  "authorized_next_step": "R2_05_package_provenance_correction"
+}

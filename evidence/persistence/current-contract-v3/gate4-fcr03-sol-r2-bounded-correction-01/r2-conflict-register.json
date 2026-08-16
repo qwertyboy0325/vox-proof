@@ -21,7 +21,7 @@
       "verdict": "PASS_WITH_CAVEATS"
     },
     "FCR-R2-02-SYNTHETIC-STALE-COMMANDS": {
-      "status": "PENDING",
+      "status": "CLOSED",
       "phase": "R2_02",
       "closure_criteria": [
         "genuine competing authoritative transition per scope before stale execute",
@@ -30,6 +30,12 @@
         "close/reopen preserved",
         "methodology review PASS"
       ],
+      "closure_artifacts": [
+        "storage-systems-review-r2-02.json",
+        "evidence-methodology-review-r2-02.json",
+        "r2-02-phase-record.json"
+      ],
+      "verdict": "PASS_WITH_CAVEATS",
       "claim_upgrade": "InterfaceBehavior stale refusal → genuine competing transition stale command refused with durable authority unchanged after reopen"
     },
     "FCR-R2-05-EVIDENCE-PROVENANCE-PACKAGE-DRIFT": {

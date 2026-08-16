@@ -2,8 +2,8 @@
   "artifact_id": "VP-GATE4-FCR03-SOL-R2-EXECUTION-PLAN",
   "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
   "owner_authorization_ref": "owner-authorization.json",
-  "status": "R2_02_GENUINE_STALE_SCENARIOS",
-  "current_step": "R2_02_genuine_stale_scenarios",
+  "status": "R2_05_PACKAGE_PROVENANCE_CORRECTION",
+  "current_step": "R2_05_package_provenance_correction",
   "required_order": [
     {
       "step": 1,
@@ -24,15 +24,21 @@
     {
       "step": 3,
       "id": "R2_02_genuine_stale_scenarios",
-      "status": "pending",
+      "status": "complete",
       "closes": "FCR-R2-02",
-      "implementation": ["scenarios.rs", "scenario_observation.rs", "measurement_transitions.rs", "scenario_contract.rs", "unit tests", "harness tests"]
+      "implementation": ["scenarios.rs", "scenario_observation.rs", "measurement_transitions.rs", "scenario_contract.rs", "unit tests", "harness tests"],
+      "implementation_sha_reviewed": "ee509e3c10a0140082d0517eb32d98e3fe3840ff"
     },
     {
       "step": 4,
       "id": "specialist_and_methodology_review",
-      "status": "pending",
-      "reviewers": ["storage-systems-reviewer if R2-02 touches persistence paths", "evidence-methodology-reviewer"]
+      "status": "complete",
+      "reviewers": ["storage-systems-reviewer", "evidence-methodology-reviewer"],
+      "artifacts": [
+        "storage-systems-review-r2-02.json",
+        "evidence-methodology-review-r2-02.json"
+      ],
+      "verdict": "PASS_WITH_CAVEATS"
     },
     {
       "step": 5,
