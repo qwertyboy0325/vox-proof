@@ -10,13 +10,13 @@ edition = "2024"
 
 [features]
 default = []
-persistence-spike = ["dep:rusqlite", "dep:uuid"]
+persistence-spike = []
 
 [dependencies]
 pinyin = "0.11.0"
 rphonetic = "=3.0.6"
-rusqlite = { version = "0.32", optional = true, features = ["bundled", "backup"] }
-uuid = { version = "1", features = ["v4"], optional = true }
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+uuid = { version = "1", features = ["v4"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -26,6 +26,7 @@ unicode-normalization = "0.1.24"
 windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_ProcessStatus", "Win32_System_Threading"] }
 
 [dev-dependencies]
+tempfile = "3"
 uuid = { version = "1", features = ["v4"] }
 
 [[bin]]
@@ -87,3 +88,7 @@ required-features = ["persistence-spike"]
 name = "persistence_durability"
 path = "tests/persistence_durability.rs"
 required-features = ["persistence-spike"]
+
+[[test]]
+name = "session_persistence_p1"
+path = "tests/session_persistence_p1.rs"

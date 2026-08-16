@@ -115,6 +115,16 @@ pub struct ApplicationReviewTarget {
     case_id: ReviewCaseId,
 }
 
+impl ApplicationReviewTarget {
+    pub fn case_id(&self) -> ReviewCaseId {
+        self.case_id
+    }
+
+    pub fn analysis_snapshot(&self) -> AnalysisSnapshot {
+        self.analysis_snapshot
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplicationReviewItem {
     pub target: ApplicationReviewTarget,
@@ -300,6 +310,18 @@ impl fmt::Display for ApplicationGate3Error {
 
 impl std::error::Error for ApplicationGate3Error {}
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedHumanDecision {
+    pub target: ApplicationReviewTarget,
+    pub decision: CorrectionDecision,
+    pub expected_review_ledger_head: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedManualReplacement {
+    pub prepared: PreparedHumanDecision,
+}
+
 pub struct ApplicationReviewSession {
     transcript: Transcript,
     session_terms: Vec<SessionTermEntry>,
@@ -341,6 +363,36 @@ pub fn begin_application_review(
     })
 }
 
+pub(crate) fn assemble_application_review_session(
+    transcript: Transcript,
+    session_terms: Vec<SessionTermEntry>,
+    canonical_run: CanonicalTermReviewRun,
+    ledger: ReviewLedger,
+    material_use: ApplicationMaterialUseDeclaration,
+    session_authority: DeclaredSessionAuthority,
+) -> Result<ApplicationReviewSession, ApplicationServiceError> {
+    let source_revision = transcript.revision_id();
+    let analysis_snapshot = canonical_run.analysis_run().snapshot();
+
+    Ok(ApplicationReviewSession {
+        transcript,
+        session_terms,
+        canonical_run,
+        ledger,
+        material_use: BoundApplicationMaterialUseDeclaration {
+            declaration: material_use,
+            source_revision,
+        },
+        session_authority: BoundDeclaredSessionAuthority {
+            authority: session_authority,
+            source_revision,
+            analysis_snapshot,
+        },
+        reuse_state: ApplicationReuseState::default(),
+        reuse_enabled_run: None,
+    })
+}
+
 impl ApplicationReviewSession {
     pub fn source(&self) -> &Transcript {
         &self.transcript
@@ -348,6 +400,22 @@ impl ApplicationReviewSession {
 
     pub fn review_ledger(&self) -> &ReviewLedger {
         &self.ledger
+    }
+
+    pub(crate) fn canonical_run(&self) -> &CanonicalTermReviewRun {
+        &self.canonical_run
+    }
+
+    pub(crate) fn session_terms(&self) -> &[SessionTermEntry] {
+        &self.session_terms
+    }
+
+    pub(crate) fn review_ledger_head(&self) -> usize {
+        self.ledger.events().len()
+    }
+
+    pub(crate) fn material_use_declaration(&self) -> ApplicationMaterialUseDeclaration {
+        self.material_use.declaration
     }
 
     pub fn session_authority(&self) -> &DeclaredSessionAuthority {
@@ -523,6 +591,61 @@ impl ApplicationReviewSession {
                 status: self.ledger.status_for(review_case.id()),
             })
             .collect()
+    }
+
+    pub fn prepare_human_decision(
+        &self,
+        target: ApplicationReviewTarget,
+        decision: CorrectionDecision,
+    ) -> Result<PreparedHumanDecision, ApplicationServiceError> {
+        if target.analysis_snapshot != self.canonical_run.analysis_run().snapshot() {
+            return Err(ApplicationServiceError::TargetAnalysisMismatch);
+        }
+
+        let review_case = resolve_case(&self.canonical_run, target.case_id).ok_or(
+            ApplicationServiceError::UnknownReviewCase {
+                case_id: target.case_id,
+            },
+        )?;
+        let decision = revalidate_decision_for_case(&self.transcript, review_case, decision)?;
+
+        Ok(PreparedHumanDecision {
+            target,
+            decision,
+            expected_review_ledger_head: self.review_ledger_head(),
+        })
+    }
+
+    pub fn prepare_manual_replacement(
+        &self,
+        target: ApplicationReviewTarget,
+        replacement: impl Into<String>,
+    ) -> Result<PreparedManualReplacement, ApplicationServiceError> {
+        if target.analysis_snapshot != self.canonical_run.analysis_run().snapshot() {
+            return Err(ApplicationServiceError::TargetAnalysisMismatch);
+        }
+
+        let review_case = resolve_case(&self.canonical_run, target.case_id).ok_or(
+            ApplicationServiceError::UnknownReviewCase {
+                case_id: target.case_id,
+            },
+        )?;
+        let selected_source_text = self
+            .transcript
+            .resolve(review_case.candidate_span().anchor())
+            .ok_or(ApplicationServiceError::ReviewedOutput(
+                ReviewedOutputError::AnchorResolutionFailed {
+                    case_id: review_case.id(),
+                },
+            ))?;
+        let replacement = ManualReplacementText::new(replacement, selected_source_text)
+            .map_err(ApplicationServiceError::ManualReplacement)?;
+
+        let prepared = self.prepare_human_decision(
+            target,
+            CorrectionDecision::ManualReplacement { replacement },
+        )?;
+        Ok(PreparedManualReplacement { prepared })
     }
 
     pub fn record_human_decision(

@@ -37,6 +37,7 @@ pub mod review;
 pub mod reviewed_output;
 pub mod run_manifest;
 pub mod session_log;
+pub mod session_persistence;
 pub mod session_summary;
 pub mod session_terms;
 pub mod srt;

@@ -3755,6 +3755,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
  "unicode-normalization",
  "uuid",
  "windows-sys 0.61.2",

@@ -106,6 +106,10 @@ impl ManualReplacementText {
         Ok(Self { value })
     }
 
+    pub(crate) fn from_persisted_storage(value: String) -> Self {
+        Self { value }
+    }
+
     pub fn as_str(&self) -> &str {
         &self.value
     }
