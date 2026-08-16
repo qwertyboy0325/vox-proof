@@ -121,6 +121,35 @@ pub fn search_matches(source_text: &str, evidence: &str, query: &str) -> bool {
         || evidence.to_lowercase().contains(&query)
 }
 
+pub const SETUP_HEADING: &str = "New review";
+pub const SETUP_INTRO: &str = "Start reviewing now. VoxProof can accumulate reusable corrections as you review. Corrections you explicitly allow can help with related reviews later. VoxProof never silently rewrites subtitle text.";
+pub const SETUP_STEP_TRANSCRIPT: &str = "1. Choose transcript";
+pub const SETUP_STEP_PROJECT: &str = "2. Project";
+pub const SETUP_STEP_CONFIRM: &str = "3. Confirm use";
+pub const SETUP_ADVANCED: &str = "Advanced";
+pub const SETUP_SEED_TERMINOLOGY: &str = "Seed terminology";
+pub const SETUP_SEED_HINT: &str = "Optional: add known names or terminology before review.";
+
+pub fn primary_setup_step_labels() -> &'static [&'static str] {
+    &[
+        SETUP_STEP_TRANSCRIPT,
+        SETUP_STEP_PROJECT,
+        SETUP_STEP_CONFIRM,
+    ]
+}
+
+pub fn setup_project_ready(
+    review_without_project: bool,
+    selected_project: bool,
+    new_project_name: &str,
+) -> bool {
+    review_without_project || selected_project || !new_project_name.trim().is_empty()
+}
+
+pub fn setup_can_start(transcript_path: &str, operator_label: &str, project_ready: bool) -> bool {
+    !transcript_path.trim().is_empty() && !operator_label.trim().is_empty() && project_ready
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,5 +256,42 @@ mod tests {
         );
         assert!(!export_enabled(progress));
         assert!(!show_review_complete_panel(progress, 1));
+    }
+
+    #[test]
+    fn primary_setup_does_not_require_terminology() {
+        assert_eq!(
+            primary_setup_step_labels(),
+            &["1. Choose transcript", "2. Project", "3. Confirm use",]
+        );
+        for label in primary_setup_step_labels() {
+            let lower = label.to_lowercase();
+            assert!(!lower.contains("term"));
+            assert!(!lower.contains("alias"));
+            assert!(!lower.contains("glossary"));
+        }
+        assert!(SETUP_INTRO.contains("Start reviewing now"));
+        assert!(SETUP_INTRO.contains("explicitly allow"));
+        assert!(!SETUP_INTRO.to_lowercase().contains("automatically learn"));
+        assert_eq!(SETUP_SEED_TERMINOLOGY, "Seed terminology");
+        assert!(SETUP_SEED_HINT.starts_with("Optional:"));
+        assert!(setup_can_start("talk.srt", "Ezra", true));
+        assert!(setup_can_start(
+            "talk.srt",
+            "Ezra",
+            setup_project_ready(false, false, "Lecture series")
+        ));
+        assert!(!setup_can_start("", "Ezra", true));
+        assert!(!setup_can_start("talk.srt", "", true));
+        assert!(!setup_can_start(
+            "talk.srt",
+            "Ezra",
+            setup_project_ready(false, false, "")
+        ));
+        assert!(setup_can_start(
+            "talk.srt",
+            "Ezra",
+            setup_project_ready(true, false, "")
+        ));
     }
 }

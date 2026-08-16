@@ -89,12 +89,10 @@ fn existing_project_creates_another_v2_session() {
     let project_id = controller.create_project("Lecture series").unwrap();
     start_bound(&mut controller, A_SRT, KAFKA_TERMS, "a.srt", &project_id);
     controller.reset().unwrap();
-    assert!(
-        controller
-            .available_projects()
-            .iter()
-            .any(|project| project.display_name == "Lecture series")
-    );
+    assert!(controller
+        .available_projects()
+        .iter()
+        .any(|project| project.display_name == "Lecture series"));
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     assert!(controller.is_bound_to_project());
     assert_eq!(
@@ -441,10 +439,10 @@ fn human_raised_corrects_unflagged_span_and_reuses_on_material_b() {
         .use_selected_correction_in_related_reviews(epoch)
         .unwrap();
     let entries = controller.project_memory_entries().unwrap();
-    assert!(
-        entries.iter().any(|entry| entry.observed_text == "Postgres"
-            && entry.confirmed_replacement == "PostgreSQL")
-    );
+    assert!(entries
+        .iter()
+        .any(|entry| entry.observed_text == "Postgres"
+            && entry.confirmed_replacement == "PostgreSQL"));
     controller.reset().unwrap();
 
     start_bound(
@@ -465,6 +463,88 @@ fn human_raised_corrects_unflagged_span_and_reuses_on_material_b() {
     }));
     assert!(controller.projection().unwrap().srt.contains("Postgres"));
     assert!(!controller.projection().unwrap().srt.contains("PostgreSQL"));
+    let epoch = controller.ui_session_epoch();
+    controller
+        .record_decision(
+            epoch,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .unwrap();
+    assert!(controller.projection().unwrap().srt.contains("PostgreSQL"));
+}
+
+#[test]
+fn empty_terms_bound_review_starts_without_detector_cases() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(&mut controller, A_SRT, EMPTY_TERMS, "a.srt", &project_id);
+    assert_eq!(controller.phase(), DesktopPhase::ActiveReview);
+    assert!(controller.is_bound_to_project());
+    assert!(controller.items().unwrap().is_empty());
+    assert_eq!(controller.header().unwrap().total_review_cases, 0);
+}
+
+#[test]
+fn seeded_terms_do_not_write_project_memory_without_promotion() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(&mut controller, A_SRT, KAFKA_TERMS, "a.srt", &project_id);
+    assert!(!controller.items().unwrap().is_empty());
+    assert!(controller.project_memory_entries().unwrap().is_empty());
+}
+
+#[test]
+fn unbound_empty_terms_review_remains_valid() {
+    let (mut controller, _temp) = controller_with_store();
+    start_unbound(&mut controller, A_SRT, EMPTY_TERMS, "unbound-empty.srt");
+    assert!(!controller.is_bound_to_project());
+    assert_eq!(controller.phase(), DesktopPhase::ActiveReview);
+    assert!(controller.items().unwrap().is_empty());
+}
+
+#[test]
+fn human_raised_with_empty_terms_promotes_and_reuses() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(
+        &mut controller,
+        MIXED_SRT,
+        EMPTY_TERMS,
+        "a.srt",
+        &project_id,
+    );
+    assert!(controller.items().unwrap().is_empty());
+    let epoch = controller.ui_session_epoch();
+    controller
+        .raise_and_manual_replace(epoch, 0, 10, 18, "PostgreSQL")
+        .unwrap();
+    assert!(controller.items().unwrap().iter().any(|item| {
+        matches!(item.origin, ReviewItemOrigin::HumanRaisedCorrection)
+            && item.source_text == "Postgres"
+    }));
+    controller
+        .use_selected_correction_in_related_reviews(epoch)
+        .unwrap();
+    assert_eq!(controller.project_memory_entries().unwrap().len(), 1);
+    controller.reset().unwrap();
+
+    start_bound(
+        &mut controller,
+        B_POSTGRES_SRT,
+        EMPTY_TERMS,
+        "b.srt",
+        &project_id,
+    );
+    let items = controller.items().unwrap();
+    assert_eq!(items.len(), 1);
+    assert!(matches!(
+        items[0].origin,
+        ReviewItemOrigin::PreviousCorrection {
+            conflict_with_canonical: false
+        }
+    ));
     let epoch = controller.ui_session_epoch();
     controller
         .record_decision(

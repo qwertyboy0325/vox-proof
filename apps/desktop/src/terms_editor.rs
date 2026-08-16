@@ -1,5 +1,5 @@
 use vox_proof::candidate::SessionTermEntry;
-use vox_proof::session_terms::{SessionTermsError, parse_session_terms};
+use vox_proof::session_terms::{parse_session_terms, SessionTermsError};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TermDraft {
@@ -24,6 +24,10 @@ pub struct TermsEditor {
 }
 
 impl TermsEditor {
+    pub fn is_empty(&self) -> bool {
+        self.terms.is_empty()
+    }
+
     pub fn push_empty_term(&mut self) {
         self.terms.push(TermDraft::default());
     }
@@ -97,10 +101,28 @@ mod tests {
     #[test]
     fn import_from_text_populates_drafts() {
         let mut editor = TermsEditor::default();
-        editor
-            .import_from_text("Kafka | alias:Kafak\n")
-            .unwrap();
+        editor.import_from_text("Kafka | alias:Kafak\n").unwrap();
         assert_eq!(editor.terms.len(), 1);
         assert_eq!(editor.terms[0].canonical, "Kafka");
+    }
+
+    #[test]
+    fn default_editor_starts_empty_and_emits_no_session_terms() {
+        let editor = TermsEditor::default();
+        assert!(editor.is_empty());
+        assert!(editor.to_session_entries().unwrap().is_empty());
+    }
+
+    #[test]
+    fn canonical_alias_and_error_forms_remain_optional_seeding() {
+        let mut editor = TermsEditor::default();
+        editor
+            .import_from_text("PostgreSQL | alias:Postgres | error:post gray SQL")
+            .unwrap();
+        assert!(!editor.is_empty());
+        let entries = editor.to_session_entries().unwrap();
+        assert_eq!(entries[0].canonical_term, "PostgreSQL");
+        assert_eq!(entries[0].aliases, ["Postgres"]);
+        assert_eq!(entries[0].observed_error_forms, ["post gray SQL"]);
     }
 }

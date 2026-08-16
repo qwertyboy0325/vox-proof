@@ -9,9 +9,11 @@ use vox_proof::review::CorrectionDecision;
 
 use crate::controller::{DesktopController, DesktopPhase, ReviewItemOrigin};
 use crate::presentation::{
-    BottomTab, accept_enabled, composed_coverage_label, coverage_label, decision_shortcut,
-    export_enabled, resolution_label, review_is_complete, review_shortcuts_suppressed,
-    search_matches, show_review_complete_panel, unresolved_confirmation_needed,
+    BottomTab, SETUP_ADVANCED, SETUP_HEADING, SETUP_INTRO, SETUP_SEED_HINT, SETUP_SEED_TERMINOLOGY,
+    SETUP_STEP_CONFIRM, SETUP_STEP_PROJECT, SETUP_STEP_TRANSCRIPT, accept_enabled,
+    composed_coverage_label, coverage_label, decision_shortcut, export_enabled, resolution_label,
+    review_is_complete, review_shortcuts_suppressed, search_matches, setup_can_start,
+    setup_project_ready, show_review_complete_panel, unresolved_confirmation_needed,
 };
 use crate::terms_editor::TermsEditor;
 use crate::user_errors;
@@ -312,15 +314,12 @@ impl ReviewApp {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.set_max_width(860.0);
             ui.add_space(20.0);
-            ui.heading("New review");
-            ui.label(
-                "Choose a subtitle file, add terms you care about, and review each suggested \
-                 change yourself. VoxProof never silently rewrites subtitle text.",
-            );
+            ui.heading(SETUP_HEADING);
+            ui.label(SETUP_INTRO);
             ui.add_space(12.0);
 
             ui.group(|ui| {
-                ui.label(RichText::new("1. Choose transcript").strong());
+                ui.label(RichText::new(SETUP_STEP_TRANSCRIPT).strong());
                 ui.horizontal(|ui| {
                     ui.label("Transcript");
                     ui.add(
@@ -340,72 +339,7 @@ impl ReviewApp {
 
             ui.add_space(10.0);
             ui.group(|ui| {
-                ui.label(RichText::new("2. Terms to watch").strong());
-                ui.label("Add names or phrases that often get misrecognized in this material.");
-                let mut remove_index = None;
-                for index in 0..self.terms_editor.terms.len() {
-                    let term = &mut self.terms_editor.terms[index];
-                    ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.label(format!("Term {}", index + 1));
-                        if ui.button("Remove").clicked() {
-                            remove_index = Some(index);
-                        }
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("Name");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut term.canonical)
-                                .id(egui::Id::new(("term-canonical", index)))
-                                .desired_width(420.0)
-                                .hint_text("PostgreSQL"),
-                        );
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("Aliases");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut term.aliases)
-                                .id(egui::Id::new(("term-aliases", index)))
-                                .desired_width(420.0)
-                                .hint_text("Postgres"),
-                        );
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label("Known misrecognitions");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut term.observed_error_forms)
-                                .id(egui::Id::new(("term-errors", index)))
-                                .desired_width(420.0)
-                                .hint_text("post gray SQL"),
-                        );
-                    });
-                }
-                if let Some(index) = remove_index {
-                    self.terms_editor.remove_term(index);
-                }
-                ui.horizontal(|ui| {
-                    if ui.button("+ Add term").clicked() {
-                        self.terms_editor.push_empty_term();
-                    }
-                    if ui.button("Import terms file…").clicked()
-                        && let Some(path) = rfd::FileDialog::new().pick_file()
-                        && let Ok(text) = std::fs::read_to_string(path)
-                    {
-                        match self.terms_editor.import_from_text(&text) {
-                            Ok(()) => self.error = None,
-                            Err(error) => {
-                                self.error = Some(user_errors::user_message(
-                                    &crate::controller::ControllerError::SessionTerms(error),
-                                ));
-                            }
-                        }
-                    }
-                });
-            });
-
-            ui.add_space(10.0);
-            ui.group(|ui| {
-                ui.label(RichText::new("3. Project").strong());
+                ui.label(RichText::new(SETUP_STEP_PROJECT).strong());
                 ui.label(
                     "VoxProof can reuse corrections you previously approved, but every new change \
                      still requires your decision.",
@@ -467,7 +401,7 @@ impl ReviewApp {
 
             ui.add_space(10.0);
             ui.group(|ui| {
-                ui.label(RichText::new("4. Confirm use").strong());
+                ui.label(RichText::new(SETUP_STEP_CONFIRM).strong());
                 ui.label(RichText::new("Permission").strong());
                 ui.horizontal(|ui| {
                     ui.radio_value(
@@ -508,6 +442,12 @@ impl ReviewApp {
                      or legal permission.",
                 );
             });
+
+            ui.add_space(10.0);
+            egui::CollapsingHeader::new(SETUP_ADVANCED)
+                .id_salt("setup-advanced")
+                .default_open(false)
+                .show(ui, |ui| self.seed_terminology_editor(ui));
 
             ui.add_space(16.0);
             ui.separator();
@@ -611,12 +551,13 @@ impl ReviewApp {
             }
 
             ui.add_space(12.0);
-            let project_ready = self.review_without_project
-                || self.controller.selected_project_id().is_some()
-                || !self.new_project_name.trim().is_empty();
-            let can_start = !self.transcript_path.trim().is_empty()
-                && !self.operator_label.trim().is_empty()
-                && project_ready;
+            let project_ready = setup_project_ready(
+                self.review_without_project,
+                self.controller.selected_project_id().is_some(),
+                &self.new_project_name,
+            );
+            let can_start =
+                setup_can_start(&self.transcript_path, &self.operator_label, project_ready);
             if ui
                 .add_enabled(can_start, egui::Button::new("Start review"))
                 .on_hover_text("Create a new local review session")
@@ -677,6 +618,73 @@ impl ReviewApp {
                         self.status = "Review started.".to_owned();
                     }
                     Err(error) => self.error = Some(user_errors::user_message(&error)),
+                }
+            }
+        });
+    }
+
+    fn seed_terminology_editor(&mut self, ui: &mut egui::Ui) {
+        ui.label(RichText::new(SETUP_SEED_TERMINOLOGY).strong());
+        ui.label(SETUP_SEED_HINT);
+        if self.terms_editor.is_empty() {
+            ui.small("None added. Review can start without seeded terminology.");
+        }
+        let mut remove_index = None;
+        for index in 0..self.terms_editor.terms.len() {
+            let term = &mut self.terms_editor.terms[index];
+            ui.separator();
+            ui.horizontal(|ui| {
+                ui.label(format!("Term {}", index + 1));
+                if ui.button("Remove").clicked() {
+                    remove_index = Some(index);
+                }
+            });
+            ui.horizontal(|ui| {
+                ui.label("Name");
+                ui.add(
+                    egui::TextEdit::singleline(&mut term.canonical)
+                        .id(egui::Id::new(("term-canonical", index)))
+                        .desired_width(420.0)
+                        .hint_text("PostgreSQL"),
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.label("Aliases");
+                ui.add(
+                    egui::TextEdit::singleline(&mut term.aliases)
+                        .id(egui::Id::new(("term-aliases", index)))
+                        .desired_width(420.0)
+                        .hint_text("Postgres"),
+                );
+            });
+            ui.horizontal(|ui| {
+                ui.label("Known misrecognitions");
+                ui.add(
+                    egui::TextEdit::singleline(&mut term.observed_error_forms)
+                        .id(egui::Id::new(("term-errors", index)))
+                        .desired_width(420.0)
+                        .hint_text("post gray SQL"),
+                );
+            });
+        }
+        if let Some(index) = remove_index {
+            self.terms_editor.remove_term(index);
+        }
+        ui.horizontal(|ui| {
+            if ui.button("+ Add term").clicked() {
+                self.terms_editor.push_empty_term();
+            }
+            if ui.button("Import terms file…").clicked()
+                && let Some(path) = rfd::FileDialog::new().pick_file()
+                && let Ok(text) = std::fs::read_to_string(path)
+            {
+                match self.terms_editor.import_from_text(&text) {
+                    Ok(()) => self.error = None,
+                    Err(error) => {
+                        self.error = Some(user_errors::user_message(
+                            &crate::controller::ControllerError::SessionTerms(error),
+                        ));
+                    }
                 }
             }
         });
