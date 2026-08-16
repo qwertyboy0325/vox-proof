@@ -14,6 +14,37 @@ pub struct PromotionCandidateRejectionIdentity {
     pub decision_digest: [u8; 32],
 }
 
+/// Same source-decision promotion origin, ignoring `effective_at_ledger_length`.
+///
+/// `effective_at_ledger_length` is a historical validation boundary only; it must
+/// not make the same decision occurrence look like a distinct promotion origin
+/// after unrelated ReviewLedger growth.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct SourceDecisionPromotionOrigin {
+    pub project_scope_id: ProjectScopeId,
+    pub source_revision: TranscriptRevisionId,
+    pub source_analysis_snapshot: AnalysisSnapshot,
+    pub source_review_case_id: ReviewCaseId,
+    pub review_ledger_position: usize,
+    pub decision_digest: [u8; 32],
+}
+
+impl SourceDecisionPromotionOrigin {
+    pub(crate) fn from_locator(
+        project_scope_id: &ProjectScopeId,
+        locator: &SourceDecisionLocator,
+    ) -> Self {
+        Self {
+            project_scope_id: project_scope_id.clone(),
+            source_revision: locator.source_revision,
+            source_analysis_snapshot: locator.source_analysis_snapshot,
+            source_review_case_id: locator.source_review_case_id,
+            review_ledger_position: locator.review_ledger_position,
+            decision_digest: locator.decision_digest,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ProjectScopeId(String);
 

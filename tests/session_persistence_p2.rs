@@ -5,6 +5,7 @@ use vox_proof::application_service::{
     ApplicationMaterialUseDeclaration, DeclaredApplicationMaterialUseBasis,
     DeclaredSessionAuthority, DeclaredSessionOperatorRole,
 };
+
 use vox_proof::candidate::SessionTermEntry;
 use vox_proof::review::CorrectionDecision;
 use vox_proof::reuse_primitives::ReusableInfluenceRecordId;
@@ -842,4 +843,185 @@ fn export_v3_parity_after_reopen_with_reuse_state() {
     );
     assert!(before.is_ok());
     assert_eq!(before.unwrap(), after.unwrap());
+}
+
+fn two_case_durable(
+    store: &ProductSessionStore,
+) -> DurableApplicationSession {
+    let transcript = parse_srt(
+        "1\n00:00:00,000 --> 00:00:01,000\nKafak\n\n2\n00:00:01,000 --> 00:00:02,000\nKafak",
+    )
+    .expect("transcript");
+    let mut durable = DurableApplicationSession::create(
+        store,
+        transcript,
+        fixture_terms(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("create");
+    let first = durable.session().review_items()[0].target;
+    durable
+        .record_manual_replacement(
+            durable.prepare_manual_replacement(first, "Kafka").expect("prep"),
+        )
+        .expect("manual first");
+    let second = durable.session().review_items()[1].target;
+    durable
+        .record_manual_replacement(
+            durable.prepare_manual_replacement(second, "Kafka").expect("prep"),
+        )
+        .expect("manual second");
+    durable
+}
+
+#[test]
+fn promoted_source_decision_does_not_reappear_after_unrelated_ledger_growth() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = two_case_durable(&store);
+    initialize_scope(&mut durable);
+    let key = durable.session().reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    durable
+        .record_accept_reuse_candidate(
+            durable
+                .prepare_accept_reuse_candidate(&key)
+                .expect("prepare accept"),
+        )
+        .expect("accept");
+    let unrelated = durable.session().review_items()[1].target;
+    durable
+        .record_human_decision(
+            durable
+                .prepare_human_decision(unrelated, CorrectionDecision::Reject)
+                .expect("prepare reject review"),
+        )
+        .expect("unrelated review");
+    let candidates = durable.session().reuse_candidates().expect("candidates");
+    assert!(
+        candidates
+            .iter()
+            .all(|candidate| candidate.key.source_locator.review_ledger_position
+                != key.source_locator.review_ledger_position),
+        "promoted source decision must not reappear as candidate"
+    );
+    assert_eq!(durable.session().reuse_state().governance_events().len(), 1);
+}
+
+#[test]
+fn redrived_candidate_key_rejects_duplicate_promotion_origin() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = two_case_durable(&store);
+    initialize_scope(&mut durable);
+    let key = durable.session().reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    durable
+        .record_accept_reuse_candidate(
+            durable
+                .prepare_accept_reuse_candidate(&key)
+                .expect("prepare accept"),
+        )
+        .expect("accept");
+    let unrelated = durable.session().review_items()[1].target;
+    durable
+        .record_human_decision(
+            durable
+                .prepare_human_decision(unrelated, CorrectionDecision::Reject)
+                .expect("prepare reject review"),
+        )
+        .expect("unrelated review");
+    let mut redrived_key = key.clone();
+    redrived_key.source_locator.effective_at_ledger_length =
+        durable.session().review_ledger().events().len();
+    let err = durable
+        .prepare_accept_reuse_candidate(&redrived_key)
+        .expect_err("duplicate origin");
+    assert!(matches!(
+        err,
+        SessionPersistenceError::CanonicalMismatch(message)
+            if message.contains("CandidateAlreadyPromoted")
+    ));
+}
+
+#[test]
+fn duplicate_promotion_origin_commit_is_zero_mutation() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = two_case_durable(&store);
+    initialize_scope(&mut durable);
+    let key = durable.session().reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    let prepared = durable
+        .prepare_accept_reuse_candidate(&key)
+        .expect("prepare accept");
+    durable
+        .record_accept_reuse_candidate(prepared)
+        .expect("accept");
+    let unrelated = durable.session().review_items()[1].target;
+    durable
+        .record_human_decision(
+            durable
+                .prepare_human_decision(unrelated, CorrectionDecision::Reject)
+                .expect("prepare reject review"),
+        )
+        .expect("unrelated review");
+    let mut redrived_key = key;
+    redrived_key.source_locator.effective_at_ledger_length =
+        durable.session().review_ledger().events().len();
+    let forged = durable
+        .prepare_accept_reuse_candidate(&redrived_key)
+        .expect_err("prepare blocked");
+    let _ = forged;
+    let stale_prepared = vox_proof::application_reuse::PreparedReuseCandidateAcceptance {
+        candidate_key: redrived_key,
+        expected_reuse_governance_head: 0,
+    };
+    let err = durable
+        .record_accept_reuse_candidate(stale_prepared)
+        .expect_err("stale or duplicate");
+    assert!(matches!(
+        err,
+        SessionPersistenceError::StaleAuthorityPrecondition(_)
+            | SessionPersistenceError::CanonicalMismatch(_)
+    ));
+    assert_eq!(durable.session().reuse_state().governance_events().len(), 1);
+}
+
+#[test]
+fn unrelated_ledger_growth_before_first_promotion_still_allows_prepared_accept() {
+    let temp = TempDir::new().expect("tempdir");
+    let store = ProductSessionStore::new(temp.path());
+    let mut durable = two_case_durable(&store);
+    initialize_scope(&mut durable);
+    let key = durable.session().reuse_candidates().expect("candidates")[0]
+        .key
+        .clone();
+    let prepared_accept = durable
+        .prepare_accept_reuse_candidate(&key)
+        .expect("prepare accept");
+    let unrelated = durable.session().review_items()[1].target;
+    durable
+        .record_human_decision(
+            durable
+                .prepare_human_decision(unrelated, CorrectionDecision::Reject)
+                .expect("prepare reject review"),
+        )
+        .expect("unrelated review before promotion");
+    durable
+        .record_accept_reuse_candidate(prepared_accept)
+        .expect("accept after unrelated growth");
+    assert_eq!(durable.session().reuse_state().governance_events().len(), 1);
+    assert_eq!(
+        durable
+            .session()
+            .active_reusable_records()
+            .expect("records")
+            .len(),
+        1
+    );
 }

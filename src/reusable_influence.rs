@@ -11,7 +11,7 @@ use crate::pipeline::CanonicalTermReviewRun;
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeId, PromotionCandidateRejectionIdentity, ReusableInfluenceRecordId,
     ReusableInfluenceSnapshotIdentity, SnapshotIdentityRecordProvenance, SourceDecisionLocator,
-    compute_snapshot_identity, decision_digest,
+    SourceDecisionPromotionOrigin, compute_snapshot_identity, decision_digest,
 };
 use crate::review::{
     CorrectionDecision, ManualReplacementText, ReviewCase, ReviewCaseId, ReviewCaseStatus,
@@ -367,6 +367,34 @@ impl From<&ReuseCandidateKey> for PromotionCandidateRejectionIdentity {
     }
 }
 
+pub(crate) fn source_decision_promotion_origin(
+    project_scope_id: &ProjectScopeId,
+    locator: &SourceDecisionLocator,
+) -> SourceDecisionPromotionOrigin {
+    SourceDecisionPromotionOrigin::from_locator(project_scope_id, locator)
+}
+
+pub(crate) fn active_record_shares_promotion_origin(
+    record: &EffectiveReusableInfluenceRecord,
+    candidate_key: &ReuseCandidateKey,
+) -> bool {
+    source_decision_promotion_origin(&record.project_scope.stable_id, &record.source_locator)
+        == source_decision_promotion_origin(
+            &candidate_key.project_scope_id,
+            &candidate_key.source_locator,
+        )
+}
+
+pub(crate) fn has_active_promotion_origin_for_candidate(
+    effective: &ReusableInfluenceEffectiveState,
+    candidate_key: &ReuseCandidateKey,
+) -> bool {
+    effective
+        .active_records()
+        .iter()
+        .any(|record| active_record_shares_promotion_origin(record, candidate_key))
+}
+
 pub fn source_decision_still_matches_locator(
     ledger: &ReviewLedger,
     locator: &SourceDecisionLocator,
@@ -544,7 +572,15 @@ pub fn derive_reuse_candidates(
         if effective
             .active_records()
             .iter()
-            .any(|record| record.source_locator == source_locator)
+            .any(|record| {
+                active_record_shares_promotion_origin(
+                    record,
+                    &ReuseCandidateKey {
+                        source_locator: source_locator.clone(),
+                        project_scope_id: project_scope.stable_id.clone(),
+                    },
+                )
+            })
         {
             continue;
         }
@@ -957,11 +993,7 @@ pub fn validate_reuse_candidate_key_at_historical_boundary(
     {
         return Err(ReusableInfluenceError::CandidateAlreadyRejected);
     }
-    if replay_effective
-        .active_records()
-        .iter()
-        .any(|record| record.source_locator == candidate_key.source_locator)
-    {
+    if has_active_promotion_origin_for_candidate(replay_effective, candidate_key) {
         return Err(ReusableInfluenceError::CandidateAlreadyPromoted);
     }
     Ok(())

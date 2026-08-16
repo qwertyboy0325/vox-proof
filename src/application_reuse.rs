@@ -8,7 +8,8 @@ use crate::reusable_influence::{
     ReusableGovernanceEvent, ReusableInfluenceEffectiveState, ReusableInfluenceError,
     ReusableInfluenceLedger, ReusableInfluenceSnapshot, ReuseAllowedEffect, ReuseCandidate,
     ReuseCandidateKey, build_reusable_influence_snapshot, derive_reuse_candidates,
-    fold_effective_state, resolve_exact_input_projection, verify_source_locator_against_ledger,
+    fold_effective_state, has_active_promotion_origin_for_candidate,
+    resolve_exact_input_projection, validate_reuse_candidate_key_at_historical_boundary,
 };
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ProjectScopeTextError,
@@ -200,75 +201,24 @@ pub fn validate_accept_reuse_candidate(
     {
         return Err(ReusableInfluenceError::CandidateAlreadyRejected.into());
     }
-    let candidates = derive_reuse_candidates(
-        parts.transcript,
-        parts.canonical_run,
-        parts.ledger,
-        project_scope,
-        &effective,
-    )?;
-    let Some(candidate) = candidates
-        .into_iter()
-        .find(|item| &item.key == candidate_key)
-    else {
-        return Err(ReusableInfluenceError::UnknownCandidate.into());
-    };
-    if effective
-        .active_records()
-        .iter()
-        .any(|record| record.source_locator == candidate.key.source_locator)
-    {
+    if has_active_promotion_origin_for_candidate(&effective, candidate_key) {
         return Err(ReusableInfluenceError::CandidateAlreadyPromoted.into());
     }
-    let review_case = parts
-        .canonical_run
-        .review_cases()
-        .get(
-            candidate
-                .key
-                .source_locator
-                .source_review_case_id
-                .local_index(),
-        )
-        .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
-    verify_source_locator_against_ledger(
-        parts.ledger,
-        &candidate.key.source_locator,
-        &candidate.exact_payload.confirmed_replacement,
-        &candidate.exact_payload.observed_text,
-        parts.transcript,
-        parts.canonical_run,
-        review_case,
-    )?;
-    Ok(candidate)
-}
-
-pub fn validate_accept_reuse_candidate_for_governance_commit(
-    parts: ReuseSessionParts<'_>,
-    reuse_state: &ApplicationReuseState,
-    candidate_key: &ReuseCandidateKey,
-) -> Result<ReuseCandidate, ApplicationReuseError> {
-    let project_scope = reuse_state
-        .project_scope()
-        .ok_or(ApplicationReuseError::MissingProjectScope)?;
-    if candidate_key.project_scope_id != project_scope.stable_id {
-        return Err(ReusableInfluenceError::WrongProjectScope.into());
-    }
-    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
-    crate::reusable_influence::validate_reuse_candidate_key_at_historical_boundary(
+    validate_reuse_candidate_key_at_historical_boundary(
         candidate_key,
         parts.ledger,
         parts.canonical_run,
         parts.transcript,
         &effective,
     )?;
-    if !crate::reusable_influence::source_decision_still_matches_locator(
-        parts.ledger,
-        &candidate_key.source_locator,
-        parts.canonical_run,
-    ) {
-        return Err(ReusableInfluenceError::SourceDecisionNotEffective.into());
-    }
+    build_reuse_candidate_from_key(parts, project_scope, candidate_key)
+}
+
+fn build_reuse_candidate_from_key(
+    parts: ReuseSessionParts<'_>,
+    project_scope: &crate::reuse_primitives::ProjectScope,
+    candidate_key: &ReuseCandidateKey,
+) -> Result<ReuseCandidate, ApplicationReuseError> {
     let review_case = parts
         .canonical_run
         .review_cases()
@@ -310,6 +260,38 @@ pub fn validate_accept_reuse_candidate_for_governance_commit(
             parts.canonical_run,
         ),
     })
+}
+
+pub fn validate_accept_reuse_candidate_for_governance_commit(
+    parts: ReuseSessionParts<'_>,
+    reuse_state: &ApplicationReuseState,
+    candidate_key: &ReuseCandidateKey,
+) -> Result<ReuseCandidate, ApplicationReuseError> {
+    let project_scope = reuse_state
+        .project_scope()
+        .ok_or(ApplicationReuseError::MissingProjectScope)?;
+    if candidate_key.project_scope_id != project_scope.stable_id {
+        return Err(ReusableInfluenceError::WrongProjectScope.into());
+    }
+    let effective = reuse_state.effective_state(parts.ledger, parts.canonical_run);
+    if has_active_promotion_origin_for_candidate(&effective, candidate_key) {
+        return Err(ReusableInfluenceError::CandidateAlreadyPromoted.into());
+    }
+    validate_reuse_candidate_key_at_historical_boundary(
+        candidate_key,
+        parts.ledger,
+        parts.canonical_run,
+        parts.transcript,
+        &effective,
+    )?;
+    if !crate::reusable_influence::source_decision_still_matches_locator(
+        parts.ledger,
+        &candidate_key.source_locator,
+        parts.canonical_run,
+    ) {
+        return Err(ReusableInfluenceError::SourceDecisionNotEffective.into());
+    }
+    build_reuse_candidate_from_key(parts, project_scope, candidate_key)
 }
 
 pub fn validate_reject_reuse_candidate_for_governance_commit(
