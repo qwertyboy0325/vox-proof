@@ -1,7 +1,7 @@
 Status: current
 Owns: Pre-1.0 version semantics — what a VoxProof version number means, the pre-1.0 version ladder, what it takes for a version to be established, and the claims each version allows and forbids.
 Does not own: The scope of any individual version (owned by that version's scope document, e.g. `v0.1.md`), execution order, hypotheses, data contracts, or material decisions.
-Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation and the bounded Gate 1 implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; the bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`; external-user validation remains pending (see Current Version Status).
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation and the bounded Gate 1 implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; the bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`; Gate 4 product-session SQLite integration is owner-accepted at `3e8ec0acd7a1e881bb70f3aa07b2dc910c2a4c5f`; external-user validation remains pending (see Current Version Status).
 
 # VoxProof Pre-1.0 Version Semantics
 
@@ -128,5 +128,5 @@ Anything not assigned to a version by its scope document does not silently belon
 ## Current Version Status
 
 - v0.1: established; local annotated tag pending recreation on the documentation-synchronized replacement tag target. The bounded core mechanism is established by MD-008 at implementation baseline `05b7a2f`; historical tag-target validation passed at MD-008 establishment commit `cde7fd9` (2026-07-18T04:09:43Z). A prior unpublished local annotated tag was deleted before push to synchronize canonical release-state documentation. Product and external-user validation remain pending beyond v0.1.
-- v0.2: in progress. MD-016 has selected the native desktop foundation, and the bounded in-memory Gate 1 implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`. The bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`. External-user validation remains pending. Neither capability establishes v0.2. Built-in ASR is a planned supporting capability and a requirement of the current fundraising-demo delivery target, not transcript authority or version-establishment evidence by itself.
+- v0.2: in progress. Native desktop review, governed Manual Replacement, governed reusable influence, and durable local SQLite-backed review sessions are implemented and owner-accepted. External-user validation remains pending. These supporting capabilities do not establish v0.2.
 - v0.3 and later: not established. Governed correction reuse remains a v0.3 validation target and is unproven. A fundraising demonstration may include v0.3-oriented reuse capabilities without establishing v0.3.
