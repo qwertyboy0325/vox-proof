@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::reusable_influence::ReuseCandidateKey;
 use crate::reusable_influence::{
-    ExactReusableCorrection, GovernanceActorContext, ReusableGovernanceEvent,
+    AllowedEffectsConsent, ExactReusableCorrection, GovernanceActorContext,
+    ReusableGovernanceEvent, ReuseAllowedEffect, ReuseCandidateKey,
 };
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ReusableInfluenceRecordId,
@@ -60,6 +60,13 @@ pub(crate) struct PersistedReuseCandidateKeyV1 {
     pub(crate) source_locator: PersistedSourceDecisionLocatorV1,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PersistedReuseAllowedEffectV1 {
+    ExactObservedFormProposalGeneration,
+    DerivedCanonicalTerminologyProposalGeneration,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "event_kind", rename_all = "snake_case")]
 pub(crate) enum PersistedReuseGovernanceEventV1 {
@@ -74,6 +81,8 @@ pub(crate) enum PersistedReuseGovernanceEventV1 {
         actor: PersistedGovernanceActorV1,
         project_scope_stable_id: String,
         project_scope_display_name: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        allowed_effects: Option<Vec<PersistedReuseAllowedEffectV1>>,
     },
     ReusableInfluenceRevoked {
         record_id: usize,
@@ -249,6 +258,7 @@ pub(crate) fn persist_governance_event(
             source_locator,
             actor,
             project_scope,
+            allowed_effects,
         } => PersistedReuseGovernanceEventV1::PromotionAccepted {
             candidate_key: persist_candidate_key(candidate_key),
             payload: PersistedExactReusableCorrectionV1 {
@@ -259,6 +269,7 @@ pub(crate) fn persist_governance_event(
             actor: persist_governance_actor(actor),
             project_scope_stable_id: project_scope.stable_id.as_str().to_owned(),
             project_scope_display_name: project_scope.display_name.as_str().to_owned(),
+            allowed_effects: persist_allowed_effects_consent(allowed_effects),
         },
         ReusableGovernanceEvent::ReusableInfluenceRevoked { record_id, actor } => {
             PersistedReuseGovernanceEventV1::ReusableInfluenceRevoked {
@@ -296,6 +307,7 @@ pub(crate) fn restore_governance_event(
             actor,
             project_scope_stable_id,
             project_scope_display_name,
+            allowed_effects,
         } => ReusableGovernanceEvent::PromotionAccepted {
             candidate_key: Box::new(restore_candidate_key(candidate_key)?),
             payload: ExactReusableCorrection {
@@ -309,9 +321,10 @@ pub(crate) fn restore_governance_event(
                     SessionPersistenceError::CanonicalMismatch("project scope id".into())
                 })?,
                 ProjectScopeDisplayName::new(project_scope_display_name.clone()).map_err(|_| {
-                    SessionPersistenceError::CanonicalMismatch("project scope display".into())
+                    SessionPersistenceError::CanonicalMismatch("project scope display name".into())
                 })?,
             )),
+            allowed_effects: restore_allowed_effects_consent(allowed_effects)?,
         },
         PersistedReuseGovernanceEventV1::ReusableInfluenceRevoked { record_id, actor } => {
             ReusableGovernanceEvent::ReusableInfluenceRevoked {
@@ -333,6 +346,69 @@ pub(crate) fn restore_governance_event(
             actor: restore_governance_actor(actor),
         },
     })
+}
+
+fn persist_allowed_effects_consent(
+    consent: &AllowedEffectsConsent,
+) -> Option<Vec<PersistedReuseAllowedEffectV1>> {
+    match consent {
+        AllowedEffectsConsent::HistoricalExactOnly => None,
+        AllowedEffectsConsent::Explicit(effects) => Some(
+            effects
+                .iter()
+                .copied()
+                .map(persist_allowed_effect)
+                .collect(),
+        ),
+    }
+}
+
+fn persist_allowed_effect(effect: ReuseAllowedEffect) -> PersistedReuseAllowedEffectV1 {
+    match effect {
+        ReuseAllowedEffect::ExactObservedFormProposalGeneration => {
+            PersistedReuseAllowedEffectV1::ExactObservedFormProposalGeneration
+        }
+        ReuseAllowedEffect::DerivedCanonicalTerminologyProposalGeneration => {
+            PersistedReuseAllowedEffectV1::DerivedCanonicalTerminologyProposalGeneration
+        }
+    }
+}
+
+fn restore_allowed_effects_consent(
+    persisted: &Option<Vec<PersistedReuseAllowedEffectV1>>,
+) -> Result<AllowedEffectsConsent, SessionPersistenceError> {
+    match persisted {
+        None => Ok(AllowedEffectsConsent::HistoricalExactOnly),
+        Some(effects) => {
+            if effects.is_empty() {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "allowed_effects must not be empty when present".to_owned(),
+                ));
+            }
+            let restored: Vec<ReuseAllowedEffect> = effects
+                .iter()
+                .copied()
+                .map(restore_allowed_effect)
+                .collect();
+            if !restored.contains(&ReuseAllowedEffect::ExactObservedFormProposalGeneration) {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "allowed_effects must include ExactObservedFormProposalGeneration".to_owned(),
+                ));
+            }
+            Ok(AllowedEffectsConsent::Explicit(restored))
+        }
+    }
+}
+
+fn restore_allowed_effect(persisted: PersistedReuseAllowedEffectV1) -> ReuseAllowedEffect {
+    match persisted {
+        PersistedReuseAllowedEffectV1::ExactObservedFormProposalGeneration => {
+            ReuseAllowedEffect::ExactObservedFormProposalGeneration
+        }
+        PersistedReuseAllowedEffectV1::DerivedCanonicalTerminologyProposalGeneration => {
+            ReuseAllowedEffect::DerivedCanonicalTerminologyProposalGeneration
+        }
+    }
 }
 
 pub(crate) fn persist_reuse_enabled_binding(

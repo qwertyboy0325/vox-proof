@@ -50,6 +50,7 @@ Active research is not accepted architecture. It must not be implemented or trea
 - [MD-020: Product SQLite Session Authority Schema and Lifecycle Boundary](governance/decisions/MD-020-product-sqlite-session-authority-schema-and-lifecycle-boundary.md)
 - [MD-021: Cross-Material Governed Project Memory And Reuse Decision Boundary](governance/decisions/MD-021-cross-material-governed-project-memory-and-reuse-decision-boundary.md)
 - [MD-022: Human-Raised Single-Span Manual Correction Boundary](governance/decisions/MD-022-human-raised-single-span-manual-correction-boundary.md)
+- [MD-023: Governed Project Knowledge as Derived Analysis Input](governance/decisions/MD-023-governed-project-knowledge-as-derived-analysis-input.md)
 
 ## Document Lifecycle
 

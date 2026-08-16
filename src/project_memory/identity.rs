@@ -1,8 +1,8 @@
 use sha2::{Digest, Sha256};
 
 use crate::reusable_influence::{
-    ExactReusableCorrection, GovernanceActorContext, REUSABLE_INFLUENCE_PROJECTION_VERSION,
-    ReusableGovernanceEvent,
+    AllowedEffectsConsent, ExactReusableCorrection, GovernanceActorContext,
+    REUSABLE_INFLUENCE_PROJECTION_VERSION, ReusableGovernanceEvent,
 };
 use crate::reuse_primitives::{
     ProjectScopeId, SnapshotIdentityRecordProvenance, hash_source_decision_locator, hash_string,
@@ -14,24 +14,45 @@ pub const PROJECT_MEMORY_FORMAT_VERSION: u32 = 1;
 /// A project stays at version 1 until its first human-raised promotion append, so
 /// detector-only projects keep byte-identical snapshot identities.
 pub const PROJECT_MEMORY_FORMAT_VERSION_V2: u32 = 2;
-pub const SUPPORTED_PROJECT_MEMORY_FORMAT_VERSIONS: [u32; 2] = [
+/// Format that may contain explicit promotion `allowed_effects` (MD-023).
+///
+/// A project stays at version 1 or 2 until its first explicit-effects promotion.
+/// Format 1/2 snapshot hashing remains byte-identical to pre-MD-023 behavior.
+pub const PROJECT_MEMORY_FORMAT_VERSION_V3: u32 = 3;
+pub const SUPPORTED_PROJECT_MEMORY_FORMAT_VERSIONS: [u32; 3] = [
     PROJECT_MEMORY_FORMAT_VERSION,
     PROJECT_MEMORY_FORMAT_VERSION_V2,
+    PROJECT_MEMORY_FORMAT_VERSION_V3,
 ];
 
 pub fn is_supported_project_memory_format_version(version: u32) -> bool {
     matches!(
         version,
-        PROJECT_MEMORY_FORMAT_VERSION | PROJECT_MEMORY_FORMAT_VERSION_V2
+        PROJECT_MEMORY_FORMAT_VERSION
+            | PROJECT_MEMORY_FORMAT_VERSION_V2
+            | PROJECT_MEMORY_FORMAT_VERSION_V3
     )
 }
 
 /// Format version required to persist `records` losslessly.
 pub fn required_project_memory_format_version(records: &[ProjectMemoryRecord]) -> u32 {
-    if records.iter().any(record_is_human_raised) {
+    if records.iter().any(record_has_explicit_allowed_effects) {
+        PROJECT_MEMORY_FORMAT_VERSION_V3
+    } else if records.iter().any(record_is_human_raised) {
         PROJECT_MEMORY_FORMAT_VERSION_V2
     } else {
         PROJECT_MEMORY_FORMAT_VERSION
+    }
+}
+
+pub fn record_has_explicit_allowed_effects(record: &ProjectMemoryRecord) -> bool {
+    match &record.event {
+        ReusableGovernanceEvent::PromotionAccepted {
+            allowed_effects, ..
+        } => allowed_effects.is_explicit(),
+        ReusableGovernanceEvent::PromotionCandidateRejected { .. }
+        | ReusableGovernanceEvent::ReusableInfluenceRevoked { .. }
+        | ReusableGovernanceEvent::ReusableInfluenceSuperseded { .. } => false,
     }
 }
 
@@ -112,7 +133,11 @@ pub fn compute_project_memory_snapshot_identity(
     hash_string(&mut hasher, project_id.as_str());
     hasher.update((governance_event_boundary as u64).to_le_bytes());
     hash_string(&mut hasher, REUSABLE_INFLUENCE_PROJECTION_VERSION);
-    let active: Vec<(&ProjectMemoryRecord, SnapshotIdentityRecordProvenance<'_>)> = records
+    let active: Vec<(
+        &ProjectMemoryRecord,
+        SnapshotIdentityRecordProvenance<'_>,
+        AllowedEffectsConsent,
+    )> = records
         .iter()
         .enumerate()
         .filter_map(|(index, record)| match &record.event {
@@ -120,13 +145,18 @@ pub fn compute_project_memory_snapshot_identity(
                 payload,
                 source_locator,
                 actor,
+                allowed_effects,
                 ..
-            } => Some((record, provenance(index, payload, source_locator, actor))),
+            } => Some((
+                record,
+                provenance(index, payload, source_locator, actor),
+                allowed_effects.clone(),
+            )),
             _ => None,
         })
         .collect();
     hasher.update((active.len() as u64).to_le_bytes());
-    for (record, provenance) in active {
+    for (record, provenance, allowed_effects) in active {
         hash_string(&mut hasher, &record.source_session_id);
         hasher.update((provenance.record_id.promotion_event_index() as u64).to_le_bytes());
         hash_string(&mut hasher, provenance.observed_text);
@@ -134,8 +164,20 @@ pub fn compute_project_memory_snapshot_identity(
         hash_source_decision_locator(&mut hasher, provenance.source_locator);
         hash_string(&mut hasher, provenance.promotion_actor_role);
         hash_string(&mut hasher, provenance.promotion_actor_label);
+        if format_version >= PROJECT_MEMORY_FORMAT_VERSION_V3 {
+            hash_allowed_effects(&mut hasher, allowed_effects);
+        }
     }
     ProjectMemorySnapshotIdentity::from_digest(hasher.finalize().into())
+}
+
+fn hash_allowed_effects(hasher: &mut Sha256, consent: AllowedEffectsConsent) {
+    let mut effects = consent.effective();
+    effects.sort_by_key(|effect| effect.stable_id());
+    hasher.update((effects.len() as u64).to_le_bytes());
+    for effect in effects {
+        hash_string(hasher, effect.stable_id());
+    }
 }
 
 fn provenance<'a>(

@@ -38,13 +38,23 @@ fn kafak_transcript() -> vox_proof::transcript::Transcript {
     parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak").expect("transcript")
 }
 
+fn postgres_transcript() -> vox_proof::transcript::Transcript {
+    parse_srt("1\n00:00:00,000 --> 00:00:01,000\nPostgres").expect("transcript")
+}
+
 fn two_cue_transcript() -> vox_proof::transcript::Transcript {
-    parse_srt("1\n00:00:00,000 --> 00:00:01,000\nKafak\n\n2\n00:00:01,000 --> 00:00:02,000\nQafka")
-        .expect("transcript")
+    parse_srt(
+        "1\n00:00:00,000 --> 00:00:01,000\nPostgres\n\n2\n00:00:01,000 --> 00:00:02,000\nQafka",
+    )
+    .expect("transcript")
 }
 
 fn kafka_terms() -> Vec<SessionTermEntry> {
     vec![alias_entry("Kafka", "Kafak")]
+}
+
+fn postgres_terms() -> Vec<SessionTermEntry> {
+    vec![alias_entry("PostgreSQL", "Postgres")]
 }
 
 fn current_srt(durable: &DurableApplicationSession) -> String {
@@ -69,7 +79,7 @@ fn freeze_reuse(durable: &mut DurableApplicationSession) {
         .expect("record freeze");
 }
 
-fn promote_kafak_to_kafka(
+fn promote_postgres_to_postgresql(
     session_store: &ProductSessionStore,
     project_store: &ProductProjectMemoryStore,
     project_id: &vox_proof::reuse_primitives::ProjectScopeId,
@@ -78,15 +88,15 @@ fn promote_kafak_to_kafka(
         session_store,
         project_store,
         project_id,
-        kafak_transcript(),
-        kafka_terms(),
+        postgres_transcript(),
+        postgres_terms(),
         material_use(),
         session_authority("operator-a"),
     )
     .expect("session a");
     let target = session_a.session().review_items()[0].target;
     let prepared = session_a
-        .prepare_manual_replacement(target, "Kafka")
+        .prepare_manual_replacement(target, "PostgreSQL")
         .expect("prepare MR");
     session_a
         .record_manual_replacement(prepared)
@@ -146,13 +156,13 @@ fn a_derivation_exposes_proposal_without_authority_or_output_change() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     assert!(session_b.session().compose_project_reuse_proposals());
@@ -176,8 +186,8 @@ fn a_derivation_exposes_proposal_without_authority_or_output_change() {
             .is_empty()
     );
     assert!(session_b.session().review_ledger().events().is_empty());
-    assert!(current_srt(&session_b).contains("Kafak"));
-    assert!(!current_srt(&session_b).contains("Kafka"));
+    assert!(current_srt(&session_b).contains("Postgres"));
+    assert!(!current_srt(&session_b).contains("PostgreSQL"));
     assert!(
         session_b
             .session()
@@ -203,16 +213,16 @@ fn b_accept_persists_thin_target_atomically_and_changes_output_after_commit() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
-    assert!(current_srt(&session_b).contains("Kafak"));
+    assert!(current_srt(&session_b).contains("Postgres"));
     let target = reuse_item(&session_b).target;
     let prepared = session_b
         .prepare_human_decision(
@@ -230,8 +240,8 @@ fn b_accept_persists_thin_target_atomically_and_changes_output_after_commit() {
         session_b.session().persisted_reuse_proposal_targets().len(),
         1
     );
-    assert!(current_srt(&session_b).contains("Kafka"));
-    assert!(!current_srt(&session_b).contains("Kafak"));
+    assert!(current_srt(&session_b).contains("PostgreSQL"));
+    assert!(!current_srt(&session_b).contains("Postgres"));
     session_b.close().expect("close b");
 }
 
@@ -243,13 +253,13 @@ fn c_reject_keeps_source_and_survives_reopen() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let target = reuse_item(&session_b).target;
@@ -260,13 +270,13 @@ fn c_reject_keeps_source_and_survives_reopen() {
     session_b
         .record_human_decision(prepared)
         .expect("record reject");
-    assert!(current_srt(&session_b).contains("Kafak"));
+    assert!(current_srt(&session_b).contains("Postgres"));
     let session_id = session_b.session_id().to_owned();
     session_b.close().expect("close b");
 
     let reopened = DurableApplicationSession::open(&session_store, &session_id, OpenMode::ReadOnly)
         .expect("reopen");
-    assert!(current_srt(&reopened).contains("Kafak"));
+    assert!(current_srt(&reopened).contains("Postgres"));
     let item = reuse_item(&reopened);
     assert_eq!(item.target.reuse_proposal_identity(), Some(identity));
     assert!(matches!(
@@ -287,13 +297,13 @@ fn d_manual_replacement_writes_z_without_promoting_into_project() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let target = reuse_item(&session_b).target;
@@ -315,8 +325,8 @@ fn d_manual_replacement_writes_z_without_promoting_into_project() {
             payload,
             ..
         } => {
-            assert_eq!(payload.observed_text, "Kafak");
-            assert_eq!(payload.confirmed_replacement, "Kafka");
+            assert_eq!(payload.observed_text, "Postgres");
+            assert_eq!(payload.confirmed_replacement, "PostgreSQL");
         }
         other => panic!("expected promotion, got {other:?}"),
     }
@@ -331,13 +341,13 @@ fn e_reopen_reconstructs_target_from_frozen_boundary() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let before = reuse_item(&session_b);
@@ -373,7 +383,7 @@ fn e_reopen_reconstructs_target_from_frozen_boundary() {
             .freeze_identity,
         freeze.freeze_identity
     );
-    assert!(current_srt(&reopened).contains("Kafka"));
+    assert!(current_srt(&reopened).contains("PostgreSQL"));
     reopened.close().expect("close reopen");
 }
 
@@ -385,7 +395,7 @@ fn f_project_growth_keeps_committed_decision_and_refuses_stale_reuse() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
@@ -450,7 +460,7 @@ fn f_project_growth_keeps_committed_decision_and_refuses_stale_reuse() {
     let mut reopened =
         DurableApplicationSession::open(&session_store, &session_id, OpenMode::Writable)
             .expect("reopen b");
-    assert!(current_srt(&reopened).contains("Kafka"));
+    assert!(current_srt(&reopened).contains("PostgreSQL"));
     let stale_target = reuse_item(&reopened).target;
     let stale = reopened.prepare_human_decision(stale_target, CorrectionDecision::Reject);
     assert!(matches!(
@@ -478,13 +488,13 @@ fn g_missing_project_after_commit_keeps_output_and_blocks_new_reuse() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let target = reuse_item(&session_b).target;
@@ -513,7 +523,7 @@ fn g_missing_project_after_commit_keeps_output_and_blocks_new_reuse() {
     let reopened = DurableApplicationSession::open(&session_store, &session_id, OpenMode::ReadOnly)
         .expect("reopen");
     assert!(!reopened.project_memory_available());
-    assert!(current_srt(&reopened).contains("Kafka"));
+    assert!(current_srt(&reopened).contains("PostgreSQL"));
     assert!(!reopened.session().compose_project_reuse_proposals());
     let target = reuse_item(&reopened).target;
     reopened.close().expect("close readonly");
@@ -533,13 +543,13 @@ fn h_missing_project_before_decision_cannot_authorize_proposal() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let target = reuse_item(&session_b).target;
@@ -581,14 +591,14 @@ fn i_same_replacement_collision_keeps_canonical_target_and_is_not_gate7() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
-        kafka_terms(),
+        postgres_transcript(),
+        postgres_terms(),
     );
     let items = session_b.session().review_items();
     let canonical: Vec<_> = items
@@ -628,14 +638,14 @@ fn j_different_replacement_collision_does_not_choose_automatically() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
-        vec![alias_entry("Cafka", "Kafak")],
+        postgres_transcript(),
+        vec![alias_entry("Cafka", "Postgres")],
     );
     let items = session_b.session().review_items();
     let canonical = items.iter().find(|item| {
@@ -662,7 +672,7 @@ fn j_different_replacement_collision_does_not_choose_automatically() {
         }
         other => panic!("expected reuse kind, got {other:?}"),
     }
-    assert!(current_srt(&session_b).contains("Kafak"));
+    assert!(current_srt(&session_b).contains("Postgres"));
     session_b.close().expect("close");
 }
 
@@ -674,13 +684,13 @@ fn k_target_without_decision_rolls_back() {
     let project = project_store.create("Japan SKU").expect("project");
     let project_id = project.project_id().clone();
     project.close().expect("close project");
-    promote_kafak_to_kafka(&session_store, &project_store, &project_id);
+    promote_postgres_to_postgresql(&session_store, &project_store, &project_id);
 
     let mut session_b = bind_b(
         &session_store,
         &project_store,
         &project_id,
-        kafak_transcript(),
+        postgres_transcript(),
         Vec::new(),
     );
     let target = reuse_item(&session_b).target;
@@ -708,7 +718,7 @@ fn k_target_without_decision_rolls_back() {
             .is_empty()
     );
     assert!(reopened.session().review_ledger().events().is_empty());
-    assert!(current_srt(&reopened).contains("Kafak"));
+    assert!(current_srt(&reopened).contains("Postgres"));
     reopened.close().expect("close reopen");
 }
 
@@ -724,7 +734,7 @@ fn l_v1_create_and_canonical_decision_remain_available() {
         session_authority("operator"),
     )
     .expect("v1 create");
-    assert_eq!(durable.format_version(), 3);
+    assert_eq!(durable.format_version(), 4);
     assert!(!durable.session().compose_project_reuse_proposals());
     let target = durable.session().review_items()[0].target;
     assert!(matches!(

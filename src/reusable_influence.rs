@@ -50,9 +50,72 @@ pub struct ReuseCandidateKey {
     pub project_scope_id: ProjectScopeId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ReuseAllowedEffect {
     ExactObservedFormProposalGeneration,
+    DerivedCanonicalTerminologyProposalGeneration,
+}
+
+impl ReuseAllowedEffect {
+    pub fn stable_id(self) -> &'static str {
+        match self {
+            Self::ExactObservedFormProposalGeneration => "exact-observed-form-proposal-generation",
+            Self::DerivedCanonicalTerminologyProposalGeneration => {
+                "derived-canonical-terminology-proposal-generation"
+            }
+        }
+    }
+}
+
+/// Durable promotion-time consent. Historical JSON that omitted `allowed_effects`
+/// stays exact-only forever and is never inferred into derived terminology.
+///
+/// Stored consent is authority. Later eligibility or detector versions may only
+/// interpret under this set; they must not rewrite it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AllowedEffectsConsent {
+    HistoricalExactOnly,
+    Explicit(Vec<ReuseAllowedEffect>),
+}
+
+impl AllowedEffectsConsent {
+    pub fn exact_only_explicit() -> Self {
+        Self::Explicit(vec![
+            ReuseAllowedEffect::ExactObservedFormProposalGeneration,
+        ])
+    }
+
+    /// Promotion-time eligibility only. Fold and restore copy stored consent;
+    /// they must not call this.
+    pub fn for_confirmed_replacement(replacement: &str) -> Self {
+        let mut effects = vec![ReuseAllowedEffect::ExactObservedFormProposalGeneration];
+        if crate::phonetic::replacement_is_derived_terminology_eligible(replacement) {
+            effects.push(ReuseAllowedEffect::DerivedCanonicalTerminologyProposalGeneration);
+        }
+        Self::Explicit(effects)
+    }
+
+    pub fn is_explicit(&self) -> bool {
+        matches!(self, Self::Explicit(_))
+    }
+
+    pub fn effective(&self) -> Vec<ReuseAllowedEffect> {
+        match self {
+            Self::HistoricalExactOnly => {
+                vec![ReuseAllowedEffect::ExactObservedFormProposalGeneration]
+            }
+            Self::Explicit(effects) => {
+                let mut sorted = effects.clone();
+                sorted.sort_by_key(|effect| effect.stable_id());
+                sorted.dedup();
+                sorted
+            }
+        }
+    }
+
+    pub fn includes(&self, effect: ReuseAllowedEffect) -> bool {
+        self.effective().contains(&effect)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,6 +145,7 @@ pub enum ReusableGovernanceEvent {
         source_locator: Box<SourceDecisionLocator>,
         actor: GovernanceActorContext,
         project_scope: Box<ProjectScope>,
+        allowed_effects: AllowedEffectsConsent,
     },
     ReusableInfluenceRevoked {
         record_id: ReusableInfluenceRecordId,
@@ -132,6 +196,7 @@ pub struct EffectiveReusableInfluenceRecord {
     pub promotion_actor: GovernanceActorContext,
     pub source_decision_still_effective: bool,
     pub superseded_by: Option<ReusableInfluenceRecordId>,
+    pub allowed_effects: AllowedEffectsConsent,
 }
 
 /// Effective reusable-influence state produced only by deterministic governance folding.
@@ -516,6 +581,7 @@ pub fn fold_effective_state(
                 source_locator,
                 actor,
                 project_scope,
+                allowed_effects,
                 ..
             } => {
                 let record_id = ReusableInfluenceRecordId::from_promotion_event_index(event_index);
@@ -533,6 +599,7 @@ pub fn fold_effective_state(
                             canonical_run,
                         ),
                         superseded_by: None,
+                        allowed_effects: allowed_effects.clone(),
                     },
                 );
             }
@@ -661,7 +728,10 @@ pub fn derive_reuse_candidates(
                 &replacement,
             ),
             proposed_scope: project_scope.stable_id.clone(),
-            proposed_allowed_effects: vec![ReuseAllowedEffect::ExactObservedFormProposalGeneration],
+            proposed_allowed_effects: AllowedEffectsConsent::for_confirmed_replacement(
+                replacement.as_str(),
+            )
+            .effective(),
             source_decision_still_effective: source_decision_still_matches_locator(
                 ledger,
                 &source_locator,
@@ -1332,6 +1402,7 @@ mod correction_03_snapshot_integrity_tests {
                 display_label: "Ezra".to_owned(),
             },
             project_scope: Box::new(scope.clone()),
+            allowed_effects: AllowedEffectsConsent::HistoricalExactOnly,
         });
         let effective = fold_effective_state(&ledger, &review_ledger, &canonical);
         build_reusable_influence_snapshot(&scope, &ledger, &effective).expect("snapshot")

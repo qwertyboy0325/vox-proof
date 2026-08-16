@@ -240,6 +240,9 @@ fn promotion_after_rejection_replay_fails() {
             display_label: "op".to_owned(),
         },
         project_scope: Box::new(scope.clone()),
+        allowed_effects: vox_proof::reusable_influence::AllowedEffectsConsent::for_confirmed_replacement(
+            "Kafka",
+        ),
     });
     let parts = session.reuse_parts();
     assert!(

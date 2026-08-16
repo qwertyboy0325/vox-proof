@@ -51,6 +51,9 @@ pub enum ReviewItemOrigin {
     PreviousCorrection {
         conflict_with_canonical: bool,
     },
+    ProjectTerminology {
+        conflict_with_canonical: bool,
+    },
     HumanRaisedCorrection,
 }
 
@@ -460,7 +463,7 @@ impl DesktopController {
     pub fn human_raised_available(&self) -> bool {
         self.durable
             .as_ref()
-            .is_some_and(|durable| durable.format_version() == 3)
+            .is_some_and(|durable| durable.format_version() >= 3)
     }
 
     pub fn cue_texts(&self) -> Result<Vec<(usize, String)>, ControllerError> {
@@ -966,10 +969,19 @@ impl DesktopController {
                     } => ReviewItemOrigin::PreviousCorrection {
                         conflict_with_canonical,
                     },
+                    ApplicationReviewItemKind::ProjectTerminologyProposal {
+                        conflict_with_canonical,
+                    } => ReviewItemOrigin::ProjectTerminology {
+                        conflict_with_canonical,
+                    },
                 };
                 let uses_reuse_proposal_target = matches!(
                     item.target,
                     ApplicationReviewTarget::ProjectReuseProposal { .. }
+                );
+                let uses_terminology_proposal_target = matches!(
+                    item.target,
+                    ApplicationReviewTarget::ProjectTerminologyProposal { .. }
                 );
                 ReviewItemView {
                     queue_index,
@@ -1004,7 +1016,8 @@ impl DesktopController {
                     status: status_label(item.status.clone()),
                     origin,
                     uses_reuse_proposal_target,
-                    reuse_decision_blocked: uses_reuse_proposal_target
+                    reuse_decision_blocked: (uses_reuse_proposal_target
+                        || uses_terminology_proposal_target)
                         && matches!(item.status, ReviewCaseStatus::Undecided)
                         && !project_available,
                 }

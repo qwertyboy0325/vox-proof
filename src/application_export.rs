@@ -47,6 +47,11 @@ pub fn render_application_decision_log(bundle: &ApplicationReviewExportBundle) -
                         .reuse_proposal_target_identity
                         .map(|identity| identity.to_tagged_string())
                 })
+                .or_else(|| {
+                    record
+                        .terminology_proposal_target_identity
+                        .map(|identity| identity.to_tagged_string())
+                })
                 .unwrap_or_else(|| "unknown".to_owned())
         ));
         output.push_str(&format!(

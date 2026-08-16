@@ -82,6 +82,20 @@ pub fn detect_ascii_latin_phonetic_matches(
     detect_ascii_latin_phonetic_matches_internal(run, transcript, entries)
 }
 
+pub fn detect_ascii_latin_phonetic_matches_project_derived_terminology(
+    run: &AnalysisRun,
+    transcript: &Transcript,
+    entries: &[SessionTermEntry],
+) -> Result<Vec<CandidateSpan>, DetectionError> {
+    crate::candidate::validate_detection_inputs_with_configuration(
+        run,
+        transcript,
+        entries,
+        crate::candidate::project_derived_terminology_analysis_identity(),
+    )?;
+    detect_ascii_latin_phonetic_matches_internal(run, transcript, entries)
+}
+
 fn detect_ascii_latin_phonetic_matches_internal(
     run: &AnalysisRun,
     transcript: &Transcript,
@@ -270,6 +284,15 @@ fn phonetic_target_from_surface(
         canonical_term: entry.canonical_term.clone(),
         entry: entry.clone(),
     })
+}
+
+/// Existing ASCII-Latin phonetic canonical-target structural gates.
+///
+/// Used at promotion time to decide whether confirmed replacement Y may also
+/// authorize derived canonical-terminology proposal generation. Observed X is
+/// not an input.
+pub(crate) fn replacement_is_derived_terminology_eligible(replacement: &str) -> bool {
+    parse_structural_ascii_latin_surface(replacement).is_some()
 }
 
 fn parse_structural_ascii_latin_surface(surface: &str) -> Option<StructuralSurface> {

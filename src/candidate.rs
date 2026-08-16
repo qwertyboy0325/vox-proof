@@ -380,6 +380,31 @@ pub(crate) const fn reuse_enabled_session_term_analysis_identity() -> AnalysisCo
     REUSE_ENABLED_SESSION_TERM_ANALYSIS_IDENTITY
 }
 
+pub(crate) const PROJECT_DERIVED_TERMINOLOGY_DETECTORS: &[DetectorIdentity] = &[PHONETIC_DETECTOR];
+
+pub(crate) const PROJECT_DERIVED_TERMINOLOGY_DETECTOR_SET: CanonicalDetectorSetIdentity =
+    CanonicalDetectorSetIdentity::new(PROJECT_DERIVED_TERMINOLOGY_DETECTORS);
+
+pub(crate) const PROJECT_DERIVED_TERMINOLOGY_DETECTOR_CONFIG: DetectorConfigIdentity =
+    DetectorConfigIdentity::new("project-derived-canonical-terminology-cue-local", "0.1.0");
+
+pub(crate) const PROJECT_DERIVED_TERMINOLOGY_ALGORITHM: AlgorithmIdentity = AlgorithmIdentity::new(
+    "project-derived-ascii-double-metaphone-levenshtein",
+    "rphonetic-3.0.6-v1",
+);
+
+pub(crate) const PROJECT_DERIVED_TERMINOLOGY_ANALYSIS_IDENTITY: AnalysisConfigurationIdentity =
+    AnalysisConfigurationIdentity::new(
+        PROJECT_DERIVED_TERMINOLOGY_DETECTOR_SET,
+        PROJECT_DERIVED_TERMINOLOGY_DETECTOR_CONFIG,
+        PROJECT_DERIVED_TERMINOLOGY_ALGORITHM,
+    );
+
+pub(crate) const fn project_derived_terminology_analysis_identity() -> AnalysisConfigurationIdentity
+{
+    PROJECT_DERIVED_TERMINOLOGY_ANALYSIS_IDENTITY
+}
+
 pub(crate) fn detector_config_identity_from_parts(
     id: &str,
     version: &str,
@@ -387,6 +412,7 @@ pub(crate) fn detector_config_identity_from_parts(
     for config in [
         CANONICAL_SESSION_TERM_DETECTOR_CONFIG,
         REUSE_ENABLED_SESSION_TERM_DETECTOR_CONFIG,
+        PROJECT_DERIVED_TERMINOLOGY_DETECTOR_CONFIG,
     ] {
         if config.id() == id && config.version() == version {
             return Some(config);
@@ -399,6 +425,7 @@ pub(crate) fn algorithm_identity_from_parts(id: &str, version: &str) -> Option<A
     for algorithm in [
         CANONICAL_SESSION_TERM_ALGORITHM,
         REUSE_ENABLED_SESSION_TERM_ALGORITHM,
+        PROJECT_DERIVED_TERMINOLOGY_ALGORITHM,
     ] {
         if algorithm.id() == id && algorithm.version() == version {
             return Some(algorithm);
@@ -407,7 +434,7 @@ pub(crate) fn algorithm_identity_from_parts(id: &str, version: &str) -> Option<A
     None
 }
 
-fn validate_detection_inputs_with_configuration(
+pub(crate) fn validate_detection_inputs_with_configuration(
     run: &AnalysisRun,
     transcript: &Transcript,
     entries: &[SessionTermEntry],

@@ -824,6 +824,12 @@ impl ReviewApp {
                             item.status,
                             item.source_text
                         ),
+                        ReviewItemOrigin::ProjectTerminology { .. } => format!(
+                            "Item {} · Previous terminology · {}\n{}",
+                            item.queue_index + 1,
+                            item.status,
+                            item.source_text
+                        ),
                         ReviewItemOrigin::HumanRaisedCorrection => format!(
                             "Item {} · Your correction · {}\n{}",
                             item.queue_index + 1,
@@ -888,7 +894,11 @@ impl ReviewApp {
             .iter()
             .filter(|item| {
                 item.status == "Needs review"
-                    && matches!(item.origin, ReviewItemOrigin::PreviousCorrection { .. })
+                    && matches!(
+                        item.origin,
+                        ReviewItemOrigin::PreviousCorrection { .. }
+                            | ReviewItemOrigin::ProjectTerminology { .. }
+                    )
             })
             .count();
         ui.horizontal(|ui| {
@@ -943,6 +953,24 @@ impl ReviewApp {
                 ui.label(
                     "Based on a correction approved in an earlier review. This is a suggestion, \
                      not an automatic change.",
+                );
+                if conflict_with_canonical {
+                    ui.colored_label(
+                        Color32::YELLOW,
+                        "A term check on this same text suggests a different replacement. \
+                         Choose which text should appear.",
+                    );
+                }
+            }
+            ReviewItemOrigin::ProjectTerminology {
+                conflict_with_canonical,
+            } => {
+                ui.label(
+                    RichText::new("Suggested using terminology from previous corrections").strong(),
+                );
+                ui.label(
+                    "Based on a confirmed replacement from an earlier review, not the same typed \
+                     error. This is a suggestion, not an automatic change.",
                 );
                 if conflict_with_canonical {
                     ui.colored_label(

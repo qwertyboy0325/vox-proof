@@ -508,6 +508,11 @@ fn load_reuse_context_from_connection(
                         )
                     })?;
             }
+            ReviewLedgerEvent::TerminologyProposalDecisionRecorded { .. } => {
+                return Err(SessionPersistenceError::CanonicalMismatch(
+                    "reuse store reconstruct does not support terminology decisions".to_owned(),
+                ));
+            }
             ReviewLedgerEvent::CaseRaised { .. } => {
                 return Err(SessionPersistenceError::CanonicalMismatch(
                     "reuse store reconstruct does not support CaseRaised".to_owned(),

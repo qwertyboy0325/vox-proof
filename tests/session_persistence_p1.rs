@@ -364,7 +364,7 @@ fn unknown_format_version_fails_closed() {
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly),
         Err(SessionPersistenceError::UnsupportedFormatVersion {
             found: 99,
-            supported: 3
+            supported: 4
         })
     ));
 }

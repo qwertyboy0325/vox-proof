@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use crate::application_reuse::{
-    build_promotion_accepted_event, validate_accept_reuse_candidate_for_governance_commit,
     PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
     PreparedProjectScopeInitialization, PreparedReusableInfluenceRevocation,
     PreparedReusableInfluenceSupersession, PreparedReuseCandidateAcceptance,
-    PreparedReuseCandidateRejection,
+    PreparedReuseCandidateRejection, build_promotion_accepted_event,
+    validate_accept_reuse_candidate_for_governance_commit,
 };
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession, DeclaredSessionAuthority,
@@ -19,12 +19,11 @@ use crate::project_memory::{
 use crate::reuse_primitives::ProjectScopeId;
 use crate::review::ReviewCaseId;
 use crate::session_persistence::canonical::{
-    session_format_supports_human_raised, PRODUCT_SESSION_FORMAT_VERSION_V2,
-    PRODUCT_SESSION_FORMAT_VERSION_V3,
+    PRODUCT_SESSION_FORMAT_VERSION_V2, session_format_supports_human_raised,
 };
 use crate::session_persistence::error::SessionPersistenceError;
 use crate::session_persistence::hydrate::{
-    hydrate_application_review_session, ProjectMemoryHydrateOverlay,
+    ProjectMemoryHydrateOverlay, hydrate_application_review_session,
 };
 use crate::session_persistence::store::{OpenMode, OpenedStoreSession, ProductSessionStore};
 use crate::session_persistence::{
@@ -125,6 +124,50 @@ impl DurableApplicationSession {
         assemble_opened(store.root(), session_id, opened)
     }
 
+    /// Compatibility-test constructor using the historical unbound format-3 create path.
+    pub fn create_historical_unbound_format_v3_for_compatibility_test(
+        store: &ProductSessionStore,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+    ) -> Result<Self, SessionPersistenceError> {
+        let (session_id, opened) = store
+            .create_historical_unbound_format_v3_for_compatibility_test(
+                transcript,
+                session_terms,
+                material_use,
+                session_authority,
+            )?;
+        assemble_opened(store.root(), session_id, opened)
+    }
+
+    /// Compatibility-test constructor using the historical bound format-3 create path.
+    pub fn create_historical_bound_format_v3_for_compatibility_test(
+        store: &ProductSessionStore,
+        project_store: &ProductProjectMemoryStore,
+        project_id: &ProjectScopeId,
+        transcript: Transcript,
+        session_terms: Vec<SessionTermEntry>,
+        material_use: ApplicationMaterialUseDeclaration,
+        session_authority: DeclaredSessionAuthority,
+    ) -> Result<Self, SessionPersistenceError> {
+        let project = project_store
+            .open(project_id, ProjectMemoryOpenMode::ReadOnly)
+            .map_err(map_project_memory_error)?;
+        let display_name = project.display_name().as_str().to_owned();
+        project.close().map_err(map_project_memory_error)?;
+        let (session_id, opened) = store.create_historical_bound_format_v3_for_compatibility_test(
+            transcript,
+            session_terms,
+            material_use,
+            session_authority,
+            project_id.as_str(),
+            &display_name,
+        )?;
+        assemble_opened(store.root(), session_id, opened)
+    }
+
     pub fn open(
         store: &ProductSessionStore,
         session_id: &str,
@@ -182,7 +225,9 @@ impl DurableApplicationSession {
         prepared: PreparedHumanDecision,
     ) -> Result<(), SessionPersistenceError> {
         self.ensure_writable()?;
-        if prepared.reuse_proposal_target.is_some() {
+        if prepared.reuse_proposal_target.is_some()
+            || prepared.terminology_proposal_target.is_some()
+        {
             self.ensure_writable_reuse()?;
         }
         ProductSessionStore::append_review_ledger_event(&mut self.opened, &prepared)?;
@@ -261,6 +306,7 @@ impl DurableApplicationSession {
         if matches!(
             target,
             crate::application_service::ApplicationReviewTarget::ProjectReuseProposal { .. }
+                | crate::application_service::ApplicationReviewTarget::ProjectTerminologyProposal { .. }
         ) {
             self.ensure_writable_reuse()?;
         }
@@ -278,6 +324,7 @@ impl DurableApplicationSession {
         if matches!(
             target,
             crate::application_service::ApplicationReviewTarget::ProjectReuseProposal { .. }
+                | crate::application_service::ApplicationReviewTarget::ProjectTerminologyProposal { .. }
         ) {
             self.ensure_writable_reuse()?;
         }
@@ -633,7 +680,7 @@ fn hydrate_from_opened(
             &opened.connection,
             &opened.session_id,
         )?)
-    } else if opened.format_version == PRODUCT_SESSION_FORMAT_VERSION_V3 {
+    } else if session_format_supports_human_raised(opened.format_version) {
         load_optional_bound_project_id(&opened.connection, &opened.session_id)?
     } else {
         None

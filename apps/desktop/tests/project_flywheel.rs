@@ -69,6 +69,20 @@ fn promote_selected(controller: &mut DesktopController) {
         .unwrap();
 }
 
+fn is_project_knowledge(origin: ReviewItemOrigin) -> bool {
+    matches!(
+        origin,
+        ReviewItemOrigin::PreviousCorrection { .. } | ReviewItemOrigin::ProjectTerminology { .. }
+    )
+}
+
+fn previous_knowledge_waiting(items: &[voxproof_desktop::controller::ReviewItemView]) -> usize {
+    items
+        .iter()
+        .filter(|item| item.status == "Needs review" && is_project_knowledge(item.origin))
+        .count()
+}
+
 #[test]
 fn new_project_creates_v2_bound_session_without_uuid_entry() {
     let (mut controller, _temp) = controller_with_store();
@@ -89,10 +103,12 @@ fn existing_project_creates_another_v2_session() {
     let project_id = controller.create_project("Lecture series").unwrap();
     start_bound(&mut controller, A_SRT, KAFKA_TERMS, "a.srt", &project_id);
     controller.reset().unwrap();
-    assert!(controller
-        .available_projects()
-        .iter()
-        .any(|project| project.display_name == "Lecture series"));
+    assert!(
+        controller
+            .available_projects()
+            .iter()
+            .any(|project| project.display_name == "Lecture series")
+    );
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     assert!(controller.is_bound_to_project());
     assert_eq!(
@@ -125,10 +141,10 @@ fn material_b_reuse_proposal_visible_and_does_not_change_output_until_accept() {
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     let items = controller.items().unwrap();
     assert_eq!(items.len(), 1);
-    assert!(items[0].uses_reuse_proposal_target);
+    assert!(!items[0].uses_reuse_proposal_target);
     assert!(matches!(
         items[0].origin,
-        ReviewItemOrigin::PreviousCorrection {
+        ReviewItemOrigin::ProjectTerminology {
             conflict_with_canonical: false
         }
     ));
@@ -208,7 +224,10 @@ fn close_reopen_b_keeps_accepted_output() {
     controller.select_resume_session_id(session_id);
     controller.open_selected_session_writable().unwrap();
     assert!(controller.projection().unwrap().srt.contains("Kafka"));
-    assert!(controller.items().unwrap()[0].uses_reuse_proposal_target);
+    assert!(matches!(
+        controller.items().unwrap()[0].origin,
+        ReviewItemOrigin::ProjectTerminology { .. }
+    ));
 }
 
 #[test]
@@ -285,17 +304,18 @@ fn different_y_collision_shows_both_without_auto_winner() {
     let items = controller.items().unwrap();
     assert_eq!(items.len(), 2);
     assert!(items.iter().any(|item| !item.uses_reuse_proposal_target));
-    assert!(items.iter().any(|item| item.uses_reuse_proposal_target));
-    let reuse = items
+    let terminology = items
         .iter()
-        .find(|item| item.uses_reuse_proposal_target)
+        .find(|item| {
+            matches!(
+                item.origin,
+                ReviewItemOrigin::ProjectTerminology {
+                    conflict_with_canonical: true
+                }
+            )
+        })
         .unwrap();
-    assert!(matches!(
-        reuse.origin,
-        ReviewItemOrigin::PreviousCorrection {
-            conflict_with_canonical: true
-        }
-    ));
+    assert!(!terminology.uses_reuse_proposal_target);
     assert!(controller.projection().unwrap().srt.contains("Kafak"));
 }
 
@@ -344,7 +364,10 @@ fn reuse_decision_uses_project_reuse_target() {
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     let items = controller.items().unwrap();
     assert_eq!(items.len(), 1);
-    assert!(items[0].uses_reuse_proposal_target);
+    assert!(matches!(
+        items[0].origin,
+        ReviewItemOrigin::ProjectTerminology { .. }
+    ));
 }
 
 #[test]
@@ -358,13 +381,7 @@ fn reuse_only_session_keeps_export_enabled_without_claiming_queue_complete() {
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     let items = controller.items().unwrap();
     let progress = controller.progress().unwrap();
-    let waiting = items
-        .iter()
-        .filter(|item| {
-            item.status == "Needs review"
-                && matches!(item.origin, ReviewItemOrigin::PreviousCorrection { .. })
-        })
-        .count();
+    let waiting = previous_knowledge_waiting(&items);
     assert_eq!(waiting, 1);
     assert!(matches!(
         progress.decision_coverage,
@@ -394,13 +411,7 @@ fn different_y_coverage_uses_canonical_total_not_composed_len() {
     let items = controller.items().unwrap();
     let progress = controller.progress().unwrap();
     let canonical_total = controller.header().unwrap().total_review_cases;
-    let waiting = items
-        .iter()
-        .filter(|item| {
-            item.status == "Needs review"
-                && matches!(item.origin, ReviewItemOrigin::PreviousCorrection { .. })
-        })
-        .count();
+    let waiting = previous_knowledge_waiting(&items);
     assert_eq!(items.len(), 2);
     assert_eq!(canonical_total, 1);
     assert_eq!(waiting, 1);
@@ -439,10 +450,10 @@ fn human_raised_corrects_unflagged_span_and_reuses_on_material_b() {
         .use_selected_correction_in_related_reviews(epoch)
         .unwrap();
     let entries = controller.project_memory_entries().unwrap();
-    assert!(entries
-        .iter()
-        .any(|entry| entry.observed_text == "Postgres"
-            && entry.confirmed_replacement == "PostgreSQL"));
+    assert!(
+        entries.iter().any(|entry| entry.observed_text == "Postgres"
+            && entry.confirmed_replacement == "PostgreSQL")
+    );
     controller.reset().unwrap();
 
     start_bound(

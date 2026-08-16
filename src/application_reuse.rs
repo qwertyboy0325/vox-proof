@@ -10,10 +10,10 @@ use crate::project_memory::{
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ExactReusableCorrection, GovernanceActorContext,
     ReusableGovernanceEvent, ReusableInfluenceEffectiveState, ReusableInfluenceError,
-    ReusableInfluenceLedger, ReusableInfluenceSnapshot, ReuseAllowedEffect, ReuseCandidate,
-    ReuseCandidateKey, build_reusable_influence_snapshot, derive_reuse_candidates,
-    fold_effective_state, has_active_promotion_origin_for_candidate,
-    resolve_exact_input_projection, validate_reuse_candidate_key_at_historical_boundary,
+    ReusableInfluenceLedger, ReusableInfluenceSnapshot, ReuseCandidate, ReuseCandidateKey,
+    build_reusable_influence_snapshot, derive_reuse_candidates, fold_effective_state,
+    has_active_promotion_origin_for_candidate, resolve_exact_input_projection,
+    validate_reuse_candidate_key_at_historical_boundary,
 };
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ProjectScopeTextError,
@@ -292,7 +292,11 @@ fn build_reuse_candidate_from_key(
             replacement,
         ),
         proposed_scope: project_scope.stable_id.clone(),
-        proposed_allowed_effects: vec![ReuseAllowedEffect::ExactObservedFormProposalGeneration],
+        proposed_allowed_effects:
+            crate::reusable_influence::AllowedEffectsConsent::for_confirmed_replacement(
+                replacement.as_str(),
+            )
+            .effective(),
         source_decision_still_effective:
             crate::reusable_influence::source_decision_still_matches_locator(
                 parts.ledger,
@@ -376,6 +380,10 @@ pub fn build_promotion_accepted_event(
         source_locator: Box::new(candidate.key.source_locator.clone()),
         actor: governance_actor_from_authority(authority),
         project_scope: Box::new(project_scope.clone()),
+        allowed_effects:
+            crate::reusable_influence::AllowedEffectsConsent::for_confirmed_replacement(
+                &candidate.exact_payload.confirmed_replacement,
+            ),
     }
 }
 

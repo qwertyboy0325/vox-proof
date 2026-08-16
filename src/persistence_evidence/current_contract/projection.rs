@@ -261,6 +261,15 @@ fn map_ledger_event(index: usize, event: &ReviewLedgerEvent) -> EvidenceReviewLe
             observed_revision,
             decision,
         ),
+        ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+            target_identity,
+            observed_revision,
+            decision,
+        } => (
+            target_identity.to_tagged_string(),
+            observed_revision,
+            decision,
+        ),
         ReviewLedgerEvent::CaseRaised {
             case_id,
             observed_revision,
@@ -330,6 +339,7 @@ fn map_governance_event(
             source_locator,
             actor,
             project_scope,
+            ..
         } => EvidenceReuseGovernanceEvent::PromotionAccepted {
             event_index: index,
             candidate_key: map_candidate_key(candidate_key, payload),
@@ -393,6 +403,7 @@ fn rejection_payload_for_key(
                 _ => None,
             },
             ReviewLedgerEvent::ReuseProposalDecisionRecorded { .. }
+            | ReviewLedgerEvent::TerminologyProposalDecisionRecorded { .. }
             | ReviewLedgerEvent::CaseRaised { .. } => None,
         })
         .unwrap_or_default();

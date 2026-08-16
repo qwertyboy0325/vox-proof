@@ -1,5 +1,6 @@
 use crate::anchor::{SourceAnchor, TranscriptRevisionId};
 use crate::candidate::CandidateSpan;
+use crate::project_terminology::ProjectTerminologyProposalTargetIdentity;
 use crate::reuse_proposal_target::ReuseProposalTargetIdentity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -263,6 +264,11 @@ pub enum ReviewLedgerEvent {
         observed_revision: TranscriptRevisionId,
         decision: CorrectionDecision,
     },
+    TerminologyProposalDecisionRecorded {
+        target_identity: ProjectTerminologyProposalTargetIdentity,
+        observed_revision: TranscriptRevisionId,
+        decision: CorrectionDecision,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -365,6 +371,30 @@ impl ReviewLedger {
         Ok(())
     }
 
+    pub fn record_terminology_decision(
+        &mut self,
+        target_identity: ProjectTerminologyProposalTargetIdentity,
+        observed_revision: TranscriptRevisionId,
+        decision: CorrectionDecision,
+    ) -> Result<(), ReviewLedgerError> {
+        if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
+            if alternative_index != 0 {
+                return Err(ReviewLedgerError::ReuseAlternativeIndexOutOfRange {
+                    alternative_index,
+                });
+            }
+        }
+
+        self.events
+            .push(ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            });
+
+        Ok(())
+    }
+
     pub fn status_for(&self, case_id: ReviewCaseId) -> ReviewCaseStatus {
         let mut status = ReviewCaseStatus::Undecided;
 
@@ -398,6 +428,29 @@ impl ReviewLedger {
         let mut status = ReviewCaseStatus::Undecided;
         for event in &self.events {
             if let ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+                target_identity: event_identity,
+                observed_revision,
+                decision,
+            } = event
+            {
+                if *event_identity == target_identity {
+                    status = ReviewCaseStatus::Decided {
+                        observed_revision: *observed_revision,
+                        decision: decision.clone(),
+                    };
+                }
+            }
+        }
+        status
+    }
+
+    pub fn status_for_terminology(
+        &self,
+        target_identity: ProjectTerminologyProposalTargetIdentity,
+    ) -> ReviewCaseStatus {
+        let mut status = ReviewCaseStatus::Undecided;
+        for event in &self.events {
+            if let ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
                 target_identity: event_identity,
                 observed_revision,
                 decision,

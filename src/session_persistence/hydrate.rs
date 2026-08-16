@@ -7,7 +7,7 @@ use crate::application_reuse::{
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession,
     DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority, DeclaredSessionOperatorRole,
-    ProjectReuseSessionState, assemble_application_review_session,
+    ProjectReuseSessionState, ProjectTerminologySessionState, assemble_application_review_session,
 };
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::project_memory::{
@@ -17,9 +17,10 @@ use crate::project_memory::{
 use crate::reuse_primitives::ProjectScope;
 use crate::review::ReviewLedger;
 use crate::session_persistence::canonical::{
-    PRODUCT_SESSION_FORMAT_VERSION_V2, PRODUCT_SESSION_FORMAT_VERSION_V3,
     restore_frozen_project_reuse, restore_human_raised_cases, restore_ledger_event,
-    restore_reuse_proposal_target, restore_session_terms, restore_transcript,
+    restore_project_terminology_proposal_target, restore_reuse_proposal_target,
+    restore_session_terms, restore_transcript, session_format_supports_human_raised,
+    session_format_supports_project_binding, session_format_supports_project_terminology,
     verify_analysis_snapshot, verify_review_cases,
 };
 use crate::session_persistence::error::SessionPersistenceError;
@@ -86,16 +87,27 @@ pub(crate) fn hydrate_application_review_session(
     for persisted in &capture.reuse_proposal_targets {
         persisted_targets.push(restore_reuse_proposal_target(persisted)?);
     }
+    let mut persisted_terminology_targets = Vec::new();
+    for persisted in &capture.terminology_proposal_targets {
+        persisted_terminology_targets.push(restore_project_terminology_proposal_target(persisted)?);
+    }
     let frozen = capture
         .frozen_project_reuse
         .as_ref()
         .map(restore_frozen_project_reuse)
         .transpose()?;
     if !capture.human_raised_cases.is_empty()
-        && capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3
+        && !session_format_supports_human_raised(capture.format_version)
     {
         return Err(SessionPersistenceError::CanonicalMismatch(
-            "human-raised cases require session format v3".to_owned(),
+            "human-raised cases require session format v3 or v4".to_owned(),
+        ));
+    }
+    if !capture.terminology_proposal_targets.is_empty()
+        && !session_format_supports_project_terminology(capture.format_version)
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "project terminology targets require session format v4".to_owned(),
         ));
     }
     let human_raised_cases = restore_human_raised_cases(&capture.human_raised_cases, &transcript)?;
@@ -130,9 +142,7 @@ pub(crate) fn hydrate_application_review_session(
                 observed_revision,
                 decision,
             } => {
-                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2
-                    && capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3
-                {
+                if !session_format_supports_project_binding(capture.format_version) {
                     return Err(SessionPersistenceError::CanonicalMismatch(
                         "v1 session must not contain reuse proposal decisions".to_owned(),
                     ));
@@ -158,9 +168,9 @@ pub(crate) fn hydrate_application_review_session(
                 observed_revision,
                 ..
             } => {
-                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V3 {
+                if !session_format_supports_human_raised(capture.format_version) {
                     return Err(SessionPersistenceError::CanonicalMismatch(
-                        "CaseRaised requires session format v3".to_owned(),
+                        "CaseRaised requires session format v3 or v4".to_owned(),
                     ));
                 }
                 let review_case = human_raised_cases
@@ -173,6 +183,32 @@ pub(crate) fn hydrate_application_review_session(
                     })?;
                 ledger
                     .record_case_raised(review_case, observed_revision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+            crate::review::ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            } => {
+                if !session_format_supports_project_terminology(capture.format_version) {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "terminology proposal decisions require session format v4".to_owned(),
+                    ));
+                }
+                if !persisted_terminology_targets
+                    .iter()
+                    .any(|target| target.identity() == target_identity)
+                {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "terminology decision missing thin target".to_owned(),
+                    ));
+                }
+                ledger
+                    .record_terminology_decision(target_identity, observed_revision, decision)
                     .map_err(|error| {
                         SessionPersistenceError::Replay(
                             crate::application_service::ApplicationServiceError::Decision(error),
@@ -246,6 +282,54 @@ pub(crate) fn hydrate_application_review_session(
         }
     }
 
+    let compose_terminology = session_format_supports_project_terminology(capture.format_version)
+        && frozen.is_some()
+        && project_overlay.is_some_and(|overlay| overlay.available);
+    if compose_terminology {
+        if let (Some(frozen_analysis), Some(scope)) = (frozen.as_ref(), reuse_state.project_scope())
+        {
+            let parts = ReuseSessionParts {
+                transcript: &transcript,
+                session_terms: &session_terms,
+                canonical_run: &canonical_run,
+                human_raised_cases: &human_raised_cases,
+                ledger: &ledger,
+            };
+            let records = crate::application_reuse::active_reusable_records(parts, &reuse_state)
+                .map_err(|error| {
+                    SessionPersistenceError::CanonicalMismatch(format!(
+                        "terminology active records: {error:?}"
+                    ))
+                })?;
+            let derived = crate::project_terminology::derive_project_terminology_proposal_targets(
+                &transcript,
+                &session_terms,
+                &records,
+                &scope.stable_id,
+                frozen_analysis.project_memory_snapshot_identity,
+                frozen_analysis.governance_event_boundary,
+            )
+            .map_err(|error| {
+                SessionPersistenceError::CanonicalMismatch(format!(
+                    "terminology derivation: {error:?}"
+                ))
+            })?;
+            for target in &persisted_terminology_targets {
+                if target.project_memory_snapshot_identity()
+                    == frozen_analysis.project_memory_snapshot_identity
+                    && !derived
+                        .iter()
+                        .any(|item| item.identity() == target.identity())
+                {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "persisted terminology target does not reconstruct from frozen analysis"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+    }
+
     let project_reuse = ProjectReuseSessionState {
         compose: frozen.is_some() && project_overlay.is_some_and(|overlay| overlay.available),
         persisted_targets,
@@ -257,6 +341,11 @@ pub(crate) fn hydrate_application_review_session(
         project_memory_records: project_overlay
             .map(|overlay| overlay.records.clone())
             .unwrap_or_default(),
+    };
+
+    let project_terminology = ProjectTerminologySessionState {
+        compose: compose_terminology,
+        persisted_targets: persisted_terminology_targets,
     };
 
     let reuse_active = !capture.reuse_governance_events.is_empty() || reuse_enabled_run.is_some();
@@ -272,11 +361,12 @@ pub(crate) fn hydrate_application_review_session(
         reuse_state,
         reuse_enabled_run,
         project_reuse,
+        project_terminology,
     )
     .map_err(SessionPersistenceError::Replay)?;
 
-    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
-        || capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+    if session_format_supports_project_binding(capture.format_version)
+        || session_format_supports_human_raised(capture.format_version)
     {
         session.verify_canonical_replay().map_err(|_| {
             SessionPersistenceError::CanonicalMismatch(

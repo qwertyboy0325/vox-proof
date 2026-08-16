@@ -70,6 +70,22 @@ fn render_event(event: &ReviewLedgerEvent, output: &mut String) {
             ));
             render_decision(decision, output);
         }
+        ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+            target_identity,
+            observed_revision,
+            decision,
+        } => {
+            output.push_str("type: terminology_proposal_decision_recorded\n");
+            output.push_str(&format!(
+                "project_terminology_proposal_target: {}\n",
+                target_identity.to_tagged_string()
+            ));
+            output.push_str(&format!(
+                "observed_revision: {}\n",
+                observed_revision.to_tagged_string()
+            ));
+            render_decision(decision, output);
+        }
     }
 }
 

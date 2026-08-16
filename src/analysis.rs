@@ -314,6 +314,19 @@ impl AnalysisRun {
             },
         }
     }
+
+    pub fn for_project_derived_terminology(
+        transcript: &Transcript,
+        entries: &[SessionTermEntry],
+    ) -> Self {
+        Self {
+            snapshot: AnalysisSnapshot {
+                source_revision: transcript.revision_id(),
+                session_terms: SessionTermsIdentity::from_entries(entries),
+                configuration: crate::candidate::project_derived_terminology_analysis_identity(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

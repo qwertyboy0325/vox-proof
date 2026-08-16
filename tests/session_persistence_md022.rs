@@ -5,14 +5,13 @@ use vox_proof::application_service::{
 };
 use vox_proof::candidate::SessionTermEntry;
 use vox_proof::project_memory::{
-    ProductProjectMemoryStore, ProjectMemoryOpenMode, PROJECT_MEMORY_FORMAT_VERSION,
-    PROJECT_MEMORY_FORMAT_VERSION_V2,
+    PROJECT_MEMORY_FORMAT_VERSION_V3, ProductProjectMemoryStore, ProjectMemoryOpenMode,
 };
 use vox_proof::review::{CorrectionDecision, ReviewLedgerEvent};
 use vox_proof::session_persistence::{
+    DurableApplicationSession, OpenMode, ProductSessionStore, SessionPersistenceError,
     arm_fail_after_human_raise_before_decision_for_test, arm_fail_before_commit_for_test,
     disarm_fail_after_human_raise_before_decision_for_test, disarm_fail_before_commit_for_test,
-    DurableApplicationSession, OpenMode, ProductSessionStore, SessionPersistenceError,
 };
 use vox_proof::srt::parse_srt;
 
@@ -50,7 +49,7 @@ fn freeze_bound(durable: &mut DurableApplicationSession) {
 }
 
 #[test]
-fn new_unbound_session_is_format_v3() {
+fn new_unbound_session_is_format_v4() {
     let temp = TempDir::new().expect("tempdir");
     let store = ProductSessionStore::new(temp.path());
     let durable = DurableApplicationSession::create(
@@ -61,7 +60,7 @@ fn new_unbound_session_is_format_v3() {
         session_authority("operator"),
     )
     .expect("create");
-    assert_eq!(durable.format_version(), 3);
+    assert_eq!(durable.format_version(), 4);
     assert!(durable.bound_project_id().is_none());
     durable.close().expect("close");
 }
@@ -111,15 +110,17 @@ fn raise_and_replace_persists_both_events_and_survives_reopen() {
         .expect("after");
     assert!(after.srt.contains("PostgreSQL"));
     assert!(!after.srt.contains("and Postgres"));
-    assert!(durable.session().human_raised_cases()[0]
-        .as_detector_span()
-        .is_none());
+    assert!(
+        durable.session().human_raised_cases()[0]
+            .as_detector_span()
+            .is_none()
+    );
     let session_id = durable.session_id().to_owned();
     durable.close().expect("close");
 
     let reopened =
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly).expect("reopen");
-    assert_eq!(reopened.format_version(), 3);
+    assert_eq!(reopened.format_version(), 4);
     assert_eq!(reopened.session().human_raised_cases().len(), 1);
     assert_eq!(reopened.session().review_ledger().events().len(), 3);
     let reopened_srt = reopened
@@ -438,7 +439,7 @@ fn human_raised_promotion_bumps_project_memory_format_and_proposes_on_material_b
     let project = project_store
         .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
         .expect("open project");
-    assert_eq!(project.format_version(), PROJECT_MEMORY_FORMAT_VERSION_V2);
+    assert_eq!(project.format_version(), PROJECT_MEMORY_FORMAT_VERSION_V3);
     project.close().expect("close project");
 
     let mut session_b = DurableApplicationSession::create_bound_to_project(
@@ -487,7 +488,7 @@ fn human_raised_promotion_bumps_project_memory_format_and_proposes_on_material_b
 }
 
 #[test]
-fn detector_only_promotion_keeps_project_memory_format_one() {
+fn detector_only_promotion_writes_explicit_effects_and_bumps_project_memory_format_three() {
     let temp = TempDir::new().expect("tempdir");
     let session_store = ProductSessionStore::new(temp.path());
     let project_store = ProductProjectMemoryStore::new(temp.path());
@@ -526,6 +527,6 @@ fn detector_only_promotion_keeps_project_memory_format_one() {
     let project = project_store
         .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
         .expect("open project");
-    assert_eq!(project.format_version(), PROJECT_MEMORY_FORMAT_VERSION);
+    assert_eq!(project.format_version(), PROJECT_MEMORY_FORMAT_VERSION_V3);
     project.close().expect("close project");
 }

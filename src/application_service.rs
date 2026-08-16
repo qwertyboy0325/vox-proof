@@ -15,6 +15,10 @@ use crate::pipeline::{
     CanonicalTermReviewRun, ReuseEnabledTermReviewRun, run_canonical_term_review,
 };
 use crate::project_memory::{ProjectMemoryRecord, ProjectMemorySnapshotIdentity};
+use crate::project_terminology::{
+    ProjectTerminologyProposalTarget, ProjectTerminologyProposalTargetIdentity,
+    derive_project_terminology_proposal_targets,
+};
 use crate::reuse_proposal_target::{
     FrozenProjectReuseAnalysis, ReuseProposalTarget, ReuseProposalTargetIdentity,
     derive_reuse_proposal_targets,
@@ -23,7 +27,7 @@ use crate::review::{
     CorrectionDecision, HumanSelectedSpan, ManualReplacementText, ManualReplacementTextError,
     ReviewCase, ReviewCaseId, ReviewCaseStatus, ReviewLedger, ReviewLedgerError, ReviewLedgerEvent,
 };
-use crate::reviewed_output::{ReviewedOutputError, derive_reviewed_srt_with_reuse};
+use crate::reviewed_output::{ReviewedOutputError, derive_reviewed_srt_with_proposals};
 use crate::transcript::Transcript;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -127,6 +131,10 @@ pub enum ApplicationReviewTarget {
         reuse_analysis_snapshot: AnalysisSnapshot,
         target_identity: ReuseProposalTargetIdentity,
     },
+    ProjectTerminologyProposal {
+        analysis_snapshot: AnalysisSnapshot,
+        target_identity: ProjectTerminologyProposalTargetIdentity,
+    },
 }
 
 impl ApplicationReviewTarget {
@@ -135,7 +143,7 @@ impl ApplicationReviewTarget {
             Self::CanonicalTermCase { case_id, .. } | Self::HumanRaisedCase { case_id } => {
                 Some(case_id)
             }
-            Self::ProjectReuseProposal { .. } => None,
+            Self::ProjectReuseProposal { .. } | Self::ProjectTerminologyProposal { .. } => None,
         }
     }
 
@@ -150,6 +158,9 @@ impl ApplicationReviewTarget {
                 reuse_analysis_snapshot,
                 ..
             } => Some(reuse_analysis_snapshot),
+            Self::ProjectTerminologyProposal {
+                analysis_snapshot, ..
+            } => Some(analysis_snapshot),
             Self::HumanRaisedCase { .. } => None,
         }
     }
@@ -159,7 +170,9 @@ impl ApplicationReviewTarget {
             Self::ProjectReuseProposal {
                 target_identity, ..
             } => Some(target_identity),
-            Self::CanonicalTermCase { .. } | Self::HumanRaisedCase { .. } => None,
+            Self::CanonicalTermCase { .. }
+            | Self::HumanRaisedCase { .. }
+            | Self::ProjectTerminologyProposal { .. } => None,
         }
     }
 }
@@ -172,6 +185,9 @@ pub enum ApplicationReviewItemKind {
     HumanRaisedCase {},
     ProjectReuseProposal {
         gate7_repeated_correction_avoided_eligible: bool,
+        conflict_with_canonical: bool,
+    },
+    ProjectTerminologyProposal {
         conflict_with_canonical: bool,
     },
 }
@@ -236,6 +252,7 @@ pub struct ApplicationDecisionProjectionRecord {
     pub event_index: usize,
     pub case_id: Option<ReviewCaseId>,
     pub reuse_proposal_target_identity: Option<ReuseProposalTargetIdentity>,
+    pub terminology_proposal_target_identity: Option<ProjectTerminologyProposalTargetIdentity>,
     pub observed_revision: TranscriptRevisionId,
     pub decision: CorrectionDecision,
     pub session_authority: DeclaredSessionAuthority,
@@ -303,6 +320,7 @@ pub enum ApplicationServiceError {
     TargetAnalysisMismatch,
     UnknownReviewCase { case_id: ReviewCaseId },
     UnknownReuseProposal,
+    UnknownTerminologyProposal,
     StaleReuseAnalysis,
     ProjectEvidenceUnverifiable,
     Decision(ReviewLedgerError),
@@ -376,6 +394,7 @@ pub struct PreparedHumanDecision {
     pub decision: CorrectionDecision,
     pub expected_review_ledger_head: usize,
     pub reuse_proposal_target: Option<ReuseProposalTarget>,
+    pub terminology_proposal_target: Option<ProjectTerminologyProposalTarget>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -394,6 +413,7 @@ pub struct ApplicationReviewSession {
     reuse_state: ApplicationReuseState,
     reuse_enabled_run: Option<ReuseEnabledTermReviewRun>,
     project_reuse: ProjectReuseSessionState,
+    project_terminology: ProjectTerminologySessionState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -404,6 +424,12 @@ pub(crate) struct ProjectReuseSessionState {
     pub project_memory_available: bool,
     pub current_project_snapshot: Option<ProjectMemorySnapshotIdentity>,
     pub project_memory_records: Vec<ProjectMemoryRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub(crate) struct ProjectTerminologySessionState {
+    pub compose: bool,
+    pub persisted_targets: Vec<ProjectTerminologyProposalTarget>,
 }
 
 pub fn begin_application_review(
@@ -435,6 +461,7 @@ pub fn begin_application_review(
         reuse_state: ApplicationReuseState::default(),
         reuse_enabled_run: None,
         project_reuse: ProjectReuseSessionState::default(),
+        project_terminology: ProjectTerminologySessionState::default(),
     })
 }
 
@@ -449,6 +476,7 @@ pub(crate) fn assemble_application_review_session(
     reuse_state: ApplicationReuseState,
     reuse_enabled_run: Option<ReuseEnabledTermReviewRun>,
     project_reuse: ProjectReuseSessionState,
+    project_terminology: ProjectTerminologySessionState,
 ) -> Result<ApplicationReviewSession, ApplicationServiceError> {
     let source_revision = transcript.revision_id();
     let analysis_snapshot = canonical_run.analysis_run().snapshot();
@@ -471,6 +499,7 @@ pub(crate) fn assemble_application_review_session(
         reuse_state,
         reuse_enabled_run,
         project_reuse,
+        project_terminology,
     })
 }
 
@@ -527,8 +556,24 @@ impl ApplicationReviewSession {
         self.project_reuse.compose
     }
 
+    pub fn compose_project_terminology_proposals(&self) -> bool {
+        self.project_terminology.compose
+    }
+
     pub fn derived_reuse_proposal_targets(&self) -> Vec<ReuseProposalTarget> {
         derived_targets_from_session(self)
+    }
+
+    pub fn persisted_project_terminology_proposal_targets(
+        &self,
+    ) -> &[ProjectTerminologyProposalTarget] {
+        &self.project_terminology.persisted_targets
+    }
+
+    pub fn derived_project_terminology_proposal_targets(
+        &self,
+    ) -> Vec<ProjectTerminologyProposalTarget> {
+        derived_terminology_targets_from_session(self)
     }
 
     pub fn has_project_scope(&self) -> bool {
@@ -861,6 +906,7 @@ impl ApplicationReviewSession {
                     decision,
                     expected_review_ledger_head: self.review_ledger_head(),
                     reuse_proposal_target: None,
+                    terminology_proposal_target: None,
                 })
             }
             ApplicationReviewTarget::HumanRaisedCase { case_id } => {
@@ -878,6 +924,7 @@ impl ApplicationReviewSession {
                     decision,
                     expected_review_ledger_head: self.review_ledger_head(),
                     reuse_proposal_target: None,
+                    terminology_proposal_target: None,
                 })
             }
             ApplicationReviewTarget::ProjectReuseProposal {
@@ -895,6 +942,28 @@ impl ApplicationReviewSession {
                     decision,
                     expected_review_ledger_head: self.review_ledger_head(),
                     reuse_proposal_target: Some(prepared_target),
+                    terminology_proposal_target: None,
+                })
+            }
+            ApplicationReviewTarget::ProjectTerminologyProposal {
+                analysis_snapshot,
+                target_identity,
+            } => {
+                let prepared_target = self.prepare_terminology_target(target_identity)?;
+                if analysis_snapshot != prepared_target.analysis_snapshot() {
+                    return Err(ApplicationServiceError::TargetAnalysisMismatch);
+                }
+                let decision = revalidate_decision_for_terminology(
+                    &self.transcript,
+                    &prepared_target,
+                    decision,
+                )?;
+                Ok(PreparedHumanDecision {
+                    target,
+                    decision,
+                    expected_review_ledger_head: self.review_ledger_head(),
+                    reuse_proposal_target: None,
+                    terminology_proposal_target: Some(prepared_target),
                 })
             }
         }
@@ -930,6 +999,42 @@ impl ApplicationReviewSession {
         Ok(target)
     }
 
+    fn prepare_terminology_target(
+        &self,
+        target_identity: ProjectTerminologyProposalTargetIdentity,
+    ) -> Result<ProjectTerminologyProposalTarget, ApplicationServiceError> {
+        if !self.project_reuse.project_memory_available {
+            return Err(ApplicationServiceError::ProjectEvidenceUnverifiable);
+        }
+        if !self.project_terminology.compose {
+            return Err(ApplicationServiceError::UnknownTerminologyProposal);
+        }
+        let frozen = self
+            .project_reuse
+            .frozen
+            .as_ref()
+            .ok_or(ApplicationServiceError::UnknownTerminologyProposal)?;
+        match self.project_reuse.current_project_snapshot {
+            Some(current) if current == frozen.project_memory_snapshot_identity => {}
+            _ => return Err(ApplicationServiceError::StaleReuseAnalysis),
+        }
+        let derived = derived_terminology_targets_from_session(self);
+        let target = derived
+            .into_iter()
+            .find(|item| item.identity() == target_identity)
+            .ok_or(ApplicationServiceError::UnknownTerminologyProposal)?;
+        if collapsed_same_replacement_canonical_text(
+            self,
+            target.occurrence_key(),
+            target.proposed_replacement(),
+        )
+        .is_some()
+        {
+            return Err(ApplicationServiceError::UnknownTerminologyProposal);
+        }
+        Ok(target)
+    }
+
     pub fn prepare_manual_replacement(
         &self,
         target: ApplicationReviewTarget,
@@ -958,6 +1063,12 @@ impl ApplicationReviewSession {
                 let prepared_target = self.prepare_reuse_target(target_identity)?;
                 prepared_target.occurrence().observed_text.clone()
             }
+            ApplicationReviewTarget::ProjectTerminologyProposal {
+                target_identity, ..
+            } => {
+                let prepared_target = self.prepare_terminology_target(target_identity)?;
+                prepared_target.occurrence().observed_text.clone()
+            }
         };
         let replacement = ManualReplacementText::new(replacement, &selected_source_text)
             .map_err(ApplicationServiceError::ManualReplacement)?;
@@ -974,6 +1085,26 @@ impl ApplicationReviewSession {
         decision: CorrectionDecision,
     ) -> Result<(), ApplicationServiceError> {
         let prepared = self.prepare_human_decision(target, decision)?;
+        if let Some(terminology_target) = prepared.terminology_proposal_target {
+            if !self
+                .project_terminology
+                .persisted_targets
+                .iter()
+                .any(|item| item.identity() == terminology_target.identity())
+            {
+                self.project_terminology
+                    .persisted_targets
+                    .push(terminology_target.clone());
+            }
+            return self
+                .ledger
+                .record_terminology_decision(
+                    terminology_target.identity(),
+                    self.transcript.revision_id(),
+                    prepared.decision,
+                )
+                .map_err(ApplicationServiceError::Decision);
+        }
         match prepared.reuse_proposal_target {
             None => {
                 let case_id = prepared
@@ -1031,6 +1162,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         )
     }
 
@@ -1040,6 +1172,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         )
     }
 
@@ -1052,6 +1185,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         )
     }
 
@@ -1064,6 +1198,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         )
     }
 
@@ -1079,6 +1214,7 @@ impl ApplicationReviewSession {
             self.material_use,
             self.session_authority.clone(),
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         )
     }
 
@@ -1184,6 +1320,39 @@ impl ApplicationReviewSession {
                         .map_err(ApplicationServiceError::Decision)
                         .map_err(ApplicationReplayError::Service)?;
                 }
+                ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+                    target_identity,
+                    observed_revision,
+                    decision,
+                } => {
+                    if *observed_revision != self.transcript.revision_id() {
+                        return Err(ApplicationReplayError::Mismatch {
+                            field: ApplicationReplayField::LedgerEvents,
+                        });
+                    }
+                    let target = self
+                        .project_terminology
+                        .persisted_targets
+                        .iter()
+                        .find(|item| item.identity() == *target_identity)
+                        .ok_or(ApplicationReplayError::Mismatch {
+                            field: ApplicationReplayField::LedgerEvents,
+                        })?;
+                    let replay_decision = revalidate_decision_for_terminology(
+                        &self.transcript,
+                        target,
+                        decision.clone(),
+                    )
+                    .map_err(ApplicationReplayError::Service)?;
+                    replay_ledger
+                        .record_terminology_decision(
+                            *target_identity,
+                            *observed_revision,
+                            replay_decision,
+                        )
+                        .map_err(ApplicationServiceError::Decision)
+                        .map_err(ApplicationReplayError::Service)?;
+                }
                 ReviewLedgerEvent::CaseRaised {
                     case_id,
                     observed_revision,
@@ -1228,6 +1397,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         ) != self.progress()
         {
             return Err(ApplicationReplayError::Mismatch {
@@ -1239,6 +1409,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         ) != self.decision_summary()
         {
             return Err(ApplicationReplayError::Mismatch {
@@ -1252,6 +1423,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         );
         let current_session_summary = derive_session_summary_projection(
             &self.transcript,
@@ -1260,6 +1432,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &self.ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         );
         if replay_session_summary != current_session_summary {
             return Err(ApplicationReplayError::Mismatch {
@@ -1273,6 +1446,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         );
         let current_projection = self.derive_current_projection();
         if replay_projection != current_projection {
@@ -1287,6 +1461,7 @@ impl ApplicationReviewSession {
             &self.human_raised_cases,
             &replay_ledger,
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         );
         let current_output = self.materialize_reviewed_output();
         if replay_output != current_output {
@@ -1304,6 +1479,7 @@ impl ApplicationReviewSession {
             self.material_use,
             self.session_authority.clone(),
             &self.project_reuse.persisted_targets,
+            &self.project_terminology.persisted_targets,
         );
         let current_bundle = self.materialize_review_export_bundle();
         if replay_bundle != current_bundle {
@@ -1416,12 +1592,33 @@ fn human_raise_blocked_ranges(session: &ApplicationReviewSession) -> Vec<(usize,
         }
     }
 
+    for target in visible_terminology_targets(session) {
+        let status = session.ledger.status_for_terminology(target.identity());
+        if matches!(status, ReviewCaseStatus::Undecided) || decision_materializes_text(&status) {
+            occupied.push(target.occurrence_key());
+        }
+    }
+
     occupied
 }
 
 fn revalidate_decision_for_reuse(
     _transcript: &Transcript,
     target: &ReuseProposalTarget,
+    decision: CorrectionDecision,
+) -> Result<CorrectionDecision, ApplicationServiceError> {
+    let CorrectionDecision::ManualReplacement { replacement } = decision else {
+        return Ok(decision);
+    };
+    let replacement =
+        ManualReplacementText::new(replacement.as_str(), &target.occurrence().observed_text)
+            .map_err(ApplicationServiceError::ManualReplacement)?;
+    Ok(CorrectionDecision::ManualReplacement { replacement })
+}
+
+fn revalidate_decision_for_terminology(
+    _transcript: &Transcript,
+    target: &ProjectTerminologyProposalTarget,
     decision: CorrectionDecision,
 ) -> Result<CorrectionDecision, ApplicationServiceError> {
     let CorrectionDecision::ManualReplacement { replacement } = decision else {
@@ -1450,6 +1647,35 @@ fn derived_targets_from_session(session: &ApplicationReviewSession) -> Vec<Reuse
     )
 }
 
+fn derived_terminology_targets_from_session(
+    session: &ApplicationReviewSession,
+) -> Vec<ProjectTerminologyProposalTarget> {
+    if !session.project_terminology.compose {
+        return Vec::new();
+    }
+    let (Some(frozen), Some(scope)) = (
+        session.project_reuse.frozen.as_ref(),
+        session.reuse_state.project_scope(),
+    ) else {
+        return Vec::new();
+    };
+    let Ok(records) = crate::application_reuse::active_reusable_records(
+        session.reuse_parts(),
+        &session.reuse_state,
+    ) else {
+        return Vec::new();
+    };
+    derive_project_terminology_proposal_targets(
+        &session.transcript,
+        &session.session_terms,
+        &records,
+        &scope.stable_id,
+        frozen.project_memory_snapshot_identity,
+        frozen.governance_event_boundary,
+    )
+    .unwrap_or_default()
+}
+
 fn canonical_occurrence_key(review_case: &ReviewCase) -> (usize, usize, usize) {
     let anchor = review_case.candidate_span().anchor();
     (
@@ -1467,24 +1693,35 @@ fn canonical_proposed_replacement(review_case: &ReviewCase) -> Option<&str> {
         .map(|alternative| alternative.replacement_text())
 }
 
-fn collapsed_same_replacement_canonical(
+fn collapsed_same_replacement_canonical_text(
     session: &ApplicationReviewSession,
-    target: &ReuseProposalTarget,
+    occurrence_key: (usize, usize, usize),
+    proposed_replacement: &str,
 ) -> Option<ReviewCaseId> {
     session
         .canonical_run
         .review_cases()
         .iter()
         .find_map(|review_case| {
-            if canonical_occurrence_key(review_case) == target.occurrence_key()
-                && canonical_proposed_replacement(review_case)
-                    == Some(target.proposed_replacement())
+            if canonical_occurrence_key(review_case) == occurrence_key
+                && canonical_proposed_replacement(review_case) == Some(proposed_replacement)
             {
                 Some(review_case.id())
             } else {
                 None
             }
         })
+}
+
+fn collapsed_same_replacement_canonical(
+    session: &ApplicationReviewSession,
+    target: &ReuseProposalTarget,
+) -> Option<ReviewCaseId> {
+    collapsed_same_replacement_canonical_text(
+        session,
+        target.occurrence_key(),
+        target.proposed_replacement(),
+    )
 }
 
 fn visible_reuse_targets(session: &ApplicationReviewSession) -> Vec<ReuseProposalTarget> {
@@ -1498,6 +1735,27 @@ fn visible_reuse_targets(session: &ApplicationReviewSession) -> Vec<ReuseProposa
             .filter(|target| {
                 !matches!(
                     session.ledger.status_for_reuse(target.identity()),
+                    ReviewCaseStatus::Undecided
+                )
+            })
+            .cloned()
+            .collect()
+    }
+}
+
+fn visible_terminology_targets(
+    session: &ApplicationReviewSession,
+) -> Vec<ProjectTerminologyProposalTarget> {
+    if session.project_terminology.compose {
+        derived_terminology_targets_from_session(session)
+    } else {
+        session
+            .project_terminology
+            .persisted_targets
+            .iter()
+            .filter(|target| {
+                !matches!(
+                    session.ledger.status_for_terminology(target.identity()),
                     ReviewCaseStatus::Undecided
                 )
             })
@@ -1536,8 +1794,50 @@ fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationRe
         });
     }
 
+    let terminology_targets = visible_terminology_targets(session);
+    for target in &terminology_targets {
+        if collapsed_same_replacement_canonical_text(
+            session,
+            target.occurrence_key(),
+            target.proposed_replacement(),
+        )
+        .is_some()
+        {
+            continue;
+        }
+        let conflict_with_canonical =
+            session
+                .canonical_run
+                .review_cases()
+                .iter()
+                .any(|review_case| {
+                    canonical_occurrence_key(review_case) == target.occurrence_key()
+                        && canonical_proposed_replacement(review_case)
+                            != Some(target.proposed_replacement())
+                });
+        let display_index = 20_000 + items.len();
+        items.push(ApplicationReviewItem {
+            target: ApplicationReviewTarget::ProjectTerminologyProposal {
+                analysis_snapshot: target.analysis_snapshot(),
+                target_identity: target.identity(),
+            },
+            review_case: target.display_review_case(display_index),
+            status: session.ledger.status_for_terminology(target.identity()),
+            kind: ApplicationReviewItemKind::ProjectTerminologyProposal {
+                conflict_with_canonical,
+            },
+        });
+    }
+
     for target in visible_reuse_targets(session) {
         if collapsed_same_replacement_canonical(session, &target).is_some() {
+            continue;
+        }
+        let terminology_same_y = terminology_targets.iter().any(|item| {
+            item.occurrence_key() == target.occurrence_key()
+                && item.proposed_replacement() == target.proposed_replacement()
+        });
+        if terminology_same_y {
             continue;
         }
         let conflict_with_canonical =
@@ -1560,7 +1860,8 @@ fn compose_review_items(session: &ApplicationReviewSession) -> Vec<ApplicationRe
             status: session.ledger.status_for_reuse(target.identity()),
             kind: ApplicationReviewItemKind::ProjectReuseProposal {
                 gate7_repeated_correction_avoided_eligible: session.project_reuse.compose
-                    && !conflict_with_canonical,
+                    && !conflict_with_canonical
+                    && !terminology_same_y,
                 conflict_with_canonical,
             },
         });
@@ -1591,7 +1892,8 @@ fn review_item_kind_rank(kind: ApplicationReviewItemKind) -> u8 {
     match kind {
         ApplicationReviewItemKind::CanonicalTermCase { .. } => 0,
         ApplicationReviewItemKind::HumanRaisedCase {} => 1,
-        ApplicationReviewItemKind::ProjectReuseProposal { .. } => 2,
+        ApplicationReviewItemKind::ProjectTerminologyProposal { .. } => 2,
+        ApplicationReviewItemKind::ProjectReuseProposal { .. } => 3,
     }
 }
 
@@ -1635,8 +1937,15 @@ fn derive_progress(
     human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> ApplicationReviewProgress {
-    let summary = derive_decision_summary(canonical_run, human_raised_cases, ledger, reuse_targets);
+    let summary = derive_decision_summary(
+        canonical_run,
+        human_raised_cases,
+        ledger,
+        reuse_targets,
+        terminology_targets,
+    );
     let decision_coverage = if summary.undecided == 0 {
         ApplicationDecisionCoverage::Complete
     } else {
@@ -1664,6 +1973,7 @@ fn derive_decision_summary(
     human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> ApplicationDecisionSummary {
     let mut summary = ApplicationDecisionSummary {
         total_review_cases: canonical_run.review_cases().len() + human_raised_cases.len(),
@@ -1689,6 +1999,12 @@ fn derive_decision_summary(
             decided => apply_decided_status_counts(&mut summary, decided),
         }
     }
+    for target in terminology_targets {
+        match ledger.status_for_terminology(target.identity()) {
+            ReviewCaseStatus::Undecided => {}
+            decided => apply_decided_status_counts(&mut summary, decided),
+        }
+    }
 
     summary
 }
@@ -1700,6 +2016,7 @@ fn derive_session_summary_projection(
     human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> ApplicationSessionSummaryProjection {
     let mut kind_counts = HashMap::<DetectionKind, usize>::new();
     let mut detector_counts = BTreeMap::<(String, String), usize>::new();
@@ -1793,6 +2110,31 @@ fn derive_session_summary_projection(
             ReviewCaseStatus::Undecided => {}
         }
     }
+    for target in terminology_targets {
+        match ledger.status_for_terminology(target.identity()) {
+            ReviewCaseStatus::Decided { decision, .. } => {
+                let replacement_text = match decision {
+                    CorrectionDecision::AcceptAlternative { .. } => {
+                        Some(target.proposed_replacement())
+                    }
+                    CorrectionDecision::ManualReplacement { ref replacement } => {
+                        Some(replacement.as_str())
+                    }
+                    CorrectionDecision::Reject
+                    | CorrectionDecision::Defer
+                    | CorrectionDecision::NeedsManualCorrection => None,
+                };
+                if let Some(replacement_text) = replacement_text {
+                    accepted_replacements_materialized += 1;
+                    affected_segments.insert(target.occurrence().segment_position);
+                    *accepted_replacements
+                        .entry(replacement_text.to_string())
+                        .or_default() += 1;
+                }
+            }
+            ReviewCaseStatus::Undecided => {}
+        }
+    }
 
     let accepted_replacements = accepted_replacements
         .into_iter()
@@ -1845,6 +2187,7 @@ fn derive_decision_projection_records(
                 event_index,
                 case_id: Some(*case_id),
                 reuse_proposal_target_identity: None,
+                terminology_proposal_target_identity: None,
                 observed_revision: *observed_revision,
                 decision: decision.clone(),
                 session_authority: session_authority.clone(),
@@ -1857,6 +2200,20 @@ fn derive_decision_projection_records(
                 event_index,
                 case_id: None,
                 reuse_proposal_target_identity: Some(*target_identity),
+                terminology_proposal_target_identity: None,
+                observed_revision: *observed_revision,
+                decision: decision.clone(),
+                session_authority: session_authority.clone(),
+            }),
+            ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            } => Some(ApplicationDecisionProjectionRecord {
+                event_index,
+                case_id: None,
+                reuse_proposal_target_identity: None,
+                terminology_proposal_target_identity: Some(*target_identity),
                 observed_revision: *observed_revision,
                 decision: decision.clone(),
                 session_authority: session_authority.clone(),
@@ -1875,6 +2232,7 @@ fn build_export_bundle(
     material_use: BoundApplicationMaterialUseDeclaration,
     session_authority: BoundDeclaredSessionAuthority,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> Result<ApplicationReviewExportBundle, ApplicationServiceError> {
     let reviewed_output = build_reviewed_output(
         transcript,
@@ -1882,6 +2240,7 @@ fn build_export_bundle(
         human_raised_cases,
         ledger,
         reuse_targets,
+        terminology_targets,
     )?;
     let session_summary = derive_session_summary_projection(
         transcript,
@@ -1890,6 +2249,7 @@ fn build_export_bundle(
         human_raised_cases,
         ledger,
         reuse_targets,
+        terminology_targets,
     );
 
     Ok(ApplicationReviewExportBundle {
@@ -1926,19 +2286,33 @@ fn build_current_projection(
     human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> Result<ApplicationCurrentProjection, ApplicationServiceError> {
     let materializable = materializable_review_cases(canonical_run, human_raised_cases);
-    let srt = derive_reviewed_srt_with_reuse(transcript, &materializable, ledger, reuse_targets)
-        .map_err(ApplicationServiceError::ReviewedOutput)?;
+    let srt = derive_reviewed_srt_with_proposals(
+        transcript,
+        &materializable,
+        ledger,
+        reuse_targets,
+        terminology_targets,
+    )
+    .map_err(ApplicationServiceError::ReviewedOutput)?;
 
     Ok(ApplicationCurrentProjection {
         srt,
-        progress: derive_progress(canonical_run, human_raised_cases, ledger, reuse_targets),
+        progress: derive_progress(
+            canonical_run,
+            human_raised_cases,
+            ledger,
+            reuse_targets,
+            terminology_targets,
+        ),
         decision_summary: derive_decision_summary(
             canonical_run,
             human_raised_cases,
             ledger,
             reuse_targets,
+            terminology_targets,
         ),
     })
 }
@@ -1949,15 +2323,28 @@ fn build_reviewed_output(
     human_raised_cases: &[ReviewCase],
     ledger: &ReviewLedger,
     reuse_targets: &[ReuseProposalTarget],
+    terminology_targets: &[ProjectTerminologyProposalTarget],
 ) -> Result<ApplicationReviewedOutput, ApplicationServiceError> {
-    let progress = derive_progress(canonical_run, human_raised_cases, ledger, reuse_targets);
+    let progress = derive_progress(
+        canonical_run,
+        human_raised_cases,
+        ledger,
+        reuse_targets,
+        terminology_targets,
+    );
     if let ApplicationDecisionCoverage::Incomplete { undecided } = progress.decision_coverage {
         return Err(ApplicationServiceError::DecisionCoverageIncomplete { undecided });
     }
 
     let materializable = materializable_review_cases(canonical_run, human_raised_cases);
-    let srt = derive_reviewed_srt_with_reuse(transcript, &materializable, ledger, reuse_targets)
-        .map_err(ApplicationServiceError::ReviewedOutput)?;
+    let srt = derive_reviewed_srt_with_proposals(
+        transcript,
+        &materializable,
+        ledger,
+        reuse_targets,
+        terminology_targets,
+    )
+    .map_err(ApplicationServiceError::ReviewedOutput)?;
 
     Ok(ApplicationReviewedOutput {
         srt,
@@ -1967,6 +2354,7 @@ fn build_reviewed_output(
             human_raised_cases,
             ledger,
             reuse_targets,
+            terminology_targets,
         ),
     })
 }

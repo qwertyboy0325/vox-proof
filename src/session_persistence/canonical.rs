@@ -25,22 +25,38 @@ pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V2: u32 = 2;
 /// New-session-only successor format that may carry HumanRaised review cases. There is no
 /// automatic migration from v1 or v2.
 pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V3: u32 = 3;
+/// New-session-only successor format that may carry `ProjectTerminologyProposal` decisions.
+/// There is no automatic migration from v1, v2, or v3.
+pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V4: u32 = 4;
 
 pub(crate) fn latest_supported_session_format() -> u32 {
-    PRODUCT_SESSION_FORMAT_VERSION_V3
+    PRODUCT_SESSION_FORMAT_VERSION_V4
 }
 
 pub(crate) fn supported_session_format(format_version: u32) -> bool {
     format_version == PRODUCT_SESSION_FORMAT_VERSION
         || format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
         || format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V4
 }
 
 pub(crate) fn session_format_supports_human_raised(format_version: u32) -> bool {
     format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V4
+}
+
+pub(crate) fn session_format_supports_project_binding(format_version: u32) -> bool {
+    format_version == PRODUCT_SESSION_FORMAT_VERSION_V2
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V3
+        || format_version == PRODUCT_SESSION_FORMAT_VERSION_V4
+}
+
+pub(crate) fn session_format_supports_project_terminology(format_version: u32) -> bool {
+    format_version == PRODUCT_SESSION_FORMAT_VERSION_V4
 }
 
 const LEDGER_EVENT_KIND_CASE_RAISED: &str = "case_raised";
+const LEDGER_EVENT_KIND_TERMINOLOGY_PROPOSAL_DECISION: &str = "terminology_proposal_decision";
 const CASE_FAMILY_HUMAN: &str = "human";
 const CASE_FAMILY_DETECTOR: &str = "detector";
 
@@ -178,6 +194,8 @@ pub(crate) struct PersistedReviewLedgerEventV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     reuse_proposal_target_identity: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    terminology_proposal_target_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     event_kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     case_family: Option<String>,
@@ -212,6 +230,29 @@ pub(crate) struct PersistedReuseProposalTargetV1 {
     pub algorithm_id: String,
     pub algorithm_version: String,
     pub reusable_influence_snapshot_identity: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedProjectTerminologyProposalTargetV1 {
+    pub target_identity: String,
+    pub analysis_identity: String,
+    pub analysis_snapshot: PersistedAnalysisSnapshotV1,
+    pub project_memory_snapshot_identity: String,
+    pub governance_boundary: usize,
+    pub source_revision: String,
+    pub segment_position: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub observed_text: String,
+    pub proposed_replacement: String,
+    pub project_id: String,
+    pub contributing_record_ids: Vec<usize>,
+    pub detector_id: String,
+    pub detector_version: String,
+    pub detector_config_id: String,
+    pub detector_config_version: String,
+    pub algorithm_id: String,
+    pub algorithm_version: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -300,6 +341,92 @@ pub(crate) fn restore_reuse_proposal_target(
     {
         return Err(SessionPersistenceError::CanonicalMismatch(
             "reuse proposal target identity mismatch".to_owned(),
+        ));
+    }
+    Ok(target)
+}
+
+pub(crate) fn persist_project_terminology_proposal_target(
+    target: &crate::project_terminology::ProjectTerminologyProposalTarget,
+) -> PersistedProjectTerminologyProposalTargetV1 {
+    PersistedProjectTerminologyProposalTargetV1 {
+        target_identity: target.identity().to_tagged_string(),
+        analysis_identity: target.analysis_identity().to_tagged_string(),
+        analysis_snapshot: persist_analysis_snapshot(target.analysis_snapshot()),
+        project_memory_snapshot_identity: target
+            .project_memory_snapshot_identity()
+            .to_tagged_string(),
+        governance_boundary: target.governance_boundary(),
+        source_revision: target.occurrence().source_revision.to_tagged_string(),
+        segment_position: target.occurrence().segment_position,
+        start_byte: target.occurrence().start_byte,
+        end_byte: target.occurrence().end_byte,
+        observed_text: target.occurrence().observed_text.clone(),
+        proposed_replacement: target.proposed_replacement().to_owned(),
+        project_id: target.project_id().as_str().to_owned(),
+        contributing_record_ids: target.contributing_record_ids().to_vec(),
+        detector_id: target.detector_id().to_owned(),
+        detector_version: target.detector_version().to_owned(),
+        detector_config_id: target.detector_config_id().to_owned(),
+        detector_config_version: target.detector_config_version().to_owned(),
+        algorithm_id: target.algorithm_id().to_owned(),
+        algorithm_version: target.algorithm_version().to_owned(),
+    }
+}
+
+pub(crate) fn restore_project_terminology_proposal_target(
+    persisted: &PersistedProjectTerminologyProposalTargetV1,
+) -> Result<crate::project_terminology::ProjectTerminologyProposalTarget, SessionPersistenceError> {
+    let analysis_snapshot = restore_analysis_snapshot_from_persisted(&persisted.analysis_snapshot)?;
+    let analysis_identity =
+        crate::project_terminology::ProjectDerivedTerminologyAnalysisIdentity::from_tagged_string(
+            &persisted.analysis_identity,
+        )
+        .ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "project derived terminology analysis identity".to_owned(),
+            )
+        })?;
+    let project_memory_snapshot_identity =
+        crate::project_memory::ProjectMemorySnapshotIdentity::from_tagged_string(
+            &persisted.project_memory_snapshot_identity,
+        )
+        .ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "project memory snapshot identity".to_owned(),
+            )
+        })?;
+    let source_revision = parse_revision_tag_for_canonical(&persisted.source_revision)?;
+    let project_id = crate::reuse_primitives::ProjectScopeId::new(persisted.project_id.clone())
+        .map_err(|_| SessionPersistenceError::CanonicalMismatch("project id".to_owned()))?;
+    let target =
+        crate::project_terminology::ProjectTerminologyProposalTarget::from_derivation_inputs(
+            analysis_identity,
+            analysis_snapshot,
+            project_memory_snapshot_identity,
+            persisted.governance_boundary,
+            crate::project_terminology::ProjectTerminologyOccurrence {
+                source_revision,
+                segment_position: persisted.segment_position,
+                start_byte: persisted.start_byte,
+                end_byte: persisted.end_byte,
+                observed_text: persisted.observed_text.clone(),
+            },
+            persisted.proposed_replacement.clone(),
+            project_id,
+            persisted.contributing_record_ids.clone(),
+            persisted.detector_id.clone(),
+            persisted.detector_version.clone(),
+            persisted.detector_config_id.clone(),
+            persisted.detector_config_version.clone(),
+            persisted.algorithm_id.clone(),
+            persisted.algorithm_version.clone(),
+        );
+    if target.identity().to_tagged_string() != persisted.target_identity
+        || target.analysis_identity().to_tagged_string() != persisted.analysis_identity
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "project terminology proposal target identity mismatch".to_owned(),
         ));
     }
     Ok(target)
@@ -630,6 +757,7 @@ pub(crate) fn persist_ledger_event(
             observed_revision: observed_revision.to_tagged_string(),
             decision: persist_correction_decision(decision),
             reuse_proposal_target_identity: None,
+            terminology_proposal_target_identity: None,
             event_kind: None,
             case_family: persist_case_family(*case_id),
             raised_segment_position: None,
@@ -646,6 +774,7 @@ pub(crate) fn persist_ledger_event(
             observed_revision: observed_revision.to_tagged_string(),
             decision: persist_correction_decision(decision),
             reuse_proposal_target_identity: Some(target_identity.to_tagged_string()),
+            terminology_proposal_target_identity: None,
             event_kind: None,
             case_family: None,
             raised_segment_position: None,
@@ -671,6 +800,7 @@ pub(crate) fn persist_ledger_event(
                 observed_revision: observed_revision.to_tagged_string(),
                 decision: PersistedCorrectionDecisionV1::Reject,
                 reuse_proposal_target_identity: None,
+                terminology_proposal_target_identity: None,
                 event_kind: Some(LEDGER_EVENT_KIND_CASE_RAISED.to_owned()),
                 case_family: Some(CASE_FAMILY_HUMAN.to_owned()),
                 raised_segment_position: Some(*segment_position),
@@ -679,6 +809,23 @@ pub(crate) fn persist_ledger_event(
                 raised_observed_text: Some(observed_text.clone()),
             })
         }
+        ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+            target_identity,
+            observed_revision,
+            decision,
+        } => Ok(PersistedReviewLedgerEventV1 {
+            case_local_index: 0,
+            observed_revision: observed_revision.to_tagged_string(),
+            decision: persist_correction_decision(decision),
+            reuse_proposal_target_identity: None,
+            terminology_proposal_target_identity: Some(target_identity.to_tagged_string()),
+            event_kind: Some(LEDGER_EVENT_KIND_TERMINOLOGY_PROPOSAL_DECISION.to_owned()),
+            case_family: None,
+            raised_segment_position: None,
+            raised_start_byte: None,
+            raised_end_byte: None,
+            raised_observed_text: None,
+        }),
     }
 }
 
@@ -769,9 +916,11 @@ pub(crate) fn restore_ledger_event(
         ));
     }
     if persisted.event_kind.as_deref() == Some(LEDGER_EVENT_KIND_CASE_RAISED) {
-        if persisted.reuse_proposal_target_identity.is_some() {
+        if persisted.reuse_proposal_target_identity.is_some()
+            || persisted.terminology_proposal_target_identity.is_some()
+        {
             return Err(SessionPersistenceError::CanonicalMismatch(
-                "CaseRaised must not carry a reuse proposal identity".to_owned(),
+                "CaseRaised must not carry a proposal identity".to_owned(),
             ));
         }
         let case_id =
@@ -800,9 +949,42 @@ pub(crate) fn restore_ledger_event(
             observed_text: observed_text.clone(),
         });
     }
+    if persisted.event_kind.as_deref() == Some(LEDGER_EVENT_KIND_TERMINOLOGY_PROPOSAL_DECISION) {
+        if persisted.reuse_proposal_target_identity.is_some() {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "terminology decision must not carry a reuse proposal identity".to_owned(),
+            ));
+        }
+        let Some(tagged) = &persisted.terminology_proposal_target_identity else {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "terminology decision missing target identity".to_owned(),
+            ));
+        };
+        let target_identity =
+            crate::project_terminology::ProjectTerminologyProposalTargetIdentity::from_tagged_string(
+                tagged,
+            )
+            .ok_or_else(|| {
+                SessionPersistenceError::CanonicalMismatch(
+                    "terminology proposal target identity".to_owned(),
+                )
+            })?;
+        let decision = restore_correction_decision(&persisted.decision)?;
+        return Ok(ReviewLedgerEvent::TerminologyProposalDecisionRecorded {
+            target_identity,
+            observed_revision: revision,
+            decision,
+        });
+    }
     if persisted.event_kind.is_some() {
         return Err(SessionPersistenceError::CanonicalMismatch(
             "unknown ledger event kind".to_owned(),
+        ));
+    }
+    if persisted.terminology_proposal_target_identity.is_some() {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "terminology proposal identity requires terminology_proposal_decision event kind"
+                .to_owned(),
         ));
     }
     let decision = restore_correction_decision(&persisted.decision)?;
@@ -982,6 +1164,7 @@ pub(crate) fn capture_from_session(
         bound_project_id: None,
         frozen_project_reuse: None,
         reuse_proposal_targets: Vec::new(),
+        terminology_proposal_targets: Vec::new(),
     })
 }
 
@@ -1006,6 +1189,7 @@ pub(crate) struct SessionCanonicalCapture {
     pub bound_project_id: Option<String>,
     pub frozen_project_reuse: Option<PersistedFrozenProjectReuseAnalysisV1>,
     pub reuse_proposal_targets: Vec<PersistedReuseProposalTargetV1>,
+    pub terminology_proposal_targets: Vec<PersistedProjectTerminologyProposalTargetV1>,
 }
 
 fn persist_phonetic_target_kind(kind: PhoneticTargetKind) -> String {
@@ -1089,11 +1273,13 @@ fn restore_configuration_from_persisted(
     persisted: &PersistedAnalysisSnapshotV1,
 ) -> Result<AnalysisConfigurationIdentity, SessionPersistenceError> {
     use crate::candidate::{
-        canonical_session_term_analysis_identity, reuse_enabled_session_term_analysis_identity,
+        canonical_session_term_analysis_identity, project_derived_terminology_analysis_identity,
+        reuse_enabled_session_term_analysis_identity,
     };
     for configuration in [
         canonical_session_term_analysis_identity(),
         reuse_enabled_session_term_analysis_identity(),
+        project_derived_terminology_analysis_identity(),
     ] {
         if persisted_matches_configuration(persisted, configuration) {
             return Ok(configuration);

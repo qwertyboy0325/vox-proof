@@ -96,6 +96,8 @@ Accepted cross-material Project Memory decision: `decisions/MD-021-cross-materia
 
 Accepted HumanRaised Manual Correction decision: `decisions/MD-022-human-raised-single-span-manual-correction-boundary.md` — HumanRaised ReviewCase family with HumanSelectedSpan, atomic CaseRaised + ManualReplacement, session format v3 new-session-only, origin-aware SourceDecisionLocator, and additive Project Memory format 2 for HumanRaised promotion. Accepted per explicit owner authorization on 2026-08-16. Does not accept broader MD-011 withdrawal/supersession or Session Terms reanalysis.
 
+Accepted governed project-knowledge derivation decision: `decisions/MD-023-governed-project-knowledge-as-derived-analysis-input.md` — prospective explicit `allowed_effects` on new Project Memory promotions, freeze-bound non-authoritative derived canonical-terminology proposals, distinct `ProjectTerminologyProposal` family, additive Project Memory format 3, and session format v4 new-session-only. Historical promotions remain exact-only forever. Accepted per explicit owner authorization on 2026-08-16. Does not accept retrospective widening, Session Terms projection of Project Memory, auto-promotion, or Gate 7 attribution from progressive terminology.
+
 ## Decision record shape
 
 Each Material Decision should include:

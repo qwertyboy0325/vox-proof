@@ -250,6 +250,7 @@ fn validate_governance_event(
             source_locator,
             project_scope: event_scope,
             actor,
+            ..
         } => {
             validate_governance_actor_matches_session(actor, expected_actor).map_err(|_| {
                 ApplicationReplayError::Mismatch {

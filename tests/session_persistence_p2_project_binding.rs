@@ -39,7 +39,7 @@ fn fixture_terms() -> Vec<SessionTermEntry> {
 }
 
 #[test]
-fn unbound_create_writes_format_three() {
+fn unbound_create_writes_format_four() {
     let temp = TempDir::new().expect("tempdir");
     let store = ProductSessionStore::new(temp.path());
     let durable = DurableApplicationSession::create(
@@ -50,7 +50,7 @@ fn unbound_create_writes_format_three() {
         session_authority("operator"),
     )
     .expect("create");
-    assert_eq!(durable.format_version(), 3);
+    assert_eq!(durable.format_version(), 4);
     assert!(durable.bound_project_id().is_none());
     durable.close().expect("close");
 }
@@ -74,7 +74,7 @@ fn v2_bind_reopen_preserves_project_id_and_snapshot_domain() {
         session_authority("operator"),
     )
     .expect("bound create");
-    assert_eq!(durable.format_version(), 3);
+    assert_eq!(durable.format_version(), 4);
     assert_eq!(durable.bound_project_id(), Some(&project_id));
     assert!(durable.project_memory_available());
     let session_id = durable.session_id().to_owned();
@@ -82,7 +82,7 @@ fn v2_bind_reopen_preserves_project_id_and_snapshot_domain() {
 
     let reopened = DurableApplicationSession::open(&session_store, &session_id, OpenMode::ReadOnly)
         .expect("reopen");
-    assert_eq!(reopened.format_version(), 3);
+    assert_eq!(reopened.format_version(), 4);
     assert_eq!(reopened.bound_project_id(), Some(&project_id));
     assert!(reopened.project_memory_available());
 }
