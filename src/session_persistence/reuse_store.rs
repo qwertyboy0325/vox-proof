@@ -1,21 +1,20 @@
-use rusqlite::{params, TransactionBehavior};
+use rusqlite::{TransactionBehavior, params};
 
 use crate::application_reuse::{
-    build_promotion_accepted_event, governance_actor_from_authority,
-    validate_accept_reuse_candidate_for_governance_commit,
-    validate_reject_reuse_candidate_for_governance_commit, ApplicationReuseState,
-    PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
+    ApplicationReuseState, PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
     PreparedProjectScopeInitialization, PreparedReusableInfluenceRevocation,
     PreparedReusableInfluenceSupersession, PreparedReuseCandidateAcceptance,
-    PreparedReuseCandidateRejection, ReuseSessionParts, run_reuse_enabled_review_for_parts,
+    PreparedReuseCandidateRejection, ReuseSessionParts, build_promotion_accepted_event,
+    governance_actor_from_authority, run_reuse_enabled_review_for_parts,
+    validate_accept_reuse_candidate_for_governance_commit,
+    validate_reject_reuse_candidate_for_governance_commit,
 };
 use crate::application_service::DeclaredSessionAuthority;
 use crate::candidate::SessionTermEntry;
-use crate::reusable_influence::{ReusableGovernanceEvent, ReusableInfluenceLedger};
-use crate::review::ReviewLedgerEvent;
 use crate::pipeline::CanonicalTermReviewRun;
+use crate::reusable_influence::{ReusableGovernanceEvent, ReusableInfluenceLedger};
 use crate::review::ReviewLedger;
-use crate::transcript::Transcript;
+use crate::review::ReviewLedgerEvent;
 use crate::session_persistence::canonical::{
     persist_analysis_snapshot, restore_ledger_event, restore_review_case, restore_session_terms,
     restore_transcript,
@@ -24,14 +23,15 @@ use crate::session_persistence::error::{
     AuthorityScope, SessionPersistenceError, StaleAuthorityPrecondition,
 };
 use crate::session_persistence::reuse_canonical::{
-    persist_governance_event, persist_reuse_enabled_binding, restore_governance_event,
-    restore_project_scope, restore_reusable_snapshot_identity,
-    active_analysis_selection_identity_for_reuse_enabled,
+    active_analysis_selection_identity_for_reuse_enabled, persist_governance_event,
+    persist_reuse_enabled_binding, restore_governance_event, restore_project_scope,
+    restore_reusable_snapshot_identity,
 };
 use crate::session_persistence::store::{
-    load_canonical_capture_from_connection, verify_writer_token_in_transaction,
-    OpenedStoreSession, OpenMode, ProductSessionStore,
+    OpenMode, OpenedStoreSession, ProductSessionStore, load_canonical_capture_from_connection,
+    verify_writer_token_in_transaction,
 };
+use crate::transcript::Transcript;
 
 impl ProductSessionStore {
     pub fn initialize_project_scope(
@@ -51,7 +51,8 @@ impl ProductSessionStore {
                 [&opened.session_id],
                 |row| row.get::<_, i64>(0),
             )
-            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))? as usize;
+            .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?
+            as usize;
         if current_head != prepared.expected_reuse_governance_head {
             return Err(SessionPersistenceError::StaleAuthorityPrecondition(
                 StaleAuthorityPrecondition {
@@ -142,8 +143,12 @@ impl ProductSessionStore {
         let loaded = load_reuse_context(&opened.connection, &opened.session_id)?;
         let parts = loaded.parts();
         let reuse_state = load_reuse_state_for_append(&opened.connection, &opened.session_id)?;
-        validate_reject_reuse_candidate_for_governance_commit(parts, &reuse_state, &prepared.candidate_key)
-            .map_err(map_reuse_error)?;
+        validate_reject_reuse_candidate_for_governance_commit(
+            parts,
+            &reuse_state,
+            &prepared.candidate_key,
+        )
+        .map_err(map_reuse_error)?;
         let event = ReusableGovernanceEvent::PromotionCandidateRejected {
             candidate_key: Box::new(prepared.candidate_key.clone()),
             actor: governance_actor_from_authority(session_authority),
@@ -218,11 +223,7 @@ impl ProductSessionStore {
                 actor: governance_actor_from_authority(session_authority),
             },
         ];
-        append_reuse_governance_events(
-            opened,
-            prepared.expected_reuse_governance_head,
-            events,
-        )?;
+        append_reuse_governance_events(opened, prepared.expected_reuse_governance_head, events)?;
         Ok(())
     }
 
@@ -262,11 +263,9 @@ impl ProductSessionStore {
                 },
             ));
         }
-        let snapshot = crate::application_reuse::reusable_influence_snapshot_for_parts(
-            parts,
-            &reuse_state,
-        )
-        .map_err(map_reuse_error)?;
+        let snapshot =
+            crate::application_reuse::reusable_influence_snapshot_for_parts(parts, &reuse_state)
+                .map_err(map_reuse_error)?;
         if snapshot.identity() != prepared.reusable_snapshot_identity {
             return Err(SessionPersistenceError::StaleAuthorityPrecondition(
                 StaleAuthorityPrecondition {
@@ -274,7 +273,8 @@ impl ProductSessionStore {
                 },
             ));
         }
-        let run = run_reuse_enabled_review_for_parts(parts, &reuse_state).map_err(map_reuse_error)?;
+        let run =
+            run_reuse_enabled_review_for_parts(parts, &reuse_state).map_err(map_reuse_error)?;
         let selection_token = active_analysis_selection_identity_for_reuse_enabled(
             run.analysis_run().snapshot(),
             snapshot.identity(),
@@ -343,8 +343,8 @@ fn append_reuse_governance_events(
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|error| SessionPersistenceError::Sqlite(error.to_string()))?;
     verify_writer_token_in_transaction(&tx, &opened.session_id, &writer_token)?;
-    let current_head: usize = tx
-        .query_row(
+    let current_head: usize =
+        tx.query_row(
             "SELECT reuse_governance_head FROM command_tokens WHERE session_id = ?1",
             [&opened.session_id],
             |row| row.get::<_, i64>(0),
@@ -409,7 +409,9 @@ fn ensure_writable(opened: &OpenedStoreSession) -> Result<(), SessionPersistence
     Ok(())
 }
 
-fn map_reuse_error(error: crate::application_reuse::ApplicationReuseError) -> SessionPersistenceError {
+fn map_reuse_error(
+    error: crate::application_reuse::ApplicationReuseError,
+) -> SessionPersistenceError {
     SessionPersistenceError::CanonicalMismatch(format!("{error:?}"))
 }
 
@@ -460,31 +462,51 @@ fn load_reuse_context_from_connection(
         .collect::<Result<Vec<_>, _>>()?;
     let canonical_run = CanonicalTermReviewRun::new(
         crate::pipeline::run_canonical_term_review(&transcript, &session_terms)
-            .map_err(|error| SessionPersistenceError::Replay(
-                crate::application_service::ApplicationServiceError::Detection(error),
-            ))?
+            .map_err(|error| {
+                SessionPersistenceError::Replay(
+                    crate::application_service::ApplicationServiceError::Detection(error),
+                )
+            })?
             .analysis_run(),
         review_cases,
     );
     let mut ledger = ReviewLedger::new();
     for persisted_event in &capture.ledger_events {
         let event = restore_ledger_event(persisted_event, revision)?;
-        let ReviewLedgerEvent::DecisionRecorded {
-            case_id,
-            observed_revision,
-            decision,
-        } = &event;
-        let review_case = canonical_run
-            .review_cases()
-            .get(case_id.local_index())
-            .ok_or_else(|| {
-                SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
-            })?;
-        ledger
-            .record_decision(review_case, *observed_revision, decision.clone())
-            .map_err(|error| SessionPersistenceError::Replay(
-                crate::application_service::ApplicationServiceError::Decision(error),
-            ))?;
+        match event {
+            ReviewLedgerEvent::DecisionRecorded {
+                case_id,
+                observed_revision,
+                decision,
+            } => {
+                let review_case = canonical_run
+                    .review_cases()
+                    .get(case_id.local_index())
+                    .ok_or_else(|| {
+                        SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
+                    })?;
+                ledger
+                    .record_decision(review_case, observed_revision, decision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+            ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            } => {
+                ledger
+                    .record_reuse_decision(target_identity, observed_revision, decision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+        }
     }
     Ok(LoadedReuseContext {
         transcript,
@@ -538,7 +560,8 @@ pub(crate) fn find_active_binding(
             crate::session_persistence::canonical::restore_analysis_snapshot_from_persisted(
                 &binding.analysis_snapshot,
             )?;
-        let reusable_identity = restore_reusable_snapshot_identity(&binding.reusable_snapshot_identity)?;
+        let reusable_identity =
+            restore_reusable_snapshot_identity(&binding.reusable_snapshot_identity)?;
         let identity = active_analysis_selection_identity_for_reuse_enabled(
             analysis_snapshot,
             reusable_identity,

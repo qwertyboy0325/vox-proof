@@ -45,6 +45,10 @@ Active research is not accepted architecture. It must not be implemented or trea
 - [MD-008: v0.1 Core Mechanism Establishment](governance/decisions/MD-008-v0.1-core-mechanism-establishment.md)
 - [MD-016: Native Desktop Framework and In-Process Integration](governance/decisions/MD-016-native-desktop-framework-and-in-process-integration.md)
 - [MD-017: Governed Manual Replacement on an Existing ReviewCase](governance/decisions/MD-017-governed-manual-replacement-on-existing-review-case.md)
+- [MD-018: Minimal Governed Reusable Influence](governance/decisions/MD-018-proposed-minimal-governed-reusable-influence.md)
+- [MD-019: SQLite Product-Session Persistence Mechanism Selection](governance/decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md)
+- [MD-020: Product SQLite Session Authority Schema and Lifecycle Boundary](governance/decisions/MD-020-product-sqlite-session-authority-schema-and-lifecycle-boundary.md)
+- [MD-021: Cross-Material Governed Project Memory And Reuse Decision Boundary](governance/decisions/MD-021-cross-material-governed-project-memory-and-reuse-decision-boundary.md)
 
 ## Document Lifecycle
 

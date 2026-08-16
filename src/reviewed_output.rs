@@ -1,3 +1,4 @@
+use crate::reuse_proposal_target::ReuseProposalTarget;
 use crate::review::{CorrectionDecision, ReviewCase, ReviewCaseId, ReviewCaseStatus, ReviewLedger};
 use crate::transcript::{Segment, Transcript};
 
@@ -25,7 +26,21 @@ pub fn derive_reviewed_srt(
     review_cases: &[ReviewCase],
     ledger: &ReviewLedger,
 ) -> Result<String, ReviewedOutputError> {
+    derive_reviewed_srt_with_reuse(transcript, review_cases, ledger, &[])
+}
+
+pub fn derive_reviewed_srt_with_reuse(
+    transcript: &Transcript,
+    review_cases: &[ReviewCase],
+    ledger: &ReviewLedger,
+    reuse_targets: &[ReuseProposalTarget],
+) -> Result<String, ReviewedOutputError> {
     let mut edits = materializing_edits(transcript, review_cases, ledger)?;
+    edits.extend(reuse_materializing_edits(
+        transcript,
+        ledger,
+        reuse_targets,
+    )?);
     reject_overlapping_edits(&mut edits)?;
 
     let mut reviewed_texts: Vec<String> = transcript
@@ -114,6 +129,65 @@ fn materializing_edits(
         });
     }
 
+    Ok(edits)
+}
+
+fn reuse_materializing_edits(
+    transcript: &Transcript,
+    ledger: &ReviewLedger,
+    reuse_targets: &[ReuseProposalTarget],
+) -> Result<Vec<MaterializingEdit>, ReviewedOutputError> {
+    let mut edits = Vec::new();
+    for (index, target) in reuse_targets.iter().enumerate() {
+        let case_id = ReviewCaseId::local(usize::MAX - index);
+        let ReviewCaseStatus::Decided {
+            observed_revision,
+            decision,
+        } = ledger.status_for_reuse(target.identity())
+        else {
+            continue;
+        };
+        let replacement_text = match decision {
+            CorrectionDecision::AcceptAlternative { alternative_index } => {
+                if alternative_index != 0 {
+                    return Err(ReviewedOutputError::InvalidAlternativeIndex {
+                        case_id,
+                        alternative_index,
+                        alternative_count: 1,
+                    });
+                }
+                target.proposed_replacement().to_owned()
+            }
+            CorrectionDecision::ManualReplacement { replacement } => {
+                replacement.as_str().to_string()
+            }
+            CorrectionDecision::Reject
+            | CorrectionDecision::Defer
+            | CorrectionDecision::NeedsManualCorrection => continue,
+        };
+        if observed_revision != transcript.revision_id()
+            || observed_revision != target.occurrence().source_revision
+        {
+            return Err(ReviewedOutputError::RevisionMismatch { case_id });
+        }
+        let occurrence = target.occurrence();
+        if occurrence.observed_text
+            != transcript
+                .segments()
+                .get(occurrence.segment_position)
+                .map(|segment| segment.text[occurrence.start_byte..occurrence.end_byte].to_owned())
+                .unwrap_or_default()
+        {
+            return Err(ReviewedOutputError::AnchorResolutionFailed { case_id });
+        }
+        edits.push(MaterializingEdit {
+            case_id,
+            segment_position: occurrence.segment_position,
+            start_byte: occurrence.start_byte,
+            end_byte: occurrence.end_byte,
+            replacement_text,
+        });
+    }
     Ok(edits)
 }
 

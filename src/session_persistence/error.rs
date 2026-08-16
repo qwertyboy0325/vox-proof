@@ -29,6 +29,9 @@ pub enum SessionPersistenceError {
     RecoveryRequired,
     SessionNotWritable,
     InvalidSessionId,
+    ProjectMemoryUnavailable,
+    WritableReuseBlocked,
+    ProjectMemory(String),
 }
 
 impl fmt::Display for SessionPersistenceError {

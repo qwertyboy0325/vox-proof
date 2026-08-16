@@ -38,8 +38,16 @@ pub fn render_application_decision_log(bundle: &ApplicationReviewExportBundle) -
             record.session_authority.display_label()
         ));
         output.push_str(&format!(
-            "case_id: local:{}\n",
-            record.case_id.local_index()
+            "case_id: {}\n",
+            record
+                .case_id
+                .map(|case_id| format!("local:{}", case_id.local_index()))
+                .or_else(|| {
+                    record
+                        .reuse_proposal_target_identity
+                        .map(|identity| identity.to_tagged_string())
+                })
+                .unwrap_or_else(|| "unknown".to_owned())
         ));
         output.push_str(&format!(
             "observed_revision: {}\n",

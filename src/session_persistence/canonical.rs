@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::analysis::{AnalysisConfigurationIdentity, AnalysisSnapshot, SessionTermsIdentity};
 use crate::anchor::TranscriptRevisionId;
+use crate::application_reuse::reusable_influence_snapshot_for_parts;
 use crate::application_service::ApplicationReviewSession;
 use crate::candidate::{
     AsciiLatinPhoneticRepresentation, CandidateAlternative, CandidateSpan, DetectionKind,
@@ -13,14 +14,14 @@ use crate::pipeline::CanonicalTermReviewRun;
 use crate::review::{CorrectionDecision, ReviewCase, ReviewCaseId, ReviewLedgerEvent};
 use crate::session_persistence::error::SessionPersistenceError;
 use crate::session_persistence::reuse_canonical::{
-    persist_governance_event, persist_project_scope, persist_reuse_enabled_binding,
     PersistedProjectScopeV1, PersistedReuseEnabledBindingV1, PersistedReuseGovernanceEventV1,
-    active_analysis_selection_identity_for_reuse_enabled,
+    active_analysis_selection_identity_for_reuse_enabled, persist_governance_event,
+    persist_project_scope, persist_reuse_enabled_binding,
 };
-use crate::application_reuse::reusable_influence_snapshot_for_parts;
 use crate::transcript::{Segment, Transcript};
 
 pub(crate) const PRODUCT_SESSION_FORMAT_VERSION: u32 = 1;
+pub(crate) const PRODUCT_SESSION_FORMAT_VERSION_V2: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PersistedSegmentV1 {
@@ -144,6 +145,162 @@ pub(crate) struct PersistedReviewLedgerEventV1 {
     case_local_index: usize,
     observed_revision: String,
     decision: PersistedCorrectionDecisionV1,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    reuse_proposal_target_identity: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedReuseProposalTargetV1 {
+    pub target_identity: String,
+    pub reuse_analysis_snapshot: PersistedAnalysisSnapshotV1,
+    pub project_memory_snapshot_identity: String,
+    pub governance_boundary: usize,
+    pub source_revision: String,
+    pub segment_position: usize,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub observed_text: String,
+    pub proposed_replacement: String,
+    pub project_id: String,
+    pub contributing_record_ids: Vec<usize>,
+    pub detector_id: String,
+    pub detector_version: String,
+    pub detector_config_id: String,
+    pub detector_config_version: String,
+    pub algorithm_id: String,
+    pub algorithm_version: String,
+    pub reusable_influence_snapshot_identity: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PersistedFrozenProjectReuseAnalysisV1 {
+    pub freeze_identity: String,
+    pub project_memory_snapshot_identity: String,
+    pub governance_event_boundary: usize,
+    pub reuse_analysis_snapshot: PersistedAnalysisSnapshotV1,
+}
+
+pub(crate) fn persist_reuse_proposal_target(
+    target: &crate::reuse_proposal_target::ReuseProposalTarget,
+) -> PersistedReuseProposalTargetV1 {
+    PersistedReuseProposalTargetV1 {
+        target_identity: target.identity().to_tagged_string(),
+        reuse_analysis_snapshot: persist_analysis_snapshot(target.reuse_analysis_snapshot()),
+        project_memory_snapshot_identity: target
+            .project_memory_snapshot_identity()
+            .to_tagged_string(),
+        governance_boundary: target.governance_boundary(),
+        source_revision: target.occurrence().source_revision.to_tagged_string(),
+        segment_position: target.occurrence().segment_position,
+        start_byte: target.occurrence().start_byte,
+        end_byte: target.occurrence().end_byte,
+        observed_text: target.occurrence().observed_text.clone(),
+        proposed_replacement: target.proposed_replacement().to_owned(),
+        project_id: target.project_id().as_str().to_owned(),
+        contributing_record_ids: target.contributing_record_ids().to_vec(),
+        detector_id: target.detector_id().to_owned(),
+        detector_version: target.detector_version().to_owned(),
+        detector_config_id: target.detector_config_id().to_owned(),
+        detector_config_version: target.detector_config_version().to_owned(),
+        algorithm_id: target.algorithm_id().to_owned(),
+        algorithm_version: target.algorithm_version().to_owned(),
+        reusable_influence_snapshot_identity: target
+            .reusable_influence_snapshot_identity()
+            .to_tagged_string(),
+    }
+}
+
+pub(crate) fn restore_reuse_proposal_target(
+    persisted: &PersistedReuseProposalTargetV1,
+) -> Result<crate::reuse_proposal_target::ReuseProposalTarget, SessionPersistenceError> {
+    let reuse_analysis_snapshot =
+        restore_analysis_snapshot_from_persisted(&persisted.reuse_analysis_snapshot)?;
+    let project_memory_snapshot_identity =
+        crate::project_memory::ProjectMemorySnapshotIdentity::from_tagged_string(
+            &persisted.project_memory_snapshot_identity,
+        )
+        .ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "project memory snapshot identity".to_owned(),
+            )
+        })?;
+    let source_revision = parse_revision_tag_for_canonical(&persisted.source_revision)?;
+    let project_id = crate::reuse_primitives::ProjectScopeId::new(persisted.project_id.clone())
+        .map_err(|_| SessionPersistenceError::CanonicalMismatch("project id".to_owned()))?;
+    let reusable_influence_snapshot_identity =
+        crate::session_persistence::reuse_canonical::restore_reusable_snapshot_identity(
+            &persisted.reusable_influence_snapshot_identity,
+        )?;
+    let target = crate::reuse_proposal_target::ReuseProposalTarget::from_derivation_inputs(
+        reuse_analysis_snapshot,
+        project_memory_snapshot_identity,
+        persisted.governance_boundary,
+        crate::reuse_proposal_target::ReuseProposalOccurrence {
+            source_revision,
+            segment_position: persisted.segment_position,
+            start_byte: persisted.start_byte,
+            end_byte: persisted.end_byte,
+            observed_text: persisted.observed_text.clone(),
+        },
+        persisted.proposed_replacement.clone(),
+        project_id,
+        persisted.contributing_record_ids.clone(),
+        persisted.detector_id.clone(),
+        persisted.detector_version.clone(),
+        persisted.detector_config_id.clone(),
+        persisted.detector_config_version.clone(),
+        persisted.algorithm_id.clone(),
+        persisted.algorithm_version.clone(),
+        reusable_influence_snapshot_identity,
+    );
+    if target.identity().to_tagged_string() != persisted.target_identity
+        || !target.verify_identity()
+    {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "reuse proposal target identity mismatch".to_owned(),
+        ));
+    }
+    Ok(target)
+}
+
+pub(crate) fn persist_frozen_project_reuse(
+    frozen: &crate::reuse_proposal_target::FrozenProjectReuseAnalysis,
+) -> PersistedFrozenProjectReuseAnalysisV1 {
+    PersistedFrozenProjectReuseAnalysisV1 {
+        freeze_identity: frozen.freeze_identity.to_tagged_string(),
+        project_memory_snapshot_identity: frozen
+            .project_memory_snapshot_identity
+            .to_tagged_string(),
+        governance_event_boundary: frozen.governance_event_boundary,
+        reuse_analysis_snapshot: persist_analysis_snapshot(frozen.reuse_analysis_snapshot),
+    }
+}
+
+pub(crate) fn restore_frozen_project_reuse(
+    persisted: &PersistedFrozenProjectReuseAnalysisV1,
+) -> Result<crate::reuse_proposal_target::FrozenProjectReuseAnalysis, SessionPersistenceError> {
+    let project_memory_snapshot_identity =
+        crate::project_memory::ProjectMemorySnapshotIdentity::from_tagged_string(
+            &persisted.project_memory_snapshot_identity,
+        )
+        .ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "frozen project memory snapshot identity".to_owned(),
+            )
+        })?;
+    let reuse_analysis_snapshot =
+        restore_analysis_snapshot_from_persisted(&persisted.reuse_analysis_snapshot)?;
+    let frozen = crate::reuse_proposal_target::FrozenProjectReuseAnalysis::new(
+        project_memory_snapshot_identity,
+        persisted.governance_event_boundary,
+        reuse_analysis_snapshot,
+    );
+    if frozen.freeze_identity.to_tagged_string() != persisted.freeze_identity {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "frozen project reuse analysis identity mismatch".to_owned(),
+        ));
+    }
+    Ok(frozen)
 }
 
 pub(crate) fn persist_transcript(transcript: &Transcript) -> PersistedTranscriptV1 {
@@ -187,9 +344,7 @@ pub(crate) fn persist_session_terms(entries: &[SessionTermEntry]) -> Vec<Persist
         .collect()
 }
 
-pub(crate) fn restore_session_terms(
-    persisted: &[PersistedSessionTermV1],
-) -> Vec<SessionTermEntry> {
+pub(crate) fn restore_session_terms(persisted: &[PersistedSessionTermV1]) -> Vec<SessionTermEntry> {
     persisted
         .iter()
         .map(|entry| {
@@ -271,7 +426,9 @@ pub(crate) fn verify_analysis_snapshot(
     Ok(())
 }
 
-pub(crate) fn persist_review_case(review_case: &ReviewCase) -> Result<PersistedReviewCaseV1, SessionPersistenceError> {
+pub(crate) fn persist_review_case(
+    review_case: &ReviewCase,
+) -> Result<PersistedReviewCaseV1, SessionPersistenceError> {
     let span = review_case.candidate_span();
     let anchor = span.anchor();
     let evidence = match span.evidence() {
@@ -374,15 +531,13 @@ pub(crate) fn restore_review_case(
             algorithm_id,
             algorithm_version,
         } => {
-            let detector_config = detector_config_identity_from_parts(
-                detector_config_id,
-                detector_config_version,
-            )
-            .ok_or_else(|| {
-                SessionPersistenceError::CanonicalMismatch(
-                    "phonetic detector config identity".to_owned(),
-                )
-            })?;
+            let detector_config =
+                detector_config_identity_from_parts(detector_config_id, detector_config_version)
+                    .ok_or_else(|| {
+                        SessionPersistenceError::CanonicalMismatch(
+                            "phonetic detector config identity".to_owned(),
+                        )
+                    })?;
             let algorithm = algorithm_identity_from_parts(algorithm_id, algorithm_version)
                 .ok_or_else(|| {
                     SessionPersistenceError::CanonicalMismatch(
@@ -421,15 +576,27 @@ pub(crate) fn restore_review_case(
 }
 
 pub(crate) fn persist_ledger_event(event: &ReviewLedgerEvent) -> PersistedReviewLedgerEventV1 {
-    let ReviewLedgerEvent::DecisionRecorded {
-        case_id,
-        observed_revision,
-        decision,
-    } = event;
-    PersistedReviewLedgerEventV1 {
-        case_local_index: case_id.local_index(),
-        observed_revision: observed_revision.to_tagged_string(),
-        decision: persist_correction_decision(decision),
+    match event {
+        ReviewLedgerEvent::DecisionRecorded {
+            case_id,
+            observed_revision,
+            decision,
+        } => PersistedReviewLedgerEventV1 {
+            case_local_index: case_id.local_index(),
+            observed_revision: observed_revision.to_tagged_string(),
+            decision: persist_correction_decision(decision),
+            reuse_proposal_target_identity: None,
+        },
+        ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+            target_identity,
+            observed_revision,
+            decision,
+        } => PersistedReviewLedgerEventV1 {
+            case_local_index: 0,
+            observed_revision: observed_revision.to_tagged_string(),
+            decision: persist_correction_decision(decision),
+            reuse_proposal_target_identity: Some(target_identity.to_tagged_string()),
+        },
     }
 }
 
@@ -442,10 +609,25 @@ pub(crate) fn restore_ledger_event(
             "ledger event revision mismatch".to_owned(),
         ));
     }
+    let decision = restore_correction_decision(&persisted.decision)?;
+    if let Some(tagged) = &persisted.reuse_proposal_target_identity {
+        let target_identity =
+            crate::reuse_proposal_target::ReuseProposalTargetIdentity::from_tagged_string(tagged)
+                .ok_or_else(|| {
+                SessionPersistenceError::CanonicalMismatch(
+                    "reuse proposal target identity".to_owned(),
+                )
+            })?;
+        return Ok(ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+            target_identity,
+            observed_revision: revision,
+            decision,
+        });
+    }
     Ok(ReviewLedgerEvent::DecisionRecorded {
         case_id: ReviewCaseId::local(persisted.case_local_index),
         observed_revision: revision,
-        decision: restore_correction_decision(&persisted.decision)?,
+        decision,
     })
 }
 
@@ -535,14 +717,12 @@ pub(crate) fn capture_from_session(
         let parts = session.reuse_parts();
         let snapshot = reusable_influence_snapshot_for_parts(parts, session.reuse_state())
             .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
-        vec![
-            persist_reuse_enabled_binding(
-                1,
-                run.analysis_run().snapshot(),
-                snapshot.identity(),
-                session.reuse_state().governance_events().len(),
-            ),
-        ]
+        vec![persist_reuse_enabled_binding(
+            1,
+            run.analysis_run().snapshot(),
+            snapshot.identity(),
+            session.reuse_state().governance_events().len(),
+        )]
     } else {
         Vec::new()
     };
@@ -597,6 +777,10 @@ pub(crate) fn capture_from_session(
         reuse_governance_events,
         reuse_governance_head,
         reuse_enabled_bindings,
+        format_version: PRODUCT_SESSION_FORMAT_VERSION,
+        bound_project_id: None,
+        frozen_project_reuse: None,
+        reuse_proposal_targets: Vec::new(),
     })
 }
 
@@ -616,6 +800,10 @@ pub(crate) struct SessionCanonicalCapture {
     pub reuse_governance_events: Vec<PersistedReuseGovernanceEventV1>,
     pub reuse_governance_head: usize,
     pub reuse_enabled_bindings: Vec<PersistedReuseEnabledBindingV1>,
+    pub format_version: u32,
+    pub bound_project_id: Option<String>,
+    pub frozen_project_reuse: Option<PersistedFrozenProjectReuseAnalysisV1>,
+    pub reuse_proposal_targets: Vec<PersistedReuseProposalTargetV1>,
 }
 
 fn persist_phonetic_target_kind(kind: PhoneticTargetKind) -> String {
@@ -748,14 +936,12 @@ fn parse_revision_tag_for_canonical(
                 "revision digest".to_owned(),
             ));
         }
-        let hi = (chunk[0] as char)
-            .to_digit(16)
-            .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision digest".to_owned()))?
-            as u8;
-        let lo = (chunk[1] as char)
-            .to_digit(16)
-            .ok_or_else(|| SessionPersistenceError::CanonicalMismatch("revision digest".to_owned()))?
-            as u8;
+        let hi = (chunk[0] as char).to_digit(16).ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch("revision digest".to_owned())
+        })? as u8;
+        let lo = (chunk[1] as char).to_digit(16).ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch("revision digest".to_owned())
+        })? as u8;
         digest[index] = (hi << 4) | lo;
     }
     Ok(TranscriptRevisionId::from_sha256_digest(digest))

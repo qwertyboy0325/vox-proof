@@ -2,26 +2,31 @@ use std::cell::Cell;
 
 use crate::application_gate3_replay::replay_reuse_governance_for_hydrate;
 use crate::application_reuse::{
-    run_reuse_enabled_review_for_parts, ApplicationReuseState, ReuseSessionParts,
+    ApplicationReuseState, ReuseSessionParts, run_reuse_enabled_review_for_parts,
 };
 use crate::application_service::{
-    ApplicationMaterialUseDeclaration, ApplicationReviewSession, DeclaredApplicationMaterialUseBasis,
-    DeclaredSessionAuthority, DeclaredSessionOperatorRole, assemble_application_review_session,
+    ApplicationMaterialUseDeclaration, ApplicationReviewSession,
+    DeclaredApplicationMaterialUseBasis, DeclaredSessionAuthority, DeclaredSessionOperatorRole,
+    ProjectReuseSessionState, assemble_application_review_session,
 };
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
+use crate::project_memory::{
+    PROJECT_MEMORY_FORMAT_VERSION, ProjectMemoryRecord, ProjectMemorySnapshotIdentity,
+    compute_project_memory_snapshot_identity,
+};
+use crate::reuse_primitives::ProjectScope;
 use crate::review::ReviewLedger;
 use crate::session_persistence::canonical::{
-    restore_ledger_event, restore_session_terms, restore_transcript, verify_analysis_snapshot,
-    verify_review_cases,
+    PRODUCT_SESSION_FORMAT_VERSION_V2, restore_frozen_project_reuse, restore_ledger_event,
+    restore_reuse_proposal_target, restore_session_terms, restore_transcript,
+    verify_analysis_snapshot, verify_review_cases,
 };
 use crate::session_persistence::error::SessionPersistenceError;
 use crate::session_persistence::reuse_canonical::{
     project_scope_is_uninitialized, restore_governance_event, restore_project_scope,
     restore_reusable_snapshot_identity,
 };
-use crate::session_persistence::reuse_store::{
-    find_active_binding,
-};
+use crate::session_persistence::reuse_store::find_active_binding;
 use crate::session_persistence::store::{OpenedStoreSession, ProductSessionStore};
 
 thread_local! {
@@ -38,8 +43,16 @@ pub fn disarm_force_hydrate_failure_for_test() {
     FORCE_HYDRATE_FAILURE.with(|flag| flag.set(false));
 }
 
+pub(crate) struct ProjectMemoryHydrateOverlay {
+    pub available: bool,
+    pub project_scope: ProjectScope,
+    pub records: Vec<ProjectMemoryRecord>,
+    pub current_snapshot: Option<ProjectMemorySnapshotIdentity>,
+}
+
 pub(crate) fn hydrate_application_review_session(
     opened: &OpenedStoreSession,
+    project_overlay: Option<&ProjectMemoryHydrateOverlay>,
 ) -> Result<ApplicationReviewSession, SessionPersistenceError> {
     if FORCE_HYDRATE_FAILURE.with(|flag| flag.get()) {
         return Err(SessionPersistenceError::CanonicalMismatch(
@@ -49,12 +62,11 @@ pub(crate) fn hydrate_application_review_session(
     let capture = ProductSessionStore::load_canonical_capture(opened)?;
     let transcript = restore_transcript(&capture.transcript);
     let session_terms = restore_session_terms(&capture.session_terms);
-    let detector_run = run_canonical_term_review(&transcript, &session_terms)
-        .map_err(|error| {
-            SessionPersistenceError::Replay(crate::application_service::ApplicationServiceError::Detection(
-                error,
-            ))
-        })?;
+    let detector_run = run_canonical_term_review(&transcript, &session_terms).map_err(|error| {
+        SessionPersistenceError::Replay(
+            crate::application_service::ApplicationServiceError::Detection(error),
+        )
+    })?;
     verify_analysis_snapshot(
         &capture.analysis_snapshot,
         detector_run.analysis_run().snapshot(),
@@ -64,32 +76,70 @@ pub(crate) fn hydrate_application_review_session(
         &detector_run,
         transcript.revision_id(),
     )?;
-    let canonical_run = CanonicalTermReviewRun::new(
-        detector_run.analysis_run(),
-        authoritative_cases,
-    );
+    let canonical_run =
+        CanonicalTermReviewRun::new(detector_run.analysis_run(), authoritative_cases);
     let material_use = restore_material_use(&capture.material_use_basis)?;
     let session_authority =
         restore_session_authority(&capture.authority_role, &capture.authority_display_label)?;
+    let mut persisted_targets = Vec::new();
+    for persisted in &capture.reuse_proposal_targets {
+        persisted_targets.push(restore_reuse_proposal_target(persisted)?);
+    }
+    let frozen = capture
+        .frozen_project_reuse
+        .as_ref()
+        .map(restore_frozen_project_reuse)
+        .transpose()?;
     let mut ledger = ReviewLedger::new();
     for persisted_event in &capture.ledger_events {
         let event = restore_ledger_event(persisted_event, transcript.revision_id())?;
-        let crate::review::ReviewLedgerEvent::DecisionRecorded {
-            case_id,
-            observed_revision,
-            decision,
-        } = &event;
-        let review_case = canonical_run
-            .review_cases()
-            .get(case_id.local_index())
-            .ok_or_else(|| {
-                SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
-            })?;
-        ledger
-            .record_decision(review_case, *observed_revision, decision.clone())
-            .map_err(|error| {
-                SessionPersistenceError::Replay(crate::application_service::ApplicationServiceError::Decision(error))
-            })?;
+        match event {
+            crate::review::ReviewLedgerEvent::DecisionRecorded {
+                case_id,
+                observed_revision,
+                decision,
+            } => {
+                let review_case = canonical_run
+                    .review_cases()
+                    .get(case_id.local_index())
+                    .ok_or_else(|| {
+                        SessionPersistenceError::CanonicalMismatch("unknown review case".to_owned())
+                    })?;
+                ledger
+                    .record_decision(review_case, observed_revision, decision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+            crate::review::ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            } => {
+                if capture.format_version != PRODUCT_SESSION_FORMAT_VERSION_V2 {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "v1 session must not contain reuse proposal decisions".to_owned(),
+                    ));
+                }
+                if !persisted_targets
+                    .iter()
+                    .any(|target| target.identity() == target_identity)
+                {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "reuse decision missing thin target".to_owned(),
+                    ));
+                }
+                ledger
+                    .record_reuse_decision(target_identity, observed_revision, decision)
+                    .map_err(|error| {
+                        SessionPersistenceError::Replay(
+                            crate::application_service::ApplicationServiceError::Decision(error),
+                        )
+                    })?;
+            }
+        }
     }
     if ledger.events().len() != capture.review_ledger_head {
         return Err(SessionPersistenceError::CanonicalMismatch(
@@ -102,15 +152,70 @@ pub(crate) fn hydrate_application_review_session(
         ));
     }
 
-    let reuse_state = restore_reuse_state(&capture, &session_authority, &transcript, &session_terms, &canonical_run, &ledger)?;
-    let reuse_enabled_run = reconstruct_reuse_enabled_run(
+    let reuse_state = restore_reuse_state(
         &capture,
+        &session_authority,
         &transcript,
         &session_terms,
         &canonical_run,
         &ledger,
-        &reuse_state,
+        project_overlay,
     )?;
+    let reuse_enabled_run = if project_overlay.is_some_and(|overlay| !overlay.available) {
+        None
+    } else {
+        reconstruct_reuse_enabled_run(
+            &capture,
+            &transcript,
+            &session_terms,
+            &canonical_run,
+            &ledger,
+            &reuse_state,
+            frozen.as_ref(),
+        )?
+    };
+
+    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        if let (Some(run), Some(frozen_analysis), Some(scope)) = (
+            reuse_enabled_run.as_ref(),
+            frozen.as_ref(),
+            reuse_state.project_scope(),
+        ) {
+            let derived = crate::reuse_proposal_target::derive_reuse_proposal_targets(
+                &transcript,
+                run,
+                &scope.stable_id,
+                frozen_analysis.project_memory_snapshot_identity,
+                frozen_analysis.governance_event_boundary,
+            );
+            for target in &persisted_targets {
+                if target.project_memory_snapshot_identity()
+                    == frozen_analysis.project_memory_snapshot_identity
+                    && !derived
+                        .iter()
+                        .any(|item| item.identity() == target.identity())
+                {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "persisted reuse target does not reconstruct from frozen analysis"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+    }
+
+    let project_reuse = ProjectReuseSessionState {
+        compose: frozen.is_some() && project_overlay.is_some_and(|overlay| overlay.available),
+        persisted_targets,
+        frozen,
+        project_memory_available: project_overlay
+            .map(|overlay| overlay.available)
+            .unwrap_or(true),
+        current_project_snapshot: project_overlay.and_then(|overlay| overlay.current_snapshot),
+        project_memory_records: project_overlay
+            .map(|overlay| overlay.records.clone())
+            .unwrap_or_default(),
+    };
 
     let reuse_active = !capture.reuse_governance_events.is_empty() || reuse_enabled_run.is_some();
 
@@ -123,16 +228,29 @@ pub(crate) fn hydrate_application_review_session(
         session_authority,
         reuse_state,
         reuse_enabled_run,
+        project_reuse,
     )
     .map_err(SessionPersistenceError::Replay)?;
 
-    if reuse_active {
-        crate::application_gate3_replay::verify_gate3_independent_replay(&session).map_err(|_| {
-            SessionPersistenceError::CanonicalMismatch("gate3 replay verification failed".to_owned())
+    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        session.verify_canonical_replay().map_err(|_| {
+            SessionPersistenceError::CanonicalMismatch(
+                "in-memory replay verification failed".to_owned(),
+            )
         })?;
+    } else if reuse_active {
+        crate::application_gate3_replay::verify_gate3_independent_replay(&session).map_err(
+            |_| {
+                SessionPersistenceError::CanonicalMismatch(
+                    "gate3 replay verification failed".to_owned(),
+                )
+            },
+        )?;
     } else {
         session.verify_in_memory_replay().map_err(|_| {
-            SessionPersistenceError::CanonicalMismatch("in-memory replay verification failed".to_owned())
+            SessionPersistenceError::CanonicalMismatch(
+                "in-memory replay verification failed".to_owned(),
+            )
         })?;
     }
     Ok(session)
@@ -145,7 +263,58 @@ fn restore_reuse_state(
     session_terms: &[crate::candidate::SessionTermEntry],
     canonical_run: &CanonicalTermReviewRun,
     ledger: &ReviewLedger,
+    project_overlay: Option<&ProjectMemoryHydrateOverlay>,
 ) -> Result<ApplicationReuseState, SessionPersistenceError> {
+    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        let overlay = project_overlay.ok_or_else(|| {
+            SessionPersistenceError::CanonicalMismatch(
+                "v2 session missing project overlay".to_owned(),
+            )
+        })?;
+        if !capture.reuse_governance_events.is_empty() {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "v2 session must not hold session-local reuse authority".to_owned(),
+            ));
+        }
+        if overlay.available {
+            let records = if let Some(frozen_persisted) = &capture.frozen_project_reuse {
+                let frozen = restore_frozen_project_reuse(frozen_persisted)?;
+                if overlay.records.len() < frozen.governance_event_boundary {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "frozen project boundary exceeds available project records".to_owned(),
+                    ));
+                }
+                let prefix = overlay.records[..frozen.governance_event_boundary].to_vec();
+                let computed = compute_project_memory_snapshot_identity(
+                    &overlay.project_scope.stable_id,
+                    PROJECT_MEMORY_FORMAT_VERSION,
+                    frozen.governance_event_boundary,
+                    &prefix,
+                );
+                if computed != frozen.project_memory_snapshot_identity {
+                    return Err(SessionPersistenceError::CanonicalMismatch(
+                        "frozen project memory snapshot mismatch".to_owned(),
+                    ));
+                }
+                prefix
+            } else {
+                overlay.records.clone()
+            };
+            return Ok(ApplicationReuseState::from_project_memory_records(
+                overlay.project_scope.clone(),
+                &records,
+            ));
+        }
+        return Ok(ApplicationReuseState::from_project_memory_records(
+            overlay.project_scope.clone(),
+            &[],
+        ));
+    }
+    if project_overlay.is_some() {
+        return Err(SessionPersistenceError::CanonicalMismatch(
+            "v1 session must not carry project overlay".to_owned(),
+        ));
+    }
     if project_scope_is_uninitialized(&capture.project_scope) {
         if !capture.reuse_governance_events.is_empty() {
             return Err(SessionPersistenceError::CanonicalMismatch(
@@ -172,7 +341,9 @@ fn restore_reuse_state(
         &governance_events,
         session_authority,
     )
-    .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("governance replay: {error:?}")))?;
+    .map_err(|error| {
+        SessionPersistenceError::CanonicalMismatch(format!("governance replay: {error:?}"))
+    })?;
     if replayed.events().len() != governance_events.len() {
         return Err(SessionPersistenceError::CanonicalMismatch(
             "reuse governance replay length mismatch".to_owned(),
@@ -191,20 +362,37 @@ fn reconstruct_reuse_enabled_run(
     canonical_run: &CanonicalTermReviewRun,
     ledger: &ReviewLedger,
     reuse_state: &ApplicationReuseState,
+    frozen: Option<&crate::reuse_proposal_target::FrozenProjectReuseAnalysis>,
 ) -> Result<Option<ReuseEnabledTermReviewRun>, SessionPersistenceError> {
-    let binding = find_active_binding(capture)?;
-    if binding.is_none() {
-        return Ok(None);
-    }
-    let binding = binding.expect("checked above");
     let parts = ReuseSessionParts {
         transcript,
         session_terms,
         canonical_run,
         ledger,
     };
-    let snapshot = crate::application_reuse::reusable_influence_snapshot_for_parts(parts, reuse_state)
-        .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
+    if capture.format_version == PRODUCT_SESSION_FORMAT_VERSION_V2 {
+        let Some(frozen) = frozen else {
+            return Ok(None);
+        };
+        let run = run_reuse_enabled_review_for_parts(parts, reuse_state)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
+        if run.analysis_run().snapshot() != frozen.reuse_analysis_snapshot
+            || run.governance_event_boundary_at_run() != frozen.governance_event_boundary
+        {
+            return Err(SessionPersistenceError::CanonicalMismatch(
+                "reconstructed reuse analysis does not match freeze".to_owned(),
+            ));
+        }
+        return Ok(Some(run));
+    }
+    let binding = find_active_binding(capture)?;
+    if binding.is_none() {
+        return Ok(None);
+    }
+    let binding = binding.expect("checked above");
+    let snapshot =
+        crate::application_reuse::reusable_influence_snapshot_for_parts(parts, reuse_state)
+            .map_err(|error| SessionPersistenceError::CanonicalMismatch(format!("{error:?}")))?;
     let binding_reusable_identity =
         restore_reusable_snapshot_identity(&binding.reusable_snapshot_identity)?;
     if binding_reusable_identity != snapshot.identity()

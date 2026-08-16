@@ -223,7 +223,8 @@ fn second_writable_open_is_rejected_until_close() {
         Err(SessionPersistenceError::WriterOwnershipHeld)
     ));
     durable.close().expect("close");
-    DurableApplicationSession::open(&store, &session_id, OpenMode::Writable).expect("reopen writable");
+    DurableApplicationSession::open(&store, &session_id, OpenMode::Writable)
+        .expect("reopen writable");
 }
 
 #[test]
@@ -283,7 +284,10 @@ fn post_commit_refresh_failure_enters_recovery_required() {
     vox_proof::session_persistence::arm_force_hydrate_failure_for_test();
     let result = durable.record_human_decision(prepared);
     vox_proof::session_persistence::disarm_force_hydrate_failure_for_test();
-    assert!(matches!(result, Err(SessionPersistenceError::RecoveryRequired)));
+    assert!(matches!(
+        result,
+        Err(SessionPersistenceError::RecoveryRequired)
+    ));
     assert!(durable.is_recovery_required());
     let target = durable.session().review_items()[0].target;
     assert!(matches!(
@@ -358,7 +362,10 @@ fn unknown_format_version_fails_closed() {
         .expect("bump version");
     assert!(matches!(
         DurableApplicationSession::open(&store, &session_id, OpenMode::ReadOnly),
-        Err(SessionPersistenceError::UnsupportedFormatVersion { found: 99, supported: 1 })
+        Err(SessionPersistenceError::UnsupportedFormatVersion {
+            found: 99,
+            supported: 2
+        })
     ));
 }
 
@@ -840,7 +847,9 @@ fn authoritative_transaction_rejects_mismatched_writer_token_without_mutation() 
         Err(SessionPersistenceError::WriterOwnershipHeld)
     ));
     assert_eq!(durable.session().review_ledger().events().len(), 0);
-    durable.close().expect_err("stale handle cannot release foreign token");
+    durable
+        .close()
+        .expect_err("stale handle cannot release foreign token");
 }
 
 #[test]
@@ -860,5 +869,6 @@ fn release_only_clears_own_writer_token() {
     let first =
         DurableApplicationSession::open(&store, &session_id, OpenMode::Writable).expect("first");
     first.close().expect("release first");
-    DurableApplicationSession::open(&store, &session_id, OpenMode::Writable).expect("second acquire");
+    DurableApplicationSession::open(&store, &session_id, OpenMode::Writable)
+        .expect("second acquire");
 }

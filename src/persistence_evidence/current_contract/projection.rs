@@ -222,11 +222,26 @@ fn map_session_authority(authority: &DeclaredSessionAuthority) -> EvidenceSessio
 }
 
 fn map_ledger_event(index: usize, event: &ReviewLedgerEvent) -> EvidenceReviewLedgerEvent {
-    let ReviewLedgerEvent::DecisionRecorded {
-        case_id,
-        observed_revision,
-        decision,
-    } = event;
+    let (case_id, observed_revision, decision) = match event {
+        ReviewLedgerEvent::DecisionRecorded {
+            case_id,
+            observed_revision,
+            decision,
+        } => (
+            format!("review-case:{}", case_id.local_index()),
+            observed_revision,
+            decision,
+        ),
+        ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+            target_identity,
+            observed_revision,
+            decision,
+        } => (
+            target_identity.to_tagged_string(),
+            observed_revision,
+            decision,
+        ),
+    };
     let (action_kind, manual_replacement_bytes, alternative_index) = match decision {
         CorrectionDecision::AcceptAlternative { alternative_index } => (
             "accept_alternative".to_owned(),
@@ -246,7 +261,7 @@ fn map_ledger_event(index: usize, event: &ReviewLedgerEvent) -> EvidenceReviewLe
     };
     EvidenceReviewLedgerEvent {
         event_index: index,
-        case_id: format!("review-case:{}", case_id.local_index()),
+        case_id,
         observed_revision_id: observed_revision.to_tagged_string(),
         action_kind,
         manual_replacement_bytes,
@@ -336,14 +351,14 @@ fn rejection_payload_for_key(
         .ledger
         .events()
         .get(locator.review_ledger_position)
-        .and_then(|event| {
-            let ReviewLedgerEvent::DecisionRecorded { decision, .. } = event;
-            match decision {
+        .and_then(|event| match event {
+            ReviewLedgerEvent::DecisionRecorded { decision, .. } => match decision {
                 CorrectionDecision::ManualReplacement { replacement } => {
                     Some(replacement.as_str().to_owned())
                 }
                 _ => None,
-            }
+            },
+            ReviewLedgerEvent::ReuseProposalDecisionRecorded { .. } => None,
         })
         .unwrap_or_default();
     ExactReusableCorrection {

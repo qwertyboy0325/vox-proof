@@ -1,5 +1,6 @@
 use crate::anchor::TranscriptRevisionId;
 use crate::candidate::CandidateSpan;
+use crate::reuse_proposal_target::ReuseProposalTargetIdentity;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ReviewCaseId {
@@ -150,6 +151,11 @@ pub enum ReviewLedgerEvent {
         observed_revision: TranscriptRevisionId,
         decision: CorrectionDecision,
     },
+    ReuseProposalDecisionRecorded {
+        target_identity: ReuseProposalTargetIdentity,
+        observed_revision: TranscriptRevisionId,
+        decision: CorrectionDecision,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,6 +173,9 @@ pub enum ReviewLedgerError {
         case_id: ReviewCaseId,
         alternative_index: usize,
         alternative_count: usize,
+    },
+    ReuseAlternativeIndexOutOfRange {
+        alternative_index: usize,
     },
 }
 
@@ -197,6 +206,30 @@ impl ReviewLedger {
         Ok(())
     }
 
+    pub fn record_reuse_decision(
+        &mut self,
+        target_identity: ReuseProposalTargetIdentity,
+        observed_revision: TranscriptRevisionId,
+        decision: CorrectionDecision,
+    ) -> Result<(), ReviewLedgerError> {
+        if let CorrectionDecision::AcceptAlternative { alternative_index } = decision {
+            if alternative_index != 0 {
+                return Err(ReviewLedgerError::ReuseAlternativeIndexOutOfRange {
+                    alternative_index,
+                });
+            }
+        }
+
+        self.events
+            .push(ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+                target_identity,
+                observed_revision,
+                decision,
+            });
+
+        Ok(())
+    }
+
     pub fn status_for(&self, case_id: ReviewCaseId) -> ReviewCaseStatus {
         let mut status = ReviewCaseStatus::Undecided;
 
@@ -223,6 +256,29 @@ impl ReviewLedger {
         &self.events
     }
 
+    pub fn status_for_reuse(
+        &self,
+        target_identity: ReuseProposalTargetIdentity,
+    ) -> ReviewCaseStatus {
+        let mut status = ReviewCaseStatus::Undecided;
+        for event in &self.events {
+            if let ReviewLedgerEvent::ReuseProposalDecisionRecorded {
+                target_identity: event_identity,
+                observed_revision,
+                decision,
+            } = event
+            {
+                if *event_identity == target_identity {
+                    status = ReviewCaseStatus::Decided {
+                        observed_revision: *observed_revision,
+                        decision: decision.clone(),
+                    };
+                }
+            }
+        }
+        status
+    }
+
     pub fn status_for_at_prefix(
         &self,
         case_id: ReviewCaseId,
@@ -230,16 +286,18 @@ impl ReviewLedger {
     ) -> ReviewCaseStatus {
         let mut status = ReviewCaseStatus::Undecided;
         for event in self.events.iter().take(prefix_length) {
-            let ReviewLedgerEvent::DecisionRecorded {
+            if let ReviewLedgerEvent::DecisionRecorded {
                 case_id: event_case_id,
                 observed_revision,
                 decision,
-            } = event;
-            if *event_case_id == case_id {
-                status = ReviewCaseStatus::Decided {
-                    observed_revision: *observed_revision,
-                    decision: decision.clone(),
-                };
+            } = event
+            {
+                if *event_case_id == case_id {
+                    status = ReviewCaseStatus::Decided {
+                        observed_revision: *observed_revision,
+                        decision: decision.clone(),
+                    };
+                }
             }
         }
         status
@@ -255,19 +313,17 @@ impl ReviewLedger {
             .take(prefix_length)
             .enumerate()
             .rev()
-            .find_map(|(index, event)| {
-                let ReviewLedgerEvent::DecisionRecorded {
+            .find_map(|(index, event)| match event {
+                ReviewLedgerEvent::DecisionRecorded {
                     case_id: event_case_id,
                     decision,
                     ..
-                } = event;
-                if *event_case_id == case_id
-                    && matches!(decision, CorrectionDecision::ManualReplacement { .. })
+                } if *event_case_id == case_id
+                    && matches!(decision, CorrectionDecision::ManualReplacement { .. }) =>
                 {
                     Some(index)
-                } else {
-                    None
                 }
+                _ => None,
             })
     }
 

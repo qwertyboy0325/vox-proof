@@ -322,19 +322,17 @@ pub fn locate_effective_manual_replacement_event(
         .iter()
         .enumerate()
         .rev()
-        .find_map(|(index, event)| {
-            let ReviewLedgerEvent::DecisionRecorded {
+        .find_map(|(index, event)| match event {
+            ReviewLedgerEvent::DecisionRecorded {
                 case_id: event_case_id,
                 decision,
                 ..
-            } = event;
-            if *event_case_id == case_id
-                && matches!(decision, CorrectionDecision::ManualReplacement { .. })
+            } if *event_case_id == case_id
+                && matches!(decision, CorrectionDecision::ManualReplacement { .. }) =>
             {
                 Some((index, event))
-            } else {
-                None
             }
+            _ => None,
         })
 }
 
@@ -569,19 +567,15 @@ pub fn derive_reuse_candidates(
         {
             continue;
         }
-        if effective
-            .active_records()
-            .iter()
-            .any(|record| {
-                active_record_shares_promotion_origin(
-                    record,
-                    &ReuseCandidateKey {
-                        source_locator: source_locator.clone(),
-                        project_scope_id: project_scope.stable_id.clone(),
-                    },
-                )
-            })
-        {
+        if effective.active_records().iter().any(|record| {
+            active_record_shares_promotion_origin(
+                record,
+                &ReuseCandidateKey {
+                    source_locator: source_locator.clone(),
+                    project_scope_id: project_scope.stable_id.clone(),
+                },
+            )
+        }) {
             continue;
         }
 
@@ -983,7 +977,9 @@ pub fn validate_reuse_candidate_key_at_historical_boundary(
         .events()
         .get(candidate_key.source_locator.review_ledger_position)
         .ok_or(ReusableInfluenceError::InvalidSourceLocator)?;
-    let ReviewLedgerEvent::DecisionRecorded { decision, .. } = event;
+    let ReviewLedgerEvent::DecisionRecorded { decision, .. } = event else {
+        return Err(ReusableInfluenceError::InvalidSourceLocator);
+    };
     let CorrectionDecision::ManualReplacement { .. } = decision else {
         return Err(ReusableInfluenceError::SourceDecisionNotManualReplacement);
     };
@@ -1012,7 +1008,10 @@ fn verify_source_locator_event_fields(
         case_id,
         observed_revision,
         decision,
-    } = event;
+    } = event
+    else {
+        return Err(ReusableInfluenceError::InvalidSourceLocator);
+    };
     if *case_id != locator.source_review_case_id
         || *observed_revision != locator.source_revision
         || canonical_run.analysis_run().snapshot() != locator.source_analysis_snapshot

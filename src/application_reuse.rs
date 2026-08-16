@@ -3,6 +3,9 @@ use std::fmt;
 use crate::application_service::{DeclaredSessionAuthority, DeclaredSessionOperatorRole};
 use crate::candidate::DetectionError;
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
+use crate::project_memory::{
+    PROJECT_MEMORY_FORMAT_VERSION, ProjectMemoryRecord, compute_project_memory_snapshot_identity,
+};
 use crate::reusable_influence::{
     EffectiveReusableInfluenceRecord, ExactReusableCorrection, GovernanceActorContext,
     ReusableGovernanceEvent, ReusableInfluenceEffectiveState, ReusableInfluenceError,
@@ -57,6 +60,8 @@ impl From<ProjectScopeTextError> for ApplicationReuseError {
 pub struct ApplicationReuseState {
     project_scope: Option<ProjectScope>,
     governance_ledger: ReusableInfluenceLedger,
+    project_memory_records: Vec<ProjectMemoryRecord>,
+    project_memory_bound: bool,
 }
 
 impl Default for ApplicationReuseState {
@@ -64,6 +69,8 @@ impl Default for ApplicationReuseState {
         Self {
             project_scope: None,
             governance_ledger: ReusableInfluenceLedger::new(),
+            project_memory_records: Vec::new(),
+            project_memory_bound: false,
         }
     }
 }
@@ -92,11 +99,41 @@ impl ApplicationReuseState {
         let mut state = Self {
             project_scope: Some(project_scope),
             governance_ledger: ReusableInfluenceLedger::new(),
+            project_memory_records: Vec::new(),
+            project_memory_bound: false,
         };
         for event in governance_ledger.events() {
             state.governance_ledger_mut().append(event.clone());
         }
         state
+    }
+
+    pub(crate) fn from_project_memory_events(
+        project_scope: ProjectScope,
+        events: &[ReusableGovernanceEvent],
+    ) -> Self {
+        let mut ledger = ReusableInfluenceLedger::new();
+        ledger.append_batch(events.to_vec());
+        Self::from_replayed_governance(project_scope, &ledger)
+    }
+
+    pub(crate) fn from_project_memory_records(
+        project_scope: ProjectScope,
+        records: &[ProjectMemoryRecord],
+    ) -> Self {
+        let events: Vec<_> = records.iter().map(|record| record.event.clone()).collect();
+        let mut state = Self::from_project_memory_events(project_scope, &events);
+        state.project_memory_records = records.to_vec();
+        state.project_memory_bound = true;
+        state
+    }
+
+    pub(crate) fn project_memory_records(&self) -> &[ProjectMemoryRecord] {
+        &self.project_memory_records
+    }
+
+    pub(crate) fn project_memory_bound(&self) -> bool {
+        self.project_memory_bound
     }
 
     pub fn effective_state(
@@ -254,11 +291,12 @@ fn build_reuse_candidate_from_key(
         ),
         proposed_scope: project_scope.stable_id.clone(),
         proposed_allowed_effects: vec![ReuseAllowedEffect::ExactObservedFormProposalGeneration],
-        source_decision_still_effective: crate::reusable_influence::source_decision_still_matches_locator(
-            parts.ledger,
-            &candidate_key.source_locator,
-            parts.canonical_run,
-        ),
+        source_decision_still_effective:
+            crate::reusable_influence::source_decision_still_matches_locator(
+                parts.ledger,
+                &candidate_key.source_locator,
+                parts.canonical_run,
+            ),
     })
 }
 
@@ -536,6 +574,9 @@ pub struct PreparedActiveAnalysis {
     pub expected_selection_token: String,
     pub reusable_snapshot_identity: crate::reuse_primitives::ReusableInfluenceSnapshotIdentity,
     pub governance_event_boundary: usize,
+    pub project_memory_snapshot_identity:
+        Option<crate::project_memory::ProjectMemorySnapshotIdentity>,
+    pub reuse_analysis_snapshot: crate::analysis::AnalysisSnapshot,
 }
 
 pub fn prepare_initialize_project_scope(
@@ -666,14 +707,39 @@ pub fn prepare_reuse_enabled_review(
 ) -> Result<PreparedActiveAnalysis, ApplicationReuseError> {
     let snapshot = reusable_influence_snapshot_for_parts(parts, reuse_state)?;
     let run = run_reuse_enabled_review_for_parts(parts, reuse_state)?;
-    let selection_token = crate::analysis::reuse_enabled_active_analysis_selection_identity(
-        run.analysis_run().snapshot(),
-        snapshot.identity(),
-        reuse_state.governance_events().len(),
-    );
+    let project_memory_snapshot_identity = if reuse_state.project_memory_bound() {
+        let scope = reuse_state
+            .project_scope()
+            .ok_or(ApplicationReuseError::MissingProjectScope)?;
+        Some(compute_project_memory_snapshot_identity(
+            &scope.stable_id,
+            PROJECT_MEMORY_FORMAT_VERSION,
+            reuse_state.project_memory_records().len(),
+            reuse_state.project_memory_records(),
+        ))
+    } else {
+        None
+    };
+    let expected_selection_token = if let Some(project_snapshot) = project_memory_snapshot_identity
+    {
+        crate::reuse_proposal_target::compute_frozen_project_reuse_analysis_identity(
+            project_snapshot,
+            reuse_state.governance_events().len(),
+            run.analysis_run().snapshot(),
+        )
+        .to_tagged_string()
+    } else {
+        crate::analysis::reuse_enabled_active_analysis_selection_identity(
+            run.analysis_run().snapshot(),
+            snapshot.identity(),
+            reuse_state.governance_events().len(),
+        )
+    };
     Ok(PreparedActiveAnalysis {
-        expected_selection_token: selection_token,
+        expected_selection_token,
         reusable_snapshot_identity: snapshot.identity(),
         governance_event_boundary: reuse_state.governance_events().len(),
+        project_memory_snapshot_identity,
+        reuse_analysis_snapshot: run.analysis_run().snapshot(),
     })
 }
