@@ -88,6 +88,8 @@ Accepted bounded v0.2 Manual Replacement decision: `decisions/MD-017-governed-ma
 
 Accepted Gate 3 reusable-influence decision: `decisions/MD-018-proposed-minimal-governed-reusable-influence.md` — minimal exact-pair, project-scoped, explicitly promoted, revocable reusable influence semantics for future exact proposal generation. Accepted at `6b9170c4692ecc6f6545c6025abf75480ee9148a` per explicit owner authorization on 2026-07-30. Acceptance records semantics only; it does not authorize Gate 3 implementation, persistence mechanism selection, public pack formats, ontology, ranking, suppression, phonetic reusable influence, automatic promotion, or v0.3 establishment. A separately authorized bounded implementation work package remains mandatory.
 
+Accepted Gate 4 mechanism-selection decision: `decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md` — SQLite as the product-session durability / persistence production mechanism with `01C-SQLITE-3` scoped-authority semantics as the selection basis; `01B-3` Append rejected for production integration and retained as verified rejected alternative and regression/reference candidate. Accepted per explicit owner authorization on 2026-08-16. Acceptance records mechanism selection and durable semantic boundary only; it does not authorize product integration, freeze spike schema or implementation, or accept evidence adapter APIs, fixtures, oracles, or runners as production architecture.
+
 ## Decision record shape
 
 Each Material Decision should include:

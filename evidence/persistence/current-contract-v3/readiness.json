@@ -11,18 +11,19 @@
     "meaning": "Evidence package complete; no scenario/measurement blockers after cross-platform aggregation"
   },
   "governance_authority_layer": {
-    "mechanism_selection_status": "none",
-    "owner_selection_authorized": false,
+    "mechanism_selection_status": "selected_sqlite",
+    "owner_selection_authorized": true,
     "ready_for_owner_gate": true,
     "comparison_blocker_lift_authorized": false,
     "frozen_comparison_baseline": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
     "final_gate_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/final-governance-audit-result.json",
     "final_gate_verdict": "PASS",
     "final_gate_auditor_model": "claude-opus-5-thinking-high",
-    "meaning": "FINAL_GATE_GOVERNANCE_CHECK PASS at b7ed0de; owner may proceed to mechanism-selection boundary. Mechanism not selected."
+    "material_decision": "docs/governance/decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md",
+    "meaning": "MD-019 accepted SQLite (01C-SQLITE-3) for product integration. 01B-3 Append rejected for production. Integration not implemented."
   },
-  "selection_status": "none",
-  "tracker_status": "GATE4_READY_FOR_OWNER_MECHANISM_SELECTION",
+  "selection_status": "selected_sqlite",
+  "tracker_status": "MD019_SQLITE_MECHANISM_SELECTED",
   "comparison_evidence": {
     "owner_accepted": true,
     "frozen_record": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
@@ -77,13 +78,32 @@
   "md_015": {
     "unchanged": true
   },
+  "md_019": {
+    "status": "accepted",
+    "decision_authority": "Ezra",
+    "accepted_on": "2026-08-16",
+    "decision_record": "docs/governance/decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md",
+    "selected": {
+      "mechanism": "SQLite",
+      "candidate_basis": "01C-SQLITE-3"
+    },
+    "rejected_for_product_integration": ["01B-3 Append"],
+    "evidence_basis": {
+      "frozen_comparison": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c",
+      "final_dual_platform": "evidence/persistence/current-contract-v3/01c/gate4-01c-86f5b8f-dual-scoped-fcr03",
+      "final_frozen_evidence_sha": "86f5b8f2856155bff9a5216593c1659fef707add"
+    },
+    "selection_status": "selected_sqlite",
+    "product_integration_authorized": false
+  },
   "candidates": {
     "append_01B_2": {
       "status": "historical_accepted",
       "md_015_scoped_validity": "not_demonstrated"
     },
     "append_01B_3": {
-      "status": "cross_platform_fcr03_evidence_executed",
+      "status": "rejected_for_product_integration",
+      "retained_as": "verified_rejected_alternative_and_regression_reference",
       "md_015_scoped_validity": "harness_observation_fidelity_macos_and_windows",
       "unit_u1_c1_c3": "proven",
       "fcr03_harness_wired": true,
@@ -96,7 +116,7 @@
       "modify_in_current_wp": false
     },
     "sqlite_01C_SQLITE_3": {
-      "status": "cross_platform_fcr03_evidence_executed",
+      "status": "selected_for_product_integration",
       "md_015_scoped_validity": "harness_observation_fidelity_macos_and_windows",
       "unit_u1_c1_c3": "proven",
       "fcr03_harness_wired": true,
@@ -274,11 +294,12 @@
   },
   "active_work_package": {
     "work_package_id": "VP-GATE4-FCR03-SOL-R2-BOUNDED-CORRECTION-01",
-    "status": "GATE4_READY_FOR_OWNER_MECHANISM_SELECTION",
-    "phase": "FINAL_GATE_PASS",
-    "phase_note": "FINAL_GATE_GOVERNANCE_CHECK PASS (Opus 5) at b7ed0de after Sol retry 03 PASS. Class-A 0; Class-B 6 non-material caveats. Gate 4 verification complete.",
+    "status": "MD019_MECHANISM_SELECTED_AWAITING_INTEGRATION_PACKAGE",
+    "phase": "MECHANISM_SELECTION_COMPLETE",
+    "phase_note": "MD-019 accepted SQLite (01C-SQLITE-3). 01B-3 Append rejected for production. Gate 4 evidence/governance complete. Product integration requires separate work package.",
     "execution_plan": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/execution-plan.json",
-    "final_gate_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/final-governance-audit-result.json"
+    "final_gate_audit": "evidence/persistence/current-contract-v3/gate4-fcr03-sol-r2-bounded-correction-01/final-governance-audit-result.json",
+    "material_decision": "docs/governance/decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md"
   },
   "gate_sequence": {
     "completed": [
@@ -330,24 +351,22 @@
       "successor_pre_final_PASS_opus_5_91c9f5c",
       "gate4_stop_loss_policy_5dec3aa",
       "Sol_STRONG_FINAL_RETRY_03_PASS_gpt_5_6_sol_high_74e13ae",
-      "FINAL_GATE_GOVERNANCE_CHECK_PASS_opus_5_b7ed0de"
+      "FINAL_GATE_GOVERNANCE_CHECK_PASS_opus_5_b7ed0de",
+      "owner_MD019_SQLite_mechanism_selection_2026_08_16"
     ],
-    "current": "owner_mechanism_selection_boundary",
+    "current": "gate4_product_session_sqlite_integration_pending",
     "blocked": [
-      "mechanism_selection",
-      "comparison_blocker_lift"
+      "product_integration"
     ],
     "downstream": [
-      "owner mechanism-selection boundary"
+      "Gate 4 Product-Session SQLite Integration"
     ]
   },
   "still_closed": [
-    "mechanism_selection",
-    "Material_Decision",
     "product_integration"
   ],
   "frozen_evidence_immutable": {
     "path": "evidence/persistence/current-contract-v3/01c/gate4-01c-91e258c"
   },
-  "note": "FINAL_GATE_GOVERNANCE_CHECK PASS (claude-opus-5-thinking-high) at b7ed0de. Sol retry 03 PASS (gpt-5.6-sol-high). Gate 4 verification complete. ready_for_owner_gate=true. Mechanism selection still requires explicit owner decision."
+  "note": "MD-019 accepted SQLite (01C-SQLITE-3) for product-session persistence. 01B-3 Append rejected for production integration, retained as reference. FINAL_FROZEN_EVIDENCE_SHA 86f5b8f unchanged. Product integration not authorized."
 }
