@@ -63,14 +63,18 @@
       "precondition": "R2-05 before freeze_evidence_sha"
     },
     "FCR-R2-03-STALE-PRE-FINAL-GOVERNANCE": {
-      "status": "PENDING",
+      "status": "CLOSED",
       "phase": "R2_03",
+      "closed_on": "2026-08-16",
       "closure_criteria": [
         "PRE_FINAL audit covers owner authorization through readiness rebuild",
         "audit commit range includes all remediation after Sol retry 02",
         "verdict PASS before Sol retry 03"
       ],
-      "precondition": "last step before sol_strong_final_retry_03"
+      "closure_artifact": "pre-final-governance-audit-result-successor.json",
+      "prior_audit_negative_provenance": "pre-final-governance-audit-result.json",
+      "bounded_correction_commit": "91c9f5caae454f9a0dd35ae3b2cfe81641192a53",
+      "verdict": "PASS"
     }
   }
 }
