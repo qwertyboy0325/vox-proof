@@ -11,7 +11,8 @@ use voxproof_desktop::controller::{
     ControllerError, DesktopController, DesktopPhase, ReviewItemOrigin,
 };
 use voxproof_desktop::presentation::{
-    composed_coverage_label, export_enabled, show_review_complete_panel,
+    composed_coverage_label, composed_queue_complete, composed_resolution_label, export_enabled,
+    show_review_complete_panel,
 };
 
 const A_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\nKafak\n";
@@ -389,6 +390,8 @@ fn reuse_only_session_keeps_export_enabled_without_claiming_queue_complete() {
     ));
     assert!(export_enabled(progress));
     assert!(!show_review_complete_panel(progress, waiting));
+    assert!(!composed_queue_complete(progress, waiting));
+    assert!(composed_resolution_label(progress, waiting).is_none());
     assert_eq!(
         composed_coverage_label(
             progress,
@@ -397,6 +400,27 @@ fn reuse_only_session_keeps_export_enabled_without_claiming_queue_complete() {
         ),
         "Term checks complete · 1 previous correction(s) still need a decision"
     );
+
+    let epoch = controller.ui_session_epoch();
+    controller
+        .record_decision(
+            epoch,
+            CorrectionDecision::AcceptAlternative {
+                alternative_index: 0,
+            },
+        )
+        .unwrap();
+    let items = controller.items().unwrap();
+    let progress = controller.progress().unwrap();
+    let waiting = previous_knowledge_waiting(&items);
+    assert_eq!(waiting, 0);
+    assert!(composed_queue_complete(progress, waiting));
+    assert!(show_review_complete_panel(progress, waiting));
+    assert_eq!(
+        composed_resolution_label(progress, waiting).as_deref(),
+        Some("All items resolved")
+    );
+    assert!(export_enabled(progress));
 }
 
 #[test]

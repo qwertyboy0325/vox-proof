@@ -11,8 +11,8 @@ use crate::controller::{DesktopController, DesktopPhase, ReviewItemOrigin};
 use crate::presentation::{
     BottomTab, SETUP_ADVANCED, SETUP_HEADING, SETUP_INTRO, SETUP_SEED_HINT, SETUP_SEED_TERMINOLOGY,
     SETUP_STEP_CONFIRM, SETUP_STEP_PROJECT, SETUP_STEP_TRANSCRIPT, accept_enabled,
-    composed_coverage_label, coverage_label, decision_shortcut, export_enabled, resolution_label,
-    review_is_complete, review_shortcuts_suppressed, search_matches, setup_can_start,
+    composed_coverage_label, composed_resolution_label, decision_shortcut, export_enabled,
+    resolution_label, review_shortcuts_suppressed, search_matches, setup_can_start,
     setup_project_ready, show_review_complete_panel, unresolved_confirmation_needed,
 };
 use crate::terms_editor::TermsEditor;
@@ -783,19 +783,24 @@ impl ReviewApp {
             .header()
             .map(|header| header.total_review_cases)
             .unwrap_or(0);
+        let previous_waiting = previous_knowledge_waiting(&items);
         if self.bottom_tab == BottomTab::ProjectMemory && !self.controller.is_bound_to_project() {
             self.bottom_tab = BottomTab::CurrentPreview;
         }
         egui::Panel::bottom("review-bottom")
             .default_size(235.0)
             .resizable(true)
-            .show(ui, |ui| self.bottom_panel(ui, progress, canonical_total));
+            .show(ui, |ui| {
+                self.bottom_panel(ui, progress, canonical_total, previous_waiting)
+            });
         egui::Panel::left("review-queue")
             .default_size(300.0)
             .size_range(220.0..=480.0)
             .resizable(true)
             .show(ui, |ui| self.queue(ui, &items));
-        egui::CentralPanel::default().show(ui, |ui| self.case_detail(ui, &items, progress));
+        egui::CentralPanel::default().show(ui, |ui| {
+            self.case_detail(ui, &items, progress, previous_waiting)
+        });
     }
 
     fn queue(&mut self, ui: &mut egui::Ui, items: &[crate::controller::ReviewItemView]) {
@@ -861,6 +866,7 @@ impl ReviewApp {
         ui: &mut egui::Ui,
         items: &[crate::controller::ReviewItemView],
         progress: vox_proof::application_service::ApplicationReviewProgress,
+        previous_waiting: usize,
     ) {
         let header = match self.controller.header() {
             Ok(header) => header,
@@ -890,17 +896,6 @@ impl ReviewApp {
         if self.controller.is_read_only() {
             ui.colored_label(Color32::YELLOW, "This review is open read-only.");
         }
-        let previous_waiting = items
-            .iter()
-            .filter(|item| {
-                item.status == "Needs review"
-                    && matches!(
-                        item.origin,
-                        ReviewItemOrigin::PreviousCorrection { .. }
-                            | ReviewItemOrigin::ProjectTerminology { .. }
-                    )
-            })
-            .count();
         ui.horizontal(|ui| {
             ui.label(
                 RichText::new(composed_coverage_label(
@@ -910,12 +905,8 @@ impl ReviewApp {
                 ))
                 .strong(),
             );
-            if review_is_complete(progress) {
+            if let Some(resolution) = composed_resolution_label(progress, previous_waiting) {
                 ui.separator();
-                ui.label(resolution_label(progress));
-            } else {
-                ui.separator();
-                let resolution = resolution_label(progress);
                 if unresolved_confirmation_needed(progress) {
                     ui.colored_label(Color32::YELLOW, resolution);
                 } else {
@@ -1317,6 +1308,7 @@ impl ReviewApp {
         ui: &mut egui::Ui,
         progress: vox_proof::application_service::ApplicationReviewProgress,
         total: usize,
+        previous_waiting: usize,
     ) {
         ui.horizontal(|ui| {
             ui.selectable_value(
@@ -1359,12 +1351,11 @@ impl ReviewApp {
                 .export_previews(self.confirm_unresolved_source_retained)
                 .map(|(_, summary)| summary)
                 .unwrap_or_else(|error| {
-                    format!(
-                        "{}\n{}\n{}",
-                        coverage_label(progress, total),
-                        resolution_label(progress),
-                        error
-                    )
+                    let coverage = composed_coverage_label(progress, total, previous_waiting);
+                    match composed_resolution_label(progress, previous_waiting) {
+                        Some(resolution) => format!("{coverage}\n{resolution}\n{error}"),
+                        None => format!("{coverage}\n{error}"),
+                    }
                 }),
             BottomTab::ProjectMemory => unreachable!("handled above"),
         };
@@ -1413,4 +1404,18 @@ fn truncate_cue(text: &str) -> String {
         truncated.push(character);
     }
     truncated
+}
+
+fn previous_knowledge_waiting(items: &[crate::controller::ReviewItemView]) -> usize {
+    items
+        .iter()
+        .filter(|item| {
+            item.status == "Needs review"
+                && matches!(
+                    item.origin,
+                    ReviewItemOrigin::PreviousCorrection { .. }
+                        | ReviewItemOrigin::ProjectTerminology { .. }
+                )
+        })
+        .count()
 }

@@ -53,11 +53,33 @@ pub fn composed_coverage_label(
     }
 }
 
-pub fn show_review_complete_panel(
+/// Canonical coverage is complete and no pending project-knowledge proposals remain.
+pub fn composed_queue_complete(
     progress: ApplicationReviewProgress,
     previous_corrections_waiting: usize,
 ) -> bool {
     review_is_complete(progress) && previous_corrections_waiting == 0
+}
+
+/// Resolution chrome for the composed queue.
+///
+/// Pending ProjectTerminologyProposal / exact-reuse items must not expose
+/// "All items resolved". Canonical `resolution_label` stays the raw axis.
+pub fn composed_resolution_label(
+    progress: ApplicationReviewProgress,
+    previous_corrections_waiting: usize,
+) -> Option<String> {
+    if previous_corrections_waiting > 0 {
+        return None;
+    }
+    Some(resolution_label(progress))
+}
+
+pub fn show_review_complete_panel(
+    progress: ApplicationReviewProgress,
+    previous_corrections_waiting: usize,
+) -> bool {
+    composed_queue_complete(progress, previous_corrections_waiting)
 }
 
 pub fn review_is_complete(progress: ApplicationReviewProgress) -> bool {
@@ -239,9 +261,16 @@ mod tests {
             "Term checks complete · 1 previous correction(s) still need a decision"
         );
         assert!(!show_review_complete_panel(progress, 1));
+        assert!(!composed_queue_complete(progress, 1));
+        assert!(composed_resolution_label(progress, 1).is_none());
         assert!(export_enabled(progress));
         assert_eq!(composed_coverage_label(progress, 0, 0), "Review complete");
         assert!(show_review_complete_panel(progress, 0));
+        assert!(composed_queue_complete(progress, 0));
+        assert_eq!(
+            composed_resolution_label(progress, 0).as_deref(),
+            Some("All items resolved")
+        );
     }
 
     #[test]
@@ -256,6 +285,7 @@ mod tests {
         );
         assert!(!export_enabled(progress));
         assert!(!show_review_complete_panel(progress, 1));
+        assert!(composed_resolution_label(progress, 1).is_none());
     }
 
     #[test]
