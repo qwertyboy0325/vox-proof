@@ -1,0 +1,22 @@
+{
+  "schema": "voxproof-lead-a-pilot-participant-profile-v0",
+  "pilot_id": "lead-a-pilot-01",
+  "participant_id": "lead-a-01",
+  "cohort": {
+    "label": "target-cohort",
+    "description": "Describe cohort fit without identifying the participant. Example: high-frequency speech-derived subtitle reviewer."
+  },
+  "relationship_to_project": "external",
+  "is_project_implementer": false,
+  "facilitation_mode": "assisted",
+  "consent": {
+    "pilot_participation": null,
+    "local_recording_optional": null,
+    "notes": "Record consent facts locally; do not commit legal names or contact details."
+  },
+  "session": {
+    "scheduled_at_local": null,
+    "timezone": null,
+    "location_mode": null
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "voxproof-lead-a-pilot-export-manifest-v0",
+  "pilot_id": "lead-a-pilot-01",
+  "export_success": null,
+  "exports": [
+    {
+      "artifact_role": "reviewed_srt",
+      "sha256": null,
+      "cue_count": null,
+      "duration_ms": null,
+      "notes": "Digest and metadata only. Do not commit subtitle text."
+    },
+    {
+      "artifact_role": "decision_log",
+      "sha256": null,
+      "notes": "Optional if produced by the session export flow."
+    },
+    {
+      "artifact_role": "session_summary",
+      "sha256": null,
+      "notes": "Optional if produced by the session export flow."
+    }
+  ],
+  "participant_identified_reviewed_output": null,
+  "notes": "Set participant_identified_reviewed_output after question 3."
+}

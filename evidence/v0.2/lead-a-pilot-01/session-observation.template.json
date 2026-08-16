@@ -1,0 +1,45 @@
+{
+  "schema": "voxproof-lead-a-pilot-session-observation-v0",
+  "pilot_id": "lead-a-pilot-01",
+  "timing": {
+    "started_at_unix_ms": null,
+    "ended_at_unix_ms": null,
+    "pilot_duration_ms": null
+  },
+  "workflow": {
+    "session_created_or_opened_by_participant": null,
+    "participant_completed_minimum_workflow": null,
+    "reviewed_projection_reached": null,
+    "export_completed": null
+  },
+  "review_scope": {
+    "review_case_count": null,
+    "decision_breakdown": {
+      "accept": null,
+      "reject": null,
+      "defer": null,
+      "needs_manual_correction": null,
+      "other": null
+    },
+    "manual_replacement_used": null,
+    "reuse_or_promotion_used": null
+  },
+  "machine_run_facts": {
+    "transcript_cue_count": null,
+    "session_term_count": null,
+    "candidate_count": null,
+    "ledger_event_count": null,
+    "accepted_replacement_count": null,
+    "affected_segment_count": null,
+    "notes": "Run facts only. Not precision, recall, correctness, or workflow-value claims."
+  },
+  "errors_and_recovery": {
+    "errors_encountered": [],
+    "recovery_or_retry_required": null,
+    "blocking_product_failure": "none"
+  },
+  "facilitation_summary": {
+    "facilitator_intervention_count": null,
+    "decision_content_coaching_count": 0
+  }
+}

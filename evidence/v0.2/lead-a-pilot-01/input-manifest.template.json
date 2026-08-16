@@ -1,0 +1,26 @@
+{
+  "schema": "voxproof-lead-a-pilot-input-manifest-v0",
+  "pilot_id": "lead-a-pilot-01",
+  "authorization_basis": null,
+  "inputs": [
+    {
+      "role": "transcript_srt",
+      "source_type": null,
+      "sha256": null,
+      "cue_count": null,
+      "duration_ms": null,
+      "notes": "Digest and metadata only. Do not commit subtitle text."
+    }
+  ],
+  "session_terms": {
+    "prepared_before_session": null,
+    "sha256": null,
+    "term_count": null,
+    "notes": "Term-authoring UX is not validated in v0.2."
+  },
+  "application": {
+    "desktop_build_ref": null,
+    "session_root_mode": null,
+    "notes": "Record build ref or commit hash used for the pilot desktop app."
+  }
+}
