@@ -90,6 +90,8 @@ Accepted Gate 3 reusable-influence decision: `decisions/MD-018-proposed-minimal-
 
 Accepted Gate 4 mechanism-selection decision: `decisions/MD-019-sqlite-product-session-persistence-mechanism-selection.md` — SQLite as the product-session durability / persistence production mechanism with `01C-SQLITE-3` scoped-authority semantics as the selection basis; `01B-3` Append rejected for production integration and retained as verified rejected alternative and regression/reference candidate. Accepted per explicit owner authorization on 2026-08-16. Acceptance records mechanism selection and durable semantic boundary only; it does not authorize product integration, freeze spike schema or implementation, or accept evidence adapter APIs, fixtures, oracles, or runners as production architecture.
 
+Accepted Gate 4 product-session authority decision: `decisions/MD-020-product-sqlite-session-authority-schema-and-lifecycle-boundary.md` — product SQLite session format v1, canonical versus derived boundary (including immutable ReviewCase snapshots as authority), three scoped command scopes, transactional commit contract, reopen/reconstruction contract, and fail-closed migration posture. Accepted per explicit owner authorization on 2026-08-16. Acceptance records production schema and lifecycle boundary only; product-session SQLite integration remains not implemented until a separately authorized bounded work package.
+
 ## Decision record shape
 
 Each Material Decision should include:
