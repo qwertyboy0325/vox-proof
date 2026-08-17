@@ -351,6 +351,440 @@ fn durable_promotions_persist_explicit_effects_from_y() {
 }
 
 #[test]
+fn stale_project_promotion_releases_project_writer() {
+    let temp = TempDir::new().expect("tempdir");
+    let session_store = ProductSessionStore::new(temp.path());
+    let project_store = ProductProjectMemoryStore::new(temp.path());
+    let project = project_store.create("Stale promotion").expect("project");
+    let project_id = project.project_id().clone();
+    project.close().expect("close project");
+
+    let mut session = DurableApplicationSession::create_bound_to_project(
+        &session_store,
+        &project_store,
+        &project_id,
+        parse("Postgres"),
+        Vec::new(),
+        material_use(),
+        session_authority("operator"),
+    )
+    .expect("session");
+    freeze_bound(&mut session);
+    session
+        .raise_and_manual_replace(0, 0, 8, "PostgreSQL")
+        .expect("raise");
+    let candidate = session
+        .session()
+        .reuse_candidates()
+        .expect("candidates")
+        .into_iter()
+        .find(|candidate| candidate.key.source_locator.is_human_raised())
+        .expect("human candidate");
+    let prepared = session
+        .prepare_accept_reuse_candidate(&candidate.key)
+        .expect("prepare");
+    let stale = vox_proof::application_reuse::PreparedReuseCandidateAcceptance {
+        candidate_key: prepared.candidate_key,
+        expected_reuse_governance_head: prepared.expected_reuse_governance_head + 1,
+    };
+
+    assert!(matches!(
+        session.record_accept_reuse_candidate(stale),
+        Err(SessionPersistenceError::StaleAuthorityPrecondition(
+            StaleAuthorityPrecondition {
+                scope: AuthorityScope::ReuseGovernance
+            }
+        ))
+    ));
+    project_store
+        .open(&project_id, ProjectMemoryOpenMode::Writable)
+        .expect("stale promotion released project writer")
+        .close()
+        .expect("close reopened project");
+    session.close().expect("close session");
+}
+
+fn human_candidate_by_replacement(
+    durable: &DurableApplicationSession,
+    replacement: &str,
+) -> vox_proof::reusable_influence::ReuseCandidate {
+    durable
+        .session()
+        .reuse_candidates()
+        .expect("candidates")
+        .into_iter()
+        .find(|candidate| {
+            candidate.key.source_locator.is_human_raised()
+                && candidate.exact_payload.confirmed_replacement == replacement
+        })
+        .unwrap_or_else(|| panic!("missing human candidate {replacement}"))
+}
+
+fn promote_human_by_replacement(durable: &mut DurableApplicationSession, replacement: &str) {
+    let candidate = human_candidate_by_replacement(durable, replacement);
+    let prepared = durable
+        .prepare_accept_reuse_candidate(&candidate.key)
+        .expect("prepare");
+    durable
+        .record_accept_reuse_candidate(prepared)
+        .expect("accept");
+}
+
+fn promotion_pairs(
+    project: &vox_proof::project_memory::DurableProjectMemory,
+) -> Vec<(String, String)> {
+    project
+        .records()
+        .iter()
+        .filter_map(|record| match &record.event {
+            ReusableGovernanceEvent::PromotionAccepted { payload, .. } => Some((
+                payload.observed_text.clone(),
+                payload.confirmed_replacement.clone(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+fn assert_writer_reacquired(
+    project_store: &ProductProjectMemoryStore,
+    project_id: &vox_proof::reuse_primitives::ProjectScopeId,
+) {
+    project_store
+        .open(project_id, ProjectMemoryOpenMode::Writable)
+        .expect("writer reacquired")
+        .close()
+        .expect("close reacquired");
+}
+
+fn proposal_kind_count(durable: &DurableApplicationSession) -> usize {
+    durable
+        .session()
+        .review_items()
+        .iter()
+        .filter(|item| {
+            matches!(
+                item.kind,
+                ApplicationReviewItemKind::ProjectReuseProposal { .. }
+                    | ApplicationReviewItemKind::ProjectTerminologyProposal { .. }
+            )
+        })
+        .count()
+}
+
+fn create_frozen_multi_span_review(
+    session_store: &ProductSessionStore,
+    project_store: &ProductProjectMemoryStore,
+    project_id: &vox_proof::reuse_primitives::ProjectScopeId,
+    operator: &str,
+) -> DurableApplicationSession {
+    let mut session = DurableApplicationSession::create_bound_to_project(
+        session_store,
+        project_store,
+        project_id,
+        parse("Alpha Beta Gamma"),
+        Vec::new(),
+        material_use(),
+        session_authority(operator),
+    )
+    .expect("session");
+    freeze_bound(&mut session);
+    session
+}
+
+#[test]
+fn same_frozen_review_promotes_three_human_raised_corrections_in_sequence() {
+    let temp = TempDir::new().expect("tempdir");
+    let session_store = ProductSessionStore::new(temp.path());
+    let project_store = ProductProjectMemoryStore::new(temp.path());
+    let project = project_store.create("Multi promotion").expect("project");
+    let project_id = project.project_id().clone();
+    project.close().expect("close project");
+
+    let mut session =
+        create_frozen_multi_span_review(&session_store, &project_store, &project_id, "operator");
+    assert_eq!(session.format_version(), 4);
+    session
+        .raise_and_manual_replace(0, 0, 5, "AlphaOne")
+        .expect("raise A");
+    session
+        .raise_and_manual_replace(0, 6, 10, "BetaTwo")
+        .expect("raise B");
+    session
+        .raise_and_manual_replace(0, 11, 16, "GammaThree")
+        .expect("raise C");
+
+    promote_human_by_replacement(&mut session, "AlphaOne");
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after A");
+        assert_eq!(project.records().len(), 1);
+        assert_eq!(
+            promotion_pairs(&project),
+            vec![("Alpha".to_owned(), "AlphaOne".to_owned())]
+        );
+        project.close().expect("close after A");
+    }
+
+    promote_human_by_replacement(&mut session, "BetaTwo");
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after B");
+        assert_eq!(project.records().len(), 2);
+        let pairs = promotion_pairs(&project);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0], ("Alpha".to_owned(), "AlphaOne".to_owned()));
+        assert_eq!(pairs[1], ("Beta".to_owned(), "BetaTwo".to_owned()));
+        project.close().expect("close after B");
+    }
+
+    promote_human_by_replacement(&mut session, "GammaThree");
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after C");
+        assert_eq!(project.records().len(), 3);
+        assert_eq!(project.format_version(), PROJECT_MEMORY_FORMAT_VERSION_V3);
+        let pairs = promotion_pairs(&project);
+        assert_eq!(
+            pairs,
+            vec![
+                ("Alpha".to_owned(), "AlphaOne".to_owned()),
+                ("Beta".to_owned(), "BetaTwo".to_owned()),
+                ("Gamma".to_owned(), "GammaThree".to_owned()),
+            ]
+        );
+        project.close().expect("close after C");
+    }
+    session.close().expect("close session");
+}
+
+#[test]
+fn duplicate_same_candidate_is_refused_then_later_promotion_succeeds() {
+    let temp = TempDir::new().expect("tempdir");
+    let session_store = ProductSessionStore::new(temp.path());
+    let project_store = ProductProjectMemoryStore::new(temp.path());
+    let project = project_store
+        .create("Duplicate promotion")
+        .expect("project");
+    let project_id = project.project_id().clone();
+    project.close().expect("close project");
+
+    let mut session =
+        create_frozen_multi_span_review(&session_store, &project_store, &project_id, "operator");
+    session
+        .raise_and_manual_replace(0, 0, 5, "AlphaOne")
+        .expect("raise A");
+    session
+        .raise_and_manual_replace(0, 6, 10, "BetaTwo")
+        .expect("raise B");
+    let candidate_a = human_candidate_by_replacement(&session, "AlphaOne");
+    promote_human_by_replacement(&mut session, "AlphaOne");
+
+    let prepared_again = session
+        .prepare_accept_reuse_candidate(&candidate_a.key)
+        .expect("prepare duplicate A");
+    let error = session
+        .record_accept_reuse_candidate(prepared_again)
+        .expect_err("duplicate A");
+    assert!(matches!(
+        error,
+        SessionPersistenceError::CanonicalMismatch(message)
+            if message.contains("CandidateAlreadyPromoted")
+    ));
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after duplicate");
+        assert_eq!(project.records().len(), 1);
+        assert_eq!(
+            promotion_pairs(&project),
+            vec![("Alpha".to_owned(), "AlphaOne".to_owned())]
+        );
+        project.close().expect("close after duplicate");
+    }
+    assert_writer_reacquired(&project_store, &project_id);
+
+    promote_human_by_replacement(&mut session, "BetaTwo");
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after B");
+        assert_eq!(project.records().len(), 2);
+        assert_eq!(
+            promotion_pairs(&project),
+            vec![
+                ("Alpha".to_owned(), "AlphaOne".to_owned()),
+                ("Beta".to_owned(), "BetaTwo".to_owned()),
+            ]
+        );
+        project.close().expect("close after B");
+    }
+    session.close().expect("close session");
+}
+
+#[test]
+fn prepared_promotion_against_stale_live_head_releases_writer() {
+    let temp = TempDir::new().expect("tempdir");
+    let session_store = ProductSessionStore::new(temp.path());
+    let project_store = ProductProjectMemoryStore::new(temp.path());
+    let project = project_store.create("Concurrent stale").expect("project");
+    let project_id = project.project_id().clone();
+    project.close().expect("close project");
+
+    let mut session =
+        create_frozen_multi_span_review(&session_store, &project_store, &project_id, "operator");
+    session
+        .raise_and_manual_replace(0, 0, 5, "AlphaOne")
+        .expect("raise A");
+    session
+        .raise_and_manual_replace(0, 6, 10, "BetaTwo")
+        .expect("raise B");
+    promote_human_by_replacement(&mut session, "AlphaOne");
+    let prepared_b = session
+        .prepare_accept_reuse_candidate(&human_candidate_by_replacement(&session, "BetaTwo").key)
+        .expect("prepare B");
+    assert_eq!(prepared_b.expected_reuse_governance_head, 1);
+    assert_eq!(session.session().reuse_state().governance_events().len(), 0);
+
+    {
+        let mut independent = project_store
+            .open(&project_id, ProjectMemoryOpenMode::Writable)
+            .expect("independent writable");
+        independent
+            .append_promotion(
+                "independent-session",
+                sample_promotion(AllowedEffectsConsent::exact_only_explicit()),
+            )
+            .expect("independent append");
+        independent.close().expect("close independent");
+    }
+
+    let error = session
+        .record_accept_reuse_candidate(prepared_b)
+        .expect_err("stale B");
+    assert!(matches!(
+        error,
+        SessionPersistenceError::StaleAuthorityPrecondition(StaleAuthorityPrecondition {
+            scope: AuthorityScope::ReuseGovernance
+        })
+    ));
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after stale");
+        assert_eq!(project.records().len(), 2);
+        assert_eq!(
+            promotion_pairs(&project)[0],
+            ("Alpha".to_owned(), "AlphaOne".to_owned())
+        );
+        assert_ne!(
+            promotion_pairs(&project)[1],
+            ("Beta".to_owned(), "BetaTwo".to_owned())
+        );
+        project.close().expect("close after stale");
+    }
+    assert_writer_reacquired(&project_store, &project_id);
+
+    promote_human_by_replacement(&mut session, "BetaTwo");
+    {
+        let project = project_store
+            .open(&project_id, ProjectMemoryOpenMode::ReadOnly)
+            .expect("open after recovered B");
+        assert_eq!(project.records().len(), 3);
+        assert!(promotion_pairs(&project).contains(&("Beta".to_owned(), "BetaTwo".to_owned())));
+        project.close().expect("close recovered");
+    }
+    session.close().expect("close session");
+}
+
+#[test]
+fn frozen_analysis_stays_at_open_snapshot_after_live_promotions() {
+    let temp = TempDir::new().expect("tempdir");
+    let session_store = ProductSessionStore::new(temp.path());
+    let project_store = ProductProjectMemoryStore::new(temp.path());
+    let project = project_store.create("Frozen analysis").expect("project");
+    let project_id = project.project_id().clone();
+    project.close().expect("close project");
+
+    let mut session =
+        create_frozen_multi_span_review(&session_store, &project_store, &project_id, "operator-a");
+    let frozen_before = session
+        .session()
+        .frozen_project_reuse_analysis()
+        .expect("frozen")
+        .clone();
+    assert_eq!(frozen_before.governance_event_boundary, 0);
+    let reuse_targets_before = session.session().derived_reuse_proposal_targets();
+    let terminology_targets_before = session
+        .session()
+        .derived_project_terminology_proposal_targets();
+    let proposal_count_before = proposal_kind_count(&session);
+
+    session
+        .raise_and_manual_replace(0, 0, 5, "AlphaOne")
+        .expect("raise A");
+    session
+        .raise_and_manual_replace(0, 6, 10, "BetaTwo")
+        .expect("raise B");
+    promote_human_by_replacement(&mut session, "AlphaOne");
+    promote_human_by_replacement(&mut session, "BetaTwo");
+
+    let frozen_after = session
+        .session()
+        .frozen_project_reuse_analysis()
+        .expect("frozen after")
+        .clone();
+    assert_eq!(frozen_after, frozen_before);
+    assert_eq!(session.session().reuse_state().governance_events().len(), 0);
+    assert_eq!(
+        session.session().derived_reuse_proposal_targets(),
+        reuse_targets_before
+    );
+    assert_eq!(
+        session
+            .session()
+            .derived_project_terminology_proposal_targets(),
+        terminology_targets_before
+    );
+    assert_eq!(proposal_kind_count(&session), proposal_count_before);
+    session.close().expect("close a");
+
+    let mut later = DurableApplicationSession::create_bound_to_project(
+        &session_store,
+        &project_store,
+        &project_id,
+        parse("Hello Alpha extra Beta"),
+        Vec::new(),
+        material_use(),
+        session_authority("operator-b"),
+    )
+    .expect("later session");
+    freeze_bound(&mut later);
+    let later_frozen = later
+        .session()
+        .frozen_project_reuse_analysis()
+        .expect("later frozen");
+    assert_eq!(later_frozen.governance_event_boundary, 2);
+    assert_ne!(
+        later_frozen.project_memory_snapshot_identity,
+        frozen_before.project_memory_snapshot_identity
+    );
+    let later_reuse = later.session().derived_reuse_proposal_targets();
+    assert!(later_reuse
+        .iter()
+        .any(|target| target.occurrence().observed_text == "Alpha"
+            && target.proposed_replacement() == "AlphaOne"));
+    assert!(later_reuse
+        .iter()
+        .any(|target| target.occurrence().observed_text == "Beta"
+            && target.proposed_replacement() == "BetaTwo"));
+    later.close().expect("close later");
+}
+
+#[test]
 fn historical_missing_allowed_effects_remain_exact_only_after_reopen() {
     let temp = TempDir::new().expect("tempdir");
     let store = ProductProjectMemoryStore::new(temp.path());

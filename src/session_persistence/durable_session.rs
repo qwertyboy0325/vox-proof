@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use crate::application_reuse::{
-    PreparedActiveAnalysis, PreparedProjectScopeDisplayNameUpdate,
-    PreparedProjectScopeInitialization, PreparedReusableInfluenceRevocation,
-    PreparedReusableInfluenceSupersession, PreparedReuseCandidateAcceptance,
-    PreparedReuseCandidateRejection, build_promotion_accepted_event,
-    validate_accept_reuse_candidate_for_governance_commit,
+    build_promotion_accepted_event, project_memory_already_accepts_candidate,
+    validate_accept_reuse_candidate_for_governance_commit, PreparedActiveAnalysis,
+    PreparedProjectScopeDisplayNameUpdate, PreparedProjectScopeInitialization,
+    PreparedReusableInfluenceRevocation, PreparedReusableInfluenceSupersession,
+    PreparedReuseCandidateAcceptance, PreparedReuseCandidateRejection,
 };
 use crate::application_service::{
     ApplicationMaterialUseDeclaration, ApplicationReviewSession, DeclaredSessionAuthority,
@@ -19,11 +19,11 @@ use crate::project_memory::{
 use crate::reuse_primitives::ProjectScopeId;
 use crate::review::ReviewCaseId;
 use crate::session_persistence::canonical::{
-    PRODUCT_SESSION_FORMAT_VERSION_V2, session_format_supports_human_raised,
+    session_format_supports_human_raised, PRODUCT_SESSION_FORMAT_VERSION_V2,
 };
 use crate::session_persistence::error::SessionPersistenceError;
 use crate::session_persistence::hydrate::{
-    ProjectMemoryHydrateOverlay, hydrate_application_review_session,
+    hydrate_application_review_session, ProjectMemoryHydrateOverlay,
 };
 use crate::session_persistence::store::{OpenMode, OpenedStoreSession, ProductSessionStore};
 use crate::session_persistence::{
@@ -388,9 +388,20 @@ impl DurableApplicationSession {
     ) -> Result<PreparedReuseCandidateAcceptance, SessionPersistenceError> {
         self.ensure_readable()?;
         self.ensure_writable_reuse()?;
-        self.session
+        let prepared = self
+            .session
             .prepare_accept_reuse_candidate(candidate_key)
-            .map_err(map_reuse_error)
+            .map_err(map_reuse_error)?;
+        if self.bound_project_id.is_none() {
+            return Ok(prepared);
+        }
+        // Project-bound write CAS uses the live Project Memory head, not the
+        // frozen analysis/reuse-state boundary captured when this review opened.
+        Ok(PreparedProjectBoundPromotion {
+            candidate_key: prepared.candidate_key,
+            expected_live_project_governance_head: self.live_project_governance_head()?,
+        }
+        .into_public())
     }
 
     pub fn record_accept_reuse_candidate(
@@ -562,10 +573,25 @@ impl DurableApplicationSession {
         ProductSessionStore::release_writer(&mut self.opened)
     }
 
+    fn live_project_governance_head(&self) -> Result<usize, SessionPersistenceError> {
+        let project_id = self
+            .bound_project_id
+            .as_ref()
+            .ok_or(SessionPersistenceError::ProjectMemoryUnavailable)?;
+        let project_store = ProductProjectMemoryStore::new(&self.store_root);
+        let project = project_store
+            .open(project_id, ProjectMemoryOpenMode::ReadOnly)
+            .map_err(map_project_memory_error)?;
+        let head = project.records().len();
+        project.close().map_err(map_project_memory_error)?;
+        Ok(head)
+    }
+
     fn append_v2_promotion_to_project(
         &self,
         prepared: &PreparedReuseCandidateAcceptance,
     ) -> Result<(), SessionPersistenceError> {
+        let prepared = PreparedProjectBoundPromotion::from_public(prepared);
         let project_id = self
             .bound_project_id
             .as_ref()
@@ -574,30 +600,40 @@ impl DurableApplicationSession {
         let mut project = project_store
             .open(project_id, ProjectMemoryOpenMode::Writable)
             .map_err(map_project_memory_error)?;
-        if project.records().len() != prepared.expected_reuse_governance_head {
-            return Err(SessionPersistenceError::StaleAuthorityPrecondition(
-                crate::session_persistence::error::StaleAuthorityPrecondition {
-                    scope: crate::session_persistence::error::AuthorityScope::ReuseGovernance,
-                },
-            ));
-        }
-        let candidate = validate_accept_reuse_candidate_for_governance_commit(
-            self.session.reuse_parts(),
-            self.session.reuse_state(),
-            &prepared.candidate_key,
-        )
-        .map_err(map_reuse_error)?;
-        let project_scope = project.project_scope();
-        let event = build_promotion_accepted_event(
-            &candidate,
-            &project_scope,
-            self.session.session_authority(),
-        );
-        project
-            .append_promotion(&self.session_id, event)
-            .map_err(map_project_memory_error)?;
-        project.close().map_err(map_project_memory_error)?;
-        Ok(())
+        let promotion_result: Result<(), SessionPersistenceError> = (|| {
+            if project.records().len() != prepared.expected_live_project_governance_head {
+                return Err(SessionPersistenceError::StaleAuthorityPrecondition(
+                    crate::session_persistence::error::StaleAuthorityPrecondition {
+                        scope: crate::session_persistence::error::AuthorityScope::ReuseGovernance,
+                    },
+                ));
+            }
+            if project_memory_already_accepts_candidate(project.records(), &prepared.candidate_key)
+            {
+                return Err(map_reuse_error(
+                    crate::application_reuse::ApplicationReuseError::from(
+                        crate::reusable_influence::ReusableInfluenceError::CandidateAlreadyPromoted,
+                    ),
+                ));
+            }
+            let candidate = validate_accept_reuse_candidate_for_governance_commit(
+                self.session.reuse_parts(),
+                self.session.reuse_state(),
+                &prepared.candidate_key,
+            )
+            .map_err(map_reuse_error)?;
+            let project_scope = project.project_scope();
+            let event = build_promotion_accepted_event(
+                &candidate,
+                &project_scope,
+                self.session.session_authority(),
+            );
+            project
+                .append_promotion(&self.session_id, event)
+                .map_err(map_project_memory_error)
+        })();
+        let close_result = project.close().map_err(map_project_memory_error);
+        resolve_project_write_results(promotion_result, close_result)
     }
 
     fn refresh_after_commit(&mut self) -> Result<(), SessionPersistenceError> {
@@ -761,6 +797,52 @@ fn map_decision_error(
     }
 }
 
+/// Durable write command for a project-bound promotion.
+///
+/// `expected_live_project_governance_head` is the live Project Memory CAS,
+/// not the frozen analysis/reuse-state boundary captured when the review opened.
+struct PreparedProjectBoundPromotion {
+    candidate_key: crate::reusable_influence::ReuseCandidateKey,
+    expected_live_project_governance_head: usize,
+}
+
+impl PreparedProjectBoundPromotion {
+    fn from_public(prepared: &PreparedReuseCandidateAcceptance) -> Self {
+        Self {
+            candidate_key: prepared.candidate_key.clone(),
+            expected_live_project_governance_head: prepared.expected_reuse_governance_head,
+        }
+    }
+
+    fn into_public(self) -> PreparedReuseCandidateAcceptance {
+        PreparedReuseCandidateAcceptance {
+            candidate_key: self.candidate_key,
+            expected_reuse_governance_head: self.expected_live_project_governance_head,
+        }
+    }
+}
+
+/// Close is always attempted after a writable Project Memory open.
+///
+/// Precedence:
+/// - operation Ok, close Ok → Ok
+/// - operation Ok, close Err → close error
+/// - operation Err, close Ok → operation error
+/// - both Err → `ProjectMemory` combining both, so neither is dropped
+fn resolve_project_write_results(
+    promotion_result: Result<(), SessionPersistenceError>,
+    close_result: Result<(), SessionPersistenceError>,
+) -> Result<(), SessionPersistenceError> {
+    match (promotion_result, close_result) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Ok(()), Err(close_error)) => Err(close_error),
+        (Err(op_error), Ok(())) => Err(op_error),
+        (Err(op_error), Err(close_error)) => Err(SessionPersistenceError::ProjectMemory(format!(
+            "project promotion failed ({op_error}); project writer close also failed ({close_error})"
+        ))),
+    }
+}
+
 fn map_reuse_error(
     error: crate::application_reuse::ApplicationReuseError,
 ) -> SessionPersistenceError {
@@ -773,5 +855,56 @@ fn map_project_memory_error(error: ProjectMemoryError) -> SessionPersistenceErro
         ProjectMemoryError::WriterOwnershipHeld => SessionPersistenceError::WriterOwnershipHeld,
         ProjectMemoryError::ProjectNotWritable => SessionPersistenceError::WritableReuseBlocked,
         other => SessionPersistenceError::ProjectMemory(other.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod project_write_error_precedence {
+    use super::resolve_project_write_results;
+    use crate::session_persistence::error::{
+        AuthorityScope, SessionPersistenceError, StaleAuthorityPrecondition,
+    };
+
+    fn stale() -> SessionPersistenceError {
+        SessionPersistenceError::StaleAuthorityPrecondition(StaleAuthorityPrecondition {
+            scope: AuthorityScope::ReuseGovernance,
+        })
+    }
+
+    fn close_failed() -> SessionPersistenceError {
+        SessionPersistenceError::ProjectMemory("close failed".to_owned())
+    }
+
+    #[test]
+    fn operation_error_wins_when_close_succeeds() {
+        let error = resolve_project_write_results(Err(stale()), Ok(())).expect_err("op");
+        assert!(matches!(
+            error,
+            SessionPersistenceError::StaleAuthorityPrecondition(StaleAuthorityPrecondition {
+                scope: AuthorityScope::ReuseGovernance
+            })
+        ));
+    }
+
+    #[test]
+    fn close_error_wins_when_operation_succeeds() {
+        let error = resolve_project_write_results(Ok(()), Err(close_failed())).expect_err("close");
+        assert_eq!(
+            error,
+            SessionPersistenceError::ProjectMemory("close failed".to_owned())
+        );
+    }
+
+    #[test]
+    fn both_failures_are_combined() {
+        let error =
+            resolve_project_write_results(Err(stale()), Err(close_failed())).expect_err("both");
+        match error {
+            SessionPersistenceError::ProjectMemory(message) => {
+                assert!(message.contains("StaleAuthorityPrecondition"));
+                assert!(message.contains("close failed"));
+            }
+            other => panic!("expected combined ProjectMemory, got {other:?}"),
+        }
     }
 }

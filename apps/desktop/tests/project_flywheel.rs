@@ -104,12 +104,10 @@ fn existing_project_creates_another_v2_session() {
     let project_id = controller.create_project("Lecture series").unwrap();
     start_bound(&mut controller, A_SRT, KAFKA_TERMS, "a.srt", &project_id);
     controller.reset().unwrap();
-    assert!(
-        controller
-            .available_projects()
-            .iter()
-            .any(|project| project.display_name == "Lecture series")
-    );
+    assert!(controller
+        .available_projects()
+        .iter()
+        .any(|project| project.display_name == "Lecture series"));
     start_bound(&mut controller, B_SRT, EMPTY_TERMS, "b.srt", &project_id);
     assert!(controller.is_bound_to_project());
     assert_eq!(
@@ -474,10 +472,10 @@ fn human_raised_corrects_unflagged_span_and_reuses_on_material_b() {
         .use_selected_correction_in_related_reviews(epoch)
         .unwrap();
     let entries = controller.project_memory_entries().unwrap();
-    assert!(
-        entries.iter().any(|entry| entry.observed_text == "Postgres"
-            && entry.confirmed_replacement == "PostgreSQL")
-    );
+    assert!(entries
+        .iter()
+        .any(|entry| entry.observed_text == "Postgres"
+            && entry.confirmed_replacement == "PostgreSQL"));
     controller.reset().unwrap();
 
     start_bound(
@@ -590,6 +588,43 @@ fn human_raised_with_empty_terms_promotes_and_reuses() {
         )
         .unwrap();
     assert!(controller.projection().unwrap().srt.contains("PostgreSQL"));
+}
+
+const MULTI_HUMAN_SRT: &str = "1\n00:00:00,000 --> 00:00:01,000\nAlpha Beta\n";
+
+#[test]
+fn same_bound_review_promotes_two_human_raised_corrections_without_reopen() {
+    let (mut controller, _temp) = controller_with_store();
+    let project_id = controller.create_project("Lecture series").unwrap();
+    start_bound(
+        &mut controller,
+        MULTI_HUMAN_SRT,
+        EMPTY_TERMS,
+        "multi.srt",
+        &project_id,
+    );
+    let epoch = controller.ui_session_epoch();
+    controller
+        .raise_and_manual_replace(epoch, 0, 0, 5, "AlphaOne")
+        .unwrap();
+    controller
+        .use_selected_correction_in_related_reviews(epoch)
+        .unwrap();
+    controller
+        .raise_and_manual_replace(epoch, 0, 6, 10, "BetaTwo")
+        .unwrap();
+    controller
+        .use_selected_correction_in_related_reviews(epoch)
+        .unwrap();
+
+    let entries = controller.project_memory_entries().unwrap();
+    assert_eq!(entries.len(), 2);
+    assert!(entries.iter().any(|entry| {
+        entry.observed_text == "Alpha" && entry.confirmed_replacement == "AlphaOne"
+    }));
+    assert!(entries.iter().any(|entry| {
+        entry.observed_text == "Beta" && entry.confirmed_replacement == "BetaTwo"
+    }));
 }
 
 #[test]

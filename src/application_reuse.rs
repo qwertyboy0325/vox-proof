@@ -4,16 +4,16 @@ use crate::application_service::{DeclaredSessionAuthority, DeclaredSessionOperat
 use crate::candidate::DetectionError;
 use crate::pipeline::{CanonicalTermReviewRun, ReuseEnabledTermReviewRun};
 use crate::project_memory::{
-    ProjectMemoryRecord, compute_project_memory_snapshot_identity,
-    required_project_memory_format_version,
+    compute_project_memory_snapshot_identity, required_project_memory_format_version,
+    ProjectMemoryRecord,
 };
 use crate::reusable_influence::{
-    EffectiveReusableInfluenceRecord, ExactReusableCorrection, GovernanceActorContext,
-    ReusableGovernanceEvent, ReusableInfluenceEffectiveState, ReusableInfluenceError,
-    ReusableInfluenceLedger, ReusableInfluenceSnapshot, ReuseCandidate, ReuseCandidateKey,
     build_reusable_influence_snapshot, derive_reuse_candidates, fold_effective_state,
     has_active_promotion_origin_for_candidate, resolve_exact_input_projection,
-    validate_reuse_candidate_key_at_historical_boundary,
+    validate_reuse_candidate_key_at_historical_boundary, EffectiveReusableInfluenceRecord,
+    ExactReusableCorrection, GovernanceActorContext, ReusableGovernanceEvent,
+    ReusableInfluenceEffectiveState, ReusableInfluenceError, ReusableInfluenceLedger,
+    ReusableInfluenceSnapshot, ReuseCandidate, ReuseCandidateKey,
 };
 use crate::reuse_primitives::{
     ProjectScope, ProjectScopeDisplayName, ProjectScopeId, ProjectScopeTextError,
@@ -337,6 +337,29 @@ pub fn validate_accept_reuse_candidate_for_governance_commit(
         return Err(ReusableInfluenceError::SourceDecisionNotEffective.into());
     }
     build_reuse_candidate_from_key(parts, project_scope, candidate_key)
+}
+
+pub(crate) fn project_memory_already_accepts_candidate(
+    records: &[ProjectMemoryRecord],
+    candidate_key: &ReuseCandidateKey,
+) -> bool {
+    records.iter().any(|record| {
+        let ReusableGovernanceEvent::PromotionAccepted {
+            source_locator,
+            project_scope,
+            ..
+        } = &record.event
+        else {
+            return false;
+        };
+        crate::reusable_influence::source_decision_promotion_origin(
+            &project_scope.stable_id,
+            source_locator,
+        ) == crate::reusable_influence::source_decision_promotion_origin(
+            &candidate_key.project_scope_id,
+            &candidate_key.source_locator,
+        )
+    })
 }
 
 pub fn validate_reject_reuse_candidate_for_governance_commit(
