@@ -58,10 +58,21 @@ pub enum ReviewItemOrigin {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CueView {
+    pub segment_position: usize,
+    pub cue_number: u32,
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReviewItemView {
     pub queue_index: usize,
     pub local_index: usize,
     pub cue_index: u32,
+    pub segment_position: usize,
+    pub start_ms: u64,
     pub source_text: String,
     pub context_before: Option<String>,
     pub context_after: Option<String>,
@@ -467,13 +478,27 @@ impl DesktopController {
     }
 
     pub fn cue_texts(&self) -> Result<Vec<(usize, String)>, ControllerError> {
+        Ok(self
+            .cues()?
+            .into_iter()
+            .map(|cue| (cue.segment_position, cue.text))
+            .collect())
+    }
+
+    pub fn cues(&self) -> Result<Vec<CueView>, ControllerError> {
         let session = self.presentable_session()?;
         Ok(session
             .source()
             .segments()
             .iter()
             .enumerate()
-            .map(|(position, segment)| (position, segment.text().to_owned()))
+            .map(|(position, segment)| CueView {
+                segment_position: position,
+                cue_number: segment.index(),
+                start_ms: segment.start_ms(),
+                end_ms: segment.end_ms(),
+                text: segment.text().to_owned(),
+            })
             .collect())
     }
 
@@ -788,6 +813,9 @@ impl DesktopController {
     ) -> Result<Option<ReuseCandidate>, ControllerError> {
         let session = self.presentable_session()?;
         let items = session.review_items();
+        if items.is_empty() {
+            return Ok(None);
+        }
         let item = items
             .get(self.selected_index)
             .ok_or(ControllerError::NoSelectedCase)?;
@@ -987,6 +1015,8 @@ impl DesktopController {
                     queue_index,
                     local_index: item.review_case.id().local_index(),
                     cue_index: segment.index(),
+                    segment_position: position,
+                    start_ms: segment.start_ms(),
                     source_text: session
                         .source()
                         .resolve(&anchor)

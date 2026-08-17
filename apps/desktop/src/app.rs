@@ -7,7 +7,8 @@ use vox_proof::application_service::{
 };
 use vox_proof::review::CorrectionDecision;
 
-use crate::controller::{DesktopController, DesktopPhase, ReviewItemOrigin};
+use crate::controller::{CueView, DesktopController, DesktopPhase, ReviewItemOrigin};
+use crate::media::{self, MediaPreview, MediaSeekIntent};
 use crate::presentation::{
     BottomTab, SETUP_ADVANCED, SETUP_HEADING, SETUP_INTRO, SETUP_SEED_HINT, SETUP_SEED_TERMINOLOGY,
     SETUP_STEP_CONFIRM, SETUP_STEP_PROJECT, SETUP_STEP_TRANSCRIPT, accept_enabled,
@@ -15,10 +16,21 @@ use crate::presentation::{
     resolution_label, review_shortcuts_suppressed, search_matches, setup_can_start,
     setup_project_ready, show_review_complete_panel, unresolved_confirmation_needed,
 };
+use crate::source_selection::{
+    CueCharRange, CueSelectionSession, ResolvedSourceSpan, SelectionError,
+    char_index_at_galley_pos, char_range_to_utf8_bytes, resolve_cue_selection,
+    resolve_session_selection, selected_span_text, whole_cue_selection,
+};
 use crate::terms_editor::TermsEditor;
 use crate::user_errors;
 
 const SEARCH_ID: &str = "review-search-field";
+const MEDIA_WIDE_WIDTH: f32 = 1180.0;
+
+struct CorrectionDraft {
+    span: ResolvedSourceSpan,
+    replacement: String,
+}
 
 pub struct ReviewApp {
     controller: DesktopController,
@@ -34,6 +46,12 @@ pub struct ReviewApp {
     human_raise_start_char: usize,
     human_raise_end_char: usize,
     human_raise_replacement: String,
+    correction_draft: Option<CorrectionDraft>,
+    cue_selection: CueSelectionSession,
+    cue_selection_epoch: u64,
+    media: MediaPreview,
+    media_texture: Option<egui::TextureHandle>,
+    seek_intent: MediaSeekIntent,
     bottom_tab: BottomTab,
     confirm_unresolved_source_retained: bool,
     resume_session_id_draft: String,
@@ -63,6 +81,12 @@ impl ReviewApp {
             human_raise_start_char: 0,
             human_raise_end_char: 0,
             human_raise_replacement: String::new(),
+            correction_draft: None,
+            cue_selection: CueSelectionSession::default(),
+            cue_selection_epoch: 0,
+            media: MediaPreview::default(),
+            media_texture: None,
+            seek_intent: MediaSeekIntent::default(),
             bottom_tab: BottomTab::CurrentPreview,
             confirm_unresolved_source_retained: false,
             resume_session_id_draft: String::new(),
@@ -98,7 +122,7 @@ impl ReviewApp {
         let suppress_review_shortcuts = review_shortcuts_suppressed(
             ctx.egui_wants_keyboard_input(),
             Self::ime_composing(ctx),
-            false,
+            self.correction_draft.is_some() || ctx.any_popup_open(),
         );
         if suppress_review_shortcuts || self.controller.phase() == DesktopPhase::Setup {
             return;
@@ -108,11 +132,13 @@ impl ReviewApp {
             self.controller.select_relative(-1);
             self.selected_alternative = 0;
             self.manual_replacement_draft.clear();
+            self.seek_selected_item(false);
         }
         if ctx.input(|input| input.key_pressed(egui::Key::ArrowDown)) {
             self.controller.select_relative(1);
             self.selected_alternative = 0;
             self.manual_replacement_draft.clear();
+            self.seek_selected_item(false);
         }
         if !self.controller.mutations_enabled() {
             return;
@@ -233,6 +259,96 @@ impl ReviewApp {
         }
     }
 
+    fn apply_correction_draft(&mut self) {
+        let Some(draft) = self.correction_draft.take() else {
+            return;
+        };
+        self.cue_selection.clear();
+        let ui_session_epoch = self.controller.ui_session_epoch();
+        let invalidates_prior_export = self.controller.phase() == DesktopPhase::ExportCompleted;
+        match self.controller.raise_and_manual_replace(
+            ui_session_epoch,
+            draft.span.segment_position,
+            draft.span.start_byte,
+            draft.span.end_byte,
+            draft.replacement,
+        ) {
+            Ok(()) => {
+                self.error = None;
+                self.status = if invalidates_prior_export {
+                    "This review changed after export. Export again to refresh the saved files."
+                        .to_owned()
+                } else {
+                    "Unflagged correction saved.".to_owned()
+                };
+            }
+            Err(error) => self.error = Some(user_errors::user_message(&error)),
+        }
+    }
+
+    fn open_correction_draft(&mut self, cue_text: &str, selection: CueCharRange, displayed: &str) {
+        match resolve_cue_selection(cue_text, selection, displayed) {
+            Ok(span) => {
+                self.error = None;
+                self.correction_draft = Some(CorrectionDraft {
+                    span,
+                    replacement: String::new(),
+                });
+            }
+            Err(error) => self.error = Some(selection_error_message(&error)),
+        }
+    }
+
+    fn pick_media(&mut self) {
+        let dialog = rfd::FileDialog::new()
+            .add_filter("Video", &["mp4", "mov", "m4v", "avi"])
+            .add_filter("Audio", &["m4a", "mp3", "wav", "aac", "caf", "aiff"]);
+        let Some(path) = dialog.pick_file() else {
+            return;
+        };
+        self.media_texture = None;
+        match self.media.attach(path) {
+            Ok(()) => {
+                self.error = None;
+                self.status =
+                    "Media attached for preview only. It is not part of the review record."
+                        .to_owned();
+            }
+            Err(error) => {
+                self.media_texture = None;
+                self.error = Some(error.to_string());
+            }
+        }
+    }
+
+    fn seek_to_segment(&mut self, segment_position: usize, start_ms: u64, force: bool) {
+        if self.seek_intent.on_event(segment_position, force) {
+            self.media.seek_to_cue_start(start_ms);
+        }
+    }
+
+    fn seek_selected_item(&mut self, force: bool) {
+        let Ok(items) = self.controller.items() else {
+            return;
+        };
+        let Some(item) = items.get(self.controller.selected_index()) else {
+            return;
+        };
+        self.seek_to_segment(item.segment_position, item.start_ms, force);
+    }
+
+    fn establish_initial_media_seek(&mut self) {
+        let Ok(items) = self.controller.items() else {
+            return;
+        };
+        let Some(item) = items.get(self.controller.selected_index()) else {
+            return;
+        };
+        if self.seek_intent.on_repaint_establish(item.segment_position) {
+            self.media.seek_to_cue_start(item.start_ms);
+        }
+    }
+
     fn reset(&mut self) {
         match self.controller.reset() {
             Ok(()) => {
@@ -244,6 +360,13 @@ impl ReviewApp {
                 self.search.clear();
                 self.selected_alternative = 0;
                 self.manual_replacement_draft.clear();
+                self.human_raise_replacement.clear();
+                self.correction_draft = None;
+                self.cue_selection.clear();
+                self.cue_selection_epoch = 0;
+                self.media.detach();
+                self.media_texture = None;
+                self.seek_intent.clear();
                 self.bottom_tab = BottomTab::CurrentPreview;
                 self.confirm_unresolved_source_retained = false;
                 self.new_project_name.clear();
@@ -787,19 +910,39 @@ impl ReviewApp {
         if self.bottom_tab == BottomTab::ProjectMemory && !self.controller.is_bound_to_project() {
             self.bottom_tab = BottomTab::CurrentPreview;
         }
+        let wide = ui.ctx().viewport_rect().width() >= MEDIA_WIDE_WIDTH;
+        if self.media.snapshot().playing {
+            ui.ctx().request_repaint();
+        }
+        self.correction_window(ui.ctx());
         egui::Panel::bottom("review-bottom")
             .default_size(235.0)
             .resizable(true)
             .show(ui, |ui| {
                 self.bottom_panel(ui, progress, canonical_total, previous_waiting)
             });
+        if wide {
+            egui::Panel::left("media-preview")
+                .default_size(360.0)
+                .size_range(280.0..=520.0)
+                .resizable(true)
+                .show(ui, |ui| self.media_panel(ui));
+        }
         egui::Panel::left("review-queue")
             .default_size(300.0)
             .size_range(220.0..=480.0)
             .resizable(true)
             .show(ui, |ui| self.queue(ui, &items));
         egui::CentralPanel::default().show(ui, |ui| {
-            self.case_detail(ui, &items, progress, previous_waiting)
+            if !wide {
+                self.media_panel(ui);
+                ui.separator();
+            }
+            egui::ScrollArea::vertical()
+                .id_salt("review-case-detail")
+                .show(ui, |ui| {
+                    self.case_detail(ui, &items, progress, previous_waiting)
+                });
         });
     }
 
@@ -856,6 +999,7 @@ impl ReviewApp {
                         self.controller.select(index);
                         self.selected_alternative = 0;
                         self.manual_replacement_draft.clear();
+                        self.seek_to_segment(item.segment_position, item.start_ms, false);
                     }
                 }
             });
@@ -915,6 +1059,10 @@ impl ReviewApp {
             }
         });
 
+        self.transcript_cues_panel(ui);
+        // Establish the initial cue once. Repaint must not own media position.
+        self.establish_initial_media_seek();
+
         if show_review_complete_panel(progress, previous_waiting) {
             self.completion_panel(ui, &header, progress);
         }
@@ -927,7 +1075,6 @@ impl ReviewApp {
                 "Nothing needed your decision in this file. You can still preview and export the \
                  unchanged subtitles, or correct unflagged text below.",
             );
-            self.human_raise_panel(ui);
             self.export_controls(ui, progress);
             return;
         };
@@ -1089,7 +1236,6 @@ impl ReviewApp {
                 Err(error) => self.error = Some(user_errors::user_message(&error)),
             }
         }
-        self.human_raise_panel(ui);
         self.export_controls(ui, progress);
     }
 
@@ -1240,10 +1386,12 @@ impl ReviewApp {
         }
 
         ui.add_space(12.0);
-        ui.group(|ui| {
-            ui.label(RichText::new("Correct unflagged text").strong());
-            ui.label("Select a contiguous span in one subtitle line. This does not add a term.");
-            ui.horizontal(|ui| {
+        egui::CollapsingHeader::new("Character-range fallback")
+            .id_salt("human-raise-fallback")
+            .default_open(false)
+            .show(ui, |ui| {
+        ui.label("Use this only if text selection is unavailable. Prefer selecting transcript text above.");
+        ui.horizontal(|ui| {
                 ui.label("Subtitle");
                 egui::ComboBox::from_id_salt("human-raise-cue")
                     .selected_text(format!(
@@ -1300,7 +1448,303 @@ impl ReviewApp {
                     self.apply_human_raise();
                 }
             });
+            });
+    }
+
+    fn media_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Media");
+        ui.label("Preview only. Playback does not change the transcript or review record.");
+        ui.horizontal(|ui| {
+            let label = if self.media.is_attached() {
+                "Change video or audio"
+            } else {
+                "Open video or audio"
+            };
+            if ui.button(label).clicked() {
+                self.pick_media();
+            }
         });
+        let snapshot = self.media.snapshot();
+        if let Some(name) = self.media.path_display() {
+            ui.small(name);
+        }
+        if let Some(error) = &snapshot.error {
+            ui.colored_label(Color32::LIGHT_RED, error);
+        }
+        if let Some(frame) = self.media.take_video_frame() {
+            self.media_texture = Some(ui.ctx().load_texture(
+                "media-preview-frame",
+                frame,
+                egui::TextureOptions::LINEAR,
+            ));
+        }
+        if let Some(texture) = &self.media_texture {
+            let max_width = ui.available_width();
+            ui.add(egui::Image::new(texture).max_width(max_width));
+        } else if snapshot.path.is_some() && !snapshot.has_video {
+            ui.group(|ui| {
+                ui.label(RichText::new("Audio").strong());
+                ui.label("No video track. Use the controls below.");
+            });
+        }
+        if snapshot.path.is_some() {
+            ui.horizontal(|ui| {
+                let play_label = if snapshot.playing { "Pause" } else { "Play" };
+                if ui.button(play_label).clicked() {
+                    self.media.toggle_play();
+                }
+                ui.label(format!(
+                    "{} / {}",
+                    media::format_media_clock(snapshot.position_ms),
+                    snapshot
+                        .duration_ms
+                        .map(media::format_media_clock)
+                        .unwrap_or_else(|| "--:--.---".to_owned())
+                ));
+            });
+            if let Some(duration) = snapshot.duration_ms {
+                let mut position = snapshot.position_ms as f32;
+                if ui
+                    .add(
+                        egui::Slider::new(&mut position, 0.0..=duration.max(1) as f32)
+                            .show_value(false),
+                    )
+                    .changed()
+                {
+                    self.media.seek_ms(position.round() as u64);
+                }
+            }
+            let mut volume = snapshot.volume;
+            if ui
+                .add(egui::Slider::new(&mut volume, 0.0..=1.0).text("Volume"))
+                .changed()
+            {
+                self.media.set_volume(volume);
+            }
+        }
+    }
+
+    fn transcript_cues_panel(&mut self, ui: &mut egui::Ui) {
+        let Ok(cues) = self.controller.cues() else {
+            return;
+        };
+        if cues.is_empty() {
+            return;
+        }
+        self.sync_cue_selection(&cues);
+        ui.add_space(8.0);
+        ui.label(RichText::new("Transcript").strong());
+        ui.label(
+            "Select words in one cue, then right-click Correct selected text. Click a cue to seek.",
+        );
+        egui::ScrollArea::vertical()
+            .id_salt("transcript-cues")
+            .max_height(220.0)
+            .show(ui, |ui| {
+                for cue in &cues {
+                    self.cue_row(ui, cue);
+                }
+            });
+        self.human_raise_panel(ui);
+    }
+
+    fn sync_cue_selection(&mut self, cues: &[CueView]) {
+        let epoch = self.controller.ui_session_epoch();
+        if self.cue_selection_epoch != epoch {
+            self.cue_selection.clear();
+            self.cue_selection_epoch = epoch;
+            return;
+        }
+        let Some(selection) = self.cue_selection.selection() else {
+            return;
+        };
+        match cues
+            .iter()
+            .find(|cue| cue.segment_position == selection.segment_position)
+        {
+            Some(cue) => self
+                .cue_selection
+                .sync_rendered_text(cue.segment_position, &cue.text),
+            None => self.cue_selection.clear(),
+        }
+    }
+
+    fn cue_row(&mut self, ui: &mut egui::Ui, cue: &CueView) {
+        let segment_position = cue.segment_position;
+        let start_ms = cue.start_ms;
+        let cue_text = cue.text.clone();
+        ui.group(|ui| {
+            ui.horizontal(|ui| {
+                ui.small(format!(
+                    "Cue {} · {}",
+                    cue.cue_number,
+                    media::format_media_clock(start_ms)
+                ));
+                if ui.small_button("Seek").clicked() {
+                    self.seek_to_segment(segment_position, start_ms, true);
+                }
+            });
+            let wrap_width = ui.available_width().max(1.0);
+            let galley = ui.painter().layout(
+                cue_text.clone(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                ui.visuals().text_color(),
+                wrap_width,
+            );
+            let (rect, response) =
+                ui.allocate_exact_size(galley.size(), egui::Sense::click_and_drag());
+            let response = response.on_hover_cursor(egui::CursorIcon::Text);
+            let galley_pos = rect.min;
+            self.handle_cue_pointer(
+                ui,
+                &response,
+                &galley,
+                galley_pos,
+                segment_position,
+                start_ms,
+                &cue_text,
+            );
+            self.cue_selection
+                .sync_rendered_text(segment_position, &cue_text);
+            paint_cue_source_selection(
+                ui,
+                &galley,
+                galley_pos,
+                self.cue_selection.selection_for_cue(segment_position),
+            );
+            let mut correct_selected = false;
+            let mut correct_whole = false;
+            let can_correct_selected = self
+                .cue_selection
+                .selection_for_cue(segment_position)
+                .is_some();
+            response.context_menu(|ui| {
+                if ui
+                    .add_enabled(
+                        can_correct_selected,
+                        egui::Button::new("Correct selected text"),
+                    )
+                    .clicked()
+                {
+                    correct_selected = true;
+                    ui.close();
+                }
+                if ui.button("Correct whole line").clicked() {
+                    correct_whole = true;
+                    ui.close();
+                }
+            });
+            if correct_selected {
+                match resolve_session_selection(&self.cue_selection, segment_position, &cue_text) {
+                    Ok(span) => {
+                        self.error = None;
+                        self.correction_draft = Some(CorrectionDraft {
+                            span,
+                            replacement: String::new(),
+                        });
+                    }
+                    Err(error) => self.error = Some(selection_error_message(&error)),
+                }
+            }
+            if correct_whole {
+                let selection = whole_cue_selection(segment_position, &cue_text);
+                self.open_correction_draft(&cue_text, selection, &cue_text);
+            }
+        });
+    }
+
+    fn handle_cue_pointer(
+        &mut self,
+        ui: &egui::Ui,
+        response: &egui::Response,
+        galley: &egui::Galley,
+        galley_pos: egui::Pos2,
+        segment_position: usize,
+        start_ms: u64,
+        cue_text: &str,
+    ) {
+        let pointer_char =
+            |pos: egui::Pos2| char_index_at_galley_pos(galley, pos - galley_pos, cue_text);
+        if response.hovered()
+            && ui.input(|input| input.pointer.primary_pressed())
+            && let Some(pos) = ui.input(|input| input.pointer.interact_pos())
+        {
+            self.cue_selection
+                .begin_primary(segment_position, pointer_char(pos));
+        }
+        if self.cue_selection.is_dragging_cue(segment_position) {
+            let primary_pressed = ui.input(|input| input.pointer.primary_pressed());
+            let primary_down = ui.input(|input| input.pointer.primary_down());
+            if !primary_pressed
+                && let Some(pos) = ui
+                    .input(|input| input.pointer.interact_pos())
+                    .or_else(|| ui.input(|input| input.pointer.latest_pos()))
+            {
+                self.cue_selection
+                    .extend_primary(segment_position, pointer_char(pos));
+            }
+            if !primary_down {
+                let char_index = ui
+                    .input(|input| input.pointer.latest_pos())
+                    .map(pointer_char)
+                    .unwrap_or(0);
+                let dragged = response.dragged()
+                    || response.drag_stopped()
+                    || self
+                        .cue_selection
+                        .selection_for_cue(segment_position)
+                        .is_some();
+                self.cue_selection
+                    .finish_primary(segment_position, char_index, dragged);
+            }
+        }
+        if response.clicked() {
+            self.seek_to_segment(segment_position, start_ms, true);
+        }
+    }
+
+    fn correction_window(&mut self, ctx: &egui::Context) {
+        let Some(draft) = self.correction_draft.as_mut() else {
+            return;
+        };
+        let mut save = false;
+        let mut cancel = false;
+        let mut open = true;
+        egui::Window::new("Correct selected text")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label(
+                    RichText::new(format!("Selected: {}", draft.span.observed_text)).italics(),
+                );
+                ui.add(
+                    egui::TextEdit::singleline(&mut draft.replacement)
+                        .id(egui::Id::new("correction-draft-replacement"))
+                        .desired_width(360.0)
+                        .hint_text("Replacement"),
+                );
+                ui.horizontal(|ui| {
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                    let enabled =
+                        self.controller.mutations_enabled() && !draft.replacement.is_empty();
+                    if ui
+                        .add_enabled(enabled, egui::Button::new("Save correction"))
+                        .clicked()
+                    {
+                        save = true;
+                    }
+                });
+            });
+        if !open || cancel {
+            self.correction_draft = None;
+            return;
+        }
+        if save {
+            self.apply_correction_draft();
+        }
     }
 
     fn bottom_panel(
@@ -1373,24 +1817,42 @@ impl ReviewApp {
     }
 }
 
-fn char_range_to_utf8_bytes(
-    text: &str,
-    start_char: usize,
-    end_char: usize,
-) -> Option<(usize, usize)> {
-    let mut starts: Vec<usize> = text.char_indices().map(|(index, _)| index).collect();
-    starts.push(text.len());
-    if start_char >= end_char || end_char >= starts.len() {
-        return None;
+fn paint_cue_source_selection(
+    ui: &egui::Ui,
+    galley: &std::sync::Arc<egui::Galley>,
+    galley_pos: egui::Pos2,
+    selection: Option<crate::source_selection::CueSourceSelection>,
+) {
+    let mut painted = galley.clone();
+    if let Some(selection) = selection {
+        let range = egui::text::CCursorRange::two(
+            egui::text::CCursor::new(selection.char_start),
+            egui::text::CCursor::new(selection.char_end),
+        );
+        egui::text_selection::visuals::paint_text_selection(
+            &mut painted,
+            ui.visuals(),
+            &range,
+            None,
+        );
     }
-    Some((starts[start_char], starts[end_char]))
+    ui.painter()
+        .galley(galley_pos, painted, ui.visuals().text_color());
 }
 
-fn selected_span_text(text: &str, start_char: usize, end_char: usize) -> String {
-    text.chars()
-        .skip(start_char)
-        .take(end_char.saturating_sub(start_char))
-        .collect()
+fn selection_error_message(error: &SelectionError) -> String {
+    match error {
+        SelectionError::Empty => "Select text inside one subtitle line first.".to_owned(),
+        SelectionError::CrossCue => {
+            "Select text inside one subtitle line. Cross-cue selection is not used.".to_owned()
+        }
+        SelectionError::InvalidRange => {
+            "Select a contiguous span inside one subtitle line.".to_owned()
+        }
+        SelectionError::ObservedMismatch => {
+            "The selected text no longer matches the source. Select the span again.".to_owned()
+        }
+    }
 }
 
 fn truncate_cue(text: &str) -> String {

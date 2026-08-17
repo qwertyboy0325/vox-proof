@@ -3,8 +3,10 @@ pub mod controller;
 mod desktop_presentation;
 pub mod export;
 mod fonts;
+pub mod media;
 pub mod presentation;
 mod session_root;
+pub mod source_selection;
 mod terms_editor;
 mod user_errors;
 
