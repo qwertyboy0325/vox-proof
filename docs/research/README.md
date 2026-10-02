@@ -40,6 +40,38 @@ Only `ACCEPTED_AS_MATERIAL_DECISION` may alter canonical architecture semantics.
 
 ## Active Research
 
+### VP-ASR-001 — Local ASR Candidate Comparison
+
+```yaml
+id: VP-ASR-001
+title: Local ASR Candidate Comparison
+status: INVESTIGATING
+authority: NON_CANONICAL
+owner: Ezra
+opened: 2026-10-02
+canonical_memo: ./VP-ASR-001-local-asr-candidate-comparison.md
+tracking_issue: pending owner authorization
+research_question: >
+  Which locally runnable ASR candidate gives the best usable baseline for
+  Taiwanese Mandarin lectures with Chinese-English code-switching, and does it
+  support the vocabulary biasing needed for the education pilot?
+next_action: >
+  Run the comparison on education-pilot-01 lecture-1 reference windows and
+  record the chosen pilot baseline.
+```
+
+Blocks without separate owner authorization:
+
+- selecting a Gate 5 product ASR runtime, model, or distribution;
+- implementing an ASR adapter or bundling a model;
+- treating ASR output as transcript authority;
+- creating a Material Decision from the results.
+
+Does not block:
+
+- running candidates locally on authorized pilot material;
+- choosing the fixed baseline for `education-pilot-01`.
+
 ### VP-ARCH-002 — Authority-Transition Graph as a VoxProof Architecture Reasoning Model
 
 ```yaml
