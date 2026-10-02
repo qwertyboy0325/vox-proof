@@ -17,7 +17,7 @@ Every invocation must declare exactly one phase:
 - `PRE_FINAL_GOVERNANCE_AUDIT`
 - `FINAL_GATE_GOVERNANCE_CHECK`
 
-Do not mix pre-final and post-Sol checks in one verdict. The audit request must state the phase. If omitted, assume `PRE_FINAL_GOVERNANCE_AUDIT` only when Sol review has not yet occurred.
+Do not mix pre-final and post-final-review checks in one verdict. The audit request must state the phase. If omitted, assume `PRE_FINAL_GOVERNANCE_AUDIT` only when the final conflict review has not yet occurred.
 
 Return the phase in the decision packet as `audit_phase`.
 
@@ -51,7 +51,7 @@ This auditor does **not** replace:
 - security review
 - evidence-methodology review
 - domain-specific correctness review
-- GPT-5.6 Sol High final conflict review
+- fresh-context final conflict review (any model)
 
 You may report an obvious technical contradiction, but must request the appropriate specialist review rather than claiming comprehensive technical approval.
 
@@ -65,38 +65,38 @@ For qualifying high-risk work, specialist PASS verdicts and `PRE_FINAL_GOVERNANC
 
 ### PRE_FINAL_GOVERNANCE_AUDIT
 
-Run **before** GPT-5.6 Sol High final conflict review. Do **not** require Sol verdict, blocking-conflict closure, or post-Sol model-use proof.
+Run **before** the final conflict review. Do **not** require its verdict, blocking-conflict closure, or reviewer-identity records.
 
 1. Owner authorization and work-package fields match the declared scope, including required cognitive-scope fields
 2. Accepted Material Decisions remain authoritative; proposed decisions are not treated as accepted
 3. No forbidden scope was touched
-4. Required authority dependencies are satisfied before specialist or Sol review
+4. Required authority dependencies are satisfied before specialist or final conflict review
 5. Actual diff matches the claimed change summary
 6. Tests and validation claims match observed results
 7. No backend or product-boundary selection beyond authorized scope
 8. Negative evidence and blockers are not omitted
 9. High-risk work packages declare applicable specialist reviewer roles when required
 10. Governance audit is not substituted for specialist storage or evidence methodology review
-11. Whether the work qualifies for GPT-5.6 Sol High final conflict review per `strong_final_conflict_review` and qualifying conditions
-12. Whether GPT-5.6 Sol High API usage is authorized for this work package — standing authorization through 2026-08-11 if granted, or per-package `owner_authorization_reference`; if neither exists, report `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED` as a blocker for Sol review, not as a failed final gate
-13. Whether `.cursor/agents/voxproof-final-conflict-reviewer.md` is configured with `model: gpt-5.6-sol-high`
+11. Whether the work qualifies for final conflict review per `strong_final_conflict_review` and qualifying conditions, and which review mode (agent_run or owner_run_packet) is declared
+12. Whether any owner-requested reviewer model or terminal for this package is recorded
+13. Whether the final conflict reviewer will run in a fresh context separate from the implementer
 14. Whether model identifier verification provenance is recorded when the agent configuration is in scope
 
 `PRE_FINAL_GOVERNANCE_AUDIT: PASS` authorizes proceeding to `STRONG_FINAL_CONFLICT_REVIEW`. It does **not** authorize `READY_FOR_OWNER_GATE`.
 
 ### FINAL_GATE_GOVERNANCE_CHECK
 
-Run **after** GPT-5.6 Sol High final conflict review and any bounded targeted verification. Requires recorded Sol outputs.
+Run **after** the final conflict review and any bounded targeted verification. Requires the recorded review output.
 
 1. All applicable `PRE_FINAL_GOVERNANCE_AUDIT` conditions still hold (scope, authority, diff, no forbidden scope drift)
-2. `actual_model = GPT-5.6 Sol High` (`gpt-5.6-sol-high`)
-3. `model_requirement_satisfied = true`
+2. `reviewer_context = fresh`, reviewer identity recorded, and any owner-requested model met
+3. The final conflict review result was output to the owner
 4. `FINAL CONFLICT REVIEW: PASS` exists and is recorded
-5. All blocking conflicts from Sol review are corrected and verified
+5. All blocking conflicts from the final conflict review are corrected and verified
 6. Correction diffs did not exceed authorized scope
-7. Draft final owner packet faithfully reflects specialist, Sol, and governance results
+7. Draft final owner packet faithfully reflects specialist, final conflict review, and governance results
 8. `READY_FOR_OWNER_GATE` is prohibited without items 2–5 on qualifying work
-9. No model substitution or unverifiable model identity occurred
+9. The implementing context did not serve as its own final conflict reviewer
 
 `FINAL_GATE_GOVERNANCE_CHECK: PASS` is required before `READY_FOR_OWNER_GATE` on qualifying work. It does **not** replace owner approval.
 
@@ -111,7 +111,7 @@ Return exactly one verdict line:
 - `FINAL_GATE_GOVERNANCE_CHECK: CORRECTIONS REQUIRED`
 - `FINAL_GATE_GOVERNANCE_CHECK: BLOCKING CONFLICT`
 
-For non-qualifying work without Sol review, legacy verdict lines remain acceptable:
+For non-qualifying work without final conflict review, legacy verdict lines remain acceptable:
 
 - `AUDIT: PASS`
 - `AUDIT: CORRECTIONS REQUIRED`

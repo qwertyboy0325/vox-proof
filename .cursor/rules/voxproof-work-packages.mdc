@@ -76,11 +76,13 @@ Use:
 - `.cursor/agents/voxproof-governance-auditor.md` for governance audit
 - `.cursor/agents/voxproof-storage-systems-reviewer.md` for storage, persistence, transaction, and recovery code-depth review
 - `.cursor/agents/voxproof-evidence-methodology-reviewer.md` for scenario epistemic strength and evidence claim review
-- `.cursor/agents/voxproof-final-conflict-reviewer.md` for mandatory GPT-5.6 Sol High final cross-artifact conflict review on qualifying high-risk work
+- `.cursor/agents/voxproof-final-conflict-reviewer.md` for mandatory fresh-context final cross-artifact conflict review on qualifying high-risk work
 
 ## Strong final conflict review
 
 Qualifying high-risk work cannot close solely on specialist reviewer PASS verdicts or governance `AUDIT: PASS`.
+
+Rule revision (owner decision, 2026-10-02): the final conflict review is no longer bound to one model or terminal. It is performed in a **fresh, implementation-independent context** and its result is **output to the owner**. The reviewing model is whatever the owner's chosen terminal provides; its identity is recorded, not required to match a fixed name.
 
 For qualifying work, the required sequence before the final owner gate is:
 
@@ -91,21 +93,41 @@ implementation
 → evidence-methodology review where applicable
 → bounded correction
 → PRE_FINAL_GOVERNANCE_AUDIT
-→ GPT-5.6 Sol High final conflict review
+→ STRONG_FINAL_CONFLICT_REVIEW (fresh context; result output to owner)
 → bounded conflict correction if required
-→ GPT-5.6 Sol High targeted conflict verification
+→ targeted conflict verification
 → FINAL_GATE_GOVERNANCE_CHECK
 → READY_FOR_OWNER_GATE
 ```
 
-Use agent: `.cursor/agents/voxproof-final-conflict-reviewer.md`
+Use agent: `.cursor/agents/voxproof-final-conflict-reviewer.md` (or the equivalent reviewer definition for the active terminal).
 
 Use `.cursor/agents/voxproof-governance-auditor.md` twice with different phases:
 
-- **PRE_FINAL_GOVERNANCE_AUDIT** — before Sol review; does not require Sol verdict
-- **FINAL_GATE_GOVERNANCE_CHECK** — after Sol review and verification; requires Sol PASS
+- **PRE_FINAL_GOVERNANCE_AUDIT** — before final conflict review; does not require its verdict
+- **FINAL_GATE_GOVERNANCE_CHECK** — after final conflict review and verification; requires its PASS
 
-Do not use one undifferentiated governance audit that mixes pre-final and post-Sol checks.
+Do not use one undifferentiated governance audit that mixes pre-final and post-final checks.
+
+### Review modes
+
+Either mode satisfies `STRONG_FINAL_CONFLICT_REVIEW`. The default is agent-run.
+
+1. **Agent-run (default).** The active agent launches a separate reviewer with no implementation context (for example a fresh subagent using the reviewer definition), gives it only the review packet below, and outputs the reviewer's verdict and findings to the owner verbatim, followed by the implementer's response.
+2. **Owner-run packet.** On owner request, the agent outputs the review packet instead; the owner runs it in any terminal or model of their choice and returns the result. The agent then records that result.
+
+The implementing context must not review its own work and call it the final conflict review.
+
+### Review packet
+
+The packet given to the reviewer (or to the owner in owner-run mode) contains:
+
+- work_package_id, objective, authorized and forbidden scope
+- exact diff or commit range, and the list of changed files
+- applicable accepted Material Decisions and authority documents
+- specialist and governance findings to be cross-checked
+- claims the owner packet will make
+- the reviewer instructions from `.cursor/agents/voxproof-final-conflict-reviewer.md`
 
 ### Work-package declaration
 
@@ -114,14 +136,14 @@ Every substantial work package must declare:
 ```text
 strong_final_conflict_review:
   status: required | not_required_with_reason | owner_requested
-  required_model: GPT-5.6 Sol High
+  mode: agent_run | owner_run_packet
 ```
 
 For qualifying conditions below, `not_required_with_reason` is not permitted unless the owner explicitly grants an exception.
 
 ### Qualifying conditions
 
-Require GPT-5.6 Sol High final conflict review when **any** condition applies:
+Require final conflict review when **any** condition applies:
 
 - first implementation of a new high-risk mechanism
 - persistence, storage, concurrency, locking, recovery, migration, security, privacy, cryptography, distributed coordination, destructive cleanup, or external protocol guarantees
@@ -135,139 +157,56 @@ Require GPT-5.6 Sol High final conflict review when **any** condition applies:
 - generated owner-packet wording affects an acceptance decision
 - `risk_tier` is `high` or `critical`
 
-The product owner may require GPT-5.6 Sol High final conflict review for any work package regardless of risk tier. Owner phrases such as “use GPT-5.6 Sol High for final conflict review”, “I still doubt this”, “run the strong final review”, or “do not decide before Sol High reviews it” constitute explicit authorization only for the scoped review requested. They do not authorize implementation, scope expansion, file modification, commit, push, mechanism selection, or Material Decision acceptance.
+The product owner may require final conflict review, or a specific reviewer model or terminal, for any work package. Such a request authorizes only the scoped review; it does not authorize implementation, scope expansion, file modification, commit, push, mechanism selection, or Material Decision acceptance.
 
-### Exact model requirement
+### Recorded reviewer identity
 
-The final conflict reviewer model is exactly:
-
-```text
-GPT-5.6 Sol High
-```
-
-Platform identifier: `gpt-5.6-sol-high`
-
-### Model identifier verification provenance
-
-Record and preserve identifier provenance whenever the final conflict reviewer agent is configured or revised:
+Every final conflict review records:
 
 ```text
-identifier_verification:
-  repository_recorded_identifier: gpt-5.6-sol-high
-  observed_display_name: GPT-5.6 Sol High
-  source: Cursor agent model slug allowlist / successful agent resolution
-  verified_at: <date of verification>
-  independent_public_documentation: unavailable unless separately recorded
-  requires_runtime_dry_run_before_first_qualifying_use: true
-```
-
-Repository record as of **2026-07-19**:
-
-```text
-repository_recorded_identifier: gpt-5.6-sol-high
-observed_display_name: GPT-5.6 Sol High
-source: Cursor Task subagent model slug allowlist (platform-supported agent invocation)
-verified_at: 2026-07-19
-independent_public_documentation: unavailable
-requires_runtime_dry_run_before_first_qualifying_use: true
-```
-
-A repository-recorded identifier alone is not runtime proof. Before the first qualifying `STRONG_FINAL_CONFLICT_REVIEW`, perform one dry-run agent resolution and record the observed `actual_model` in the work-package evidence.
-
-The workflow must explicitly prohibit substitution by:
-
-- Composer
-- cursor-grok-4.5-high-fast
-- another Grok variant
-- another GPT model
-- another API-backed model
-- automatic fallback routing
-- unspecified “strong model”
-- unspecified “high-reasoning model”
-
-A review performed by any other model does not satisfy `STRONG_FINAL_CONFLICT_REVIEW`.
-
-Required recorded fields:
-
-```text
-required_model: GPT-5.6 Sol High
-actual_model
-model_requirement_satisfied
-api_quota_used
+review_mode: agent_run | owner_run_packet
+reviewer_context: fresh | <describe if not fresh>
+actual_model: <as reported by the terminal; "unknown" if not reported>
+terminal: <e.g. Claude Code, Cursor, Codex, other>
 owner_authorization_reference
 ```
 
-`model_requirement_satisfied` may be true only when `actual_model` is GPT-5.6 Sol High.
+There is no fixed required model and no "model requirement satisfied" check. If the owner names a specific model for a package, record that requirement and whether it was met.
 
-### No fallback rule
+### Blocking states
 
-There is **no model fallback** for `STRONG_FINAL_CONFLICT_REVIEW`.
+- If no fresh-context reviewer can be run and the owner has not run the packet: `BLOCKED_STRONG_FINAL_REVIEW_UNAVAILABLE`.
+- If the owner requested a specific model and it could not be used: `BLOCKED_STRONG_FINAL_REVIEW_MODEL_UNVERIFIED`.
 
-If GPT-5.6 Sol High cannot be invoked, return `BLOCKED_STRONG_FINAL_REVIEW_UNAVAILABLE`.
-
-If owner authorization for its API usage is missing, return `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED`.
-
-If the actual model identity cannot be verified, return `BLOCKED_STRONG_FINAL_REVIEW_MODEL_UNVERIFIED`.
-
-In all three states:
+In either state:
 
 - do not claim final conflict review PASS
 - do not enter `READY_FOR_OWNER_GATE`
 - do not commit, push, merge, release, or publish evidence unless separately and explicitly authorized by the owner
-- do not silently substitute another model
-
-Every final conflict review must report:
-
-```text
-api_escalation_reason: mandatory GPT-5.6 Sol High final conflict review
-```
-
-Do not describe this as optional escalation when the workflow condition requires it.
-
-### Bounded standing API authorization (policy template)
-
-Standing authorization is **not** a blanket grant for all future API usage.
-
-When the owner grants standing authorization, it applies only under these bounds through **2026-08-11** (model-budget review date):
-
-```text
-Owner authorizes GPT-5.6 Sol High API usage only for STRONG_FINAL_CONFLICT_REVIEW
-in work packages that meet the repository-defined qualifying conditions.
-
-The authorization:
-- does not permit implementation or scope expansion;
-- does not permit repeated full reviews;
-- permits one initial review and the bounded targeted verification rounds defined by policy;
-- must record work_package_id and owner_authorization_reference;
-- expires or is reassessed on 2026-08-11.
-```
-
-Until standing authorization is explicitly granted by the owner, each qualifying work package must record its own `owner_authorization_reference` for Sol API usage or stop with `BLOCKED_STRONG_FINAL_REVIEW_NOT_AUTHORIZED`.
-
-Standing authorization does not authorize commit, push, Package 1, mechanism selection, or Material Decision acceptance.
 
 ### Specialist PASS is insufficient
 
 For qualifying work, specialist PASS verdicts and `PRE_FINAL_GOVERNANCE_AUDIT: PASS` do not authorize `READY_FOR_OWNER_GATE`.
 
-GPT-5.6 Sol High must independently complete the final cross-artifact conflict review.
-
 Do not allow transition to `READY_FOR_OWNER_GATE` from a qualifying work package unless:
 
 ```text
 final_conflict_required = true
-required_model = GPT-5.6 Sol High
-actual_model = GPT-5.6 Sol High
-model_requirement_satisfied = true
+reviewer_context = fresh
 pre_final_governance_verdict = PASS
 final_conflict_verdict = PASS
 final_gate_governance_verdict = PASS
 all_blocking_conflicts_resolved = true
+final_conflict_result_output_to_owner = true
 ```
 
 ### Correction loop
 
-When the verdict is `FINAL CONFLICT REVIEW: CORRECTIONS REQUIRED`, the workflow may perform one bounded correction round limited to the listed conflict IDs. After correction, GPT-5.6 Sol High must perform targeted verification of each prior blocking conflict, the exact correction diff, and regressions directly caused by those corrections. Targeted verification must not automatically reopen the entire workstream. If targeted verification finds a new critical or high-severity contradiction directly caused by the correction, allow one additional bounded correction round. After two failed correction rounds, stop with `BLOCKED_REPEATED_FINAL_CONFLICT`.
+When the verdict is `FINAL CONFLICT REVIEW: CORRECTIONS REQUIRED`, the workflow may perform one bounded correction round limited to the listed conflict IDs. After correction, a fresh-context reviewer performs targeted verification of each prior blocking conflict, the exact correction diff, and regressions directly caused by those corrections. Targeted verification must not automatically reopen the entire workstream. If targeted verification finds a new critical or high-severity contradiction directly caused by the correction, allow one additional bounded correction round. After two failed correction rounds, stop with `BLOCKED_REPEATED_FINAL_CONFLICT`.
+
+### History
+
+Until 2026-10-02 this rule required exactly GPT-5.6 Sol High with no fallback. Reviews recorded under that rule keep their original model-requirement fields; they are not reinterpreted.
 
 ## First-implementation code-depth review
 
@@ -405,7 +344,7 @@ Preferred routing:
 
 **Cursor-native Grok** — independent governance audit, semantic consistency review, no-drift review, owner packet review (use `.cursor/agents/voxproof-governance-auditor.md`); specialist storage and evidence methodology review when declared by the work package
 
-**GPT-5.6 Sol High (`gpt-5.6-sol-high`)** — mandatory final cross-artifact conflict review for qualifying high-risk work via `.cursor/agents/voxproof-final-conflict-reviewer.md`; owner-requested scoped review at any gate; no model fallback
+**Final conflict reviewer (any model, fresh context)** — mandatory final cross-artifact conflict review for qualifying high-risk work via `.cursor/agents/voxproof-final-conflict-reviewer.md`, agent-run or owner-run packet; owner-requested scoped review at any gate
 
 **API-backed high-reasoning model** — agent self-escalation only for: new substantive Material Decision design, unresolved authority conflict, security-sensitive ambiguity, persistent model disagreement, repeated failed correction loop, final persistence mechanism selection (excluding mandatory final conflict review, which is workflow-required not optional escalation)
 
