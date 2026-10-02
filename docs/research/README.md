@@ -50,7 +50,7 @@ authority: NON_CANONICAL
 owner: Ezra
 opened: 2026-10-02
 canonical_memo: ./VP-ASR-001-local-asr-candidate-comparison.md
-tracking_issue: pending owner authorization
+tracking_issue: https://github.com/qwertyboy0325/vox-proof/issues/16
 research_question: >
   Which locally runnable ASR candidate gives the best usable baseline for
   Taiwanese Mandarin lectures with Chinese-English code-switching, and does it

@@ -31,7 +31,7 @@ This index points to the active canonical documents for VoxProof. Each durable c
 - [Research register](research/README.md): mandatory discovery point for active non-authoritative research items and their lifecycle.
 - [VP-ARCH-001: Loose Inference / Strict Commitment](research/VP-ARCH-001-loose-inference-strict-commitment.md): **exploratory / non-canonical** investigation of high-recall probabilistic synthesis behind a strict governed commitment boundary. Tracking issue: [#1](https://github.com/qwertyboy0325/vox-proof/issues/1).
 - [VP-ARCH-002: Authority-Transition Graph](research/VP-ARCH-002-authority-transition-graph.md): **exploratory / non-canonical** architecture reasoning model for distinguishing observation, proposal, commitment, projection, validation, and continuity transitions. Tracking issue: [#14](https://github.com/qwertyboy0325/vox-proof/issues/14).
-- [VP-ASR-001: Local ASR Candidate Comparison](research/VP-ASR-001-local-asr-candidate-comparison.md): **exploratory / non-canonical** comparison of local ASR candidates on authorized lecture audio to choose the education pilot baseline; does not select the Gate 5 runtime. Tracking issue: pending owner authorization.
+- [VP-ASR-001: Local ASR Candidate Comparison](research/VP-ASR-001-local-asr-candidate-comparison.md): **exploratory / non-canonical** comparison of local ASR candidates on authorized lecture audio to choose the education pilot baseline; does not select the Gate 5 runtime. Tracking issue: [#16](https://github.com/qwertyboy0325/vox-proof/issues/16).
 
 Active research is not accepted architecture. It must not be implemented or treated as a Material Decision without a separate owner decision.
 

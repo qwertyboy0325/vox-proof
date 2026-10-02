@@ -1,7 +1,7 @@
 Status: exploratory
 Owns: The non-authoritative research question, candidate list, comparison method, and decision boundary for VP-ASR-001.
 Does not own: Gate 5 ASR runtime, model, backend, or distribution selection; Material Decisions; product implementation; or the education pilot procedure (`../product/education-lecture-pilot-protocol.md`).
-Issue: pending owner authorization
+Issue: https://github.com/qwertyboy0325/vox-proof/issues/16
 
 # VP-ASR-001: Local ASR Candidate Comparison
 
@@ -32,12 +32,21 @@ candidate is chosen.
 Candidates are starting points, not endorsements. Confirm the current
 version, license, and local runtime on the owner's Mac before inclusion.
 
-| Candidate | Why included | Verify |
+| Candidate | Why included | Notes from desk research (2026-10-02, unverified on lecture audio) |
 |---|---|---|
-| Whisper large-v3 / large-v3-turbo via whisper.cpp or MLX | Widely used local baseline; prompt biasing via initial prompt | Traditional vs Simplified output; prompt length limits |
-| Breeze ASR (MediaTek, Whisper-derived) | Tuned for Taiwanese Mandarin and code-switching | Current release, license, runtime |
-| FunASR Paraformer / SenseVoice | Strong Mandarin accuracy; hotword support in some models | Hotword support in the local build; Traditional output |
-| One additional local candidate if a credible new option exists | Avoid locking in a stale list | Same checks |
+| Whisper large-v3 / large-v3-turbo via whisper.cpp or MLX | Stock local baseline | MIT. Biasing is an initial prompt only (about 223 tokens shared with any script hint); no true hotwords. `zh` output switches between Simplified and Traditional. |
+| Breeze-ASR-25 (MediaTek, Whisper-large-v2 fine-tune) | Built for Taiwanese Mandarin and code-switching; Traditional output | Apache-2.0. Runs in whisper.cpp via third-party GGML conversions, which are unaudited; prompt-following is unverified. |
+| Qwen3-ASR 0.6B / 1.7B via a community MLX port | Context biasing trained in; SRT via forced aligner | Apache-2.0. The official runtime is CUDA-only; the Mac path depends on a community port. The aligner handles at most 5 min per call. Script behaviour is unverified. |
+| SeACo-Paraformer (FunASR) | True hotword mechanism | Mainland-trained, Simplified output; CPU on Mac; per-model license must be checked. Secondary candidate. |
+
+Excluded after desk research: FireRedASR2 (60-second input limit, reported
+high memory on Apple Silicon, no hotwords); Qwen-Audio-3.0-ASR (no open
+weights found). Desk research is a starting point, not evidence.
+
+A 2026-10-02 pipeline smoke test (synthetic TTS audio, whisper.cpp tiny model)
+showed that a Traditional-Chinese prompt also switched the output script.
+Comparisons must therefore apply the same recorded Simplified→Traditional
+conversion to every run, so a script switch is not counted as a biasing gain.
 
 Cloud services are excluded: pilot consent promises local-only processing.
 
