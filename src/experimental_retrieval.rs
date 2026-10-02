@@ -10,7 +10,7 @@ use crate::anchor::SourceAnchor;
 use crate::candidate::SessionTermEntry;
 use crate::transcript::Transcript;
 
-pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.4";
+pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -394,7 +394,9 @@ fn pinyin_reports(
 
 /// Bounded distance for a sliding-window match: at most one pinyin letter
 /// edit per four target letters (minimum one), capped by the configured
-/// pinyin distance.
+/// pinyin distance. Distance 0 is included: a same-sound, different-character
+/// surface (homophone) is reported; only the exact canonical surface is
+/// skipped.
 fn sliding_distance_limit(target: &str, config: &ExperimentalRetrievalConfig) -> usize {
     (target.chars().count() / 4)
         .max(1)
@@ -416,11 +418,14 @@ fn pinyin_sliding_reports(
             continue;
         }
         let length = entry.canonical_term.chars().count();
-        // A sub-window equal to the whole run is already compared by
-        // `pinyin_reports`.
-        if length < 2 || length >= chars.len() {
+        if length < 2 || length > chars.len() {
             continue;
         }
+        // A window spanning the whole run is also compared by
+        // `pinyin_reports`, which skips toneless-identical readings. Report it
+        // here only at distance 0 so whole-run homophones are covered without
+        // duplicating that producer's non-zero matches.
+        let whole_run = length == chars.len();
         let Some(target) = representation_for_pinyin_target(&entry.canonical_term) else {
             continue;
         };
@@ -446,7 +451,7 @@ fn pinyin_sliding_reports(
             let Some((distance, source)) = best else {
                 continue;
             };
-            if distance == 0 || distance > limit {
+            if distance > limit || (whole_run && distance != 0) {
                 continue;
             }
             let anchor = transcript
@@ -1085,6 +1090,51 @@ mod tests {
         let reports = sliding_reports("模型就沒辦法收獵", &["收斂"]);
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].source_surface, "收獵");
+    }
+
+    #[test]
+    fn han_sliding_window_reports_toneless_identical_homophone() {
+        let reports = sliding_reports("上週我們講了提讀下降", &["梯度下降"]);
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].source_surface, "提讀下降");
+        assert_eq!(reports[0].distance, 0);
+        let reports = sliding_reports("模型沒辦法收練", &["收斂"]);
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].source_surface, "收練");
+    }
+
+    #[test]
+    fn han_sliding_window_reports_whole_run_homophone_once() {
+        for (text, surface) in [
+            ("收練", "收練"),
+            ("提讀下降", "提讀下降"),
+            ("用SGD收練", "收練"),
+        ] {
+            let term = if surface == "收練" {
+                "收斂"
+            } else {
+                "梯度下降"
+            };
+            let reports = sliding_reports(text, &[term]);
+            assert_eq!(reports.len(), 1, "{text}");
+            assert_eq!(reports[0].source_surface, surface);
+            assert_eq!(reports[0].distance, 0);
+        }
+    }
+
+    #[test]
+    fn han_sliding_window_leaves_whole_run_near_matches_to_auxiliary_producer() {
+        let transcript = parse_srt("1\n00:00:00,000 --> 00:00:01,000\n收獵").unwrap();
+        let entries = vec![entry("收斂")];
+        let config = ExperimentalRetrievalConfig {
+            han_sliding_window: true,
+            ..ExperimentalRetrievalConfig::default()
+        };
+        let producers = retrieve_experimental_candidates(&transcript, &entries, &config)
+            .into_iter()
+            .map(|report| report.producer)
+            .collect::<Vec<_>>();
+        assert_eq!(producers, [ExperimentalProducer::HanPinyinAuxiliary]);
     }
 
     #[test]
