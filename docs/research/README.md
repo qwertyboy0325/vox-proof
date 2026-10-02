@@ -125,8 +125,8 @@ research_question: >
   high-recall probabilistic synthesis plus governed deterministic
   commitment pipeline?
 next_action: >
-  VP-ARCH-LOOSE-INFERENCE-STRICT-COMMITMENT-INVESTIGATION-01, prioritized for
-  detection value under the 2026-10-02 strategic direction adjustment.
+  Investigation 01 recorded (VP-ARCH-001-investigation-01.md); owner decision
+  pending on an experiment-only Stage 0 detection-value measurement.
 ```
 
 Blocks without separate owner authorization:

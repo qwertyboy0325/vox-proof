@@ -57,6 +57,11 @@ item to `INVESTIGATING`, prioritizing the detection-value question in
 authorization covers investigation only; the blocks listed below and in the
 research register still apply.
 
+Investigation 01 is recorded in
+[`VP-ARCH-001-investigation-01.md`](VP-ARCH-001-investigation-01.md). It
+recommends an experiment-only Stage 0 measurement and surfaces owner
+decisions; it does not resolve this item.
+
 ### Do not proceed directly to
 
 - belief-layer implementation;
