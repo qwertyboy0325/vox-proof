@@ -98,6 +98,8 @@ Accepted HumanRaised Manual Correction decision: `decisions/MD-022-human-raised-
 
 Accepted governed project-knowledge derivation decision: `decisions/MD-023-governed-project-knowledge-as-derived-analysis-input.md` — prospective explicit `allowed_effects` on new Project Memory promotions, freeze-bound non-authoritative derived canonical-terminology proposals, distinct `ProjectTerminologyProposal` family, additive Project Memory format 3, and session format v4 new-session-only. Historical promotions remain exact-only forever. Accepted per explicit owner authorization on 2026-08-16. Does not accept retrospective widening, Session Terms projection of Project Memory, auto-promotion, or Gate 7 attribution from progressive terminology.
 
+Accepted RecordingArtifact authority decision: `decisions/MD-024-recording-artifact-authority-lifecycle-and-authorization.md` — pre-session local recording-source identity and authority, per-recording authorization before device/writer/source-byte access, lifecycle and committed-watermark semantics, recovery classification, active-operation ownership, deletion/provenance boundary, ASR observation isolation, and explicit project-bound recording-first session adoption. Accepted per explicit owner authorization on 2026-09-07 at `VP-RECORDING-R1-DESIGN-GATE-01`. Acceptance records semantics only; it does not select a capture API, codec, container, physical RecordingRoot topology, lock mechanism, ASR runtime, or persistence mechanism, and it does not authorize R2 implementation, recording/evidence execution, canonical product-direction edits, material use, or Git actions.
+
 ## Decision record shape
 
 Each Material Decision should include:
