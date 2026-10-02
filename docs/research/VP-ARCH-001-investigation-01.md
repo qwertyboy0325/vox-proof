@@ -166,9 +166,35 @@ it adds a ledger event, persistence shape, and evidence semantics.
 Rejected for now: adding a model producer as an authoritative detector
 (C2 cost, breaks C1 closure); a generic belief layer (Section 4).
 
+## Stage 0 status (2026-10-02)
+
+The owner authorized Stage 0. Implemented, experiment-only:
+
+- `ExperimentalProducer::HanPinyinSlidingWindow` in
+  `src/experimental_retrieval.rs` (retrieval version 0.4): all-Han canonical
+  terms compared against equal-length sub-windows of Han runs, toneless pinyin
+  with bounded heteronyms, distance ≤ max(1, target letters / 4) capped by the
+  configured pinyin distance. Off by default; `review-experiment` behaviour is
+  unchanged.
+- `vox-proof experiment-retrieve <input.srt> <session-terms.txt> <report.json>`:
+  non-interactive, writes candidate reports only (schema
+  `experimental-retrieval-only-v1`), sliding window enabled, refuses to
+  overwrite.
+
+On the synthetic dry run, the exact path surfaced 1 of 7 needed term
+corrections and exact plus experimental surfaced 4 of 7 with no unrelated
+candidates; F3 (cross-script), F4 (distorted Latin), and F5 (case) remain
+missed. This is scaffold-level evidence only. The Stage 0 measurement is the
+same comparison on authorized `education-pilot-01` lectures. A local-model
+producer for F3/F6 is not yet implemented because no local model is loaded.
+
+The Stage 0 results packet will support an architecture decision and therefore
+qualifies for the strong final conflict review defined in
+`.cursor/rules/voxproof-work-packages.mdc` before any Stage 1 decision.
+
 ## Owner decisions this investigation surfaces
 
-1. Authorize Stage 0 as a bounded experiment-only implementation, or not.
+1. ~~Authorize Stage 0~~ — authorized 2026-10-02.
 2. Whether case-insensitive or normalized matching (F5) should be opened as
    its own normalization decision, independent of model work.
 3. Whether Han phonetic similarity should be evaluated for the authoritative

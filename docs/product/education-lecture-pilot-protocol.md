@@ -84,6 +84,9 @@ recording capture, and MD-024 recording semantics are not exercised here.
    L1  re-run the ASR with the confirmed term list as prompt / hotwords
    L2  import the baseline SRT into VoxProof with the confirmed terms
        (session terms / Project Memory) → correction proposals
+   L2x run `vox-proof experiment-retrieve` with the same terms
+       (VP-ARCH-001 Stage 0, experiment-only) and score exact vs
+       exact + experimental against the human-final cues
 6. Gloss test               generate AI glosses + English translations for
                             20 sampled verbal-habit / coined-term occurrences;
                             T marks each correct / partly / wrong
