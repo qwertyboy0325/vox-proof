@@ -1,0 +1,16 @@
+[package]
+name = "voxproof-ui-lab"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Standalone UI experiment: demo data only, no VoxProof authority, persistence, or reviewed-output code."
+
+# Keep this experiment out of the repository workspace.
+[workspace]
+
+[dependencies]
+eframe = { version = "=0.35.0", features = ["default_fonts", "wgpu"] }
+egui = "=0.35.0"
+font-kit = "=0.14.3"
+# Only the non-authoritative experimental retrieval and the SRT parser are used.
+vox-proof = { path = "../.." }
