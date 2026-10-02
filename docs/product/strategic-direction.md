@@ -13,7 +13,11 @@ Project Memory, HumanRaised correction, and governed project-knowledge
 derivation without establishing Gate 7 or v0.3; built-in ASR and
 deterministic cross-material reuse demonstration remain unimplemented;
 desktop media-assisted review playback exists as a non-authoritative review
-aid and does not establish Gate 6.
+aid and does not establish Gate 6. On 2026-09-07, the owner authorized the
+product-direction clarification that review interaction should reduce
+repetitive work without weakening occurrence-attributable authority; grouped
+review is the leading next candidate, while project automation remains
+evidence-gated and unaccepted.
 
 # VoxProof Strategic Direction
 
@@ -74,6 +78,55 @@ VoxProof is not:
 
 Transcript verification is the current domain wedge, not the architectural
 ceiling of the product thesis.
+
+## Review Efficiency Direction
+
+VoxProof's product value is not that a user must perform one separate UI action
+for every reusable proposal. The intended value is **less repetitive review
+without surrendering control over any output-changing occurrence**.
+
+The leading next product candidate is a bounded grouped-review surface for a
+frozen, homogeneous proposal set:
+
+```text
+fully inspectable occurrences with the same bounded proposal
+→ user keeps or removes exceptions
+→ one grouped human gesture (interaction only)
+→ expansion into independently attributable occurrence decisions
+  under the applicable accepted decision contract
+→ reviewed output determined by those decisions, not by the gesture
+```
+
+The interaction may be grouped, but authority must not collapse into one
+opaque document-level acceptance. Every occurrence that changes reviewed
+output must remain attributable and, where already accepted for that proposal
+family, reconstructable from the persisted thin target plus ReviewLedger under
+the applicable decision contract. Exact group eligibility, acknowledgement
+and transaction behavior remain implementation and governance questions; this
+direction does not authorize a batch command or new persistence semantics.
+
+Per-occurrence review remains the fallback for ambiguous, conflicting, stale,
+or context-dependent proposals. A user may also leave a reusable proposal
+unacted; that path retains source text and creates no authority to change the
+output. The product should distinguish such retained-source proposals from
+accepted, rejected, deferred, or otherwise resolved work rather than implying
+that every visible proposal must be accepted or separately clicked.
+
+Project-scoped automation policy is deferred until grouped and per-occurrence
+review are compared on real related materials with quality, provenance and
+rubber-stamp oracles. Any future policy that can authorize output changes
+requires a separate Material Decision and occurrence-attributable decision
+provenance. Silent rewriting remains outside the product direction.
+
+This is owner-authorized product direction, not validation evidence. External
+HITL, automation-bias and CAT background may motivate reducing rubber-stamp
+per-item review; it is not VoxProof product evidence. Sparse local owner
+calibration is non-repository and non-canonical: the first-minute PACKER-01
+pass used no Project Memory, did not measure grouped review or cross-material
+exact-pair repeat rates, and observed ASR surface-form variance compatible with
+exact-pair recall limits. It does not justify automation. Review-time savings,
+safe grouping, reusable-asset value and product-market fit remain unvalidated
+product-effectiveness hypotheses.
 
 ## Long-Term Product Thesis
 
@@ -199,6 +252,10 @@ source + context
 → improved future candidate
 → potentially less repeated human work
 ```
+
+The final step is an unvalidated product hypothesis. Current implementation
+and evidence establish governed proposal and decision mechanisms, not a
+general reduction in review time or effort.
 
 `Studio → Experience → Trainer → Trust` is useful shorthand for this strategic
 framing. It is not an accepted subsystem decomposition.

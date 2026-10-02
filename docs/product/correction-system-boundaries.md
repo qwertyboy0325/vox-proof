@@ -63,10 +63,10 @@ The governing invariants are:
 Policy responsibilities remain conceptually separate:
 
 - **Matching Policy** controls analysis comparison semantics, such as case handling, Unicode normalization, spacing or punctuation tolerance, script handling, number normalization, phonetic-comparison eligibility, source/target compatibility, and span constraints. It does not control visible output casing, replacement authority, deletion, auto-apply, or editorial rewriting.
-- **Suggestion Policy** controls which supported finding classes run or are surfaced, which evidence enters review, ambiguity presentation, repeated-finding grouping, candidate-volume presentation, and evidence visibility. It may affect analyzer invocation before evidence production and surfacing after evidence production, but it does not make evidence true or authorize edits.
+- **Suggestion Policy** controls which supported finding classes run or are surfaced, which evidence enters review, ambiguity presentation, repeated-finding grouping, candidate-volume presentation, and evidence visibility. It may affect analyzer invocation before evidence production and surfacing after evidence production, but it does not make evidence true or authorize edits. Suggestion-Policy grouping changes presentation and navigation only; it does not merge occurrence authority. It is distinct from the grouped human-review candidate below, which must still expand into independently attributable occurrence decisions.
 - **Cleanup Policy** represents user preferences for handling filled pauses, immediate repetitions, false starts, backchannels, discourse markers, and verbatim or clean-verbatim tendencies. It does not establish that speech is objectively noise, decide whether every finding is surfaced, define deletion/materialization repair, or authorize auto-apply.
 - **Presentation Policy** controls representation for a requested projection, such as canonical casing, spacing, punctuation, number or unit formatting, Traditional or Simplified Chinese, source-form preservation, and projection-specific rendering. The same accepted accuracy correction may render differently in different projections.
-- **Automation Policy** controls review requirements, batch review, assisted auto-apply eligibility, scoped auto-apply, transformation-class handling, ambiguity escalation, and revocation. It does not determine truth, transformation content, canonical terms, or permanent policy promotion.
+- **Automation Policy** controls review requirements, batch review, assisted auto-apply eligibility, scoped auto-apply, transformation-class handling, ambiguity escalation, and revocation. It does not determine truth, transformation content, canonical terms, or permanent policy promotion. No project-scoped automation policy is accepted or implemented; automatic decision authority remains evidence-gated and requires a future Material Decision. Grouped human review, if pursued, remains a human-review surface that expands into per-occurrence authority under the applicable decision contract; it is not Automation Policy batch review or auto-apply.
 
 Dependencies and detectors may provide normalization functions, phonetic representations, pattern matching, or scores. They must not determine product-visible case sensitivity, canonical casing, filler removal, repetition removal, punctuation style, source preservation, or auto-apply behavior.
 
@@ -94,6 +94,56 @@ The provisional direction is explicit resolved-policy construction with conflict
 A future resolver should produce effective values, per-value provenance, unresolved conflicts, and a conservative fallback. Explicit user overrides take priority over recommendations; conflicting explicit rules do not silently use last-write-wins; collection and scenario inputs remain recommendations; per-occurrence decisions govern only that occurrence; and recommendations never grant automation.
 
 No generic policy schema, complete precedence matrix, persistence contract, or policy engine is accepted here.
+
+### Review Granularity Direction
+
+Review interaction granularity and decision-authority granularity are distinct.
+VoxProof does not treat one separate click per occurrence as the product value.
+The product direction is to reduce repetitive interaction while preserving an
+independently attributable decision for every occurrence that changes reviewed
+output.
+
+The leading next candidate is grouped human review over a frozen, homogeneous
+proposal set. A credible grouped surface must:
+
+- bind membership to fixed source, analysis and reusable-knowledge inputs;
+- show every included occurrence and its relevant context;
+- allow exceptions to be removed or opened for per-occurrence review;
+- exclude or fail closed on conflicting, overlapping, stale or ambiguous
+  proposals;
+- expand an accepted group into independently attributable occurrence decisions
+  under the applicable accepted per-occurrence decision contract (for reuse or
+  terminology proposals, the thin target plus ledger event on first human act),
+  not one opaque group authority record; and
+- report acknowledgement truthfully for each included occurrence decision that
+  did or did not persist; do not imply an accepted multi-occurrence atomic
+  transaction or batch ReviewLedger command.
+
+These constraints describe product direction, not an accepted batch command,
+group identity, transaction contract, persistence schema or implementation.
+One grouped gesture must not become one opaque document-level authority event.
+
+Per-occurrence review remains the fallback. Leaving a reusable proposal unacted
+is also valid when it creates no output change: source text remains in the
+projection and no acceptance authority is inferred. Product completion and
+export surfaces should distinguish retained-source proposals from accepted or
+otherwise resolved work without forcing low-value approval gestures.
+
+The evidence sequence is:
+
+```text
+per-occurrence baseline
+→ grouped-review comparison with context-break counterexamples
+→ non-authoritative shadow evaluation of any automation policy
+→ separate owner and Material Decision gate before automatic authority
+```
+
+No VoxProof measured evidence package establishes that grouping saves time
+without increasing false acceptance. External background literature is not
+product evidence. Sparse local owner calibration does not establish
+cross-material Project Memory exact-pair repeat frequency sufficient for
+automation; it also does not rule out ASR surface-form variance that may limit
+exact-pair recall on related materials.
 
 ### Analyzer Disposition
 
@@ -264,9 +314,11 @@ Previous decisions do not automatically become permanent rules. Decisions may in
 
 ## Semi-Automation
 
-Assisted auto-apply is a recommended future low-friction UX direction, not currently enabled default runtime behavior. The current implementation remains human-review-required, and no automation runtime exists today.
+Assisted auto-apply is a deferred research and product candidate, not the next accepted review behavior or a currently enabled runtime default. The nearer-term direction is to test grouped human review while preserving occurrence-specific authority. The current implementation remains human-review-required, and no automation runtime exists today.
 
 Assisted auto-apply requires both a resolved active policy and separate explicit authorization for the relevant transformation class and scope. It is driven by user authorization, not detector or model score alone. Any future provisional application must preserve source, transformation provenance, alternatives when available, a visible change summary, inspection and rematerialization/revert paths, and escalation for ambiguity.
+
+Before a project-scoped policy may authorize automatic materialization, evidence must distinguish genuine reduced work from rhythmic approval or automation bias, compare against per-occurrence and simple glossary baselines, and measure context-breaking false acceptance on held-out related material. These comparison arms, oracles and shadow evaluations are evidence-design requirements; they have not been executed as a qualifying package. Shadow agreement alone is insufficient. A future accepted policy that authorizes materialization must still persist occurrence-attributable decisions under the applicable accepted decision contract (thin target plus ledger where that contract already requires them); live policy or current model output must not become hidden rebuild authority.
 
 Provisional transformation-class direction:
 
