@@ -260,7 +260,8 @@ persistence semantics, is unresolved and requires owner decisions.
 ### Validation shape
 
 Use one course: three to four recorded lectures by the same teacher, with
-recording authorized by the teacher and the school.
+recording authorized by the teacher and the school. The operational protocol
+is [`education-lecture-pilot-protocol.md`](education-lecture-pilot-protocol.md).
 
 1. Transcribe all lectures with the baseline ASR. The teacher reviews lecture 1
    and confirms terms, verbal habits, and their meanings.
