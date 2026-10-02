@@ -1,7 +1,7 @@
 Status: current
 Owns: Documentation navigation, canonical document ownership, and document lifecycle meanings.
 Does not own: Product scope, architecture details, data contracts, quality criteria, or execution progress.
-Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; the bounded Gate 1 desktop implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; the bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`; the bounded Gate 3 reusable-influence implementation under MD-018 is owner-accepted at `225e1b3fc6cc0403d202d1d72fe7325a97dc3096`; Gate 4 product-session SQLite integration is owner-accepted at `3e8ec0acd7a1e881bb70f3aa07b2dc910c2a4c5f`; MD-021, MD-022, and MD-023 are accepted; external-user validation remains pending. Gate 7 and v0.3 are not established.
+Last reviewed against code: v0.1 is established by MD-008; v0.2 is in progress; MD-016 accepts the native desktop foundation; the bounded Gate 1 desktop implementation is owner-accepted at `0104ea2519cfd18b3ec639e5ec1566b734a6655e`; the bounded Gate 2 Manual Replacement implementation under MD-017 is owner-accepted at `6e395bdf9cc0a5b4333876f165280e4cc4bf506f`; the bounded Gate 3 reusable-influence implementation under MD-018 is owner-accepted at `225e1b3fc6cc0403d202d1d72fe7325a97dc3096`; Gate 4 product-session SQLite integration is owner-accepted at `3e8ec0acd7a1e881bb70f3aa07b2dc910c2a4c5f`; MD-021, MD-022, MD-023, and MD-024 are accepted; external-user validation remains pending. Gate 7 and v0.3 are not established.
 
 # VoxProof Documentation
 
@@ -53,6 +53,7 @@ Active research is not accepted architecture. It must not be implemented or trea
 - [MD-021: Cross-Material Governed Project Memory And Reuse Decision Boundary](governance/decisions/MD-021-cross-material-governed-project-memory-and-reuse-decision-boundary.md)
 - [MD-022: Human-Raised Single-Span Manual Correction Boundary](governance/decisions/MD-022-human-raised-single-span-manual-correction-boundary.md)
 - [MD-023: Governed Project Knowledge as Derived Analysis Input](governance/decisions/MD-023-governed-project-knowledge-as-derived-analysis-input.md)
+- [MD-024: RecordingArtifact Authority, Lifecycle, and Capture Authorization](governance/decisions/MD-024-recording-artifact-authority-lifecycle-and-authorization.md)
 
 ## Repository Knowledge Authority
 
