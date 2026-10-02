@@ -16,7 +16,7 @@ use vox_proof::experimental_ranking::{
 };
 use vox_proof::experimental_retrieval::{
     ExperimentalCandidateReport, ExperimentalLatinSpanEligibilityProfile,
-    ExperimentalPinyinEligibilityProfile, ExperimentalRetrievalConfig,
+    ExperimentalPinyinEligibilityProfile, ExperimentalRetrievalConfig, RETRIEVAL_VERSION,
     retrieve_experimental_candidates,
 };
 use vox_proof::pipeline::run_term_review;
@@ -36,6 +36,7 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("review") => run_review_from_args(&args),
         Some("review-experiment") => run_experiment_from_args(&args),
+        Some("experiment-retrieve") => run_experiment_retrieve_from_args(&args),
         Some("compare") => run_compare_from_args(&args),
         Some("evaluate") => run_evaluate_from_args(&args),
         _ => run_parse_command(&args),
@@ -86,6 +87,95 @@ fn run_parse_command(args: &[String]) -> Result<(), String> {
     let stdout = io::stdout();
     let mut output = stdout.lock();
     print_parse_summary(&transcript, &mut output).map_err(|error| error.to_string())
+}
+
+#[derive(Serialize)]
+struct ExperimentalRetrievalOnlyReport {
+    schema_revision: &'static str,
+    retrieval_version: &'static str,
+    input_srt: String,
+    session_terms: String,
+    max_candidates_per_window: usize,
+    max_pinyin_distance: usize,
+    max_pinyin_expansions: usize,
+    pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
+    latin_span_eligibility_profile: ExperimentalLatinSpanEligibilityProfile,
+    han_sliding_window: bool,
+    reports: Vec<ExperimentalCandidateReport>,
+    note: &'static str,
+}
+
+/// Non-interactive, experiment-only retrieval for Stage 0 detection-value
+/// measurement. Writes candidate reports only: no ReviewCases, decisions,
+/// ledger events, or reviewed output are produced.
+fn run_experiment_retrieve_from_args(args: &[String]) -> Result<(), String> {
+    if args.len() != 4 {
+        return Err(experiment_retrieve_usage().to_string());
+    }
+    let (input_path, terms_path, report_path) = (&args[1], &args[2], &args[3]);
+    if report_path == input_path || report_path == terms_path {
+        return Err(format!(
+            "refused to write experimental retrieval report: destination must differ from all inputs: {report_path}"
+        ));
+    }
+    let input_srt = std::fs::read_to_string(input_path)
+        .map_err(|error| format!("failed to read input SRT: {error}"))?;
+    let session_terms_text = std::fs::read_to_string(terms_path)
+        .map_err(|error| format!("failed to read session terms: {error}"))?;
+    let session_terms =
+        parse_session_terms(&session_terms_text).map_err(|error| error.to_string())?;
+    let transcript =
+        parse_srt(&input_srt).map_err(|error| format!("failed to parse SRT: {error:?}"))?;
+
+    let config = ExperimentalRetrievalConfig {
+        han_sliding_window: true,
+        ..experimental_retrieval_config_from_environment()?
+    };
+    let reports = retrieve_experimental_candidates(&transcript, &session_terms, &config);
+    let report = ExperimentalRetrievalOnlyReport {
+        schema_revision: "experimental-retrieval-only-v1",
+        retrieval_version: RETRIEVAL_VERSION,
+        input_srt: input_path.clone(),
+        session_terms: terms_path.clone(),
+        max_candidates_per_window: config.max_candidates_per_window,
+        max_pinyin_distance: config.max_pinyin_distance,
+        max_pinyin_expansions: config.max_pinyin_expansions,
+        pinyin_eligibility_profile: config.pinyin_eligibility_profile,
+        latin_span_eligibility_profile: config.latin_span_eligibility_profile,
+        han_sliding_window: config.han_sliding_window,
+        reports,
+        note: "Experimental only: these reports are not Evidence, ReviewCases, decisions, or materialized edits.",
+    };
+    let json = serde_json::to_string_pretty(&report)
+        .map_err(|error| format!("failed to render experimental retrieval report: {error}"))?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(report_path)
+        .map_err(|error| {
+            if error.kind() == io::ErrorKind::AlreadyExists {
+                format!(
+                    "refused to write experimental retrieval report: destination already exists: {report_path}"
+                )
+            } else {
+                format!("failed to create experimental retrieval report: {error}")
+            }
+        })?;
+    file.write_all(json.as_bytes())
+        .map_err(|error| format!("failed to write experimental retrieval report: {error}"))?;
+
+    let stdout = io::stdout();
+    let mut output = stdout.lock();
+    writeln!(
+        output,
+        "wrote experimental retrieval report ({} candidates): {report_path}",
+        report.reports.len()
+    )
+    .map_err(|error| error.to_string())
+}
+
+fn experiment_retrieve_usage() -> &'static str {
+    "usage:\n  vox-proof experiment-retrieve <input.srt> <session-terms.txt> <experimental-retrieval-report.json>"
 }
 
 fn run_experiment_from_args(args: &[String]) -> Result<(), String> {

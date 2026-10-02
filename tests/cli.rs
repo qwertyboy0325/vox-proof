@@ -2239,3 +2239,48 @@ fn mixed_zh_tw_ascii_latin_review_is_deterministic() {
     assert_eq!(log_a_text, log_b_text);
     assert_eq!(summary_a_text, summary_b_text);
 }
+
+#[test]
+fn experiment_retrieve_writes_sliding_window_report_without_review_outputs() {
+    let dir = temp_dir("experiment-retrieve");
+    let input = dir.join("input.srt");
+    let terms = dir.join("terms.txt");
+    let report = dir.join("report.json");
+    std::fs::write(
+        &input,
+        "1\n00:00:00,000 --> 00:00:01,000\n上週我們講了踢度下架\n",
+    )
+    .unwrap();
+    std::fs::write(&terms, "梯度下降\n").unwrap();
+    let args = [
+        "experiment-retrieve",
+        input.to_str().unwrap(),
+        terms.to_str().unwrap(),
+        report.to_str().unwrap(),
+    ];
+
+    let output = run_with_args_and_stdin(&args, "");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&report).unwrap()).unwrap();
+    assert_eq!(json["schema_revision"], "experimental-retrieval-only-v1");
+    assert_eq!(json["han_sliding_window"], true);
+    assert!(json["reports"].as_array().unwrap().iter().any(|candidate| {
+        candidate["producer"] == "han_pinyin_sliding_window"
+            && candidate["source_surface"] == "踢度下架"
+    }));
+    let mut files = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect::<Vec<_>>();
+    files.sort();
+    assert_eq!(files, ["input.srt", "report.json", "terms.txt"]);
+
+    let repeated = run_with_args_and_stdin(&args, "");
+    assert!(!repeated.status.success());
+    assert!(String::from_utf8_lossy(&repeated.stderr).contains("destination already exists"));
+}

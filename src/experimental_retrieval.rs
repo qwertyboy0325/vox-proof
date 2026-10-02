@@ -10,7 +10,7 @@ use crate::anchor::SourceAnchor;
 use crate::candidate::SessionTermEntry;
 use crate::transcript::Transcript;
 
-pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.3";
+pub const RETRIEVAL_VERSION: &str = "experimental-retrieval-0.4";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,6 +35,11 @@ pub struct ExperimentalRetrievalConfig {
     pub max_latin_window_tokens: usize,
     pub pinyin_eligibility_profile: ExperimentalPinyinEligibilityProfile,
     pub latin_span_eligibility_profile: ExperimentalLatinSpanEligibilityProfile,
+    /// Opt-in Stage 0 producer: compare all-Han canonical terms against
+    /// equal-length sub-windows of Han runs, so a misheard term embedded in a
+    /// longer sentence can be retrieved. Off by default so existing
+    /// experiment behavior is unchanged.
+    pub han_sliding_window: bool,
 }
 
 impl Default for ExperimentalRetrievalConfig {
@@ -49,6 +54,7 @@ impl Default for ExperimentalRetrievalConfig {
                 ExperimentalPinyinEligibilityProfile::SuppressShortHanToShortUppercaseAcronymV1,
             latin_span_eligibility_profile:
                 ExperimentalLatinSpanEligibilityProfile::SuppressTargetEmbeddedInLargerWindowV1,
+            han_sliding_window: false,
         }
     }
 }
@@ -85,6 +91,7 @@ pub enum ExperimentalProducer {
     LatinNormalizedDistance,
     LatinTokenBoundary,
     HanPinyinAuxiliary,
+    HanPinyinSlidingWindow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -136,6 +143,9 @@ pub fn retrieve_experimental_candidates(
         }
         for window in han_windows(transcript, segment_position, &segment.text) {
             reports.extend(pinyin_reports(&window, entries, config));
+            if config.han_sliding_window {
+                reports.extend(pinyin_sliding_reports(transcript, &window, entries, config));
+            }
         }
     }
 
@@ -380,6 +390,97 @@ fn pinyin_reports(
             ))
         })
         .collect()
+}
+
+/// Bounded distance for a sliding-window match: at most one pinyin letter
+/// edit per four target letters (minimum one), capped by the configured
+/// pinyin distance.
+fn sliding_distance_limit(target: &str, config: &ExperimentalRetrievalConfig) -> usize {
+    (target.chars().count() / 4)
+        .max(1)
+        .min(config.max_pinyin_distance)
+}
+
+fn pinyin_sliding_reports(
+    transcript: &Transcript,
+    window: &SourceWindow,
+    entries: &[SessionTermEntry],
+    config: &ExperimentalRetrievalConfig,
+) -> Vec<ExperimentalCandidateReport> {
+    debug_assert_eq!(window.kind, SourceWindowKind::Han);
+    let chars = window.surface.char_indices().collect::<Vec<_>>();
+    let mut reports = Vec::new();
+
+    for entry in entries {
+        if !is_all_han_term(&entry.canonical_term) {
+            continue;
+        }
+        let length = entry.canonical_term.chars().count();
+        // A sub-window equal to the whole run is already compared by
+        // `pinyin_reports`.
+        if length < 2 || length >= chars.len() {
+            continue;
+        }
+        let Some(target) = representation_for_pinyin_target(&entry.canonical_term) else {
+            continue;
+        };
+        let limit = sliding_distance_limit(&target, config);
+
+        for start in 0..=chars.len() - length {
+            let start_byte = chars[start].0;
+            let end_byte = chars
+                .get(start + length)
+                .map_or(window.surface.len(), |(byte, _)| *byte);
+            let surface = &window.surface[start_byte..end_byte];
+            if surface == entry.canonical_term {
+                continue;
+            }
+            let Some(expansion) = pinyin_expansion(surface, config.max_pinyin_expansions) else {
+                continue;
+            };
+            let best = expansion
+                .readings
+                .iter()
+                .filter_map(|reading| Some((levenshtein(reading, &target)?, reading)))
+                .min_by_key(|(distance, _)| *distance);
+            let Some((distance, source)) = best else {
+                continue;
+            };
+            if distance == 0 || distance > limit {
+                continue;
+            }
+            let anchor = transcript
+                .anchor(
+                    window.anchor.segment_position(),
+                    window.anchor.start_byte + start_byte,
+                    window.anchor.start_byte + end_byte,
+                )
+                .expect("Han character bounds are valid UTF-8 anchors");
+            let sub_window = SourceWindow {
+                anchor,
+                surface: surface.to_string(),
+                kind: SourceWindowKind::Han,
+            };
+            reports.push(report(
+                &sub_window,
+                entry,
+                ExperimentalProducer::HanPinyinSlidingWindow,
+                ExperimentalRepresentation::HanPinyinToneless,
+                "han-pinyin-toneless-sliding-window-with-bounded-heteronyms",
+                source.clone(),
+                target.clone(),
+                distance,
+                vec!["tone-not-compared".to_string()],
+                Some(PinyinAuxiliaryDetails {
+                    primary_reading: expansion.primary.clone(),
+                    alternate_reading_used: source != &expansion.primary,
+                    expansion_bounded: true,
+                    expansion_truncated: expansion.truncated,
+                }),
+            ));
+        }
+    }
+    reports
 }
 
 fn suppress_pinyin_candidate(
@@ -933,5 +1034,71 @@ mod tests {
                 retrieve_experimental_candidates(&transcript, &entries, &config)
             );
         }
+    }
+
+    fn sliding_reports(text: &str, terms: &[&str]) -> Vec<ExperimentalCandidateReport> {
+        let transcript = parse_srt(&format!("1\n00:00:00,000 --> 00:00:01,000\n{text}")).unwrap();
+        let entries = terms.iter().map(|term| entry(term)).collect::<Vec<_>>();
+        let config = ExperimentalRetrievalConfig {
+            han_sliding_window: true,
+            ..ExperimentalRetrievalConfig::default()
+        };
+        retrieve_experimental_candidates(&transcript, &entries, &config)
+            .into_iter()
+            .filter(|report| report.producer == ExperimentalProducer::HanPinyinSlidingWindow)
+            .collect()
+    }
+
+    #[test]
+    fn han_sliding_window_is_off_by_default() {
+        let transcript =
+            parse_srt("1\n00:00:00,000 --> 00:00:01,000\n上週我們講了踢度下架").unwrap();
+        let entries = vec![entry("梯度下降")];
+        assert!(
+            retrieve_experimental_candidates(
+                &transcript,
+                &entries,
+                &ExperimentalRetrievalConfig::default()
+            )
+            .iter()
+            .all(|report| report.producer != ExperimentalProducer::HanPinyinSlidingWindow)
+        );
+    }
+
+    #[test]
+    fn han_sliding_window_finds_misheard_term_inside_longer_run() {
+        let text = "上週我們講了踢度下架";
+        let reports = sliding_reports(text, &["梯度下降"]);
+        assert_eq!(reports.len(), 1);
+        let report = &reports[0];
+        assert_eq!(report.source_surface, "踢度下架");
+        assert_eq!(report.canonical_term, "梯度下降");
+        assert_eq!(
+            &text[report.source_anchor.start_byte..report.source_anchor.end_byte],
+            "踢度下架"
+        );
+        assert_eq!(report.distance, 2);
+    }
+
+    #[test]
+    fn han_sliding_window_finds_two_character_near_homophone() {
+        let reports = sliding_reports("模型就沒辦法收獵", &["收斂"]);
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].source_surface, "收獵");
+    }
+
+    #[test]
+    fn han_sliding_window_skips_exact_term_and_unrelated_text() {
+        assert!(sliding_reports("今天講梯度下降的概念", &["梯度下降"]).is_empty());
+        assert!(sliding_reports("今天天氣很好我們出去走走", &["梯度下降"]).is_empty());
+    }
+
+    #[test]
+    fn han_sliding_window_reports_stay_outside_canonical_review() {
+        let text = "1\n00:00:00,000 --> 00:00:01,000\n上週我們講了踢度下架";
+        let transcript = parse_srt(text).unwrap();
+        let entries = vec![entry("梯度下降")];
+        assert!(!sliding_reports("上週我們講了踢度下架", &["梯度下降"]).is_empty());
+        assert!(run_term_review(&transcript, &entries).unwrap().is_empty());
     }
 }
