@@ -171,26 +171,44 @@ Rejected for now: adding a model producer as an authoritative detector
 The owner authorized Stage 0. Implemented, experiment-only:
 
 - `ExperimentalProducer::HanPinyinSlidingWindow` in
-  `src/experimental_retrieval.rs` (retrieval version 0.4): all-Han canonical
+  `src/experimental_retrieval.rs` (retrieval version 0.5; 0.4 was the
+  pre-review version that skipped toneless-identical homophones): all-Han canonical
   terms compared against equal-length sub-windows of Han runs, toneless pinyin
   with bounded heteronyms, distance ≤ max(1, target letters / 4) capped by the
-  configured pinyin distance. Off by default; `review-experiment` behaviour is
-  unchanged.
+  configured pinyin distance. Distance 0 is included, so same-sound,
+  different-character homophones (for example 提讀下降 for 梯度下降) are
+  reported, whether inside a longer Han run or forming the whole run (for
+  example a cue that is only 收練, or 收練 after Latin text); only the exact
+  canonical surface is skipped. For a window spanning the whole run, the
+  sliding producer reports only distance 0, leaving non-zero whole-run matches
+  to the pre-existing `HanPinyinAuxiliary` producer, which is unchanged and
+  still skips toneless-identical readings. Off by default; `review-experiment`
+  behaviour is unchanged.
 - `vox-proof experiment-retrieve <input.srt> <session-terms.txt> <report.json>`:
   non-interactive, writes candidate reports only (schema
   `experimental-retrieval-only-v1`), sliding window enabled, refuses to
   overwrite.
 
-On the synthetic dry run, the exact path surfaced 1 of 7 needed term
-corrections and exact plus experimental surfaced 4 of 7 with no unrelated
-candidates; F3 (cross-script), F4 (distorted Latin), and F5 (case) remain
-missed. This is scaffold-level evidence only. The Stage 0 measurement is the
+On the synthetic dry run (local, unversioned artifacts under
+`local/education-pilot-01/dryrun/`), the exact path surfaced cue 8
+(BackPrepitation → backpropagation); the sliding producer additionally
+surfaced cue 1 (踢度下架 → 梯度下降) and cues 4 and 10 (收獵 → 收斂). Cues 5
+(白頭之 → PyTorch, F3), 6 (TMIcer → optimizer, F4), and 9 (Loss curve, F5)
+were not surfaced. No other candidate appeared on this one short text; that
+says nothing about noise on real lectures. These are scaffold-level
+observations, not recall, precision, or false-positive measurements. The Stage 0 measurement is the
 same comparison on authorized `education-pilot-01` lectures. A local-model
 producer for F3/F6 is not yet implemented because no local model is loaded.
 
-The Stage 0 results packet will support an architecture decision and therefore
-qualifies for the strong final conflict review defined in
-`.cursor/rules/voxproof-work-packages.mdc` before any Stage 1 decision.
+Review record: the Stage 0 implementation was reviewed under
+`strong_final_conflict_review: owner_requested, mode: agent_run` (fresh-context
+reviewer, 2026-10-02). It found that the sliding producer skipped
+toneless-identical homophones; targeted verification then found the same gap
+for homophones forming a whole Han run. Both were corrected above in the two
+permitted correction rounds. It also found that the implementation
+itself met qualifying conditions, contrary to the implementer's initial
+judgment. The Stage 0 results packet also qualifies; its review scope must
+include the instrument's matching semantics, not only the measured numbers.
 
 ## Owner decisions this investigation surfaces
 

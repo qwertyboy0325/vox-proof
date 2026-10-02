@@ -118,6 +118,7 @@ authority: NON_CANONICAL
 owner: Ezra
 opened: 2026-07-26
 investigation_authorized: 2026-10-02 (owner; read-only)
+stage0_authorized: 2026-10-02 (owner; experiment-only measurement tooling)
 canonical_memo: ./VP-ARCH-001-loose-inference-strict-commitment.md
 tracking_issue: https://github.com/qwertyboy0325/vox-proof/issues/1
 research_question: >
@@ -125,8 +126,10 @@ research_question: >
   high-recall probabilistic synthesis plus governed deterministic
   commitment pipeline?
 next_action: >
-  Investigation 01 recorded (VP-ARCH-001-investigation-01.md); owner decision
-  pending on an experiment-only Stage 0 detection-value measurement.
+  Investigation 01 recorded (VP-ARCH-001-investigation-01.md). Stage 0
+  (experiment-only sliding-window retrieval and `experiment-retrieve`) is
+  authorized and implemented; next is the Stage 0 measurement on authorized
+  education-pilot-01 lectures.
 ```
 
 Blocks without separate owner authorization:

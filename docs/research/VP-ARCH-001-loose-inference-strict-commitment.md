@@ -62,6 +62,12 @@ Investigation 01 is recorded in
 recommends an experiment-only Stage 0 measurement and surfaces owner
 decisions; it does not resolve this item.
 
+On 2026-10-02 the owner also authorized Stage 0: experiment-only measurement
+tooling in `src/experimental_retrieval.rs` and the `experiment-retrieve`
+command. This authorization does not lift any block listed below or in the
+research register; Stage 1 still requires a separate owner decision and
+Material Decision.
+
 ### Do not proceed directly to
 
 - belief-layer implementation;

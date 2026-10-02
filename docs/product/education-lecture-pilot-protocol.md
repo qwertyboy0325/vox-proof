@@ -86,7 +86,8 @@ recording capture, and MD-024 recording semantics are not exercised here.
        (session terms / Project Memory) → correction proposals
    L2x run `vox-proof experiment-retrieve` with the same terms
        (VP-ARCH-001 Stage 0, experiment-only) and score exact vs
-       exact + experimental against the human-final cues
+       exact + experimental against the human-final cues; count noise
+       once per cue and term, since shifted sub-windows can repeat
 6. Gloss test               generate AI glosses + English translations for
                             20 sampled verbal-habit / coined-term occurrences;
                             T marks each correct / partly / wrong
