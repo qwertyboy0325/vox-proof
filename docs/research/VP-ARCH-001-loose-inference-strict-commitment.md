@@ -51,6 +51,12 @@ VP-ARCH-LOOSE-INFERENCE-STRICT-COMMITMENT-INVESTIGATION-01
 
 That next action is a read-only architecture investigation. It is not authorized by this memo or by the linked issue alone.
 
+On 2026-10-02 the owner authorized this read-only investigation and moved the
+item to `INVESTIGATING`, prioritizing the detection-value question in
+[`strategic-direction.md`](../product/strategic-direction.md). That
+authorization covers investigation only; the blocks listed below and in the
+research register still apply.
+
 ### Do not proceed directly to
 
 - belief-layer implementation;

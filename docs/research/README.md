@@ -81,17 +81,20 @@ Does not block:
 ```yaml
 id: VP-ARCH-001
 title: Loose Inference / Strict Commitment
-status: PROPOSED_RESEARCH
+status: INVESTIGATING
 authority: NON_CANONICAL
 owner: Ezra
 opened: 2026-07-26
+investigation_authorized: 2026-10-02 (owner; read-only)
 canonical_memo: ./VP-ARCH-001-loose-inference-strict-commitment.md
 tracking_issue: https://github.com/qwertyboy0325/vox-proof/issues/1
 research_question: >
   Should VoxProof evolve from a bounded AI extraction pipeline into a
   high-recall probabilistic synthesis plus governed deterministic
   commitment pipeline?
-next_action: VP-ARCH-LOOSE-INFERENCE-STRICT-COMMITMENT-INVESTIGATION-01
+next_action: >
+  VP-ARCH-LOOSE-INFERENCE-STRICT-COMMITMENT-INVESTIGATION-01, prioritized for
+  detection value under the 2026-10-02 strategic direction adjustment.
 ```
 
 Blocks without separate owner authorization:

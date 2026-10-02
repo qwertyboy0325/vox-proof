@@ -17,7 +17,15 @@ aid and does not establish Gate 6. On 2026-09-07, the owner authorized the
 product-direction clarification that review interaction should reduce
 repetitive work without weakening occurrence-attributable authority; grouped
 review is the leading next candidate, while project automation remains
-evidence-gated and unaccepted.
+evidence-gated and unaccepted. On 2026-10-02, the owner authorized a
+direction adjustment that orders product value as detection value first,
+names accountable graduated automation as the target differentiator without
+changing its evidence gates, and records high-accountability verbatim domains,
+agent-facing proposal intake, and verifiable review receipts as directions.
+In the same session the owner added education (lectures, with student,
+teacher, and school roles) as a candidate wedge, together with
+speaker-scoped inspectable learning and a verbatim-plus-meaning layering
+direction.
 
 # VoxProof Strategic Direction
 
@@ -127,6 +135,136 @@ exact-pair repeat rates, and observed ASR surface-form variance compatible with
 exact-pair recall limits. It does not justify automation. Review-time savings,
 safe grouping, reusable-asset value and product-market fit remain unvalidated
 product-effectiveness hypotheses.
+
+## Competitive Positioning and Value Order
+
+On 2026-10-02, the owner authorized the following direction adjustment. It is
+product direction, not validation evidence, a Material Decision, or
+implementation authorization.
+
+### Observed landscape (background, not product evidence)
+
+AI transcription for interviews and research is crowded and increasingly
+bundled with automatic analysis whose message is that users need not read
+transcripts line by line. Separately, human-in-the-loop practice for AI agents
+is converging on risk-tiered approval: low-risk, well-supported actions proceed
+under an auditable policy, uncertain ones escalate to a person, and autonomy
+is widened only after demonstrated reliability. Both observations are external
+background and do not establish VoxProof product value.
+
+### Value order
+
+Users are expected to perceive value in this order:
+
+```text
+1. detection value
+   — VoxProof finds consequential errors the user would otherwise miss
+2. accountable review efficiency
+   — grouped and per-occurrence review with attributable decisions
+3. governed reuse
+   — human-confirmed corrections improve later related material
+4. accountable graduated automation
+   — policy-authorized changes that remain attributable and revocable
+```
+
+Authority semantics are the foundation of every step, but they are not the
+first value a user sees. Detection value therefore takes priority over further
+authority-mechanism depth when the two compete for near-term effort.
+
+High-recall non-authoritative proposal production, including model-based
+proposal producers, is the leading direction for detection value. Its
+architecture question remains owned by
+[VP-ARCH-001](../research/VP-ARCH-001-loose-inference-strict-commitment.md);
+this direction does not resolve that research, accept a belief layer, or
+change ReviewCase, candidate, or persistence semantics.
+
+### Target differentiator
+
+The intended long-term differentiator is **accountable graduated automation**:
+
+> Where other tools are either fully automatic or fully manual, VoxProof aims
+> to let users automate only what has earned it, with every automatic change
+> attributable to an explicit policy authorization and revocable from
+> immutable source.
+
+This changes the strategic standing of automation from a deferred risk to a
+target capability. It does not change its gates. The evidence sequence,
+transformation-class direction, and authorization layering remain owned by
+[`correction-system-boundaries.md`](correction-system-boundaries.md), and any
+policy that can authorize output changes still requires a separate Material
+Decision. Silent rewriting remains outside the product direction.
+
+### Wedge direction
+
+The first commercial wedge should favour workflows where a wrong word carries
+accountability cost and where local processing is a requirement rather than a
+preference. The interview-review hypothesis and adjacent high-accountability
+verbatim domains are recorded in [`hypotheses.md`](hypotheses.md); none is an
+accepted market commitment.
+
+Education is a second candidate wedge with an owner-accessible validation
+path: the owner is a student with access to students, teachers, and a school.
+A semester of lectures repeats one speaker and one domain, which favours
+scoped reuse more than one-off material. Interview and education are both
+candidates; neither is selected until validation evidence compares them.
+
+### Speaker-scoped, inspectable learning
+
+Users who repeatedly hear the same speaker need recognition that stays
+consistent for that speaker's accent, verbal habits, and coined terms. The
+intended value is not that a model learns, but that:
+
+> the same mistake does not recur, and the user can see, adjust, and revoke
+> what was learned, within an explicit scope such as a speaker or a course.
+
+Learned knowledge stays scoped and attributable to the human decisions it came
+from. Cheaper reuse layers — vocabulary biasing and post-recognition
+correction proposals — come before acoustic model adaptation, which remains a
+later, separately governed option. A learned profile or adapted model is an
+inference producer, never authority.
+
+### Verbatim plus meaning
+
+The speaker's original words are preserved as the authoritative layer. Verbal
+habits and coined terms are speaker characteristics, not errors. Meaning is
+added beside the verbatim record, never in place of it:
+
+```text
+verbatim record (authoritative, human-reviewed)
+→ meaning gloss (same-language explanation of dialect, habits, coined terms)
+→ translation (cross-language)
+```
+
+AI-inferred meaning must remain visibly distinct from human-confirmed meaning.
+How glosses and translations are represented, and whether they change
+projection or persistence semantics, is unresolved and requires owner
+decisions.
+
+### Education roles and scoped authority
+
+In education, authority follows scope:
+
+```text
+student correction        → affects only that student
+→ proposed to the teacher → teacher confirmation
+→ course knowledge        → applies to the course
+school                    → privacy, deployment, and recording policy
+```
+
+A student correction never becomes course knowledge without explicit teacher
+confirmation. Recording requires school and teacher authorization under
+MD-024; a student edition should consume authorized course recordings rather
+than encourage unilateral capture. Local processing keeps the marginal cost of
+a student user near zero, which makes a free or low-cost student edition
+plausible. Suggested sequencing is teacher-side course knowledge first, the
+student edition second, and school packaging third.
+
+A personal knowledge map built from a student's unfamiliarity signals is a
+separate downstream product that consumes reviewed records; it is not a
+summary feature of VoxProof. Live classroom mode remains deferred.
+
+The hypotheses, boundaries, validation shape, and falsifiers for this
+direction are owned by [`hypotheses.md`](hypotheses.md).
 
 ## Long-Term Product Thesis
 
@@ -312,6 +450,16 @@ abstention, model routing, local adaptation, domain-specific reusable
 verification knowledge, Experience or Evidence assets, stronger
 regression/evaluation loops, and multimodal evidence. They are not current
 architecture mandates.
+
+Two adjacent directions were added on 2026-10-02:
+
+- **Agent-facing proposal intake** — external AI agents (for example through
+  MCP) submit correction proposals into VoxProof, and VoxProof remains the
+  governed commitment boundary. Agent output is inference, never authority.
+- **Verifiable review receipts** — exports state which spans were reviewed,
+  which remain unresolved, and on what recorded basis, in a form a downstream
+  reader can check. No receipt format, signing scheme, or provenance standard
+  is selected.
 
 ### Horizon 3 — Research and Platform Ceiling
 
